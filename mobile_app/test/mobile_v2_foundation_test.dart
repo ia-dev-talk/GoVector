@@ -34,6 +34,9 @@ void main() {
   testWidgets('Mobile action sheet exposes the field action grid', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final job = Job(
       id: 42,
       jobNumber: 'DTLI-42',
@@ -75,16 +78,10 @@ void main() {
     expect(find.text('Photo'), findsOneWidget);
     expect(find.text('Vidéo'), findsOneWidget);
     expect(find.text('Signature client'), findsOneWidget);
-
-    await tester.drag(find.byType(ListView).last, const Offset(0, -650));
-    await tester.pumpAndSettle();
     expect(find.text('RELEVER SUR LE TERRAIN'), findsOneWidget);
     expect(find.text('Mesure / test'), findsOneWidget);
     expect(find.text('OTDR'), findsOneWidget);
     expect(find.text('Scan QR / code-barres'), findsOneWidget);
-
-    await tester.drag(find.byType(ListView).last, const Offset(0, -650));
-    await tester.pumpAndSettle();
     expect(find.text('RENDRE COMPTE'), findsOneWidget);
     expect(find.text('Autre action'), findsOneWidget);
   });
