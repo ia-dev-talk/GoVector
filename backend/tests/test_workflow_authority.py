@@ -60,3 +60,32 @@ def test_simulation_and_postpone_use_workflow_engine():
         source = (ROOT / path).read_text(encoding="utf-8")
         assert "WorkflowEngine" in source
         assert ".transition_job(" in source
+
+
+def test_only_mobile_technician_client_owns_the_start_command():
+    """Office clients must not call the legacy start endpoint.
+
+    Starting a field visit is an assigned-technician command. The Web prepares
+    and assigns the intervention; Flutter executes the canonical tech route.
+    """
+
+    web_sources = [
+        *(ROOT / "frontend/src").rglob("*.js"),
+        *(ROOT / "frontend/src").rglob("*.jsx"),
+    ]
+    web_offenders = [
+        str(path.relative_to(ROOT))
+        for path in web_sources
+        if "api.startJob" in path.read_text(encoding="utf-8")
+    ]
+    assert web_offenders == []
+
+    api_service = (
+        ROOT / "mobile_app/lib/services/api_service.dart"
+    ).read_text(encoding="utf-8")
+    assert "AppConfig.apiUri('jobs/$id/start')" not in api_service
+
+    intervention_service = (
+        ROOT / "mobile_app/lib/services/intervention_service.dart"
+    ).read_text(encoding="utf-8")
+    assert "AppConfig.apiUri('tech/jobs/$jobId/start')" in intervention_service

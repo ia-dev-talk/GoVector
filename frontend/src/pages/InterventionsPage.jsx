@@ -2013,8 +2013,6 @@ export default function InterventionsPage({
 				}
 
 				const labels = {
-					start: 'Démarré',
-					complete: 'Terminé',
 					cancel: 'Annulé',
 					unassign: 'Désaffecté',
 					hold:
@@ -2023,19 +2021,6 @@ export default function InterventionsPage({
 
 				try {
 					if (
-						action === 'start'
-					) {
-						await api.startJob(
-							job.id
-						);
-					} else if (
-						action ===
-						'complete'
-					) {
-						await api.completeJob(
-							job.id
-						);
-					} else if (
 						action ===
 						'cancel'
 					) {

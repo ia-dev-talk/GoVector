@@ -583,15 +583,6 @@ export const api = {
       withParams(params),
     ),
 
-  startJob: (jobId) =>
-    apiClient.post(
-      `/jobs/${pathSegment(
-        jobId,
-        'Intervention',
-      )}/start`,
-      {},
-    ),
-
   completeJob: (jobId) =>
     apiClient.post(
       `/jobs/${pathSegment(

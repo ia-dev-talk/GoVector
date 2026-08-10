@@ -179,13 +179,6 @@ class ApiService {
     return [];
   }
 
-  static Future<void> startJob(int id) async {
-    final headers = await _authHeaders();
-    await http
-        .post(AppConfig.apiUri('jobs/$id/start'), headers: headers)
-        .timeout(AppConfig.httpTimeout);
-  }
-
   static Future<void> completeJob(int id) async {
     final headers = await _authHeaders();
     await http

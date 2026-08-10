@@ -1609,19 +1609,13 @@ export default function Dashboard({
       }
 
       const labels = {
-        start: 'Démarré',
-        complete: 'Terminé',
         cancel: 'Annulé',
         unassign: 'Désaffecté',
         hold: 'Mis en attente',
       };
 
       try {
-        if (action === 'start') {
-          await api.startJob(job.id);
-        } else if (action === 'complete') {
-          await api.completeJob(job.id);
-        } else if (action === 'cancel') {
+        if (action === 'cancel') {
           await api.cancelJob(job.id);
         } else if (action === 'unassign') {
           await api.unassignJob(job.id);

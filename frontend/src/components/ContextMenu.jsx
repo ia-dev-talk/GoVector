@@ -1505,16 +1505,6 @@ export default function ContextMenu({
 				)
 			);
 
-		const showStartAction =
-			canRunJobAction &&
-			!hasMultiSelection &&
-			status === 'assigned';
-
-		const showCompleteAction =
-			canRunJobAction &&
-			!hasMultiSelection &&
-			status === 'in_progress';
-
 		const showCancelAction =
 			canRunJobAction &&
 			!hasMultiSelection &&
@@ -1535,8 +1525,6 @@ export default function ContextMenu({
 			);
 
 		const showLifecycleActions =
-			showStartAction ||
-			showCompleteAction ||
 			showCancelAction ||
 			showDeleteAction ||
 			showHoldAction;
@@ -1860,34 +1848,6 @@ export default function ContextMenu({
 					showLifecycleActions && (
 						<MenuSeparator />
 					)}
-
-				{showStartAction && (
-					<MenuItem
-						onClick={() =>
-							runAction(
-								onJobAction,
-								'start',
-								data,
-							)
-						}
-					>
-						Démarrer l’intervention
-					</MenuItem>
-				)}
-
-				{showCompleteAction && (
-					<MenuItem
-						onClick={() =>
-							runAction(
-								onJobAction,
-								'complete',
-								data,
-							)
-						}
-					>
-						Terminer l’intervention
-					</MenuItem>
-				)}
 
 				{showCancelAction && (
 					<MenuItem

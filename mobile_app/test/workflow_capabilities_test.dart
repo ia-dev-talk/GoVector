@@ -42,6 +42,14 @@ void main() {
     expect(command?.fromCompatibilityFallback, isTrue);
   });
 
+  test('an assigned intervention exposes the technician start command', () {
+    final command = TechnicianWorkflowCommandResolver.resolve(
+      fallbackStatus: 'ASSIGNED',
+    );
+    expect(command?.code, 'accept_and_start');
+    expect(command?.label, 'Accepter & démarrer');
+  });
+
   test('job capability preserves both lifecycle axes', () {
     final parsed = JobWorkflowCapabilities.fromJson({
       'job_id': 41,

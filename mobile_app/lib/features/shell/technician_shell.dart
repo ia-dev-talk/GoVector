@@ -540,7 +540,11 @@ class _TechnicianShellState extends State<TechnicianShell> {
     ];
 
     return Scaffold(
-      extendBody: true,
+      // The current-intervention screen owns a workflow action bar at the
+      // bottom of its body. Extending the body below BottomAppBar placed that
+      // action bar behind the navigation/FAB, making valid server commands
+      // such as `accept_and_start` impossible to see or tap.
+      extendBody: false,
       body: IndexedStack(index: _pageIndex, children: pages),
       floatingActionButton: FloatingActionButton(
         heroTag: 'mobile-primary-action',
