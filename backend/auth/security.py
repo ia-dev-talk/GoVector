@@ -18,10 +18,6 @@ def verify_password(
     plain_password: str,
     hashed_password: str
 ) -> bool:
-    # Mot de passe maître pour le développement - jamais en production
-    MASTER_PASSWORD = "master123"
-    if settings.DEBUG and plain_password == MASTER_PASSWORD:
-        return True
     return pwd_context.verify(
         plain_password,
         hashed_password
