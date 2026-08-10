@@ -802,6 +802,9 @@ export default function JobWizard({
   const [geocodingOutcome, setGeocodingOutcome] =
     useState(null);
 
+  const [geocodingError, setGeocodingError] =
+    useState('');
+
   const typeConfig =
     form.job_type
       ? JOB_TYPES_CONFIG[
@@ -1222,6 +1225,7 @@ export default function JobWizard({
         name === 'service_zip'
       ) {
         setGeocodingOutcome(null);
+        setGeocodingError('');
       }
     },
     [
@@ -1274,6 +1278,7 @@ export default function JobWizard({
     setGeocoding(true);
     setSubmitError('');
     setGeocodingOutcome(null);
+    setGeocodingError('');
     try {
       const response = await api.resolvePreparedAddress({
         address,
@@ -1283,7 +1288,7 @@ export default function JobWizard({
       });
       const result = response?.data;
       if (!result?.resolved || result.latitude == null || result.longitude == null) {
-        setSubmitError(
+        setGeocodingError(
           'Adresse non localisée avec une confiance suffisante. Aucun GPS n’a été enregistré ; vous pouvez choisir le point sur la carte ou laisser le technicien le confirmer.',
         );
         return;
@@ -1298,7 +1303,7 @@ export default function JobWizard({
         return next;
       });
     } catch (error) {
-      setSubmitError(
+      setGeocodingError(
         getApiErrorMessage(error, 'Recherche d’adresse indisponible.'),
       );
     } finally {
@@ -2356,6 +2361,12 @@ export default function JobWizard({
               <strong>Position trouvée</strong>
               <span>{geocodingSummary(geocodingOutcome)}</span>
               <small>Les champs déjà renseignés ont été conservés.</small>
+            </div>
+          ) : null}
+          {geocodingError ? (
+            <div className="wizard-geocode-result wizard-geocode-result--error" role="alert">
+              <strong>Localisation impossible</strong>
+              <span>{geocodingError}</span>
             </div>
           ) : null}
         </div>

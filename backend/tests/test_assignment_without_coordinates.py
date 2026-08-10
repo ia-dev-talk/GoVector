@@ -58,3 +58,21 @@ def test_complete_address_keeps_embedded_city_in_first_geocoding_candidate():
         and "Casablanca" in candidate
         for candidate in candidates[1:]
     )
+
+
+def test_noisy_address_retries_the_street_without_apartment_details():
+    candidates, _, _ = _build_query_candidates(
+        (
+            "3 eme étage, Résidence Yahya, 739 Rue de Boukraa, "
+            "bourgone Appartement N: 9, Casablanca 20000"
+        ),
+        country="Morocco",
+    )
+
+    assert any(
+        candidate.startswith("739 Rue de Boukraa, ")
+        and "Casablanca 20000" in candidate
+        and "Appartement" not in candidate
+        and "étage" not in candidate
+        for candidate in candidates
+    )

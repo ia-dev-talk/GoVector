@@ -396,6 +396,16 @@ def _build_query_candidates(
             *context_parts,
         ])
 
+        # Floor, apartment and residence details often make an otherwise
+        # valid Moroccan street address impossible to resolve.  Retry each
+        # precise fragment independently while preserving city/postcode
+        # context from the complete address.
+        for fragment in detailed_fragments:
+            add_candidate([
+                fragment,
+                *context_parts,
+            ])
+
     area_fragment = (
         detailed_fragments[1]
         if len(detailed_fragments) > 1
@@ -656,13 +666,6 @@ def _geocode_query(
                 )
 
             if not results:
-                cache_entry = (
-                    None,
-                    None,
-                    False,
-                    None,
-                )
-                _cache[query] = cache_entry
                 return (
                     None,
                     None,

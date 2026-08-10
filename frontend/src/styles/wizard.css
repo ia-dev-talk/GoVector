@@ -450,6 +450,16 @@
 	font-size: 10px;
 }
 
+.wizard-geocode-result--error {
+	color: var(--text-secondary);
+	background: var(--color-danger-dim);
+	border-color: rgba(224, 85, 85, 0.55);
+}
+
+.wizard-geocode-result--error strong {
+	color: var(--color-danger);
+}
+
 /* ── Étape 3 : chaîne réseau FTTH ────────────────────────── */
 
 .ftth-tree {
