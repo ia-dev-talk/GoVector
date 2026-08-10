@@ -30,7 +30,7 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   image_picker: ^1.1.2
-  file_picker: ^8.1.7
+  file_picker: ^10.3.10
   geolocator: ^13.0.1
   geolocator_android: ^4.6.2
   permission_handler: ^11.3.1
