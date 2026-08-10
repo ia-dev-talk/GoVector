@@ -15,7 +15,9 @@ class CurrentInterventionScreen extends StatelessWidget {
     required this.pendingActions,
     required this.onOpenActions,
     required this.onAdvanceWorkflow,
+    required this.workflowActionCode,
     required this.workflowActionLabel,
+    required this.workflowBusy,
     required this.onCallClient,
     required this.onNavigate,
     required this.onOpenSiteHistory,
@@ -28,7 +30,9 @@ class CurrentInterventionScreen extends StatelessWidget {
   final int pendingActions;
   final VoidCallback onOpenActions;
   final VoidCallback onAdvanceWorkflow;
+  final String? workflowActionCode;
   final String? workflowActionLabel;
+  final bool workflowBusy;
   final VoidCallback onCallClient;
   final VoidCallback onNavigate;
   final VoidCallback onOpenSiteHistory;
@@ -87,7 +91,7 @@ class CurrentInterventionScreen extends StatelessWidget {
                 BlueVectorSpacing.md,
                 BlueVectorSpacing.xl,
                 BlueVectorSpacing.md,
-                130,
+                BlueVectorSpacing.lg,
               ),
               children: [
                 Row(
@@ -163,7 +167,9 @@ class CurrentInterventionScreen extends StatelessWidget {
           _ActionBar(
             onOpenActions: onOpenActions,
             onAdvanceWorkflow: onAdvanceWorkflow,
+            workflowActionCode: workflowActionCode,
             workflowActionLabel: workflowActionLabel,
+            workflowBusy: workflowBusy,
           ),
         ],
       ),
@@ -651,12 +657,24 @@ class _ActionBar extends StatelessWidget {
   const _ActionBar({
     required this.onOpenActions,
     required this.onAdvanceWorkflow,
+    required this.workflowActionCode,
     required this.workflowActionLabel,
+    required this.workflowBusy,
   });
 
   final VoidCallback onOpenActions;
   final VoidCallback onAdvanceWorkflow;
+  final String? workflowActionCode;
   final String? workflowActionLabel;
+  final bool workflowBusy;
+
+  IconData get _workflowIcon => switch (workflowActionCode) {
+    'accept_and_start' => Icons.play_arrow_rounded,
+    'arrive' => Icons.location_on_rounded,
+    'start_work' => Icons.construction_rounded,
+    'close_field_visit' => Icons.task_alt_rounded,
+    _ => Icons.arrow_forward_rounded,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -671,26 +689,53 @@ class _ActionBar extends StatelessWidget {
         color: BlueVectorColors.background,
         border: Border(top: BorderSide(color: BlueVectorColors.border)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: onOpenActions,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Action'),
-            ),
-          ),
           if (workflowActionLabel != null) ...[
-            const SizedBox(width: BlueVectorSpacing.sm),
-            Expanded(
-              flex: 2,
-              child: FilledButton.icon(
-                onPressed: onAdvanceWorkflow,
-                icon: const Icon(Icons.arrow_forward_rounded),
-                label: Text(workflowActionLabel!),
+            const Row(
+              children: [
+                Icon(
+                  Icons.route_rounded,
+                  color: BlueVectorColors.primaryBright,
+                  size: 16,
+                ),
+                SizedBox(width: BlueVectorSpacing.xs),
+                Text(
+                  'PROCHAINE ÉTAPE',
+                  style: TextStyle(
+                    color: BlueVectorColors.textSecondary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: BlueVectorSpacing.xs),
+            FilledButton.icon(
+              onPressed: workflowBusy ? null : onAdvanceWorkflow,
+              icon: workflowBusy
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(_workflowIcon),
+              label: Text(
+                workflowBusy ? 'Mise à jour en cours…' : workflowActionLabel!,
               ),
             ),
+            const SizedBox(height: BlueVectorSpacing.xs),
           ],
+          OutlinedButton.icon(
+            onPressed: workflowBusy ? null : onOpenActions,
+            icon: const Icon(Icons.add_circle_outline_rounded),
+            label: const Text('Ajouter une trace terrain'),
+          ),
         ],
       ),
     );

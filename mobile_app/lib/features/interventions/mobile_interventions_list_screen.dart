@@ -85,7 +85,7 @@ class _MobileInterventionsListScreenState
             .length,
       ),
       ('À venir', widget.jobs.where(MobileJobPresenter.isUpcoming).length),
-      ('Terminées', widget.jobs.where(MobileJobPresenter.isTerminal).length),
+      ('Clôturées', widget.jobs.where(MobileJobPresenter.isTerminal).length),
     ];
 
     return SafeArea(

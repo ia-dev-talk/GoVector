@@ -216,24 +216,28 @@ Future<void> showMobileActionSheet({
     builder: (sheetContext) {
       final actions = <_MobileAction>[
         _MobileAction(
+          category: _ActionCategory.documenter,
           label: 'Photo',
           icon: Icons.photo_camera_outlined,
           color: BlueVectorColors.primaryBright,
           onTap: () => openScreen(FreePhotoActionScreen(job: job)),
         ),
         _MobileAction(
+          category: _ActionCategory.documenter,
           label: 'Vidéo',
           icon: Icons.videocam_outlined,
           color: BlueVectorColors.violet,
           onTap: captureVideo,
         ),
         _MobileAction(
+          category: _ActionCategory.relever,
           label: 'Mesure / test',
           icon: Icons.speed_outlined,
           color: BlueVectorColors.success,
           onTap: () => openScreen(FreeMeasurementActionScreen(job: job)),
         ),
         _MobileAction(
+          category: _ActionCategory.relever,
           label: 'OTDR',
           icon: Icons.monitor_heart_outlined,
           color: BlueVectorColors.warning,
@@ -242,6 +246,7 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.compteRendu,
           label: 'Commentaire',
           icon: Icons.chat_bubble_outline_rounded,
           color: BlueVectorColors.warning,
@@ -252,6 +257,7 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.compteRendu,
           label: 'Installation / travaux',
           icon: Icons.construction_outlined,
           color: BlueVectorColors.cyan,
@@ -262,6 +268,7 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.relever,
           label: 'PBO / PM / PTO',
           icon: Icons.inventory_2_outlined,
           color: BlueVectorColors.violet,
@@ -272,6 +279,7 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.compteRendu,
           label: 'Incident / anomalie',
           icon: Icons.warning_amber_rounded,
           color: BlueVectorColors.danger,
@@ -282,6 +290,7 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.relever,
           label: 'Matériel utilisé',
           icon: Icons.inventory_2_outlined,
           color: BlueVectorColors.primaryBright,
@@ -292,6 +301,7 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.documenter,
           label: 'Signature client',
           icon: Icons.draw_outlined,
           color: BlueVectorColors.success,
@@ -303,12 +313,14 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.documenter,
           label: 'Document',
           icon: Icons.description_outlined,
           color: BlueVectorColors.violet,
           onTap: () => openScreen(FreeDocumentActionScreen(job: job)),
         ),
         _MobileAction(
+          category: _ActionCategory.relever,
           label: 'Position exacte du site',
           icon: Icons.location_on_outlined,
           color: BlueVectorColors.warning,
@@ -318,6 +330,7 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.relever,
           label: 'Entrée câble',
           icon: Icons.login_rounded,
           color: BlueVectorColors.cyan,
@@ -327,6 +340,7 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.relever,
           label: 'Sortie câble',
           icon: Icons.logout_rounded,
           color: BlueVectorColors.cyan,
@@ -336,18 +350,21 @@ Future<void> showMobileActionSheet({
           ),
         ),
         _MobileAction(
+          category: _ActionCategory.compteRendu,
           label: 'Appel client',
           icon: Icons.call_outlined,
           color: BlueVectorColors.success,
           onTap: callClient,
         ),
         _MobileAction(
+          category: _ActionCategory.relever,
           label: 'Scan QR / code-barres',
           icon: Icons.qr_code_scanner_rounded,
           color: BlueVectorColors.cyan,
           onTap: scanEquipment,
         ),
         _MobileAction(
+          category: _ActionCategory.compteRendu,
           label: 'Autre action',
           icon: Icons.more_horiz_rounded,
           color: BlueVectorColors.textSecondary,
@@ -393,6 +410,18 @@ Future<void> showMobileActionSheet({
                           fontSize: 11,
                         ),
                       ),
+                      if (job.customerName.trim().isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          job.customerName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: BlueVectorColors.textMuted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -403,30 +432,41 @@ Future<void> showMobileActionSheet({
                 ),
               ],
             ),
-            const SizedBox(height: BlueVectorSpacing.lg),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: actions.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: BlueVectorSpacing.xs,
-                mainAxisSpacing: BlueVectorSpacing.xs,
-                childAspectRatio: 1.02,
+            const SizedBox(height: BlueVectorSpacing.sm),
+            for (final category in _ActionCategory.values) ...[
+              _ActionSectionHeader(category: category),
+              const SizedBox(height: BlueVectorSpacing.xs),
+              Builder(
+                builder: (context) {
+                  final categoryActions = actions
+                      .where((action) => action.category == category)
+                      .toList();
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: categoryActions.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: BlueVectorSpacing.xs,
+                          mainAxisSpacing: BlueVectorSpacing.xs,
+                          childAspectRatio: 1.72,
+                        ),
+                    itemBuilder: (context, index) {
+                      final action = categoryActions[index];
+                      return _ActionTile(
+                        action: action,
+                        onPressed: () async {
+                          Navigator.pop(sheetContext);
+                          await action.onTap();
+                        },
+                      );
+                    },
+                  );
+                },
               ),
-              itemBuilder: (context, index) {
-                final action = actions[index];
-
-                return _ActionTile(
-                  action: action,
-                  onPressed: () async {
-                    Navigator.pop(sheetContext);
-
-                    await action.onTap();
-                  },
-                );
-              },
-            ),
+              const SizedBox(height: BlueVectorSpacing.lg),
+            ],
           ],
         ),
       );
@@ -525,16 +565,59 @@ Future<void> _showJobInformation(BuildContext context, Job job) {
 
 class _MobileAction {
   const _MobileAction({
+    required this.category,
     required this.label,
     required this.icon,
     required this.color,
     required this.onTap,
   });
 
+  final _ActionCategory category;
   final String label;
   final IconData icon;
   final Color color;
   final Future<void> Function() onTap;
+}
+
+enum _ActionCategory { documenter, relever, compteRendu }
+
+extension on _ActionCategory {
+  String get label => switch (this) {
+    _ActionCategory.documenter => 'DOCUMENTER',
+    _ActionCategory.relever => 'RELEVER SUR LE TERRAIN',
+    _ActionCategory.compteRendu => 'RENDRE COMPTE',
+  };
+
+  IconData get icon => switch (this) {
+    _ActionCategory.documenter => Icons.attach_file_rounded,
+    _ActionCategory.relever => Icons.location_searching_rounded,
+    _ActionCategory.compteRendu => Icons.notes_rounded,
+  };
+}
+
+class _ActionSectionHeader extends StatelessWidget {
+  const _ActionSectionHeader({required this.category});
+
+  final _ActionCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(category.icon, size: 15, color: BlueVectorColors.primaryBright),
+        const SizedBox(width: BlueVectorSpacing.xs),
+        Text(
+          category.label,
+          style: const TextStyle(
+            color: BlueVectorColors.textSecondary,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.05,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ActionTile extends StatelessWidget {
@@ -557,29 +640,30 @@ class _ActionTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(BlueVectorRadius.small),
             border: Border.all(color: BlueVectorColors.border),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: action.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(BlueVectorRadius.small),
                 ),
                 child: Icon(action.icon, color: action.color, size: 21),
               ),
-              const SizedBox(height: BlueVectorSpacing.xs),
-              Text(
-                action.label,
-                style: const TextStyle(
-                  color: BlueVectorColors.textPrimary,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
+              const SizedBox(width: BlueVectorSpacing.sm),
+              Expanded(
+                child: Text(
+                  action.label,
+                  style: const TextStyle(
+                    color: BlueVectorColors.textPrimary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    height: 1.15,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

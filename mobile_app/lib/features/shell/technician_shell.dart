@@ -270,7 +270,9 @@ class _TechnicianShellState extends State<TechnicianShell> {
     }
     final command = _workflowCommand(job);
     if (command == null) return;
-    _workflowBusy = true;
+    setState(() {
+      _workflowBusy = true;
+    });
     try {
       final position = await LocationService.getCurrentPosition();
       switch (command.code) {
@@ -317,7 +319,11 @@ class _TechnicianShellState extends State<TechnicianShell> {
     } catch (error) {
       _message('$error'.replaceFirst('Exception: ', ''));
     } finally {
-      _workflowBusy = false;
+      if (mounted) {
+        setState(() {
+          _workflowBusy = false;
+        });
+      }
     }
   }
 
@@ -512,7 +518,9 @@ class _TechnicianShellState extends State<TechnicianShell> {
         pendingActions: _snapshot.pendingActions,
         onOpenActions: _openActions,
         onAdvanceWorkflow: _advanceWorkflow,
+        workflowActionCode: _workflowCommand(selectedJob)?.code,
         workflowActionLabel: _workflowCommand(selectedJob)?.label,
+        workflowBusy: _workflowBusy,
         onCallClient: _callClient,
         onNavigate: _navigate,
         onOpenSiteHistory: _openSiteHistory,

@@ -106,7 +106,7 @@ Future<Job?> showTechnicianJobPickerSheet({
                               Text(MobileJobPresenter.reference(job)),
                               Text(
                                 current
-                                    ? 'En cours'
+                                    ? 'Courante'
                                     : MobileJobPresenter.statusLabel(job),
                                 style: TextStyle(
                                   color: MobileJobPresenter.statusColor(job),
