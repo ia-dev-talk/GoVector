@@ -81,6 +81,10 @@ class JobCreate(JobBase):
         le=180
     )
 
+    planned_location_source: Optional[str] = Field(default=None, max_length=32)
+
+    planned_location_precision: Optional[str] = Field(default=None, max_length=32)
+
     required_skills: List[str] = Field(
         default_factory=list
     )
@@ -337,6 +341,23 @@ class JobCreate(JobBase):
                 "Champs non supportés par le modèle Job actuel : "
                 + ", ".join(unsupported)
             )
+
+        coordinates_are_partial = (self.latitude is None) != (self.longitude is None)
+        if coordinates_are_partial:
+            raise ValueError(
+                "La latitude et la longitude doivent être fournies ensemble."
+            )
+
+        if (
+            self.latitude is None
+            and (
+                self.planned_location_source is not None
+                or self.planned_location_precision is not None
+            )
+        ):
+            raise ValueError(
+                "La provenance de localisation nécessite une latitude et une longitude."
+            )
         return self
 
 
@@ -391,6 +412,10 @@ class JobUpdate(BaseModel):
         le=180
     )
 
+    planned_location_source: Optional[str] = Field(default=None, max_length=32)
+
+    planned_location_precision: Optional[str] = Field(default=None, max_length=32)
+
     required_skills: Optional[List[str]] = None
 
     route_criteria: Optional[str] = Field(
@@ -436,6 +461,18 @@ class JobUpdate(BaseModel):
 
     client_organization_id: Optional[int] = Field(default=None, gt=0)
 
+    @model_validator(mode="after")
+    def reject_partial_coordinate_updates(self):
+        coordinates_in_request = {
+            "latitude",
+            "longitude",
+        } & self.model_fields_set
+        if len(coordinates_in_request) == 1:
+            raise ValueError(
+                "La latitude et la longitude doivent être modifiées ensemble."
+            )
+        return self
+
 # ============================================================
 # STATUS UPDATE
 # ============================================================
@@ -469,6 +506,10 @@ class JobResponse(JobBase):
     latitude: Optional[float]
 
     longitude: Optional[float]
+
+    planned_location_source: Optional[str] = None
+
+    planned_location_precision: Optional[str] = None
 
     required_skills: List[str]
 
@@ -573,6 +614,12 @@ class JobResponse(JobBase):
 
             "latitude": job.latitude,
             "longitude": job.longitude,
+            "planned_location_source": getattr(
+                job, "planned_location_source", None
+            ),
+            "planned_location_precision": getattr(
+                job, "planned_location_precision", None
+            ),
 
             "required_skills": job.required_skills,
 

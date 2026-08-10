@@ -207,6 +207,8 @@ async def test_address_live_gps_and_confirmed_landmarks_remain_distinct(monkeypa
         "zip": None,
         "latitude": None,
         "longitude": None,
+        "source": None,
+        "precision": None,
     }
     assert record["field_reference_location"]["origin"] == "current_job"
     assert record["field_reference_location"]["source_job_id"] == job.id

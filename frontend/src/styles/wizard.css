@@ -460,6 +460,58 @@
 	color: var(--color-danger);
 }
 
+.wizard-shared-map {
+	display: grid;
+	gap: var(--space-sm);
+	margin-top: var(--space-md);
+	padding: var(--space-md);
+	background: rgba(74, 158, 255, 0.06);
+	border: 1px solid rgba(74, 158, 255, 0.28);
+	border-radius: 7px;
+}
+
+.wizard-shared-map__header,
+.wizard-shared-map__import {
+	display: flex;
+	align-items: center;
+	gap: var(--space-md);
+}
+
+.wizard-shared-map__header > div {
+	display: grid;
+	flex: 1;
+	gap: 3px;
+}
+
+.wizard-shared-map__header strong {
+	color: var(--text-primary);
+	font-size: 12px;
+}
+
+.wizard-shared-map__header span {
+	color: var(--text-muted);
+	font-size: 11px;
+	line-height: 1.45;
+}
+
+.wizard-shared-map .wizard-geocode-button {
+	flex: 0 0 auto;
+	margin-top: 0;
+}
+
+.wizard-shared-map__import input {
+	flex: 1;
+	min-width: 0;
+}
+
+@media (max-width: 760px) {
+	.wizard-shared-map__header,
+	.wizard-shared-map__import {
+		align-items: stretch;
+		flex-direction: column;
+	}
+}
+
 /* ── Étape 3 : chaîne réseau FTTH ────────────────────────── */
 
 .ftth-tree {

@@ -1541,6 +1541,9 @@ export const api = {
   resolvePreparedAddress: (data) =>
     apiClient.post('/geocoding/resolve', data),
 
+  importSharedMapLocation: (value) =>
+    apiClient.post('/geocoding/shared-map-location', { value }),
+
   uploadJobAttachment: (jobId, formData) => {
     if (!(formData instanceof FormData)) {
       throw new TypeError('La pièce jointe doit être envoyée en multipart.');

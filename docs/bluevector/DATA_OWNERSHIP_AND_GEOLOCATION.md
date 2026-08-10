@@ -11,6 +11,21 @@
 
 Une adresse seule est valide. Le géocodage retourne soit une coordonnée résolue, soit `null`; il ne fabrique pas de point. Une position proposée doit rester identifiable comme donnée de préparation.
 
+## Confirmation cartographique sans API Google
+
+Le bureau peut ouvrir une recherche Google Maps au moyen de l'URL publique officielle `maps/search/?api=1&query=...`. Cette ouverture ne nécessite ni clé ni API Google et ne transmet aucun résultat automatiquement à BlueVector.
+
+Si le géocodeur ouvert ne trouve pas l'adresse avec une confiance suffisante, l'orienteur peut :
+
+1. vérifier visuellement le lieu dans Google Maps ;
+2. utiliser « Partager » et coller le lien officiel dans BlueVector, ou coller directement `latitude, longitude` ;
+3. contrôler le marqueur sur la carte Leaflet ;
+4. enregistrer explicitement le point.
+
+BlueVector extrait uniquement des coordonnées déjà présentes dans le lien partagé. Il ne scrape pas le contenu d'une page Google, ne contourne pas de CAPTCHA et ne transforme jamais une adresse seule en coordonnées supposées. Les liens courts officiels peuvent être développés en suivant uniquement des redirections HTTPS vers une liste fermée de domaines Google.
+
+La provenance est conservée sur l'ordre avec `planned_location_source` et `planned_location_precision`. Elle reste distincte du GPS live et du repère terrain confirmé par le technicien.
+
 ## Scénario GPS de référence
 
 1. L’orienteur crée/import un dossier avec une adresse, même sans coordonnées.

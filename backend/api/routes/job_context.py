@@ -148,6 +148,8 @@ async def get_field_record(
             "zip": job.service_zip,
             "latitude": job.latitude,
             "longitude": job.longitude,
+            "source": job.planned_location_source,
+            "precision": job.planned_location_precision,
         },
         "field_reference_location": (
             {

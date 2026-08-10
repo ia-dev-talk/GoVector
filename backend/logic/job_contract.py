@@ -22,6 +22,8 @@ JOB_CREATE_FIELD_MAPPING = {
     "service_city": "service_city", "service_zip": "service_zip",
     "job_number": "job_number", "job_type": "job_type",
     "latitude": "latitude", "longitude": "longitude",
+    "planned_location_source": "planned_location_source",
+    "planned_location_precision": "planned_location_precision",
     "required_skills": "required_skills", "route_criteria": "route_criteria",
     "priority": "priority", "scheduled_date": "scheduled_date",
     "time_slot_start": "time_slot_start", "time_slot_end": "time_slot_end",

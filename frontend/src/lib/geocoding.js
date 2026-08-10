@@ -24,6 +24,8 @@ export function applyResolvedAddress(form, result, resolveSector = () => '') {
     ...form,
     latitude,
     longitude,
+    planned_location_source: result?.source || 'nominatim',
+    planned_location_precision: result?.precision || 'unknown',
     service_city: keepOrSuggest(form?.service_city, result?.city),
     service_zip: keepOrSuggest(form?.service_zip, result?.postal_code),
     route_criteria: keepOrSuggest(

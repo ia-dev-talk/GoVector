@@ -324,6 +324,23 @@ async def update_job(
     require_job_operations_access(job=job, current_user=current_user)
 
     update_data = job_data.model_dump(exclude_unset=True)
+    final_latitude = update_data.get("latitude", job.latitude)
+    final_longitude = update_data.get("longitude", job.longitude)
+    if (final_latitude is None) != (final_longitude is None):
+        raise HTTPException(
+            status_code=422,
+            detail="La latitude et la longitude doivent être fournies ensemble.",
+        )
+    if final_latitude is None:
+        if update_data.get("planned_location_source") is not None or update_data.get(
+            "planned_location_precision"
+        ) is not None:
+            raise HTTPException(
+                status_code=422,
+                detail="La provenance de localisation nécessite des coordonnées.",
+            )
+        update_data["planned_location_source"] = None
+        update_data["planned_location_precision"] = None
     if (
         current_user.role == UserRole.ORIENTEUR
         and "client_organization_id" in update_data

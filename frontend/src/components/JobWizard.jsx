@@ -20,6 +20,10 @@ import {
   geocodingSummary,
 } from '../lib/geocoding';
 import {
+  buildGoogleMapsSearchUrl,
+  sharedLocationLabel,
+} from '../lib/shared-map-location';
+import {
   JOB_TYPES_CONFIG,
   PANNE_TYPES,
   WIZARD_STEPS,
@@ -323,6 +327,10 @@ function createInitialForm(data) {
         initial.longitude,
         '',
       ),
+    planned_location_source:
+      inputValue(initial.planned_location_source),
+    planned_location_precision:
+      inputValue(initial.planned_location_precision),
     operator:
       inputValue(
         initial.operator,
@@ -804,6 +812,11 @@ export default function JobWizard({
 
   const [geocodingError, setGeocodingError] =
     useState('');
+
+  const [sharedMapValue, setSharedMapValue] = useState('');
+  const [sharedMapImporting, setSharedMapImporting] = useState(false);
+  const [sharedMapOutcome, setSharedMapOutcome] = useState(null);
+  const [sharedMapError, setSharedMapError] = useState('');
 
   const typeConfig =
     form.job_type
@@ -1311,6 +1324,66 @@ export default function JobWizard({
     }
   }, [form.route_criteria, form.service_address, form.service_city, form.service_zip]);
 
+  const openGoogleMapsSearch = useCallback(() => {
+    const url = buildGoogleMapsSearchUrl({
+      address: form.service_address,
+      city: form.service_city,
+      postalCode: form.service_zip,
+    });
+    if (!url) {
+      setErrors((previous) => ({
+        ...previous,
+        service_address: 'Saisissez une adresse avant d’ouvrir Google Maps.',
+      }));
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, [form.service_address, form.service_city, form.service_zip]);
+
+  const importSharedMapLocation = useCallback(async () => {
+    const value = normalizeText(sharedMapValue);
+    if (!value) {
+      setSharedMapError('Collez un lien Google Maps ou latitude, longitude.');
+      return;
+    }
+    setSharedMapImporting(true);
+    setSharedMapError('');
+    setSharedMapOutcome(null);
+    try {
+      const response = await api.importSharedMapLocation(value);
+      const result = response?.data;
+      if (!result?.resolved) {
+        setSharedMapError('Aucune coordonnée exploitable dans cette valeur.');
+        return;
+      }
+      const latitude = Number(result.latitude);
+      const longitude = Number(result.longitude);
+      const zone = getNearestZone(latitude, longitude);
+      setForm((previous) => ({
+        ...previous,
+        latitude,
+        longitude,
+        planned_location_source: result.source,
+        planned_location_precision: result.precision,
+        route_criteria: zone || previous.route_criteria,
+      }));
+      setSharedMapOutcome(result);
+      setGeocodingError('');
+      setErrors((previous) => {
+        const next = { ...previous };
+        delete next.latitude;
+        delete next.longitude;
+        return next;
+      });
+    } catch (error) {
+      setSharedMapError(
+        getApiErrorMessage(error, 'Impossible de lire ce lien ou ces coordonnées.'),
+      );
+    } finally {
+      setSharedMapImporting(false);
+    }
+  }, [sharedMapValue]);
+
   const validateStep =
     useCallback(
       (
@@ -1686,6 +1759,18 @@ export default function JobWizard({
             form.longitude,
             null,
           ),
+        planned_location_source:
+          optionalText(form.planned_location_source) ||
+          (optionalNumber(form.latitude) !== null &&
+          optionalNumber(form.longitude) !== null
+            ? 'office_manual_entry'
+            : null),
+        planned_location_precision:
+          optionalText(form.planned_location_precision) ||
+          (optionalNumber(form.latitude) !== null &&
+          optionalNumber(form.longitude) !== null
+            ? 'user_confirmed'
+            : null),
         job_type:
           normalizeText(
             form.job_type,
@@ -1805,6 +1890,18 @@ export default function JobWizard({
             form.longitude,
             null,
           ),
+        planned_location_source:
+          optionalText(form.planned_location_source) ||
+          (optionalNumber(form.latitude) !== null &&
+          optionalNumber(form.longitude) !== null
+            ? 'office_manual_entry'
+            : null),
+        planned_location_precision:
+          optionalText(form.planned_location_precision) ||
+          (optionalNumber(form.latitude) !== null &&
+          optionalNumber(form.longitude) !== null
+            ? 'user_confirmed'
+            : null),
         priority:
           normalizeText(
             form.priority,
@@ -2369,6 +2466,66 @@ export default function JobWizard({
               <span>{geocodingError}</span>
             </div>
           ) : null}
+
+          <div className="wizard-shared-map">
+            <div className="wizard-shared-map__header">
+              <div>
+                <strong>Vérification Google Maps sans clé API</strong>
+                <span>
+                  Ouvrez l’adresse, confirmez le bon lieu, puis collez le lien partagé ou les coordonnées.
+                </span>
+              </div>
+              <button
+                type="button"
+                className="wizard-geocode-button"
+                onClick={openGoogleMapsSearch}
+                disabled={submitting || Boolean(savedOutcome)}
+              >
+                Ouvrir dans Google Maps
+              </button>
+            </div>
+            <div className="wizard-shared-map__import">
+              <input
+                value={sharedMapValue}
+                onChange={(event) => {
+                  setSharedMapValue(event.target.value);
+                  setSharedMapError('');
+                  setSharedMapOutcome(null);
+                }}
+                placeholder="Lien Google Maps ou 33.54789, -7.59582"
+                aria-label="Lien Google Maps ou coordonnées"
+                disabled={sharedMapImporting || submitting || Boolean(savedOutcome)}
+              />
+              <button
+                type="button"
+                className="wizard-geocode-button"
+                onClick={importSharedMapLocation}
+                disabled={
+                  sharedMapImporting || submitting || Boolean(savedOutcome)
+                }
+              >
+                {sharedMapImporting ? 'Lecture…' : 'Utiliser ce point'}
+              </button>
+            </div>
+            {sharedMapOutcome ? (
+              <div className="wizard-geocode-result" role="status">
+                <strong>Point confirmé et affiché sur la carte</strong>
+                <span>{sharedLocationLabel(sharedMapOutcome)}</span>
+                <small>
+                  Source conservée séparément du GPS observé par le technicien.
+                </small>
+              </div>
+            ) : null}
+            {sharedMapError ? (
+              <div
+                className="wizard-geocode-result wizard-geocode-result--error"
+                role="alert"
+              >
+                <strong>Point non importé</strong>
+                <span>{sharedMapError}</span>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <Field
@@ -2561,12 +2718,11 @@ export default function JobWizard({
               min="-90"
               max="90"
               value={form.latitude}
-              onChange={(event) =>
-                update(
-                  'latitude',
-                  event.target.value,
-                )
-              }
+              onChange={(event) => {
+                update('latitude', event.target.value);
+                update('planned_location_source', 'office_manual_entry');
+                update('planned_location_precision', 'user_confirmed');
+              }}
               disabled={
                 submitting ||
                 Boolean(
@@ -2587,12 +2743,11 @@ export default function JobWizard({
               min="-180"
               max="180"
               value={form.longitude}
-              onChange={(event) =>
-                update(
-                  'longitude',
-                  event.target.value,
-                )
-              }
+              onChange={(event) => {
+                update('longitude', event.target.value);
+                update('planned_location_source', 'office_manual_entry');
+                update('planned_location_precision', 'user_confirmed');
+              }}
               disabled={
                 submitting ||
                 Boolean(
@@ -2628,6 +2783,10 @@ export default function JobWizard({
                 ...previous,
                 latitude,
                 longitude,
+                planned_location_source:
+                  'manual_map',
+                planned_location_precision:
+                  'user_confirmed',
                 route_criteria:
                   zone ||
                   previous

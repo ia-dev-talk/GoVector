@@ -28,6 +28,8 @@ test('geocoding fills only missing structured office fields', () => {
 
   assert.equal(next.latitude, 33.54789);
   assert.equal(next.longitude, -7.59582);
+  assert.equal(next.planned_location_source, 'nominatim');
+  assert.equal(next.planned_location_precision, 'street');
   assert.equal(next.service_city, 'Casablanca');
   assert.equal(next.service_zip, '20000');
   assert.equal(next.route_criteria, 'Bourgogne');

@@ -4,6 +4,17 @@ import {
   text,
 } from './interventionDetailUtils';
 
+function plannedLocationLabel(job) {
+  const labels = {
+    google_maps_shared_link: 'Point confirmé via Google Maps',
+    manual_coordinates: 'Coordonnées confirmées par le bureau',
+    manual_map: 'Point choisi sur la carte',
+    office_manual_entry: 'Coordonnées saisies par le bureau',
+    nominatim: 'Adresse géocodée automatiquement',
+  };
+  return labels[job?.planned_location_source] || '';
+}
+
 export default function InterventionMapCard({ job, fieldReference = null }) {
   const hasFieldReference =
     Number.isFinite(Number(fieldReference?.latitude)) &&
@@ -64,7 +75,7 @@ export default function InterventionMapCard({ job, fieldReference = null }) {
         <strong>
           {hasFieldReference
             ? `${fieldReference?.origin === 'previous_field_visit' ? 'Confirmé lors d’un précédent passage' : 'Confirmé sur le terrain'}${fieldReference?.accuracy_m != null ? ` · ±${Math.round(Number(fieldReference.accuracy_m))} m` : ''}`
-            : text(job?.service_city, 'Ville non renseignée')}
+            : plannedLocationLabel(job) || text(job?.service_city, 'Ville non renseignée')}
         </strong>
       </footer>
     </section>

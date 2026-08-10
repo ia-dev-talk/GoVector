@@ -24,6 +24,8 @@ async def create_job(
     customer_email: Optional[str] = None,
     service_city: Optional[str] = None,
     service_zip: Optional[str] = None,
+    planned_location_source: Optional[str] = None,
+    planned_location_precision: Optional[str] = None,
     route_criteria: Optional[str] = None,
     priority: Optional['JobPriority'] = None,
     scheduled_date: Optional[datetime] = None,
@@ -81,6 +83,8 @@ async def create_job(
         sector_id=sector_id,
         latitude=latitude,
         longitude=longitude,
+        planned_location_source=planned_location_source,
+        planned_location_precision=planned_location_precision,
         required_skills=required_skills,
         route_criteria=route_criteria,
         priority=priority,
@@ -374,7 +378,14 @@ async def update_job(
 			hasattr(job, field)
 			and (
 				value is not None
-				or field in {"sector_raw", "sector_id"}
+				or field in {
+					"sector_raw",
+					"sector_id",
+					"latitude",
+					"longitude",
+					"planned_location_source",
+					"planned_location_precision",
+				}
 			)
 		):
 			setattr(job, field, value)

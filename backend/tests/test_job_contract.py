@@ -3,7 +3,7 @@ import inspect
 import pytest
 from pydantic import ValidationError
 
-from backend.api.schemas.jobs import JobCreate
+from backend.api.schemas.jobs import JobCreate, JobUpdate
 from backend.database.models import Job, JobPriority, JobType
 from backend.logic import jobs as job_logic
 from backend.logic.job_contract import (
@@ -48,6 +48,8 @@ def test_supported_job_create_fields_are_mapped_without_loss():
         optical_power_dbm=-19.4,
         cable_length_m=245,
         operator="Orange",
+        planned_location_source="google_maps_shared_link",
+        planned_location_precision="user_confirmed",
     )
     mapped = job_create_kwargs(payload, orienteur_id=4)
     assert mapped["nro_raw"] == "NRO-A"
@@ -57,6 +59,33 @@ def test_supported_job_create_fields_are_mapped_without_loss():
     assert mapped["splitter_raw"] == "SPL-A"
     assert mapped["splitter_port_raw"] == 7
     assert mapped["orienteur_id"] == 4
+    assert mapped["planned_location_source"] == "google_maps_shared_link"
+    assert mapped["planned_location_precision"] == "user_confirmed"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"longitude": None},
+        {"latitude": None},
+        {
+            "latitude": None,
+            "longitude": None,
+            "planned_location_source": "manual_coordinates",
+        },
+    ],
+)
+def test_planned_location_never_accepts_partial_or_orphaned_provenance(overrides):
+    with pytest.raises(ValidationError) as error:
+        _minimal_job_create(**overrides)
+    message = str(error.value).lower()
+    assert "latitude" in message or "provenance" in message
+
+
+def test_planned_location_update_requires_both_coordinates():
+    with pytest.raises(ValidationError) as error:
+        JobUpdate(latitude=33.5)
+    assert "ensemble" in str(error.value)
 
 
 @pytest.mark.parametrize("field", sorted(JOB_CREATE_UNSUPPORTED_FIELDS))

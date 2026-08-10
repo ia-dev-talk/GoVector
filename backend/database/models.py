@@ -456,6 +456,12 @@ class Job(Base):
     # alone; reliable field coordinates stay in JobSiteObservation instead.
     latitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    planned_location_source: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True
+    )
+    planned_location_precision: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True
+    )
     required_skills: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
     route_criteria: Mapped[Optional[str]] = mapped_column(String(50), index=True)
     operator: Mapped[Optional[str]] = mapped_column(String(20), index=True)
