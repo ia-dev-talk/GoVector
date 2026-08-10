@@ -1629,16 +1629,38 @@ export default function InterventionsPage({
 						response.data
 							?.assigned ??
 						0;
+					const assignmentErrors =
+						Array.isArray(
+							response.data
+								?.errors
+						)
+							? response.data.errors.filter(
+									Boolean
+								)
+							: [];
+
+					if (assignedCount === 0) {
+						toast(
+							assignmentErrors[0] ||
+								'Aucune intervention n’a pu être affectée.',
+							'error'
+						);
+						return;
+					}
 
 					toast(
 						`${assignedCount} intervention${
 							assignedCount !== 1
 								? 's'
 								: ''
-						} → ${technician.name}`,
-						assignedCount > 0
-							? 'success'
-							: 'warning'
+						} → ${technician.name}${
+							assignmentErrors.length > 0
+								? ` · ${assignmentErrors.length} non affectée(s)`
+								: ''
+						}`,
+						assignmentErrors.length > 0
+							? 'warning'
+							: 'success'
 					);
 
 					addActivity(

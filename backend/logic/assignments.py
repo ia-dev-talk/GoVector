@@ -13,6 +13,37 @@ from backend.logic.workflow.engine import WorkflowEngine
 from backend.simulation.sampler import sample_duration
 
 
+def estimate_assignment_route(
+	origin_latitude: Optional[float],
+	origin_longitude: Optional[float],
+	destination_latitude: Optional[float],
+	destination_longitude: Optional[float],
+) -> tuple[Optional[float], Optional[int]]:
+	"""Return route estimates only when both endpoints are known.
+
+	An address-only intervention is a valid operational record. Assignment must
+	not depend on geocoding having produced a trusted point, so missing planned
+	coordinates yield unknown distance/travel time instead of a fabricated value
+	or a Haversine error.
+	"""
+	coordinates = (
+		origin_latitude,
+		origin_longitude,
+		destination_latitude,
+		destination_longitude,
+	)
+	if any(coordinate is None for coordinate in coordinates):
+		return None, None
+
+	distance = haversine_distance(
+		origin_latitude,
+		origin_longitude,
+		destination_latitude,
+		destination_longitude,
+	)
+	return distance, calculate_travel_time(distance)
+
+
 async def create_assignment(
 	db: AsyncSession,
 	job_id: int,
@@ -43,8 +74,12 @@ async def create_assignment(
 	origin_lat = tech.current_latitude if tech.current_latitude is not None else tech.home_latitude
 	origin_lon = tech.current_longitude if tech.current_longitude is not None else tech.home_longitude
 
-	distance = haversine_distance(origin_lat, origin_lon, job.latitude, job.longitude)
-	travel_time = calculate_travel_time(distance)
+	distance, travel_time = estimate_assignment_route(
+		origin_lat,
+		origin_lon,
+		job.latitude,
+		job.longitude,
+	)
 
 	assignment = Assignment(
 		job_id=job_id,
@@ -55,7 +90,11 @@ async def create_assignment(
 		actual_duration_minutes=sample_duration(job, tech),
 		# Stamp ETA at assign time so the timeline shows the right slot
 		# immediately, not after the loop's step-1 pass on the next tick.
-		estimated_arrival=(now + timedelta(minutes=travel_time)) if now else None,
+		estimated_arrival=(
+			now + timedelta(minutes=travel_time)
+			if now is not None and travel_time is not None
+			else None
+		),
 	)
 
 	db.add(assignment)
@@ -171,8 +210,12 @@ async def reassign_job(
 	origin_lat = tech.current_latitude if tech.current_latitude is not None else tech.home_latitude
 	origin_lon = tech.current_longitude if tech.current_longitude is not None else tech.home_longitude
 
-	distance = haversine_distance(origin_lat, origin_lon, job.latitude, job.longitude)
-	travel_time = calculate_travel_time(distance)
+	distance, travel_time = estimate_assignment_route(
+		origin_lat,
+		origin_lon,
+		job.latitude,
+		job.longitude,
+	)
 
 	new_assignment = Assignment(
 		job_id=job_id,
@@ -237,8 +280,12 @@ async def batch_assign(
 				skipped += 1
 				continue
 
-			distance = haversine_distance(origin_lat, origin_lon, job.latitude, job.longitude)
-			travel_time = calculate_travel_time(distance)
+			distance, travel_time = estimate_assignment_route(
+				origin_lat,
+				origin_lon,
+				job.latitude,
+				job.longitude,
+			)
 
 			assignment = Assignment(
 				job_id=job_id,

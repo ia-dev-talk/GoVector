@@ -344,6 +344,22 @@ def _build_query_candidates(
     if country_clean:
         context_parts.append(country_clean)
 
+    # Users often paste the city and postcode into the free-form address while
+    # leaving the dedicated city field empty.  Keep such generic locality
+    # fragments as query context without treating them as sufficient evidence
+    # on their own.
+    for fragment in fragments:
+        fragment_tokens = {
+            token
+            for token in _tokens(fragment)
+            if not token.isdigit()
+        }
+        if (
+            fragment_tokens
+            and fragment_tokens <= _GENERIC_LOCATION_TOKENS
+        ):
+            context_parts.append(fragment)
+
     candidates = []
 
     def add_candidate(parts: list[str]) -> None:
@@ -357,6 +373,16 @@ def _build_query_candidates(
             for existing in candidates
         ):
             candidates.append(query)
+
+    # Preserve the complete address as the first attempt.  The previous
+    # ranking kept only two fragments and could drop a city/postcode embedded
+    # in the address field (a common field-service input pattern), making a
+    # precise address less geocodable than an incomplete one.
+    if specific_fragments:
+        add_candidate([
+            *fragments,
+            *context_parts,
+        ])
 
     if detailed_fragments:
         add_candidate([
