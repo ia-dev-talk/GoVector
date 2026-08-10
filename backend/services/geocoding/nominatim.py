@@ -80,8 +80,14 @@ _CITY_ADDRESS_FIELDS = (
     "town",
     "municipality",
     "village",
-    "suburb",
     "county",
+)
+
+_DISTRICT_ADDRESS_FIELDS = (
+    "city_district",
+    "suburb",
+    "quarter",
+    "neighbourhood",
 )
 
 _BUILDING_ADDRESS_TYPES = {
@@ -629,6 +635,7 @@ def _geocode_query(
                     "format": "json",
                     "limit": 1,
                     "addressdetails": 1,
+                    "accept-language": "fr",
                     "countrycodes": (
                         settings.GEOCODING_COUNTRY_CODE
                     ),
@@ -835,6 +842,97 @@ def geocode_address(
     return latitude, longitude, resolved
 
 
+def geocode_address_details(
+    address: str,
+    city: Optional[str] = None,
+    zip_code: Optional[str] = None,
+    sector: Optional[str] = None,
+) -> dict:
+    """Resolve a prepared address and expose safe structured suggestions.
+
+    Suggestions are intentionally separate from persistence.  The caller may
+    use them to fill missing office fields, but must never overwrite an
+    explicit user value without confirmation.
+    """
+    (
+        latitude,
+        longitude,
+        resolved,
+        _,
+        _,
+        _,
+        result_data,
+    ) = _geocode_address_with_details(
+        address,
+        city,
+        zip_code,
+        sector,
+    )
+
+    response = {
+        "resolved": bool(resolved),
+        "latitude": latitude if resolved else None,
+        "longitude": longitude if resolved else None,
+        "city": None,
+        "postal_code": None,
+        "district": None,
+        "precision": None,
+        "display_name": None,
+        "source": "nominatim" if resolved else None,
+        "city_source": None,
+        "postal_code_source": None,
+        "district_source": None,
+    }
+
+    if not resolved or not isinstance(result_data, dict):
+        return response
+
+    resolved_city, city_source = _address_detail(
+        result_data,
+        _CITY_ADDRESS_FIELDS,
+    )
+    postal_code, postal_code_source = _address_detail(
+        result_data,
+        ("postcode",),
+    )
+    district, district_source = _address_detail(
+        result_data,
+        _DISTRICT_ADDRESS_FIELDS,
+    )
+
+    if resolved_city and len(resolved_city) > 100:
+        resolved_city = None
+        city_source = None
+    if postal_code and len(postal_code) > 10:
+        postal_code = None
+        postal_code_source = None
+    if district and len(district) > 100:
+        district = None
+        district_source = None
+
+    response.update(
+        {
+            "city": resolved_city,
+            "postal_code": postal_code,
+            "district": district,
+            "precision": _classify_geocoding_precision(result_data),
+            "display_name": _clean_text(result_data.get("display_name")) or None,
+            "city_source": (
+                f"nominatim:{city_source}" if city_source else None
+            ),
+            "postal_code_source": (
+                f"nominatim:{postal_code_source}"
+                if postal_code_source
+                else None
+            ),
+            "district_source": (
+                f"nominatim:{district_source}" if district_source else None
+            ),
+        }
+    )
+    return response
+
+
 def enrich_jobs_coordinates(
     jobs: list[dict],
 ) -> list[dict]:
@@ -957,7 +1055,7 @@ def enrich_jobs_coordinates(
             # but remains explicitly derived instead of replacing an Excel sector.
             neighbourhood, neighbourhood_source = _address_detail(
                 result_data,
-                ("neighbourhood", "suburb", "quarter", "city_district"),
+                _DISTRICT_ADDRESS_FIELDS,
             )
             if (
                 not _clean_text(copy.get("sector_raw"))

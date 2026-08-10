@@ -425,6 +425,31 @@
 	cursor: wait;
 }
 
+.wizard-geocode-result {
+	display: grid;
+	gap: 2px;
+	margin-top: var(--space-sm);
+	padding: 9px 11px;
+	color: var(--text-secondary);
+	background: rgba(48, 198, 135, 0.08);
+	border: 1px solid rgba(48, 198, 135, 0.3);
+	border-radius: 5px;
+}
+
+.wizard-geocode-result strong {
+	color: #45d79d;
+	font-size: 12px;
+}
+
+.wizard-geocode-result span {
+	font-size: 11px;
+}
+
+.wizard-geocode-result small {
+	color: var(--text-muted);
+	font-size: 10px;
+}
+
 /* ── Étape 3 : chaîne réseau FTTH ────────────────────────── */
 
 .ftth-tree {

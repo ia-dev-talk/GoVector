@@ -16,6 +16,10 @@ import {
   getNearestZone,
 } from '../lib/zones';
 import {
+  applyResolvedAddress,
+  geocodingSummary,
+} from '../lib/geocoding';
+import {
   JOB_TYPES_CONFIG,
   PANNE_TYPES,
   WIZARD_STEPS,
@@ -795,6 +799,9 @@ export default function JobWizard({
   const [geocoding, setGeocoding] =
     useState(false);
 
+  const [geocodingOutcome, setGeocodingOutcome] =
+    useState(null);
+
   const typeConfig =
     form.job_type
       ? JOB_TYPES_CONFIG[
@@ -1208,6 +1215,14 @@ export default function JobWizard({
       });
 
       setSubmitError('');
+
+      if (
+        name === 'service_address' ||
+        name === 'service_city' ||
+        name === 'service_zip'
+      ) {
+        setGeocodingOutcome(null);
+      }
     },
     [
       savedOutcome,
@@ -1258,6 +1273,7 @@ export default function JobWizard({
     }
     setGeocoding(true);
     setSubmitError('');
+    setGeocodingOutcome(null);
     try {
       const response = await api.resolvePreparedAddress({
         address,
@@ -1272,14 +1288,8 @@ export default function JobWizard({
         );
         return;
       }
-      const latitude = Number(result.latitude);
-      const longitude = Number(result.longitude);
-      setForm((previous) => ({
-        ...previous,
-        latitude,
-        longitude,
-        route_criteria: getNearestZone(latitude, longitude) || previous.route_criteria,
-      }));
+      setForm((previous) => applyResolvedAddress(previous, result, getNearestZone));
+      setGeocodingOutcome(result);
       setErrors((previous) => {
         const next = { ...previous };
         delete next.latitude;
@@ -2341,6 +2351,13 @@ export default function JobWizard({
           >
             {geocoding ? 'Recherche de la position…' : 'Localiser cette adresse sur la carte'}
           </button>
+          {geocodingOutcome ? (
+            <div className="wizard-geocode-result" role="status">
+              <strong>Position trouvée</strong>
+              <span>{geocodingSummary(geocodingOutcome)}</span>
+              <small>Les champs déjà renseignés ont été conservés.</small>
+            </div>
+          ) : null}
         </div>
 
         <Field
