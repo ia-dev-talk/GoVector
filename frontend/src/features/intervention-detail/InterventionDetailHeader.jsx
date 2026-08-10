@@ -73,6 +73,23 @@ function AssignmentIcon() {
   );
 }
 
+function ValidationIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m5 12 4 4L19 6" />
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  );
+}
+
 export default function InterventionDetailHeader({
   job,
   refreshing = false,
@@ -80,6 +97,7 @@ export default function InterventionDetailHeader({
   onRefresh,
   onEdit,
   onManageAssignment,
+  onValidate,
 }) {
   const statusMeta = getStatusMeta(job?.status);
   const jobNumber = getJobNumber(job);
@@ -160,6 +178,17 @@ export default function InterventionDetailHeader({
         >
           <RefreshIcon spinning={refreshing} />
         </button>
+
+        {typeof onValidate === 'function' ? (
+          <button
+            type="button"
+            className="intervention-detail-action intervention-detail-action--success"
+            onClick={() => onValidate(job)}
+          >
+            <ValidationIcon />
+            Valider l’intervention
+          </button>
+        ) : null}
 
         {typeof onManageAssignment === 'function' ? (
           <button

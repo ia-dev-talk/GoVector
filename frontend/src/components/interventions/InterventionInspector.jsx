@@ -203,6 +203,10 @@ export default function InterventionInspector({
 		] ||
 		'#6b7280';
 
+	const awaitsValidation =
+		normalizedStatus ===
+		'en_attente_validation';
+
 	return (
 		<div className="ie-detail">
 			<div className="ie-detail-header">
@@ -572,7 +576,9 @@ export default function InterventionInspector({
 								onOpen(job)
 							}
 						>
-							Ouvrir la fiche
+							{awaitsValidation
+								? 'Vérifier et valider'
+								: 'Ouvrir la fiche'}
 						</button>
 					)}
 

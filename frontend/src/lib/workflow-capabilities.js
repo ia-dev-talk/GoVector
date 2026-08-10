@@ -47,3 +47,18 @@ export function statusMetadataIndex(statuses) {
 export function statusMetadataFor(index, status) {
   return index.get(normalizeStatusCode(status)) || null;
 }
+
+export function jobAllowsCommand(capabilities, commandCode) {
+  if (!isRecord(capabilities) || !Array.isArray(capabilities.allowed_commands)) {
+    return false;
+  }
+
+  const expectedCode = String(commandCode || '').trim();
+
+  return (
+    expectedCode.length > 0 &&
+    capabilities.allowed_commands.some(
+      (code) => String(code || '').trim() === expectedCode,
+    )
+  );
+}

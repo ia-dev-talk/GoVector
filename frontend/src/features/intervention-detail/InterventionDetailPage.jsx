@@ -6,6 +6,8 @@ import {
 } from 'react';
 
 import { api } from '../../api/client';
+import ValidationPanel from '../../components/ValidationPanel';
+import { jobAllowsCommand } from '../../lib/workflow-capabilities';
 import InterventionDetailHeader from './InterventionDetailHeader';
 import InterventionEvidencePanel from './InterventionEvidencePanel';
 import InterventionMapCard from './InterventionMapCard';
@@ -44,6 +46,8 @@ export default function InterventionDetailPage({
   const [equipment, setEquipment] = useState(null);
   const [stock, setStock] = useState(null);
   const [fieldRecord, setFieldRecord] = useState(null);
+  const [workflowCapabilities, setWorkflowCapabilities] = useState(null);
+  const [validationOpen, setValidationOpen] = useState(false);
   const [initialLoading, setInitialLoading] = useState(Boolean(initialJobId));
   const [refreshing, setRefreshing] = useState(false);
   const [jobError, setJobError] = useState('');
@@ -77,13 +81,21 @@ export default function InterventionDetailPage({
       setFieldRecordError('');
       setFieldRecord(null);
 
-      const [jobResult, timelineResult, equipmentResult, stockResult, fieldRecordResult] =
+      const [
+        jobResult,
+        timelineResult,
+        equipmentResult,
+        stockResult,
+        fieldRecordResult,
+        workflowResult,
+      ] =
         await Promise.allSettled([
           api.getJob(jobId),
           api.getJobTimeline(jobId),
           api.getJobEquipment(jobId),
           api.getJobStock(jobId),
           api.getJobFieldRecord(jobId),
+          api.getJobWorkflowCapabilities(jobId),
         ]);
 
       if (requestSequence !== requestSequenceRef.current) {
@@ -163,6 +175,17 @@ export default function InterventionDetailPage({
         );
       }
 
+      if (
+        workflowResult.status === 'fulfilled' &&
+        isRecord(workflowResult.value?.data)
+      ) {
+        setWorkflowCapabilities(workflowResult.value.data);
+      } else {
+        // Never invent an office command when the authoritative capability
+        // contract is missing or forbidden for the connected account.
+        setWorkflowCapabilities(null);
+      }
+
       setInitialLoading(false);
       setRefreshing(false);
     },
@@ -198,7 +221,10 @@ export default function InterventionDetailPage({
     );
   }
 
+  const canValidate = jobAllowsCommand(workflowCapabilities, 'validate');
+
   return (
+    <>
     <div className="intervention-detail-page">
       <InterventionDetailHeader
         job={job}
@@ -207,6 +233,7 @@ export default function InterventionDetailPage({
         onRefresh={() => refreshData({ manual: true })}
         onEdit={onEdit}
         onManageAssignment={onManageAssignment}
+        onValidate={canValidate ? () => setValidationOpen(true) : undefined}
       />
 
       {jobError ? (
@@ -260,5 +287,17 @@ export default function InterventionDetailPage({
         </div>
       </main>
     </div>
+
+    {validationOpen ? (
+      <ValidationPanel
+        job={job}
+        onClose={() => setValidationOpen(false)}
+        onValidated={async () => {
+          setValidationOpen(false);
+          await refreshData({ manual: true });
+        }}
+      />
+    ) : null}
+    </>
   );
 }

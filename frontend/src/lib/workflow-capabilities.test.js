@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  jobAllowsCommand,
   normalizeWorkflowCapabilities,
   statusMetadataFor,
   statusMetadataIndex,
@@ -50,4 +51,14 @@ test('missing capabilities remain unavailable instead of inventing metadata', ()
   const capabilities = normalizeWorkflowCapabilities(null);
   assert.deepEqual(capabilities.statuses, []);
   assert.equal(statusMetadataFor(statusMetadataIndex([]), 'completed'), null);
+});
+
+test('job commands require an explicit backend capability', () => {
+  const capabilities = {
+    allowed_commands: ['validate', 'reassign'],
+  };
+
+  assert.equal(jobAllowsCommand(capabilities, 'validate'), true);
+  assert.equal(jobAllowsCommand(capabilities, 'accept_and_start'), false);
+  assert.equal(jobAllowsCommand(null, 'validate'), false);
 });
