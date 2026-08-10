@@ -1,0 +1,387 @@
+/* ======================================================
+   SMART MAP STYLES
+   Carte intelligente avec couches FTTH, clustering, heatmap
+   ====================================================== */
+
+/* ── Smart Map Container ────────────────────────────── */
+.smart-map {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #111318;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.smart-map-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #1a1d23;
+    border-bottom: 1px solid #2a2d35;
+    flex-shrink: 0;
+}
+
+.smart-map-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e5e7eb;
+    margin: 0;
+}
+
+.smart-map-header-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.smart-map-count,
+.smart-map-zoom {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.smart-map-loading {
+    font-size: 12px;
+    color: #f59e0b;
+}
+
+/* ── Search Bar ──────────────────────────────────────── */
+.map-search-bar {
+    position: relative;
+    padding: 8px 16px;
+    background: #1a1d23;
+    border-bottom: 1px solid #2a2d35;
+    flex-shrink: 0;
+}
+
+.map-search-input-wrapper {
+    display: flex;
+    align-items: center;
+    background: #2a2d35;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 6px 12px;
+    transition: border-color 0.2s;
+}
+
+.map-search-input-wrapper:focus-within {
+    border-color: #4f8ff7;
+}
+
+.map-search-icon {
+    font-size: 14px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.map-search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: #e5e7eb;
+    font-size: 13px;
+    outline: none;
+}
+
+.map-search-input::placeholder {
+    color: #6b7280;
+}
+
+.map-search-clear {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px;
+    line-height: 1;
+}
+
+.map-search-clear:hover {
+    color: #e5e7eb;
+}
+
+/* ── Search Results ──────────────────────────────────── */
+.map-search-results {
+    position: absolute;
+    top: 100%;
+    left: 16px;
+    right: 16px;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1001;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.map-search-no-results {
+    padding: 16px;
+    color: #6b7280;
+    text-align: center;
+    font-size: 13px;
+}
+
+.map-search-result-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #2a2d35;
+    transition: background 0.15s;
+}
+
+.map-search-result-item:last-child {
+    border-bottom: none;
+}
+
+.map-search-result-item:hover {
+    background: #374151;
+}
+
+.map-search-result-type {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.map-search-result-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.map-search-result-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #e5e7eb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.map-search-result-sub {
+    display: block;
+    font-size: 11px;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.map-search-result-layer {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #4f8ff7;
+    background: #1e3a5f33;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+/* ── Body ────────────────────────────────────────────── */
+.smart-map-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* ── Layer Controls ──────────────────────────────────── */
+.map-layers-control {
+    width: 200px;
+    background: #1a1d23;
+    border-right: 1px solid #2a2d35;
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.map-layers-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 0;
+}
+
+.map-layers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.map-layer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+}
+
+.map-layer-item:hover {
+    background: #2a2d35;
+}
+
+.map-layer-checkbox {
+    accent-color: #4f8ff7;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
+.map-layer-color {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.map-layer-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.map-layer-label {
+    flex: 1;
+    font-size: 13px;
+    color: #e5e7eb;
+}
+
+.map-layer-count {
+    font-size: 11px;
+    color: #6b7280;
+    background: #2a2d35;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+/* ── Map Container ───────────────────────────────────── */
+.smart-map-container {
+    flex: 1;
+    position: relative;
+}
+
+/* Fix Leaflet container z-index issues */
+.smart-map-container .leaflet-container {
+    z-index: 1;
+}
+
+/* ── Map Popup ───────────────────────────────────────── */
+.map-popup {
+    min-width: 180px;
+}
+
+.map-popup strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 6px;
+    color: #1f2937;
+}
+
+.map-popup p {
+    margin: 3px 0;
+    font-size: 12px;
+    color: #4b5563;
+}
+
+/* ── Detail Sidebar ──────────────────────────────────── */
+.smart-map-sidebar {
+    width: 280px;
+    background: #1a1d23;
+    border-left: 1px solid #2a2d35;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.smart-map-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border-bottom: 1px solid #2a2d35;
+}
+
+.smart-map-sidebar-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e5e7eb;
+    margin: 0;
+}
+
+.smart-map-sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.smart-map-sidebar-body p {
+    margin: 6px 0;
+    font-size: 13px;
+    color: #d1d5db;
+    line-height: 1.5;
+}
+
+.smart-map-sidebar-body strong {
+    color: #9ca3af;
+    text-transform: capitalize;
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 768px) {
+    .map-layers-control {
+        width: 48px;
+    }
+
+    .map-layer-label,
+    .map-layer-count,
+    .map-layer-color,
+    .map-layer-icon {
+        display: none;
+    }
+
+    .map-layer-item {
+        justify-content: center;
+        padding: 8px;
+    }
+
+    .map-layer-checkbox {
+        margin: 0;
+    }
+
+    .smart-map-sidebar {
+        width: 200px;
+    }
+}
+
+/* ── Scrollbar ───────────────────────────────────────── */
+.map-layers-control::-webkit-scrollbar,
+.map-search-results::-webkit-scrollbar,
+.smart-map-sidebar-body::-webkit-scrollbar {
+    width: 4px;
+}
+
+.map-layers-control::-webkit-scrollbar-track,
+.map-search-results::-webkit-scrollbar-track,
+.smart-map-sidebar-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.map-layers-control::-webkit-scrollbar-thumb,
+.map-search-results::-webkit-scrollbar-thumb,
+.smart-map-sidebar-body::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 2px;
+}

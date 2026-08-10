@@ -1,0 +1,62 @@
+# Magellan — single-container app (built SPA + FastAPI) + Postgres.
+#
+# Run regular:  make up        (or: docker compose up --build)
+# Run demo:     make demo      (or: IS_DEMO=true docker compose up --build)
+#
+# Browse: http://localhost:8080
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: fieldopt-postgres
+    environment:
+      POSTGRES_USER: fieldopt
+      POSTGRES_PASSWORD: fieldopt
+      POSTGRES_DB: fieldopt
+    ports:
+    - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fieldopt"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fieldopt:fieldopt@postgres:5432/fieldopt
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fieldopt-app
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fieldopt:fieldopt@postgres:5432/fieldopt
+      IS_DEMO: ${IS_DEMO:-false}
+      API_HOST: 0.0.0.0
+      API_PORT: "8000"
+      API_RELOAD: "false"
+      CORS_ORIGINS: '["*"]'
+      LOG_LEVEL: INFO
+      PYTHONPATH: /app/backend
+      TECHNICIAN_MEDIA_ROOT: /app/uploads/technician_media
+    volumes:
+      - technician_media:/app/uploads/technician_media
+    ports:
+      - "8080:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+volumes:
+  postgres_data:
+  technician_media:

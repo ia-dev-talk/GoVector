@@ -1,0 +1,138 @@
+import { memo } from 'react';
+import {
+  CalendarIcon,
+  ExportIcon,
+  RefreshIcon,
+  ReportsIcon,
+} from './ReportIcons';
+import {
+  PERIOD_OPTIONS,
+  formatRange,
+} from './reportUtils';
+
+
+const ReportsHeader = memo(function ReportsHeader({
+  period,
+  onPeriodChange,
+  range,
+  connected,
+  lastUpdatedAt,
+  refreshing,
+  onRefresh,
+  onExport,
+}) {
+  return (
+    <header className="rv3-header">
+      <div className="rv3-header-identity">
+        <span className="rv3-eyebrow">
+          Analytique FTTH
+        </span>
+
+        <div className="rv3-title-row">
+          <span className="rv3-title-icon">
+            <ReportsIcon />
+          </span>
+
+          <div>
+            <div className="rv3-title-line">
+              <h1>Rapports</h1>
+
+              <span
+                className={[
+                  'rv3-live-pill',
+                  connected
+                    ? 'rv3-live-pill--connected'
+                    : 'rv3-live-pill--reconnecting',
+                ].join(' ')}
+              >
+                <i />
+                {connected
+                  ? 'TEMPS RÉEL'
+                  : 'RECONNEXION'}
+              </span>
+            </div>
+
+            <p>
+              Performance, activité et qualité des données terrain
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="rv3-period-controls">
+        <label>
+          <CalendarIcon />
+          <select
+            value={period}
+            onChange={(event) =>
+              onPeriodChange(
+                event.target.value,
+              )
+            }
+            aria-label="Période d’analyse"
+          >
+            {PERIOD_OPTIONS.map(
+              (option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                >
+                  {option.label}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+
+        <span className="rv3-range-pill">
+          {formatRange(range)}
+        </span>
+      </div>
+
+      <div className="rv3-header-actions">
+        {lastUpdatedAt && (
+          <span
+            className="rv3-updated-at"
+            title={lastUpdatedAt.toLocaleString(
+              'fr-FR',
+            )}
+          >
+            MAJ{' '}
+            {lastUpdatedAt.toLocaleTimeString(
+              'fr-FR',
+              {
+                hour: '2-digit',
+                minute: '2-digit',
+              },
+            )}
+          </span>
+        )}
+
+        <button
+          type="button"
+          className="rv3-icon-button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          aria-label="Actualiser les rapports"
+          title="Actualiser"
+        >
+          <RefreshIcon
+            spinning={refreshing}
+          />
+        </button>
+
+        <button
+          type="button"
+          className="rv3-primary-button"
+          onClick={onExport}
+        >
+          <ExportIcon />
+          Nouvel export
+        </button>
+      </div>
+    </header>
+  );
+});
+
+
+export default ReportsHeader;

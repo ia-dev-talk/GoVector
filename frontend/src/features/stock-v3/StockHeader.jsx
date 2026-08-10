@@ -1,0 +1,134 @@
+import { memo } from 'react';
+import {
+  BoxIcon,
+  ExportIcon,
+  PlusIcon,
+  ReceptionIcon,
+  RefreshIcon,
+  SearchIcon,
+} from './StockIcons';
+
+
+const StockHeader = memo(function StockHeader({
+  catalogCount,
+  warehouseCount,
+  availableUnits,
+  searchQuery,
+  onSearchChange,
+  onRefresh,
+  refreshing,
+  onExport,
+  onCreate,
+  onReceive,
+  canManageCatalog,
+  canMoveStock,
+  hasWarehouses,
+}) {
+  return (
+    <header className="st3-header">
+      <div className="st3-header-identity">
+        <span className="st3-eyebrow">
+          Logistique FTTH
+        </span>
+
+        <div className="st3-title-row">
+          <span className="st3-title-icon">
+            <BoxIcon />
+          </span>
+
+          <div>
+            <h1>Stocks</h1>
+            <p>
+              Catalogue, dépôts, quantités et traçabilité
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="st3-header-summary">
+        <div>
+          <strong>{catalogCount}</strong>
+          <span>articles</span>
+        </div>
+
+        <div>
+          <strong>{warehouseCount}</strong>
+          <span>dépôts</span>
+        </div>
+
+        <div>
+          <strong>{availableUnits}</strong>
+          <span>unités disponibles</span>
+        </div>
+      </div>
+
+      <div className="st3-header-actions">
+        <label className="st3-search">
+          <SearchIcon />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) =>
+              onSearchChange(
+                event.target.value,
+              )
+            }
+            placeholder="Référence, article, type, opérateur…"
+            aria-label="Rechercher dans le stock"
+          />
+        </label>
+
+        <button
+          type="button"
+          className="st3-icon-button"
+          onClick={onRefresh}
+          disabled={refreshing}
+          title="Actualiser"
+          aria-label="Actualiser le stock"
+        >
+          <RefreshIcon spinning={refreshing} />
+        </button>
+
+        <button
+          type="button"
+          className="st3-secondary-button"
+          onClick={onExport}
+        >
+          <ExportIcon />
+          Exporter
+        </button>
+
+        {canMoveStock && (
+          <button
+            type="button"
+            className="st3-secondary-button"
+            onClick={onReceive}
+            disabled={!hasWarehouses}
+            title={
+              hasWarehouses
+                ? 'Enregistrer une réception'
+                : 'Créez d’abord un dépôt'
+            }
+          >
+            <ReceptionIcon />
+            Réception
+          </button>
+        )}
+
+        {canManageCatalog && (
+          <button
+            type="button"
+            className="st3-primary-button"
+            onClick={onCreate}
+          >
+            <PlusIcon />
+            Nouvel article
+          </button>
+        )}
+      </div>
+    </header>
+  );
+});
+
+
+export default StockHeader;

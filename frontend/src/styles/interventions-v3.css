@@ -1,0 +1,3150 @@
+/* ==========================================================================
+   BlueVector Interventions Workspace V3
+   ========================================================================== */
+
+.ie-page {
+  --intervention-panel-border:
+    rgba(114, 138, 173, 0.18);
+  --intervention-panel-background:
+    rgba(17, 26, 40, 0.94);
+  --intervention-panel-raised:
+    rgba(21, 32, 49, 0.96);
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  color: var(--text-primary);
+  background:
+    radial-gradient(
+      circle at 82% -22%,
+      rgba(75, 141, 255, 0.07),
+      transparent 34%
+    ),
+    var(--surface-app);
+}
+
+/* Header ------------------------------------------------------------------ */
+
+.intervention-workspace-header {
+  display: grid;
+  grid-template-columns:
+    minmax(270px, 1fr)
+    auto
+    minmax(240px, 0.72fr);
+  align-items: center;
+  min-height: 88px;
+  padding: 14px 20px;
+  gap: 20px;
+  flex: 0 0 auto;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.018),
+      transparent
+    ),
+    rgba(13, 20, 32, 0.96);
+  border-bottom:
+    1px solid rgba(114, 138, 173, 0.16);
+  backdrop-filter: blur(18px);
+}
+
+.intervention-workspace-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.intervention-workspace-eyebrow {
+  color: #66758d;
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.intervention-workspace-title-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
+
+.intervention-workspace-title-row h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 24px;
+  line-height: 1.08;
+  font-weight: 720;
+  letter-spacing: -0.035em;
+}
+
+.intervention-workspace-identity p {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intervention-workspace-live {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  gap: 6px;
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border:
+    1px solid rgba(57, 217, 138, 0.22);
+  border-radius: var(--radius-full);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.intervention-workspace-live > span {
+  width: 6px;
+  height: 6px;
+  background: var(--color-success);
+  border-radius: 50%;
+  box-shadow:
+    0 0 9px rgba(57, 217, 138, 0.52);
+}
+
+.intervention-workspace-date {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.intervention-date-arrow,
+.intervention-date-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  color: var(--text-secondary);
+  background: var(--surface-input);
+  border:
+    1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.intervention-date-arrow {
+  width: 36px;
+  padding: 0;
+}
+
+.intervention-date-arrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+.intervention-date-button {
+  min-width: 158px;
+  padding: 0 13px;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.intervention-date-button svg {
+  width: 16px;
+  height: 16px;
+  color: #7889a2;
+}
+
+.intervention-date-arrow:hover,
+.intervention-date-button:hover:not(:disabled) {
+  color: #ffffff;
+  background: var(--surface-elevated);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.intervention-date-button--today {
+  color: #d9e7ff;
+  background: var(--color-accent-bg);
+  border-color:
+    rgba(75, 141, 255, 0.22);
+}
+
+.intervention-date-button--locked {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.intervention-workspace-summary {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 8px;
+}
+
+.intervention-workspace-summary > div {
+  display: flex;
+  min-width: 112px;
+  min-height: 48px;
+  padding: 8px 12px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  background:
+    rgba(255, 255, 255, 0.018);
+  border:
+    1px solid var(--border-light);
+  border-radius: 11px;
+}
+
+.intervention-workspace-summary span {
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.intervention-workspace-summary strong {
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 720;
+}
+
+/* KPI strip ---------------------------------------------------------------- */
+
+.intervention-kpi-section {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    280px;
+  align-items: stretch;
+  padding: 14px 20px 0;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.intervention-kpi-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.intervention-kpi-card {
+  --intervention-kpi-color:
+    var(--color-accent);
+  --intervention-kpi-tint:
+    rgba(75, 141, 255, 0.12);
+
+  position: relative;
+  display: grid;
+  grid-template-columns:
+    34px minmax(0, 1fr);
+  grid-template-rows:
+    auto auto;
+  min-width: 0;
+  min-height: 82px;
+  padding: 12px 13px;
+  overflow: hidden;
+  color: var(--text-primary);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.022),
+      transparent 58%
+    ),
+    var(--surface-panel);
+  border:
+    1px solid var(--border-color);
+  border-radius: 13px;
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  font-family: var(--font-family);
+}
+
+.intervention-kpi-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background:
+    var(--intervention-kpi-color);
+  box-shadow:
+    0 0 16px var(--intervention-kpi-tint);
+}
+
+.intervention-kpi-card--warning {
+  --intervention-kpi-color:
+    var(--color-warning);
+  --intervention-kpi-tint:
+    rgba(246, 184, 75, 0.22);
+}
+
+.intervention-kpi-card--info {
+  --intervention-kpi-color:
+    var(--color-info);
+  --intervention-kpi-tint:
+    rgba(101, 181, 255, 0.22);
+}
+
+.intervention-kpi-card--purple {
+  --intervention-kpi-color:
+    var(--color-purple);
+  --intervention-kpi-tint:
+    rgba(167, 139, 250, 0.22);
+}
+
+.intervention-kpi-card--success {
+  --intervention-kpi-color:
+    var(--color-success);
+  --intervention-kpi-tint:
+    rgba(57, 217, 138, 0.2);
+}
+
+button.intervention-kpi-card {
+  width: 100%;
+  appearance: none;
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+button.intervention-kpi-card:hover {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.032),
+      transparent 58%
+    ),
+    var(--surface-elevated);
+  border-color:
+    color-mix(
+      in srgb,
+      var(--intervention-kpi-color) 36%,
+      var(--border-color)
+    );
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.intervention-kpi-card--active {
+  background:
+    linear-gradient(
+      145deg,
+      var(--intervention-kpi-tint),
+      transparent 72%
+    ),
+    var(--surface-elevated);
+  border-color:
+    color-mix(
+      in srgb,
+      var(--intervention-kpi-color) 42%,
+      var(--border-color)
+    );
+}
+
+.intervention-kpi-icon {
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 32px;
+  height: 32px;
+  color:
+    var(--intervention-kpi-color);
+  background:
+    var(--intervention-kpi-tint);
+  border:
+    1px solid
+      color-mix(
+        in srgb,
+        var(--intervention-kpi-color) 22%,
+        transparent
+      );
+  border-radius: 10px;
+}
+
+.intervention-kpi-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.intervention-kpi-value {
+  align-self: end;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 19px;
+  line-height: 1;
+  font-weight: 750;
+  letter-spacing: -0.035em;
+}
+
+.intervention-kpi-label {
+  align-self: start;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 670;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intervention-kpi-subtitle {
+  position: absolute;
+  right: 12px;
+  bottom: 9px;
+  max-width: calc(100% - 58px);
+  overflow: hidden;
+  color: #637188;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intervention-workforce-summary {
+  display: flex;
+  min-width: 0;
+  padding: 11px 13px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(75, 141, 255, 0.05),
+      transparent
+    ),
+    var(--surface-panel);
+  border:
+    1px solid var(--border-color);
+  border-radius: 13px;
+  box-shadow: var(--shadow-sm);
+}
+
+.intervention-workforce-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.intervention-workforce-icon {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 auto;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border:
+    1px solid rgba(75, 141, 255, 0.18);
+  border-radius: 9px;
+}
+
+.intervention-workforce-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.intervention-workforce-heading > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.intervention-workforce-heading span {
+  color: var(--text-muted);
+  font-size: 8px;
+  font-weight: 720;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.intervention-workforce-heading strong {
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 660;
+}
+
+.intervention-workforce-values {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.intervention-workforce-values > div {
+  display: grid;
+  grid-template-columns:
+    auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 8px;
+  gap: 6px;
+  background:
+    rgba(255, 255, 255, 0.018);
+  border:
+    1px solid var(--border-light);
+  border-radius: 8px;
+}
+
+.intervention-workforce-values span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intervention-workforce-values strong {
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.intervention-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.intervention-status-dot--available {
+  background: var(--color-success);
+  box-shadow:
+    0 0 8px rgba(57, 217, 138, 0.45);
+}
+
+.intervention-status-dot--offline {
+  background: #77859b;
+}
+
+.intervention-overdue-rule {
+  color: #647288;
+  font-size: 8px;
+  font-weight: 660;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Toolbar ------------------------------------------------------------------ */
+
+.intervention-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(250px, 1fr)
+    auto
+    auto;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px 20px;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.intervention-toolbar-search {
+  display: flex;
+  align-items: center;
+  width: min(100%, 460px);
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  gap: 8px;
+  background: var(--surface-input);
+  border:
+    1px solid var(--border-color);
+  border-radius: 10px;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.intervention-toolbar-search:focus-within {
+  border-color: var(--color-accent);
+  box-shadow:
+    0 0 0 3px
+      rgba(75, 141, 255, 0.12);
+}
+
+.intervention-toolbar-search svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: #718198;
+}
+
+.intervention-toolbar-search input {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-primary);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-size: 12px;
+}
+
+.intervention-toolbar-search input::placeholder {
+  color: #56657a;
+}
+
+.intervention-view-switcher {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 3px;
+  gap: 2px;
+  background: var(--surface-input);
+  border:
+    1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+.intervention-view-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  gap: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  border:
+    1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 10px;
+  font-weight: 640;
+}
+
+.intervention-view-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.intervention-view-button:hover {
+  color: var(--text-primary);
+  background:
+    rgba(255, 255, 255, 0.025);
+}
+
+.intervention-view-button--active {
+  color: #dce9ff;
+  background: var(--color-accent-dim);
+  border-color:
+    rgba(75, 141, 255, 0.18);
+}
+
+.intervention-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 7px;
+}
+
+.intervention-toolbar-actions .btn {
+  min-height: 38px;
+  padding-inline: 11px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.intervention-toolbar-actions .btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.intervention-toolbar-primary {
+  padding-inline: 14px !important;
+}
+
+.intervention-toolbar-filter-button {
+  position: relative;
+}
+
+.intervention-toolbar-count {
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  color: #ffffff;
+  background:
+    rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+/* Filter panel ------------------------------------------------------------- */
+
+.intervention-filter-panel {
+  max-height: 0;
+  margin: 0 20px;
+  overflow: hidden;
+  opacity: 0;
+  flex: 0 0 auto;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.012),
+      transparent
+    ),
+    var(--surface-panel);
+  border:
+    0 solid var(--border-color);
+  border-radius: 12px;
+  transition:
+    max-height var(--transition-normal),
+    opacity var(--transition-normal),
+    margin-bottom var(--transition-normal),
+    border-width var(--transition-normal);
+}
+
+.intervention-filter-panel--expanded {
+  max-height: 220px;
+  margin-bottom: 12px;
+  opacity: 1;
+  border-width: 1px;
+}
+
+.intervention-filter-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(8, minmax(120px, 1fr));
+  align-items: end;
+  padding: 13px 14px 11px;
+  gap: 9px;
+}
+
+.intervention-filter-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.intervention-filter-field > span {
+  color: var(--text-muted);
+  font-size: 8px;
+  font-weight: 720;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.intervention-filter-field select {
+  width: 100%;
+  min-width: 0;
+  height: 35px;
+  padding: 0 9px;
+  color: var(--text-secondary);
+  background: var(--surface-input);
+  border:
+    1px solid var(--border-color);
+  border-radius: 8px;
+  outline: 0;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.intervention-filter-field select:hover {
+  border-color: var(--border-strong);
+}
+
+.intervention-filter-field select:focus {
+  border-color: var(--color-accent);
+  box-shadow:
+    0 0 0 3px
+      rgba(75, 141, 255, 0.11);
+}
+
+.intervention-filter-toggle {
+  display: flex;
+  align-items: center;
+  min-height: 35px;
+  padding: 0 9px;
+  gap: 8px;
+  color: var(--text-secondary);
+  background: var(--surface-input);
+  border:
+    1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.intervention-filter-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.intervention-filter-toggle-control {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  flex: 0 0 auto;
+  background: #293449;
+  border:
+    1px solid #36445d;
+  border-radius: var(--radius-full);
+}
+
+.intervention-filter-toggle-control::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  background: #8390a4;
+  border-radius: 50%;
+  transition:
+    transform var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.intervention-filter-toggle
+  input:checked
+  + .intervention-filter-toggle-control {
+  background:
+    rgba(255, 104, 119, 0.22);
+  border-color:
+    rgba(255, 104, 119, 0.38);
+}
+
+.intervention-filter-toggle
+  input:checked
+  + .intervention-filter-toggle-control::after {
+  background: #ffffff;
+  transform: translateX(12px);
+}
+
+.intervention-filter-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 7px 14px;
+  gap: 12px;
+  background:
+    rgba(255, 255, 255, 0.012);
+  border-top:
+    1px solid var(--border-light);
+}
+
+.intervention-filter-results {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.intervention-filter-results strong {
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.intervention-filter-selection {
+  margin-left: 8px;
+  padding: 3px 7px;
+  color: #9cc0ff;
+  background: var(--color-accent-bg);
+  border:
+    1px solid rgba(75, 141, 255, 0.14);
+  border-radius: var(--radius-full);
+}
+
+.intervention-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.intervention-filter-advanced,
+.intervention-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  min-height: 31px;
+  padding: 0 9px;
+  gap: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.intervention-filter-advanced {
+  color: var(--text-secondary);
+  background: var(--surface-elevated);
+  border:
+    1px solid var(--border-color);
+}
+
+.intervention-filter-clear {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border:
+    1px solid
+      rgba(255, 104, 119, 0.17);
+}
+
+.intervention-filter-advanced svg,
+.intervention-filter-clear svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Workspace --------------------------------------------------------------- */
+
+.ie-main.intervention-workspace-main {
+  display: grid;
+  grid-template-columns:
+    minmax(225px, 0.58fr)
+    minmax(520px, 1.62fr)
+    minmax(300px, 0.76fr);
+  min-height: 0;
+  padding: 0 20px 16px;
+  gap: 12px;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.intervention-technician-rail,
+.intervention-planning-panel,
+.intervention-inspector-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.012),
+      transparent
+    ),
+    var(--surface-panel);
+  border:
+    1px solid var(--intervention-panel-border);
+  border-radius: 13px;
+  box-shadow: var(--shadow-sm);
+}
+
+.intervention-technician-rail {
+  display: flex;
+  width: auto;
+  flex-direction: column;
+  border-right:
+    1px solid var(--intervention-panel-border);
+}
+
+.intervention-planning-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.intervention-inspector-panel {
+  display: flex;
+  width: auto;
+  flex-direction: column;
+  border-left:
+    1px solid var(--intervention-panel-border);
+}
+
+.intervention-rail-header,
+.intervention-planning-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 58px;
+  padding: 9px 13px;
+  gap: 12px;
+  flex: 0 0 auto;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.018),
+      transparent
+    ),
+    var(--surface-panel-alt);
+  border-bottom:
+    1px solid var(--border-light);
+}
+
+.intervention-panel-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 9px;
+}
+
+.intervention-panel-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border:
+    1px solid rgba(75, 141, 255, 0.18);
+  border-radius: 9px;
+}
+
+.intervention-panel-icon--planning {
+  color: var(--color-purple);
+  background: var(--color-purple-bg);
+  border-color:
+    rgba(167, 139, 250, 0.18);
+}
+
+.intervention-panel-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.intervention-panel-title > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.intervention-panel-title span {
+  color: #617087;
+  font-size: 8px;
+  font-weight: 730;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.intervention-panel-title strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intervention-panel-total {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  min-height: 24px;
+  padding: 0 7px;
+  color: var(--text-secondary);
+  background: var(--surface-elevated);
+  border:
+    1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.intervention-rail-status {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  padding: 9px 10px;
+  gap: 7px;
+  flex: 0 0 auto;
+  border-bottom:
+    1px solid var(--border-light);
+}
+
+.intervention-rail-status > div {
+  display: grid;
+  grid-template-columns:
+    auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 31px;
+  padding: 0 8px;
+  gap: 6px;
+  background:
+    rgba(255, 255, 255, 0.016);
+  border:
+    1px solid var(--border-light);
+  border-radius: 8px;
+}
+
+.intervention-rail-status span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intervention-rail-status strong {
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.intervention-technician-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  transition:
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.intervention-technician-grid--drag-target {
+  background:
+    rgba(75, 141, 255, 0.05);
+  box-shadow:
+    0 0 0 2px
+      rgba(75, 141, 255, 0.26)
+      inset;
+}
+
+.intervention-rail-footer {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 10px;
+  flex: 0 0 auto;
+  color: #5e6d83;
+  background: var(--surface-panel-alt);
+  border-top:
+    1px solid var(--border-light);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.intervention-planning-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+.intervention-planning-summary strong {
+  color: #ffffff;
+  font-family: var(--font-mono);
+}
+
+.intervention-planning-selection {
+  padding: 4px 7px;
+  color: #9cc0ff;
+  background: var(--color-accent-bg);
+  border:
+    1px solid rgba(75, 141, 255, 0.14);
+  border-radius: var(--radius-full);
+}
+
+.ie-panel-body.ie-grid-body {
+  flex: 1 1 auto;
+  min-height: 190px;
+  overflow: hidden;
+}
+
+.ie-map-container {
+  height: 235px;
+  min-height: 160px;
+  margin: 8px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: var(--surface-input);
+  border:
+    1px solid var(--border-color);
+  border-radius: 11px;
+  box-shadow: var(--shadow-sm);
+}
+
+.ie-map-container .map-window-integrated {
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.ie-map-container .leaflet-tile-pane {
+  filter:
+    saturate(0.48)
+    brightness(0.68)
+    contrast(1.09)
+    sepia(0.04);
+}
+
+/* AG Grid convergence ------------------------------------------------------ */
+
+.ie-page .ag-theme-fieldopt {
+  --ag-background-color:
+    transparent;
+  --ag-foreground-color:
+    var(--text-secondary);
+  --ag-header-background-color:
+    var(--surface-panel-alt);
+  --ag-header-foreground-color:
+    #7e8ca2;
+  --ag-border-color:
+    rgba(114, 138, 173, 0.1);
+  --ag-row-border-color:
+    rgba(114, 138, 173, 0.08);
+  --ag-odd-row-background-color:
+    rgba(255, 255, 255, 0.006);
+  --ag-row-hover-color:
+    rgba(75, 141, 255, 0.055);
+  --ag-selected-row-background-color:
+    rgba(75, 141, 255, 0.12);
+  --ag-font-family:
+    var(--font-family);
+  --ag-font-size: 10px;
+  --ag-header-height: 34px;
+  --ag-row-height: 30px;
+}
+
+.ie-page .ag-theme-fieldopt .ag-root-wrapper {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.ie-page .ag-theme-fieldopt .ag-header {
+  border-bottom:
+    1px solid var(--border-light);
+}
+
+.ie-page .ag-theme-fieldopt .ag-header-cell {
+  padding-inline: 10px;
+  font-size: 9px;
+  font-weight: 720;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.ie-page .ag-theme-fieldopt .ag-cell {
+  padding-inline: 10px;
+  border-right-color:
+    rgba(114, 138, 173, 0.055);
+}
+
+.ie-page .ag-theme-fieldopt .ag-row {
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.ie-page .ag-theme-fieldopt .ag-row-selected {
+  box-shadow:
+    3px 0 0 var(--color-accent)
+      inset;
+}
+
+.ie-page .ag-theme-fieldopt .ag-overlay-no-rows-center {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* Inspector --------------------------------------------------------------- */
+
+.intervention-inspector-empty {
+  display: flex;
+  min-height: 100%;
+  padding: 34px 24px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.intervention-inspector-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 5px;
+  color: #718198;
+  background:
+    rgba(255, 255, 255, 0.025);
+  border:
+    1px solid var(--border-color);
+  border-radius: 15px;
+}
+
+.intervention-inspector-empty-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.intervention-inspector-empty strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 670;
+}
+
+.intervention-inspector-empty p {
+  max-width: 240px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.intervention-inspector-empty small {
+  color: #55647a;
+  font-size: 8px;
+}
+
+.ie-detail {
+  height: 100%;
+  background: transparent;
+}
+
+.ie-detail-header {
+  min-height: 68px;
+  padding: 11px 13px;
+  gap: 10px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.018),
+      transparent
+    ),
+    var(--surface-panel-alt);
+  border-bottom:
+    1px solid var(--border-light);
+}
+
+.intervention-inspector-status-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  color:
+    var(
+      --inspector-status-color,
+      var(--color-accent)
+    );
+  background:
+    color-mix(
+      in srgb,
+      var(
+        --inspector-status-color,
+        var(--color-accent)
+      ) 13%,
+      transparent
+    );
+  border:
+    1px solid
+      color-mix(
+        in srgb,
+        var(
+          --inspector-status-color,
+          var(--color-accent)
+        ) 30%,
+        transparent
+      );
+  border-radius: 10px;
+}
+
+.intervention-inspector-status-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ie-detail-header strong {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ie-detail-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--text-muted);
+  background:
+    rgba(255, 255, 255, 0.018);
+  border:
+    1px solid var(--border-light);
+  border-radius: 8px;
+}
+
+.ie-detail-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ie-detail-close:hover {
+  color: #ffffff;
+  background: var(--surface-elevated);
+}
+
+.ie-detail-body {
+  padding: 12px 13px 16px;
+}
+
+.ie-detail-badges {
+  gap: 6px;
+  margin-bottom: 13px;
+}
+
+.ie-detail-badge,
+.ie-detail .status-badge {
+  min-height: 23px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  font-size: 8px;
+  letter-spacing: 0.045em;
+}
+
+.ie-detail-section {
+  margin-bottom: 13px;
+  padding: 11px;
+  background:
+    rgba(255, 255, 255, 0.014);
+  border:
+    1px solid var(--border-light);
+  border-radius: 10px;
+}
+
+.ie-detail-section-title {
+  margin-bottom: 8px;
+  padding-bottom: 7px;
+  color: #77879e;
+  border-bottom:
+    1px solid var(--border-light);
+  font-size: 8px;
+  font-weight: 740;
+  letter-spacing: 0.07em;
+}
+
+.ie-detail-grid {
+  gap: 7px 10px;
+}
+
+.ie-detail-grid > div {
+  min-width: 0;
+  padding: 0;
+  gap: 2px;
+}
+
+.ie-detail-grid > div span {
+  color: #5f6e84;
+  font-size: 8px;
+}
+
+.ie-detail-grid > div strong {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 590;
+  text-overflow: ellipsis;
+}
+
+.ie-detail-text {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.ie-detail-photo-link {
+  min-height: 31px;
+  padding: 0 10px;
+  color: #9dc0ff;
+  background: var(--color-accent-bg);
+  border:
+    1px solid rgba(75, 141, 255, 0.17);
+  border-radius: 8px;
+  font-size: 9px;
+}
+
+.ie-detail-actions {
+  margin-top: 14px;
+  padding-top: 12px;
+  gap: 7px;
+  border-top:
+    1px solid var(--border-light);
+}
+
+.ie-detail-actions .btn {
+  min-height: 34px;
+  font-size: 9px;
+}
+
+/* Activity panel ---------------------------------------------------------- */
+
+.ie-bottom {
+  height: 170px;
+  min-height: 120px;
+  margin: 0 20px 16px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: var(--surface-panel);
+  border:
+    1px solid var(--intervention-panel-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.ie-bottom-tabs {
+  height: 42px;
+  min-height: 42px;
+  background: var(--surface-panel-alt);
+  border-bottom:
+    1px solid var(--border-light);
+}
+
+.ie-bottom-tab {
+  min-height: 42px;
+  padding: 0 14px;
+  color: var(--text-secondary);
+  border-right:
+    1px solid var(--border-light);
+  font-size: 9px;
+  letter-spacing: 0.055em;
+}
+
+.ie-bottom-tab--active {
+  color: #9dc0ff;
+  background: var(--color-accent-bg);
+  border-bottom:
+    2px solid var(--color-accent);
+}
+
+.ie-activity {
+  width: 310px;
+  padding: 10px 12px;
+  border-right:
+    1px solid var(--border-light);
+}
+
+.ie-tl-empty {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  color: #637188;
+  font-size: 10px;
+}
+
+.ie-tl-item {
+  min-height: 30px;
+}
+
+.ie-tl-msg {
+  font-size: 9px;
+}
+
+.ie-tl-time {
+  font-size: 8px;
+}
+
+/* Simulation bar ---------------------------------------------------------- */
+
+.ie-page > .sim-bar {
+  flex: 0 0 auto;
+}
+
+/* Responsive -------------------------------------------------------------- */
+
+@media (max-width: 1500px) {
+  .intervention-workspace-header {
+    grid-template-columns:
+      minmax(240px, 1fr)
+      auto
+      minmax(200px, 0.65fr);
+  }
+
+  .intervention-workspace-summary > div {
+    min-width: 94px;
+  }
+
+  .intervention-kpi-section {
+    grid-template-columns:
+      minmax(0, 1fr)
+      240px;
+  }
+
+  .intervention-toolbar {
+    grid-template-columns:
+      minmax(220px, 1fr)
+      auto;
+  }
+
+  .intervention-view-switcher {
+    display: none;
+  }
+
+  .intervention-toolbar-actions .btn {
+    padding-inline: 9px;
+  }
+
+  .intervention-filter-grid {
+    grid-template-columns:
+      repeat(4, minmax(130px, 1fr));
+  }
+
+  .intervention-filter-panel--expanded {
+    max-height: 300px;
+  }
+
+  .ie-main.intervention-workspace-main {
+    grid-template-columns:
+      minmax(210px, 0.52fr)
+      minmax(500px, 1.5fr)
+      minmax(280px, 0.72fr);
+  }
+}
+
+@media (max-width: 1280px) {
+  .intervention-workspace-summary {
+    display: none;
+  }
+
+  .intervention-workspace-header {
+    grid-template-columns:
+      minmax(250px, 1fr)
+      auto;
+  }
+
+  .intervention-kpi-section {
+    grid-template-columns: 1fr;
+  }
+
+  .intervention-workforce-summary {
+    display: grid;
+    grid-template-columns:
+      minmax(180px, 0.8fr)
+      minmax(260px, 1fr)
+      auto;
+    align-items: center;
+  }
+
+  .intervention-workforce-values {
+    align-self: center;
+  }
+
+  .ie-main.intervention-workspace-main {
+    grid-template-columns:
+      minmax(200px, 0.48fr)
+      minmax(500px, 1.42fr);
+  }
+
+  .intervention-inspector-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .intervention-workspace-header {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .intervention-workspace-date {
+    justify-content: flex-start;
+  }
+
+  .intervention-kpi-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .intervention-kpi-section,
+  .intervention-toolbar,
+  .ie-main.intervention-workspace-main {
+    padding-inline: 12px;
+  }
+
+  .intervention-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .intervention-toolbar-search {
+    width: 100%;
+    max-width: none;
+  }
+
+  .intervention-toolbar-actions {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .intervention-filter-panel {
+    margin-inline: 12px;
+  }
+
+  .intervention-filter-grid {
+    grid-template-columns:
+      repeat(2, minmax(130px, 1fr));
+  }
+
+  .ie-main.intervention-workspace-main {
+    grid-template-columns: 1fr;
+  }
+
+  .intervention-technician-rail {
+    display: none;
+  }
+
+  .ie-bottom {
+    margin-inline: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .intervention-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .intervention-workforce-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .intervention-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .intervention-filter-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .intervention-toolbar-label {
+    display: none;
+  }
+
+  .intervention-toolbar-primary span {
+    display: inline;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intervention-kpi-card,
+  .intervention-date-arrow,
+  .intervention-date-button,
+  .intervention-filter-panel {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   Interventions workspace V3.1 — operational polish
+   ========================================================================== */
+
+/* The workforce context is deliberately compact and never competes with the
+   five business KPIs. */
+.intervention-kpi-section {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.intervention-workforce-summary {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 0.8fr)
+    minmax(260px, 1fr)
+    auto;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 11px;
+  gap: 12px;
+}
+
+.intervention-workforce-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.intervention-workforce-values {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+}
+
+.intervention-workforce-values > div {
+  min-width: 130px;
+  min-height: 28px;
+}
+
+.intervention-overdue-rule {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+/* Toolbar hierarchy: contextual assignment is primary; manual creation,
+   advanced search and file actions live in a secondary menu. */
+.intervention-toolbar {
+  position: relative;
+  min-height: 56px;
+  padding-block: 8px;
+}
+
+.intervention-toolbar-assign {
+  min-width: 112px;
+  box-shadow:
+    0 8px 22px rgba(49, 111, 229, 0.18),
+    var(--shadow-sm);
+}
+
+.intervention-actions-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.intervention-actions-trigger {
+  min-width: 40px;
+}
+
+.intervention-actions-popover {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  width: 260px;
+  padding: 6px;
+  flex-direction: column;
+  gap: 3px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.025),
+      transparent 42%
+    ),
+    #111a28;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-xl);
+}
+
+.intervention-actions-popover::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: 18px;
+  width: 9px;
+  height: 9px;
+  background: #121b29;
+  border-top: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
+  transform: rotate(45deg);
+}
+
+.intervention-actions-popover > button {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 9px;
+  gap: 9px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.intervention-actions-popover > button:hover:not(:disabled) {
+  color: #ffffff;
+  background: var(--surface-interactive);
+  border-color: var(--border-light);
+}
+
+.intervention-actions-popover > button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.intervention-actions-popover svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+  margin: auto;
+  color: var(--color-accent);
+}
+
+.intervention-actions-popover button > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.intervention-actions-popover strong {
+  color: inherit;
+  font-size: 11px;
+  font-weight: 660;
+}
+
+.intervention-actions-popover small {
+  color: var(--text-muted);
+  font-size: 9px;
+}
+
+/* Collapsible technician rail. */
+.ie-main.intervention-workspace-main--rail-collapsed {
+  grid-template-columns:
+    48px
+    minmax(600px, 1.78fr)
+    minmax(300px, 0.76fr);
+}
+
+.intervention-rail-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.intervention-rail-collapse,
+.intervention-rail-expand {
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.intervention-rail-collapse {
+  width: 28px;
+  height: 28px;
+}
+
+.intervention-rail-collapse svg {
+  width: 14px;
+  height: 14px;
+}
+
+.intervention-rail-collapse:hover,
+.intervention-rail-expand:hover {
+  color: #ffffff;
+  background: var(--surface-interactive);
+  border-color: var(--border-strong);
+}
+
+.intervention-technician-rail--collapsed {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-width: 48px;
+  background: var(--surface-panel-alt);
+}
+
+.intervention-rail-expand {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  padding: 12px 0;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
+  border: 0;
+  border-radius: 12px;
+}
+
+.intervention-rail-expand svg {
+  width: 18px;
+  height: 18px;
+}
+
+.intervention-rail-expand span {
+  display: grid;
+  place-items: center;
+  min-width: 25px;
+  min-height: 23px;
+  padding: 0 5px;
+  color: #ffffff;
+  background: var(--color-accent-dim);
+  border: 1px solid rgba(75, 141, 255, 0.18);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+/* Planning count is a stable badge, not loose text against the table edge. */
+.intervention-planning-header {
+  min-height: 54px;
+  padding-block: 7px;
+}
+
+.intervention-planning-summary {
+  flex: 0 0 auto;
+}
+
+.intervention-planning-count,
+.intervention-planning-selection {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 0 9px;
+  gap: 4px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.intervention-planning-count strong {
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* Designed no-data state inside AG Grid. */
+.ie-page .ag-theme-fieldopt .ag-overlay-no-rows-wrapper {
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      rgba(75, 141, 255, 0.04),
+      transparent 36%
+    );
+}
+
+.intervention-grid-empty {
+  display: flex;
+  max-width: 420px;
+  padding: 28px 24px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.intervention-grid-empty::before {
+  content: "";
+  width: 38px;
+  height: 38px;
+  margin-bottom: 4px;
+  background:
+    linear-gradient(var(--color-accent), var(--color-accent)) 50% 9px / 14px 2px no-repeat,
+    linear-gradient(var(--color-accent), var(--color-accent)) 50% 16px / 14px 2px no-repeat,
+    linear-gradient(var(--color-accent), var(--color-accent)) 50% 23px / 10px 2px no-repeat,
+    var(--color-accent-bg);
+  border: 1px solid rgba(75, 141, 255, 0.18);
+  border-radius: 11px;
+  opacity: 0.82;
+}
+
+.intervention-grid-empty strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 670;
+}
+
+.intervention-grid-empty span {
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+/* Thin, dark and contextual scrollbars. */
+.ie-page,
+.ie-page *,
+.app-sidebar,
+.sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3850 transparent;
+}
+
+.ie-page ::-webkit-scrollbar,
+.app-sidebar::-webkit-scrollbar,
+.sidebar-nav::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.ie-page ::-webkit-scrollbar-track,
+.app-sidebar::-webkit-scrollbar-track,
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ie-page ::-webkit-scrollbar-thumb,
+.app-sidebar::-webkit-scrollbar-thumb,
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: #2a3850;
+  border: 2px solid transparent;
+  border-radius: var(--radius-full);
+  background-clip: padding-box;
+}
+
+.ie-page ::-webkit-scrollbar-thumb:hover,
+.app-sidebar::-webkit-scrollbar-thumb:hover,
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: #41516d;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+@media (max-width: 1500px) {
+  .intervention-kpi-section {
+    grid-template-columns: 1fr;
+  }
+
+  .intervention-workforce-summary {
+    grid-template-columns:
+      minmax(170px, 0.75fr)
+      minmax(250px, 1fr)
+      auto;
+  }
+
+  .ie-main.intervention-workspace-main--rail-collapsed {
+    grid-template-columns:
+      48px
+      minmax(560px, 1.68fr)
+      minmax(280px, 0.72fr);
+  }
+}
+
+@media (max-width: 1280px) {
+  .ie-main.intervention-workspace-main--rail-collapsed {
+    grid-template-columns:
+      48px
+      minmax(520px, 1fr);
+  }
+}
+
+@media (max-width: 980px) {
+  .intervention-workforce-summary {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .intervention-workforce-values {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .intervention-overdue-rule {
+    justify-self: start;
+  }
+
+  .intervention-actions-popover {
+    right: auto;
+    left: 0;
+  }
+}
+
+/* ==========================================================================
+   Interventions V4 — dispatch workspace
+   ========================================================================== */
+
+.ie-page {
+  container-name: interventions-v4;
+  container-type: inline-size;
+}
+
+.intervention-workspace-header--v4 {
+  grid-template-columns:
+    minmax(260px, 1fr)
+    max-content
+    max-content;
+  min-height: 88px;
+  padding: 12px 18px;
+}
+
+.intervention-workspace-header--v4
+.intervention-workspace-identity p {
+  margin-top: 5px;
+}
+
+.intervention-workspace-scope {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 4px;
+  gap: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-input);
+}
+
+.intervention-workspace-scope > span {
+  display: inline-flex;
+  align-items: baseline;
+  min-height: 30px;
+  padding: 0 9px;
+  gap: 5px;
+  color: var(--text-muted);
+  border-radius: 7px;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.intervention-workspace-scope strong {
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.intervention-kpi-section--v4 {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(330px, 0.62fr);
+  align-items: stretch;
+  padding: 10px 18px 8px;
+  gap: 8px;
+}
+
+.intervention-kpi-section--v4
+.intervention-kpi-grid {
+  grid-template-columns:
+    repeat(5, minmax(96px, 1fr));
+  gap: 7px;
+}
+
+.intervention-kpi-card--v4 {
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr);
+  align-items: center;
+  min-height: 58px;
+  padding: 8px 9px;
+  gap: 8px;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-icon {
+  grid-row: auto;
+  width: 31px;
+  height: 31px;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-copy {
+  min-width: 0;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-copy strong,
+.intervention-kpi-card--v4
+.intervention-kpi-copy span,
+.intervention-kpi-card--v4
+.intervention-kpi-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-copy strong {
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-copy span {
+  margin-top: 3px;
+  color: var(--text-primary);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-copy small {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 7px;
+}
+
+.intervention-workforce-summary--v4 {
+  display: grid;
+  grid-template-columns:
+    31px
+    minmax(70px, 0.7fr)
+    minmax(90px, 1fr)
+    minmax(90px, 1fr);
+  align-items: center;
+  min-height: 58px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+.intervention-workforce-summary--v4
+.intervention-workforce-icon {
+  width: 31px;
+  height: 31px;
+}
+
+.intervention-workforce-total,
+.intervention-workforce-metric {
+  min-width: 0;
+}
+
+.intervention-workforce-total small,
+.intervention-workforce-total strong,
+.intervention-workforce-metric small,
+.intervention-workforce-metric strong {
+  display: block;
+}
+
+.intervention-workforce-total small,
+.intervention-workforce-metric small {
+  color: var(--text-muted);
+  font-size: 7px;
+  white-space: nowrap;
+}
+
+.intervention-workforce-total strong,
+.intervention-workforce-metric strong {
+  margin-top: 3px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.intervention-workforce-metric {
+  position: relative;
+  padding-left: 12px;
+}
+
+.intervention-workforce-metric
+.intervention-status-dot {
+  position: absolute;
+  top: 3px;
+  left: 0;
+}
+
+.intervention-workforce-summary--v4
+.intervention-overdue-rule {
+  grid-column: 1 / -1;
+  justify-self: end;
+  margin-top: -3px;
+  font-size: 6.5px;
+}
+
+.intervention-toolbar--v4 {
+  grid-template-columns:
+    minmax(260px, 1fr)
+    auto
+    max-content;
+  padding: 0 18px 8px;
+  gap: 8px;
+}
+
+.intervention-toolbar--v4
+.intervention-toolbar-search {
+  width: 100%;
+  max-width: none;
+}
+
+.intervention-view-switcher--v4 {
+  display: inline-flex;
+}
+
+.intervention-toolbar--v4
+.intervention-toolbar-actions {
+  flex-wrap: nowrap;
+}
+
+.intervention-toolbar-create {
+  min-width: 158px;
+}
+
+.intervention-toolbar--v4
+.intervention-actions-popover {
+  right: 0;
+  width: 268px;
+}
+
+.ie-main.intervention-workspace-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-columns:
+    minmax(205px, 0.44fr)
+    minmax(0, 1.48fr)
+    minmax(255px, 0.64fr);
+  padding: 0 18px 16px;
+  gap: 9px;
+}
+
+.ie-main.intervention-workspace-main--rail-collapsed {
+  grid-template-columns:
+    48px
+    minmax(0, 1.62fr)
+    minmax(255px, 0.64fr);
+}
+
+.intervention-technician-rail,
+.intervention-planning-panel,
+.intervention-inspector-panel {
+  border-radius: 12px;
+}
+
+.intervention-planning-panel {
+  min-height: 0;
+}
+
+.intervention-planning-header {
+  min-height: 54px;
+  padding: 8px 11px;
+}
+
+.ie-panel-body.ie-grid-body {
+  min-height: 0;
+}
+
+.intervention-map-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-input);
+}
+
+.intervention-map-view
+.map-window-integrated {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  border-radius: 9px;
+}
+
+.intervention-map-view
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+
+.intervention-activity-view {
+  display: grid;
+  grid-template-columns:
+    minmax(245px, 0.62fr)
+    minmax(0, 1.38fr);
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 8px;
+  padding: 8px;
+}
+
+.intervention-activity-feed,
+.intervention-timeline-view {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--surface-input);
+}
+
+.intervention-activity-feed > header,
+.intervention-timeline-view > header {
+  min-height: 52px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.intervention-activity-feed > header span,
+.intervention-timeline-view > header span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.intervention-activity-feed > header strong,
+.intervention-timeline-view > header strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.intervention-activity-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+}
+
+.intervention-timeline-view > .tech-timeline,
+.intervention-timeline-view > div:not(.intervention-timeline-hint) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.intervention-timeline-hint {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-height: 180px;
+  padding: 28px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.intervention-workspace-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  padding: 28px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.intervention-workspace-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  color: var(--color-accent);
+  border: 1px solid rgba(75, 141, 255, 0.28);
+  border-radius: 15px;
+  background: var(--color-accent-dim);
+}
+
+.intervention-workspace-empty-icon svg {
+  width: 25px;
+  height: 25px;
+}
+
+.intervention-workspace-empty h3 {
+  margin: 14px 0 0;
+  color: var(--text-primary);
+  font-size: 15px;
+}
+
+.intervention-workspace-empty p {
+  max-width: 480px;
+  margin: 7px auto 0;
+  color: var(--text-muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.intervention-workspace-empty-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.intervention-workspace-empty-actions button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 11px;
+  gap: 7px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--surface-elevated);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.intervention-workspace-empty-actions button:hover {
+  color: #fff;
+  border-color: rgba(75, 141, 255, 0.45);
+}
+
+.intervention-workspace-empty-actions svg {
+  width: 15px;
+  height: 15px;
+}
+
+.intervention-workspace-empty-actions
+.intervention-workspace-empty-primary {
+  color: #fff;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+/* The former stacked timeline is replaced by the main activity view. */
+.ie-page > .ie-bottom {
+  display: none;
+}
+
+@media (max-width: 1500px) {
+  .intervention-workspace-header--v4 {
+    grid-template-columns:
+      minmax(250px, 1fr)
+      max-content;
+  }
+
+  .intervention-workspace-scope {
+    display: none;
+  }
+
+  .intervention-kpi-section--v4 {
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(280px, 0.52fr);
+  }
+
+  .intervention-workforce-summary--v4 {
+    grid-template-columns:
+      29px
+      minmax(58px, 0.6fr)
+      minmax(75px, 1fr)
+      minmax(75px, 1fr);
+  }
+
+  .intervention-toolbar--v4 {
+    grid-template-columns:
+      minmax(220px, 1fr)
+      auto
+      max-content;
+  }
+
+  .intervention-view-switcher--v4 {
+    display: inline-flex;
+  }
+
+  .ie-main.intervention-workspace-main {
+    grid-template-columns:
+      minmax(190px, 0.42fr)
+      minmax(0, 1.5fr)
+      minmax(235px, 0.62fr);
+  }
+
+  .intervention-inspector-panel {
+    display: flex;
+  }
+}
+
+@media (max-width: 1280px) {
+  .intervention-kpi-section--v4 {
+    grid-template-columns: 1fr;
+  }
+
+  .intervention-workforce-summary--v4 {
+    grid-template-columns:
+      29px
+      minmax(70px, 0.55fr)
+      minmax(90px, 1fr)
+      minmax(90px, 1fr)
+      auto;
+  }
+
+  .intervention-workforce-summary--v4
+  .intervention-overdue-rule {
+    grid-column: auto;
+    margin: 0;
+  }
+
+  .intervention-toolbar--v4 {
+    grid-template-columns:
+      minmax(220px, 1fr)
+      auto;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-view-switcher {
+    grid-row: 2;
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-actions {
+    grid-row: 1 / 3;
+    grid-column: 2;
+  }
+
+  .ie-main.intervention-workspace-main,
+  .ie-main.intervention-workspace-main--rail-collapsed {
+    grid-template-columns:
+      minmax(185px, 0.42fr)
+      minmax(0, 1.58fr);
+  }
+
+  .ie-main.intervention-workspace-main--rail-collapsed {
+    grid-template-columns:
+      48px
+      minmax(0, 1fr);
+  }
+
+  .intervention-inspector-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .intervention-workspace-header--v4 {
+    padding-inline: 12px;
+  }
+
+  .intervention-kpi-section--v4 {
+    padding-inline: 12px;
+  }
+
+  .intervention-kpi-section--v4
+  .intervention-kpi-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .intervention-workforce-summary--v4 {
+    grid-template-columns:
+      29px
+      repeat(3, minmax(0, 1fr));
+  }
+
+  .intervention-workforce-summary--v4
+  .intervention-overdue-rule {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .intervention-toolbar--v4 {
+    grid-template-columns: 1fr;
+    padding-inline: 12px;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-view-switcher,
+  .intervention-toolbar--v4
+  .intervention-toolbar-actions {
+    grid-row: auto;
+    grid-column: auto;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-actions {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .intervention-toolbar-create {
+    min-width: 150px;
+  }
+
+  .ie-main.intervention-workspace-main,
+  .ie-main.intervention-workspace-main--rail-collapsed {
+    grid-template-columns: 1fr;
+    padding-inline: 12px;
+  }
+
+  .intervention-technician-rail {
+    display: none;
+  }
+
+  .intervention-activity-view {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Interventions V4.1 — workspace-first density
+   ========================================================================== */
+
+/*
+ * Le poste de dispatch doit privilégier les techniciens, les interventions
+ * et la carte. La partie supérieure devient une barre de contexte compacte.
+ */
+.intervention-workspace-header--v4 {
+  min-height: 70px !important;
+  padding: 8px 16px !important;
+}
+
+.intervention-workspace-header--v4
+.intervention-workspace-eyebrow {
+  font-size: 8px !important;
+}
+
+.intervention-workspace-header--v4
+.intervention-workspace-title-row h1 {
+  font-size: 27px !important;
+}
+
+.intervention-workspace-header--v4
+.intervention-workspace-identity p {
+  margin-top: 3px !important;
+  font-size: 9px !important;
+}
+
+.intervention-workspace-header--v4
+.intervention-workspace-live {
+  min-height: 24px !important;
+  padding-inline: 9px !important;
+  font-size: 8px !important;
+}
+
+.intervention-workspace-header--v4
+.intervention-date-arrow,
+.intervention-workspace-header--v4
+.intervention-date-button {
+  min-height: 42px !important;
+}
+
+.intervention-workspace-header--v4
+.intervention-date-arrow {
+  width: 42px !important;
+}
+
+.intervention-workspace-header--v4
+.intervention-date-button {
+  min-width: 188px !important;
+  padding-inline: 13px !important;
+}
+
+/* KPI : une seule bande courte, lisible, sans grandes cartes. */
+.intervention-kpi-section--v4 {
+  display: grid !important;
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(300px, 0.54fr) !important;
+  padding: 7px 16px 5px !important;
+  gap: 7px !important;
+}
+
+.intervention-kpi-section--v4
+.intervention-kpi-grid {
+  grid-template-columns:
+    repeat(5, minmax(92px, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.intervention-kpi-card--v4 {
+  min-height: 48px !important;
+  padding: 6px 8px !important;
+  grid-template-columns:
+    28px minmax(0, 1fr) !important;
+  gap: 7px !important;
+  border-radius: 10px !important;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-icon {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 8px !important;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-copy strong {
+  font-size: 14px !important;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-copy span {
+  margin-top: 2px !important;
+  font-size: 8px !important;
+}
+
+.intervention-kpi-card--v4
+.intervention-kpi-copy small {
+  display: none !important;
+}
+
+/* Capacité terrain : intégrée dans la même hauteur que les KPI. */
+.intervention-workforce-summary--v4 {
+  min-height: 48px !important;
+  padding: 6px 8px !important;
+  grid-template-columns:
+    28px
+    minmax(58px, 0.62fr)
+    minmax(72px, 1fr)
+    minmax(72px, 1fr)
+    auto !important;
+  gap: 6px !important;
+  border-radius: 10px !important;
+}
+
+.intervention-workforce-summary--v4
+.intervention-workforce-icon {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.intervention-workforce-summary--v4
+.intervention-workforce-total small,
+.intervention-workforce-summary--v4
+.intervention-workforce-metric small {
+  font-size: 6.5px !important;
+}
+
+.intervention-workforce-summary--v4
+.intervention-workforce-total strong,
+.intervention-workforce-summary--v4
+.intervention-workforce-metric strong {
+  margin-top: 1px !important;
+  font-size: 11px !important;
+}
+
+.intervention-workforce-summary--v4
+.intervention-overdue-rule {
+  grid-column: auto !important;
+  justify-self: end !important;
+  margin: 0 !important;
+  font-size: 6px !important;
+  white-space: nowrap !important;
+}
+
+/*
+ * Recherche, vues et actions restent impérativement sur une seule ligne
+ * sur desktop. Les filtres n'occupent plus une ligne entière.
+ */
+.intervention-toolbar--v4 {
+  display: grid !important;
+  grid-template-columns:
+    minmax(280px, 1fr)
+    max-content
+    max-content !important;
+  grid-template-rows: 42px !important;
+  align-items: center !important;
+  padding: 5px 16px 7px !important;
+  gap: 7px !important;
+}
+
+.intervention-toolbar--v4
+.intervention-toolbar-search {
+  grid-row: 1 !important;
+  grid-column: 1 !important;
+  height: 42px !important;
+  min-height: 42px !important;
+}
+
+.intervention-toolbar--v4
+.intervention-view-switcher {
+  display: inline-flex !important;
+  grid-row: 1 !important;
+  grid-column: 2 !important;
+  align-self: center !important;
+  justify-self: end !important;
+  min-height: 42px !important;
+  padding: 3px !important;
+}
+
+.intervention-toolbar--v4
+.intervention-view-button {
+  min-height: 34px !important;
+  padding-inline: 9px !important;
+  gap: 5px !important;
+  font-size: 8px !important;
+}
+
+.intervention-toolbar--v4
+.intervention-toolbar-actions {
+  display: flex !important;
+  grid-row: 1 !important;
+  grid-column: 3 !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: nowrap !important;
+  overflow: visible !important;
+  gap: 6px !important;
+}
+
+.intervention-toolbar--v4
+.intervention-toolbar-actions .btn,
+.intervention-toolbar--v4
+.intervention-toolbar-actions button {
+  min-height: 42px !important;
+}
+
+.intervention-toolbar--v4
+.intervention-toolbar-create {
+  min-width: 148px !important;
+}
+
+/*
+ * Le vrai espace métier reçoit toute la hauteur libérée.
+ * Le rail technicien est assez large pour afficher les noms et statuts.
+ */
+.ie-main.intervention-workspace-main {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  grid-template-columns:
+    minmax(245px, 0.5fr)
+    minmax(0, 1.55fr)
+    minmax(245px, 0.56fr) !important;
+  padding: 0 16px 12px !important;
+  gap: 8px !important;
+}
+
+.ie-main.intervention-workspace-main--rail-collapsed {
+  grid-template-columns:
+    48px
+    minmax(0, 1.65fr)
+    minmax(245px, 0.56fr) !important;
+}
+
+.intervention-technician-rail,
+.intervention-planning-panel,
+.intervention-inspector-panel {
+  min-height: 0 !important;
+}
+
+.intervention-technician-rail
+.intervention-panel-title strong {
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+.intervention-technician-rail
+.intervention-technician-table {
+  min-width: 100% !important;
+}
+
+.intervention-planning-header {
+  min-height: 46px !important;
+  padding: 6px 10px !important;
+}
+
+.intervention-planning-header
+.intervention-panel-icon {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.intervention-planning-header
+.intervention-panel-title strong {
+  font-size: 11px !important;
+}
+
+.intervention-map-view {
+  margin: 6px !important;
+  min-height: 0 !important;
+}
+
+.intervention-map-view
+.map-window-integrated,
+.intervention-map-view
+.leaflet-container {
+  min-height: 100% !important;
+  height: 100% !important;
+}
+
+/* La vue Activité utilise elle aussi toute la hauteur du workspace. */
+.intervention-activity-view {
+  padding: 6px !important;
+  gap: 6px !important;
+}
+
+.intervention-activity-feed > header,
+.intervention-timeline-view > header {
+  min-height: 44px !important;
+  padding: 7px 10px !important;
+}
+
+/*
+ * Avec la sidebar principale ouverte, on conserve le rail techniciens et
+ * on privilégie le panneau central. L'inspecteur peut rester masqué aux
+ * largeurs intermédiaires plutôt que d'écraser la table et la carte.
+ */
+@media (max-width: 1580px) {
+  .ie-main.intervention-workspace-main,
+  .ie-main.intervention-workspace-main--rail-collapsed {
+    grid-template-columns:
+      minmax(235px, 0.46fr)
+      minmax(0, 1.54fr) !important;
+  }
+
+  .ie-main.intervention-workspace-main--rail-collapsed {
+    grid-template-columns:
+      48px
+      minmax(0, 1fr) !important;
+  }
+
+  .intervention-inspector-panel {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1280px) {
+  .intervention-kpi-section--v4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .intervention-workforce-summary--v4 {
+    grid-template-columns:
+      28px
+      minmax(58px, 0.55fr)
+      minmax(72px, 1fr)
+      minmax(72px, 1fr)
+      auto !important;
+  }
+
+  .intervention-toolbar--v4 {
+    grid-template-columns:
+      minmax(220px, 1fr)
+      max-content !important;
+    grid-template-rows:
+      40px 38px !important;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-search {
+    grid-row: 1 !important;
+    grid-column: 1 !important;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-actions {
+    grid-row: 1 / 3 !important;
+    grid-column: 2 !important;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-view-switcher {
+    grid-row: 2 !important;
+    grid-column: 1 !important;
+    justify-self: start !important;
+    min-height: 36px !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .intervention-toolbar--v4 {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-search,
+  .intervention-toolbar--v4
+  .intervention-view-switcher,
+  .intervention-toolbar--v4
+  .intervention-toolbar-actions {
+    grid-row: auto !important;
+    grid-column: 1 !important;
+  }
+}

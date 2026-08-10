@@ -1,0 +1,30 @@
+.v1-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.v1-admin-loading,.v1-admin-card{border:1px solid #253348;border-radius:14px;background:#101b2b;color:#e6edf7}
+.v1-admin-loading{padding:24px}
+.v1-admin-card{padding:16px}
+.v1-admin-card--wide{grid-column:1/-1}
+.v1-admin-card header span{color:#7188a8;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.v1-admin-card h2{margin:3px 0 12px;font-size:16px}
+.v1-admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.v1-admin-form input,.v1-admin-form select,.v1-admin-form fieldset{min-height:36px;padding:7px 9px;border:1px solid #2b3c55;border-radius:8px;color:#dce6f3;background:#0b1523}
+.v1-admin-form button{min-height:36px;border:0;border-radius:8px;color:#fff;background:#2477ef;font-weight:700;cursor:pointer}
+.v1-admin-form fieldset{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
+.v1-admin-form fieldset legend{padding:0 5px;color:#7e91ad;font-size:9px}
+.v1-admin-form fieldset label{display:flex;align-items:center;gap:4px;font-size:10px}
+.v1-admin-form fieldset input{min-height:0}
+.v1-admin-list{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.v1-admin-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;padding:8px;border-radius:8px;background:#0b1523}
+.v1-admin-list span{color:#7f91aa;font-size:10px}
+.v1-admin-list .v1-admin-inline-editor{grid-column:1/-1}
+.v1-admin-team-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.v1-admin-team-grid article{padding:12px;border:1px solid #273950;border-radius:10px;background:#0b1523}
+.v1-admin-team-grid h3{margin:0;font-size:13px}
+.v1-admin-team-grid p{margin:3px 0 9px;color:#7e91ad;font-size:10px}
+.v1-admin-inline-editor{margin:9px 0;padding-top:8px;border-top:1px solid #273950}
+.v1-admin-inline-editor>summary{cursor:pointer;color:#73a8ff;font-size:10px;font-weight:700}
+.v1-admin-inline-editor .v1-admin-form{margin-top:8px}
+.v1-admin-form--team-edit fieldset{grid-column:1/-1}
+.v1-admin-chip-row{display:flex;flex-wrap:wrap;gap:5px}
+.v1-admin-chip-row span{padding:4px 7px;border-radius:999px;color:#83aff7;background:rgba(75,141,255,.12);font-size:9px}
+.v1-admin-team-add select{width:100%;margin-top:9px;padding:7px;border:1px solid #2b3c55;border-radius:7px;color:#dce6f3;background:#111f32}
+@media(max-width:850px){.v1-admin-grid,.v1-admin-team-grid{grid-template-columns:1fr}.v1-admin-card--wide{grid-column:auto}}
