@@ -211,6 +211,7 @@ async def test_address_live_gps_and_confirmed_landmarks_remain_distinct(monkeypa
             [],
             [],
             [],
+            [],
             [technician],
         ]
     )
