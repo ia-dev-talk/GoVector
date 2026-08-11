@@ -6,6 +6,7 @@ import 'package:mobile_app/design_system/bluevector_brand.dart';
 import 'package:mobile_app/design_system/bluevector_theme.dart';
 import 'package:mobile_app/features/actions/mobile_action_sheet.dart';
 import 'package:mobile_app/models/job.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('Mobile V2 initializes French date symbols before rendering', () async {
@@ -34,6 +35,8 @@ void main() {
   testWidgets('Mobile action sheet exposes the field action grid', (
     tester,
   ) async {
+    SharedPreferences.setMockInitialValues({});
+    await SharedPreferences.getInstance();
     await tester.binding.setSurfaceSize(const Size(430, 1800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -71,6 +74,7 @@ void main() {
     );
 
     await tester.tap(find.text('Ouvrir'));
+    await tester.pump();
     await tester.pumpAndSettle();
 
     expect(find.text('Ajouter une action'), findsOneWidget);
