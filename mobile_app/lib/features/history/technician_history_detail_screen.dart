@@ -282,7 +282,7 @@ class _TechnicianHistoryDetailScreenState
                 ),
                 const SizedBox(height: BlueVectorSpacing.xs),
                 Text(
-                  '${item.date == null ? 'Date non renseignée' : DateFormat('dd/MM/yyyy à HH:mm', 'fr_FR').format(item.date!.toLocal())} · ${item.activity}',
+                  '${_formatHistoryDate(item.date)} · ${item.activity}',
                   style: const TextStyle(color: BlueVectorColors.textMuted),
                 ),
                 if (item.result?.isNotEmpty == true) ...[
@@ -323,7 +323,7 @@ class _TechnicianHistoryDetailScreenState
           if (_fromCache && _lastUpdated != null) ...[
             const SizedBox(height: BlueVectorSpacing.sm),
             Text(
-              'Copie locale du ${DateFormat('dd/MM à HH:mm', 'fr_FR').format(_lastUpdated!.toLocal())}',
+              'Copie locale du ${_formatCacheDate(_lastUpdated!)}',
               style: const TextStyle(
                 color: BlueVectorColors.warning,
                 fontSize: 11,
@@ -341,6 +341,28 @@ class _TechnicianHistoryDetailScreenState
               style: const TextStyle(color: BlueVectorColors.danger),
             )
           else if (detail != null) ...[
+            if (detail.visits.isNotEmpty) ...[
+              Text(
+                'Passages terrain',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: BlueVectorSpacing.sm),
+              for (final visit in detail.visits)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    child: Text('${visit.attemptNumber}'),
+                  ),
+                  title: Text(
+                    visit.statusLabel ?? visit.outcome ?? visit.status,
+                  ),
+                  subtitle: Text(
+                    '${visit.technicianName ?? 'Technicien non renseigné'} · '
+                    '${_formatVisitPeriod(visit)}',
+                  ),
+                ),
+              const SizedBox(height: BlueVectorSpacing.lg),
+            ],
             _DataSection(title: 'Données terrain', values: detail.fieldData),
             if (detail.failures.isNotEmpty)
               _DataSection(title: 'Échecs', values: detail.failures.first),
@@ -382,6 +404,26 @@ class _TechnicianHistoryDetailScreenState
       ),
     );
   }
+}
+
+String _formatHistoryDate(DateTime? value) {
+  if (value == null) return 'Date non renseignée';
+  return DateFormat('dd/MM/yyyy à HH:mm', 'fr_FR').format(value.toLocal());
+}
+
+String _formatVisitDate(DateTime? value) {
+  if (value == null) return 'date non renseignée';
+  return DateFormat('dd/MM/yyyy · HH:mm', 'fr_FR').format(value.toLocal());
+}
+
+String _formatVisitPeriod(TechnicianVisitHistory visit) {
+  final start = _formatVisitDate(visit.assignedAt);
+  if (visit.endedAt == null) return '$start · en cours';
+  return '$start → ${_formatVisitDate(visit.endedAt)}';
+}
+
+String _formatCacheDate(DateTime value) {
+  return DateFormat('dd/MM à HH:mm', 'fr_FR').format(value.toLocal());
 }
 
 class _DataSection extends StatelessWidget {

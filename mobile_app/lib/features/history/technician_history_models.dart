@@ -151,6 +151,46 @@ class TechnicianHistoryPage {
   }
 }
 
+class TechnicianVisitHistory {
+  const TechnicianVisitHistory({
+    required this.id,
+    required this.attemptNumber,
+    required this.status,
+    this.statusLabel,
+    this.outcome,
+    this.technicianName,
+    this.assignedAt,
+    this.arrivedAt,
+    this.endedAt,
+  });
+
+  final int id;
+  final int attemptNumber;
+  final String status;
+  final String? statusLabel;
+  final String? outcome;
+  final String? technicianName;
+  final DateTime? assignedAt;
+  final DateTime? arrivedAt;
+  final DateTime? endedAt;
+
+  factory TechnicianVisitHistory.fromJson(Map<String, dynamic> json) {
+    DateTime? date(String key) =>
+        DateTime.tryParse(json[key] as String? ?? '');
+    return TechnicianVisitHistory(
+      id: json['id'] as int,
+      attemptNumber: json['attempt_number'] as int? ?? 1,
+      status: json['status'] as String? ?? '',
+      statusLabel: json['status_label'] as String?,
+      outcome: json['outcome'] as String?,
+      technicianName: json['primary_technician_name'] as String?,
+      assignedAt: date('assigned_at'),
+      arrivedAt: date('arrived_at'),
+      endedAt: date('ended_at'),
+    );
+  }
+}
+
 class TechnicianHistoryDetail {
   const TechnicianHistoryDetail({
     required this.intervention,
@@ -160,6 +200,7 @@ class TechnicianHistoryDetail {
     required this.postponements,
     required this.materials,
     required this.mediaReferences,
+    required this.visits,
     required this.readOnly,
   });
 
@@ -170,6 +211,7 @@ class TechnicianHistoryDetail {
   final List<Map<String, dynamic>> postponements;
   final List<Map<String, dynamic>> materials;
   final List<Map<String, dynamic>> mediaReferences;
+  final List<TechnicianVisitHistory> visits;
   final bool readOnly;
 
   factory TechnicianHistoryDetail.fromJson(Map<String, dynamic> json) {
@@ -197,6 +239,13 @@ class TechnicianHistoryDetail {
       postponements: maps('postponements'),
       materials: maps('materials'),
       mediaReferences: maps('media_references'),
+      visits: (json['visits'] as List<dynamic>? ?? const [])
+          .map(
+            (value) => TechnicianVisitHistory.fromJson(
+              Map<String, dynamic>.from(value as Map),
+            ),
+          )
+          .toList(),
       readOnly: json['read_only'] as bool? ?? true,
     );
   }

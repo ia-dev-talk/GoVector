@@ -54,6 +54,30 @@ Map<String, dynamic> _detail() => {
   'postponements': <dynamic>[],
   'materials': <dynamic>[],
   'media_references': <dynamic>[],
+  'visits': [
+    {
+      'id': 21,
+      'attempt_number': 1,
+      'status': 'failed',
+      'status_label': 'Échec terrain',
+      'outcome': 'failed',
+      'primary_technician_name': 'Tech 3',
+      'assigned_at': '2026-08-05T08:00:00Z',
+      'arrived_at': null,
+      'ended_at': '2026-08-05T09:30:00Z',
+    },
+    {
+      'id': 22,
+      'attempt_number': 2,
+      'status': 'completed',
+      'status_label': 'Terminée',
+      'outcome': 'en_attente_validation',
+      'primary_technician_name': 'Tech reprise',
+      'assigned_at': '2026-08-06T08:00:00Z',
+      'arrived_at': '2026-08-06T08:45:00Z',
+      'ended_at': '2026-08-06T10:00:00Z',
+    },
+  ],
   'read_only': true,
 };
 
@@ -117,6 +141,17 @@ void main() {
       forbidden.loadPersonal(ownerUserId: 3, technicianId: 3),
       throwsA(isA<TechnicianHistoryHttpException>()),
     );
+  });
+
+  test('historical detail preserves every field visit and nullable dates', () {
+    final detail = TechnicianHistoryDetail.fromJson(_detail());
+
+    expect(detail.visits, hasLength(2));
+    expect(detail.visits.first.attemptNumber, 1);
+    expect(detail.visits.first.statusLabel, 'Échec terrain');
+    expect(detail.visits.first.arrivedAt, isNull);
+    expect(detail.visits.last.technicianName, 'Tech reprise');
+    expect(detail.visits.last.attemptNumber, 2);
   });
 
   test('pilot field labels contain no false required marker', () {
@@ -244,6 +279,9 @@ void main() {
     );
     expect(find.text('Compléter'), findsOneWidget);
     expect(find.text('Installation terminée'), findsOneWidget);
+    expect(find.text('Passages terrain'), findsOneWidget);
+    expect(find.text('Échec terrain'), findsOneWidget);
+    expect(find.text('Terminée'), findsOneWidget);
     expect(find.textContaining('Modifier'), findsNothing);
     expect(find.textContaining('Terminer'), findsNothing);
   });
