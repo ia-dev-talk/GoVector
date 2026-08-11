@@ -236,7 +236,13 @@ export default function ParametresPage({
     useMemo(() => {
       switch (activeSection) {
         case 'organization-admin':
-          return <AdminOrganizationSection toast={toast} userRole={userRole} />;
+          return (
+            <AdminOrganizationSection
+              toast={toast}
+              userRole={userRole}
+              surface="settings"
+            />
+          );
 
         case 'operational':
           return (
