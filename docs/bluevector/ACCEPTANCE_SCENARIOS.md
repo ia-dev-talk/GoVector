@@ -44,6 +44,11 @@ Depuis `+`, sélectionner explicitement une intervention active, puis ajouter ph
 
 Importer deux fichiers aux entêtes différents. L’utilisateur mappe explicitement les colonnes, prévisualise erreurs/avertissements, puis confirme. Les champs non reconnus sont signalés; aucune donnée acceptée n’est silencieusement perdue.
 
+Le scénario couvre aussi une ligne d’en-tête précédée d’un titre opérateur, un
+CSV à séparateur point-virgule, deux fichiers où un même libellé doit être mappé
+différemment et une colonne explicitement ignorée. Les numéros de lignes affichés
+doivent rester ceux du fichier physique.
+
 ## H. Rejeu réseau
 
 Couper le réseau après upload média ou après traitement serveur mais avant ACK. Au retour, le même UUID/hash est rejoué : un seul média et une seule action métier existent.

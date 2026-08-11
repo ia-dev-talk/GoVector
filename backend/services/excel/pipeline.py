@@ -59,6 +59,8 @@ def run_import_pipeline(
     filepath: str,
     geocode: bool = True,
     mapping_overrides: dict[str, list[str]] | None = None,
+    column_overrides: dict[str, str | None] | None = None,
+    header_row_overrides: dict[str, int] | None = None,
 ) -> dict:
 
     importer = ExcelImporter(filepath)
@@ -73,6 +75,8 @@ def run_import_pipeline(
         normalized,
         operator=operator,
         mapping_overrides=mapping_overrides,
+        column_overrides=column_overrides,
+        header_row_overrides=header_row_overrides,
     ).map()
     info["mapping_diagnostics"] = [
         {
@@ -80,6 +84,11 @@ def run_import_pipeline(
             "mapping": dict(sheet["mapping"]),
             "headers": list(sheet.get("headers") or []),
             "unmapped_headers": list(sheet.get("unmapped_headers") or []),
+            "header_row": sheet.get("header_row"),
+            "header_detection": sheet.get("header_detection"),
+            "header_confidence": sheet.get("header_confidence"),
+            "header_candidates": list(sheet.get("header_candidates") or []),
+            "column_matches": list(sheet.get("column_matches") or []),
         }
         for sheet in mapped
     ]

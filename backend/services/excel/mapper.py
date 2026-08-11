@@ -151,20 +151,39 @@ class ExcelMapper:
         workbook,
         operator: str = "UNKNOWN",
         mapping_overrides: dict[str, list[str]] | None = None,
+        column_overrides: dict[str, str | None] | None = None,
+        header_row_overrides: dict[str, int] | None = None,
     ):
         self.workbook = workbook
         self.operator = operator
         self.column_aliases = self._build_aliases()
+        self.header_row_overrides = header_row_overrides or {}
+        self._explicit_header_mapping: dict[str, str | None] = {}
         for field, aliases in (mapping_overrides or {}).items():
             if field not in BASE_COLUMN_ALIASES or not isinstance(aliases, list):
                 continue
-            target = self.column_aliases.setdefault(field, [])
             for alias in aliases:
-                if isinstance(alias, str) and alias.strip() and alias.strip() not in target:
-                    target.append(alias.strip())
+                if isinstance(alias, str) and alias.strip():
+                    self._register_explicit_mapping(alias, field)
+        for header, field in (column_overrides or {}).items():
+            if not isinstance(header, str) or not header.strip():
+                continue
+            if field in (None, ""):
+                self._register_explicit_mapping(header, None)
+            elif field in BASE_COLUMN_ALIASES:
+                self._register_explicit_mapping(header, field)
         # Index de recherche rapide : pour chaque variante normalisée, stocke le champ
         self._alias_index: dict[str, str] = {}
         self._build_alias_index()
+
+    def _register_explicit_mapping(self, header: str, field: str | None) -> None:
+        normalized = _normalize(header)
+        previous = self._explicit_header_mapping.get(normalized, field)
+        if normalized in self._explicit_header_mapping and previous != field:
+            raise ValueError(
+                f"L'en-tête '{header}' est associé à plusieurs champs canoniques."
+            )
+        self._explicit_header_mapping[normalized] = field
 
     def _build_aliases(self) -> dict[str, list[str]]:
         merged = {
@@ -193,13 +212,22 @@ class ExcelMapper:
           1. Match exact normalisé (prioritaire)
           2. Match partiel (longest match)
         """
+        field, _method = self._match_field_details(header_value)
+        return field
+
+    def _match_field_details(self, header_value: str) -> tuple[str | None, str]:
+        """Return the canonical field and the reason for the match."""
         norm = _normalize(header_value)
         if not norm:
-            return None
+            return None, "empty"
+
+        if norm in self._explicit_header_mapping:
+            explicit = self._explicit_header_mapping[norm]
+            return explicit, "manual" if explicit else "ignored"
 
         # 1. Match exact dans l'index
         if norm in self._alias_index:
-            return self._alias_index[norm]
+            return self._alias_index[norm], "exact"
 
         # 2. Match partiel : trouver le champ dont l'alias est le plus long
         #    qui est contenu dans l'en-tête
@@ -219,7 +247,76 @@ class ExcelMapper:
                         best_field = field
                         best_len = len(alias_norm)
 
-        return best_field
+        return best_field, "partial" if best_field else "unmapped"
+
+    @staticmethod
+    def _row_headers(row: list[dict]) -> list[dict]:
+        return [
+            {
+                "column": cell["column"],
+                "header": str(cell.get("value") or "").strip(),
+            }
+            for cell in row
+            if str(cell.get("value") or "").strip()
+        ]
+
+    def _header_candidates(self, rows: list, max_scan: int = 25) -> list[dict]:
+        candidates = []
+        for index, row in enumerate(rows[:max_scan]):
+            headers = self._row_headers(row)
+            if not headers:
+                continue
+            methods = []
+            fields = []
+            for item in headers:
+                field, method = self._match_field_details(item["header"])
+                methods.append(method)
+                if field:
+                    fields.append(field)
+            unique_fields = len(set(fields))
+            exact_matches = sum(
+                method in {"manual", "exact"} for method in methods
+            )
+            partial_matches = methods.count("partial")
+            score = (
+                unique_fields * 20
+                + exact_matches * 4
+                + partial_matches * 2
+                + min(len(headers), 10)
+            )
+            candidates.append(
+                {
+                    "row": index + 1,
+                    "values": [item["header"] for item in headers[:12]],
+                    "recognized_fields": unique_fields,
+                    "score": score,
+                }
+            )
+        return sorted(
+            candidates,
+            key=lambda item: (
+                item["score"],
+                item["recognized_fields"],
+                -item["row"],
+            ),
+            reverse=True,
+        )
+
+    def _select_header_row(self, sheet: dict) -> tuple[int, str, list[dict]]:
+        rows = sheet["rows"]
+        candidates = self._header_candidates(rows)
+        explicit_row = self.header_row_overrides.get(sheet["sheet"])
+        if explicit_row is not None:
+            if explicit_row < 1 or explicit_row > len(rows):
+                raise ValueError(
+                    f"Ligne d'en-tête invalide pour la feuille '{sheet['sheet']}'."
+                )
+            return explicit_row - 1, "manual", candidates[:15]
+        if not candidates:
+            raise ValueError(
+                f"La feuille '{sheet['sheet']}' ne contient aucune ligne exploitable."
+            )
+        return candidates[0]["row"] - 1, "automatic", candidates[:15]
 
     def map(self):
         """Exécute le mapping sur toutes les feuilles du workbook."""
@@ -228,9 +325,11 @@ class ExcelMapper:
             if not sheet["rows"]:
                 continue
 
-            header = sheet["rows"][0]
+            header_index, header_detection, candidates = self._select_header_row(sheet)
+            header = sheet["rows"][header_index]
             mapping = {}
             raw_headers = []
+            column_matches = []
 
             for cell in header:
                 value = cell["value"]
@@ -238,19 +337,44 @@ class ExcelMapper:
                     continue
                 header_value = str(value).strip()
                 raw_headers.append(header_value)
-                field = self._match_field(header_value)
-                if field and field not in mapping:
+                field, method = self._match_field_details(header_value)
+                selected = bool(field and field not in mapping)
+                if selected:
                     mapping[field] = cell["column"]
+                column_matches.append(
+                    {
+                        "header": header_value,
+                        "column": cell["column"],
+                        "field": field,
+                        "method": method,
+                        "selected": selected,
+                        "issue": (
+                            "duplicate_field"
+                            if field and not selected
+                            else None
+                        ),
+                    }
+                )
+
+            recognized = len(mapping)
+            header_confidence = (
+                "high" if recognized >= 4 else "medium" if recognized >= 2 else "low"
+            )
 
             mapped.append({
                 "sheet": sheet["sheet"],
                 "mapping": mapping,
-                "rows": sheet["rows"],
+                "rows": sheet["rows"][header_index:],
+                "header_row": header_index + 1,
+                "header_detection": header_detection,
+                "header_confidence": header_confidence,
+                "header_candidates": candidates,
+                "column_matches": column_matches,
                 "headers": raw_headers,
                 "unmapped_headers": [
-                    header
-                    for header in raw_headers
-                    if self._match_field(header) is None
+                    item["header"]
+                    for item in column_matches
+                    if item["method"] == "unmapped"
                 ],
             })
 

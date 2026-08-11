@@ -20,6 +20,7 @@ Elle ne dispose pas encore de `JobVisit`, d’un historique d’affectations, d�
 8. [Rapport de validation B0](B0_VALIDATION_REPORT.md)
 9. [Confidentialité et rétention GPS](GPS_PRIVACY_AND_RETENTION.md)
 10. [Checklist de livraison Android](ANDROID_RELEASE_CHECKLIST.md)
+11. [Import adaptatif Excel et CSV](ADAPTIVE_IMPORT.md)
 
 ## Principes non négociables
 

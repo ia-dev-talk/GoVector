@@ -1,6 +1,7 @@
 from pathlib import Path
 import logging
 import csv
+import io
 
 from openpyxl import load_workbook
 
@@ -124,11 +125,23 @@ def parse_csv(file_path: str):
 
     workbook = []
 
-    with open(file_path, newline="", encoding="utf-8-sig") as handle:
+    raw_content = Path(file_path).read_bytes()
+    try:
+        text_content = raw_content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        # Les exports bureautiques Windows francophones utilisent encore
+        # fréquemment CP-1252. Le décodage reste déterministe et ne modifie
+        # jamais le contenu métier.
+        text_content = raw_content.decode("cp1252")
 
-        reader = csv.reader(handle)
+    sample = text_content[:8192]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+    except csv.Error:
+        dialect = csv.excel
 
-        rows_data = list(reader)
+    reader = csv.reader(io.StringIO(text_content, newline=""), dialect)
+    rows_data = list(reader)
 
     if not rows_data:
         return workbook

@@ -16,11 +16,12 @@ class JobsBuilder:
 
             mapping = sheet["mapping"]
             rows = sheet["rows"]
+            header_row = int(sheet.get("header_row") or 1)
 
             if len(rows) < 2:
                 continue
 
-            for row_index, row in enumerate(rows[1:], start=2):
+            for row_index, row in enumerate(rows[1:], start=header_row + 1):
 
                 values = {}
 
