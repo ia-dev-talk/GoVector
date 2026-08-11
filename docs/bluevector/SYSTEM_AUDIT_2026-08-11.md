@@ -12,11 +12,11 @@ Cet audit distingue le produit réellement raccordé des ambitions futures. Il c
 | Synchronisation Mobile | solide pilote | outbox propriétaire, idempotence, ACK individuel, médias durables | observabilité et purge/réconciliation à grande échelle |
 | Collaboration bureau-terrain | solide pilote | messages structurés, pièces jointes, accusés, compléments post-visite | notifications push et annotations vectorielles collaboratives |
 | Géolocalisation | solide pilote | planned/live/observed/resolved séparés, provenance, conflits et fusion manuelle auditée | politique juridique de production et supervision des fournisseurs |
-| Administration | solide pilote | comptes liés aux profils, catalogues gouvernés et journal append-only sans secrets | sessions, MFA/SSO et délégations fines |
+| Administration | solide pilote | comptes liés aux profils, catalogues gouvernés, journal append-only sans secrets et identité produit cohérente | sessions, MFA/SSO et délégations fines |
 | Historique | intermédiaire avancé | visites, affectations append-only, journal, actions, médias | backfill métier à auditer et stock entièrement rattaché aux visites |
-| Administration | intermédiaire avancé | clients, comptes opérationnels, activation, réinitialisation, équipes, secteurs, catalogue métier | changement de rôle audité, sessions et historique d’appartenance aux équipes |
-| Import adaptatif | intermédiaire avancé | détection d’en-têtes, mapping corrigible et confirmation | profils mémorisés par source, métriques qualité et reprise massive |
-| Portail client | pilote | périmètre organisationnel en lecture seule | carte live, filtres, SLA et exports client finalisés |
+| Import adaptatif | solide pilote | détection d’en-têtes, mapping corrigible, profils réutilisables versionnés, confirmation et audit | métriques qualité par profil et reprise massive |
+| Portail client | solide pilote | périmètre strict en lecture seule, KPI canoniques, filtres, carte planifiée et positions terrain fraîches minimales | SLA contractuels et exports client dédiés |
+| Exploitation | pilote documenté | garde-fous staging/production, sauvegarde DB/médias avec manifeste, restauration DB avec confirmation | test de restauration réel, stockage objet, secrets managés et observabilité |
 | Rapports | intermédiaire | indicateurs et exports existants | définitions KPI partagées, vues par visite/site/client et tests contractuels |
 | Intégrations | cadré seulement | frontières documentées | aucun adaptateur Praxedo/QField de production |
 
@@ -39,12 +39,17 @@ Cet audit distingue le produit réellement raccordé des ambitions futures. Il c
 - La fiche intervention Web rassemble contexte, preuves, échanges et validation.
 - Les erreurs de géocodage n’inventent plus de coordonnées et offrent une confirmation humaine.
 - Les états terminaux quittent correctement l’écran « En cours ».
+- Le portail client distingue ordre ouvert, passage actif et attente de validation,
+  puis limite strictement les positions terrain à son organisation.
+- L'import peut mémoriser une structure de fichier validée sans transformer une
+  colonne inconnue par supposition.
 
 ### Frictions restantes
 
 - Plusieurs écrans Web anciens coexistent avec les espaces V3 et utilisent encore des composants volumineux.
 - Les états chargement/vide/erreur ne partagent pas encore un composant universel.
-- Le catalogue métier est versionné, mais les formulaires spécifiques par donneur d’ordre ne le sont pas encore.
+- Le catalogue métier et les profils d'import sont versionnés, mais les formulaires
+  spécifiques par donneur d’ordre ne le sont pas encore.
 - L’action Mobile doit mettre en cache la dernière configuration pour éviter toute attente réseau perceptible.
 - La recherche transversale n’existe pas encore au niveau plateforme.
 - Le bundle AG Grid reste lourd et doit être chargé uniquement dans les pages qui l’utilisent.
@@ -54,23 +59,27 @@ Cet audit distingue le produit réellement raccordé des ambitions futures. Il c
 ### Bloquants
 
 - Formaliser la signature Android/iOS de production pour l’identité `dev.bigdataai.bluevector`.
-- Choisir un stockage objet, des sauvegardes testées et une procédure de restauration.
+- Choisir un stockage objet et exécuter un test de restauration sur copie isolée;
+  la procédure et les scripts pilotes existent désormais mais n'ont pas été testés
+  dans cet environnement sans Docker/PowerShell.
 - Configurer secrets, rotation, TLS, CORS, limites d’upload et supervision d’erreurs.
 - Valider juridiquement la collecte GPS, l’information des techniciens et la rétention.
 - Tester les migrations sur copie anonymisée d’une base réelle et réaliser un test de restauration.
 
 ### Importants
 
-- Journal structuré des changements de rôle, réinitialisations et actions administratives sensibles.
-- Fusion manuelle et réversible de sites avec aperçu d’impact.
+- MFA/SSO, révocation de sessions et délégations administratives fines.
+- Stratégie éventuelle de défusion; la fusion manuelle conserve déjà source,
+  préflight, révisions, snapshot et trace immutable mais ne se renverse pas seule.
 - Définitions KPI canoniques par ordre/visite/site et contrat client.
 - Notifications ciblées avec anti-spam, accusé et escalade.
 - Tests E2E Web/Mobile sur un scénario complet multi-visites et réaffectation offline.
 
 ## Séquence recommandée
 
-1. **Bêta interne** : identité applicative, configuration gouvernée, site merge, comptes, sauvegarde/restauration, E2E.
-2. **Bêta client** : portail client, KPI contractuels, notifications, object storage, audit de sécurité.
+1. **Bêta interne** : exécuter sauvegarde/restauration, scénario E2E Docker/téléphone,
+   signature Android, rétention GPS et revue juridique.
+2. **Bêta client** : SLA/KPI contractuels, notifications, object storage, audit de sécurité.
 3. **Production** : observabilité, SLA, haute disponibilité, intégrations externes sur sandbox puis canary.
 
 ## Critère « meilleur du marché »

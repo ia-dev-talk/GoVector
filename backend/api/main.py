@@ -1,6 +1,4 @@
-"""
-Magellan Main API Application
-"""
+"""BlueVector main API application."""
 
 import asyncio
 import logging
