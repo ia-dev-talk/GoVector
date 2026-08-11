@@ -1,6 +1,10 @@
 .v1-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .v1-admin-loading,.v1-admin-card{border:1px solid #253348;border-radius:14px;background:#101b2b;color:#e6edf7}
 .v1-admin-loading{padding:24px}
+.v1-admin-load-warning{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border:1px solid rgba(244,180,0,.38);border-radius:12px;background:rgba(244,180,0,.08);color:#f6c85f}
+.v1-admin-load-warning>div{display:flex;min-width:0;flex-direction:column;gap:3px}
+.v1-admin-load-warning span{color:#c7a75f;font-size:11px}
+.v1-admin-load-warning button{flex:none;padding:8px 11px;border:1px solid rgba(244,180,0,.45);border-radius:8px;background:transparent;color:#f6c85f;font-weight:700;cursor:pointer}
 .v1-admin-card{padding:16px}
 .v1-admin-card--wide{grid-column:1/-1}
 .v1-admin-card header span{color:#7188a8;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}

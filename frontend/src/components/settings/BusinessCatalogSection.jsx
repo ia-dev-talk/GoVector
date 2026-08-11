@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { api } from '../../api/client';
+import {
+  catalogRowKey,
+  normalizeCatalogCode,
+  validateBusinessCatalogDraft,
+} from '../../lib/business-catalog';
 import '../../styles/settings-business-catalog.css';
+import '../../styles/settings-business-catalog-actions.css';
 
 const SECTIONS = [
   { key: 'technician_grades', title: 'Grades techniciens', copy: 'Ajoutables et archivables. Un grade utilisé reste protégé.', extensible: true },
@@ -36,12 +42,18 @@ function newGrade(items) {
   };
 }
 
-export default function BusinessCatalogSection({ toast, userRole = 'ADMIN', refreshRevision = 0 }) {
+export default function BusinessCatalogSection({
+  toast,
+  userRole = 'ADMIN',
+  refreshRevision = 0,
+  onDirtyChange,
+}) {
   const editable = userRole === 'ADMIN';
   const [document, setDocument] = useState(null);
   const [values, setValues] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
@@ -51,6 +63,7 @@ export default function BusinessCatalogSection({ toast, userRole = 'ADMIN', refr
       const response = await api.getBusinessCatalog();
       setDocument(response.data);
       setValues(copyValues(response.data?.values));
+      setDirty(false);
     } catch (loadError) {
       setError(errorMessage(loadError));
     } finally {
@@ -62,6 +75,26 @@ export default function BusinessCatalogSection({ toast, userRole = 'ADMIN', refr
     const timer = window.setTimeout(load, 0);
     return () => window.clearTimeout(timer);
   }, [load, refreshRevision]);
+
+  useEffect(() => {
+    if (!dirty) return undefined;
+
+    const warnBeforeLeaving = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', warnBeforeLeaving);
+    return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
+  }, [dirty]);
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(() => () => {
+    onDirtyChange?.(false);
+  }, [onDirtyChange]);
 
   const activeCount = useMemo(() => {
     if (!values) return 0;
@@ -75,6 +108,7 @@ export default function BusinessCatalogSection({ toast, userRole = 'ADMIN', refr
         itemIndex === index ? { ...item, [field]: nextValue } : item
       )),
     }));
+    setDirty(true);
   };
 
   const addGrade = () => {
@@ -82,9 +116,16 @@ export default function BusinessCatalogSection({ toast, userRole = 'ADMIN', refr
       ...current,
       technician_grades: [...current.technician_grades, newGrade(current.technician_grades)],
     }));
+    setDirty(true);
   };
 
   const save = async () => {
+    const validationMessages = validateBusinessCatalogDraft(values);
+    if (validationMessages.length > 0) {
+      toast?.(validationMessages[0], 'error');
+      return;
+    }
+
     setSaving(true);
     try {
       const response = await api.updateBusinessCatalog({
@@ -93,12 +134,19 @@ export default function BusinessCatalogSection({ toast, userRole = 'ADMIN', refr
       });
       setDocument(response.data);
       setValues(copyValues(response.data.values));
+      setDirty(false);
       toast?.('Référentiel métier enregistré et versionné.', 'success');
     } catch (saveError) {
       toast?.(errorMessage(saveError), 'error');
     } finally {
       setSaving(false);
     }
+  };
+
+  const discard = () => {
+    setValues(copyValues(document.values));
+    setDirty(false);
+    toast?.('Modifications locales annulées.', 'info');
   };
 
   if (loading) return <div className="catalog-state">Chargement du référentiel métier…</div>;
@@ -134,12 +182,12 @@ export default function BusinessCatalogSection({ toast, userRole = 'ADMIN', refr
             <div className="catalog-table" role="table" aria-label={section.title}>
               <div className="catalog-table__head" role="row"><span>Identifiant</span><span>Libellé</span><span>Couleur</span><span>Ordre</span><span>Actif</span></div>
               {values[section.key].map((item, index) => (
-                <div className="catalog-table__row" role="row" key={item.code}>
+                <div className="catalog-table__row" role="row" key={catalogRowKey(section.key, index)}>
                   {section.extensible && editable ? (
-                    <input aria-label={`Code ${item.label}`} value={item.code} onChange={(event) => updateItem(section.key, index, 'code', event.target.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_'))} />
+                    <input aria-label={`Code ${item.label}`} value={item.code} onChange={(event) => updateItem(section.key, index, 'code', normalizeCatalogCode(event.target.value))} />
                   ) : <code>{item.code}</code>}
                   <input disabled={!editable} aria-label={`Libellé ${item.code}`} value={item.label} onChange={(event) => updateItem(section.key, index, 'label', event.target.value)} />
-                  <input disabled={!editable} type="color" aria-label={`Couleur ${item.code}`} value={item.color || '#4B8DFF'} onChange={(event) => updateItem(section.key, index, 'color', event.target.value)} />
+                  <input disabled={!editable} type="color" aria-label={`Couleur ${item.code}`} value={item.color || '#4B8DFF'} onInput={(event) => updateItem(section.key, index, 'color', event.currentTarget.value)} />
                   <input disabled={!editable} type="number" min="0" max="10000" aria-label={`Ordre ${item.code}`} value={item.sort_order} onChange={(event) => updateItem(section.key, index, 'sort_order', Number(event.target.value))} />
                   <label className="catalog-switch"><input disabled={!editable || section.alwaysActive} type="checkbox" checked={item.active} onChange={(event) => updateItem(section.key, index, 'active', event.target.checked)} /><span>{item.active ? 'Oui' : 'Archivé'}</span></label>
                 </div>
@@ -150,8 +198,8 @@ export default function BusinessCatalogSection({ toast, userRole = 'ADMIN', refr
       </div>
 
       <footer className="business-catalog__footer">
-        <span>{editable ? 'L’enregistrement est atomique et contrôlé par révision.' : 'Lecture seule : un administrateur peut modifier ce référentiel.'}</span>
-        {editable ? <button type="button" disabled={saving} onClick={save}>{saving ? 'Enregistrement…' : 'Enregistrer le référentiel'}</button> : null}
+        <span>{editable ? (dirty ? 'Modifications non enregistrées.' : 'Référentiel à jour. L’enregistrement est atomique et versionné.') : 'Lecture seule : un administrateur peut modifier ce référentiel.'}</span>
+        {editable ? <div className="business-catalog__actions"><button className="business-catalog__secondary" type="button" disabled={saving || !dirty} onClick={discard}>Annuler</button><button type="button" disabled={saving || !dirty} onClick={save}>{saving ? 'Enregistrement…' : 'Enregistrer le référentiel'}</button></div> : null}
       </footer>
     </section>
   );

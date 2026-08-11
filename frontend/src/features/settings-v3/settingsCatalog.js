@@ -54,7 +54,7 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
       },
       {
         id: 'modules',
-        label: 'Référentiels métier',
+        label: 'Modules opérationnels',
         description: 'Accès aux modules réels',
         status: 'available',
         icon: 'modules',

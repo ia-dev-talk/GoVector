@@ -7,7 +7,11 @@ function message(error) {
   return error?.response?.data?.detail || error?.message || 'Opération impossible.';
 }
 
-export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) {
+export default function AdminOrganizationSection({
+  toast,
+  userRole = 'ADMIN',
+  refreshRevision = 0,
+}) {
   const isAdmin = userRole === 'ADMIN';
   const [clients, setClients] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -20,15 +24,29 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
     { code: 'senior', label: 'Technicien senior' },
   ]);
   const [loading, setLoading] = useState(true);
+  const [loadWarnings, setLoadWarnings] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadWarnings([]);
+    const sources = [
+      'entreprises clientes',
+      'équipes',
+      'orienteurs',
+      'secteurs',
+      'techniciens',
+      'référentiel des grades',
+      'comptes opérationnels',
+    ];
     const results = await Promise.allSettled([
       isAdmin ? api.getV1Clients() : Promise.resolve({ data: [] }),
       api.getV1Teams(), api.getOrienteurs(), api.getSectors(), api.getTechnicians(),
       api.getBusinessCatalog(),
       isAdmin ? api.getV1Accounts() : Promise.resolve({ data: [] }),
     ]);
+    setLoadWarnings(results.flatMap((result, index) => (
+      result.status === 'rejected' ? [sources[index]] : []
+    )));
     const value = (index) => results[index].status === 'fulfilled' ? results[index].value?.data || [] : [];
     setClients(value(0)); setTeams(value(1)); setOrienteurs(value(2)); setSectors(value(3)); setTechnicians(value(4));
     if (results[5].status === 'fulfilled') {
@@ -43,7 +61,7 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
   useEffect(() => {
     const timer = window.setTimeout(() => load(), 0);
     return () => window.clearTimeout(timer);
-  }, [load]);
+  }, [load, refreshRevision]);
 
   const createClient = async (event) => {
     event.preventDefault();
@@ -180,6 +198,15 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
 
   return (
     <div className="v1-admin-grid">
+      {loadWarnings.length > 0 ? (
+        <div className="v1-admin-load-warning" role="alert">
+          <div>
+            <strong>Configuration partiellement chargée</strong>
+            <span>Indisponible : {loadWarnings.join(', ')}. Les autres données restent utilisables.</span>
+          </div>
+          <button type="button" onClick={load}>Réessayer</button>
+        </div>
+      ) : null}
       {isAdmin ? <section className="v1-admin-card">
         <header><span>Donneurs d’ordre</span><h2>Entreprises clientes</h2></header>
         <form onSubmit={createClient} className="v1-admin-form">

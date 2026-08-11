@@ -192,6 +192,7 @@ const OperationalSettingsSection = memo(
   function OperationalSettingsSection({
     toast,
     refreshRevision = 0,
+    onDirtyChange,
   }) {
     const {
       applyOperationalDocument,
@@ -389,6 +390,26 @@ const OperationalSettingsSection = memo(
       : loadedRetentionDays !== null;
 
     const dirty = staleDirty || retentionDirty;
+
+    useEffect(() => {
+      onDirtyChange?.(dirty);
+    }, [dirty, onDirtyChange]);
+
+    useEffect(() => () => {
+      onDirtyChange?.(false);
+    }, [onDirtyChange]);
+
+    useEffect(() => {
+      if (!dirty) return undefined;
+
+      const warnBeforeLeaving = (event) => {
+        event.preventDefault();
+        event.returnValue = '';
+      };
+
+      window.addEventListener('beforeunload', warnBeforeLeaving);
+      return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
+    }, [dirty]);
 
     const handleReset =
       useCallback(() => {
