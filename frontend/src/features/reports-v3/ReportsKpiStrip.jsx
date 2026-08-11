@@ -30,9 +30,7 @@ const DEFINITIONS = Object.freeze([
     metric: 'completed',
     tone: 'success',
     Icon: CheckIcon,
-    intent: {
-      status: 'completed',
-    },
+    intent: null,
   },
   {
     key: 'inProgress',
@@ -50,9 +48,7 @@ const DEFINITIONS = Object.freeze([
     metric: 'pending',
     tone: 'warning',
     Icon: ClockIcon,
-    intent: {
-      status: 'pending',
-    },
+    intent: null,
   },
   {
     key: 'urgent',
@@ -71,7 +67,7 @@ const DEFINITIONS = Object.freeze([
     tone: 'info',
     Icon: UserIcon,
     intent: {
-      assignment: 'unassigned',
+      unassigned: true,
     },
   },
 ]);

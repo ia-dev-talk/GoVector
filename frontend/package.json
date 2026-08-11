@@ -7,7 +7,7 @@
 		"dev": "vite",
 		"build": "vite build",
 		"lint": "eslint .",
-		"test": "node --test src/lib/workflow-capabilities.test.js src/lib/geocoding.test.js src/lib/shared-map-location.test.js src/lib/import-mapping.test.js src/lib/business-catalog.test.js src/features/personnel/personnelUtils.test.js",
+		"test": "node --test src/lib/workflow-capabilities.test.js src/lib/geocoding.test.js src/lib/shared-map-location.test.js src/lib/import-mapping.test.js src/lib/business-catalog.test.js src/features/personnel/personnelUtils.test.js src/features/reports-v3/reportUtils.test.js",
 		"preview": "vite preview"
 	},
 	"dependencies": {
