@@ -74,18 +74,32 @@ export default function ImportCenter({
     const [canonicalFieldLabels, setCanonicalFieldLabels] = useState({});
     const [headerMappings, setHeaderMappings] = useState({});
     const [headerRowMappings, setHeaderRowMappings] = useState({});
+    const [importProfiles, setImportProfiles] = useState([]);
+    const [profilesRevision, setProfilesRevision] = useState(0);
+    const [selectedProfileId, setSelectedProfileId] = useState("");
+    const [profileName, setProfileName] = useState("");
+    const [savingProfile, setSavingProfile] = useState(false);
 
     useEffect(() => {
-        api.getImportContract()
-            .then((response) => {
-                setCanonicalFields(response.data?.canonical_fields || []);
-                setCanonicalFieldLabels(response.data?.field_labels || {});
+        Promise.all([api.getImportContract(), api.getImportProfiles()])
+            .then(([contractResponse, profilesResponse]) => {
+                setCanonicalFields(contractResponse.data?.canonical_fields || []);
+                setCanonicalFieldLabels(contractResponse.data?.field_labels || {});
+                setImportProfiles(profilesResponse.data?.profiles || []);
+                setProfilesRevision(profilesResponse.data?.revision || 0);
             })
             .catch(() => {
                 setCanonicalFields([]);
                 setCanonicalFieldLabels({});
+                setImportProfiles([]);
+                setProfilesRevision(0);
             });
     }, []);
+
+    const selectedProfile = useMemo(
+        () => importProfiles.find((profile) => profile.id === selectedProfileId) || null,
+        [importProfiles, selectedProfileId],
+    );
 
     const mappingRows = useMemo(() => {
         const byFileHeader = new Map();
@@ -158,8 +172,14 @@ export default function ImportCenter({
                 const response = await api.uploadExcel(
                     file,
                     null,
-                    columnOverrides,
-                    rowOverrides,
+                    {
+                        ...(selectedProfile?.column_overrides || {}),
+                        ...columnOverrides,
+                    },
+                    {
+                        ...(selectedProfile?.header_row_overrides || {}),
+                        ...rowOverrides,
+                    },
                 );
 
                 previews.push({
@@ -210,6 +230,82 @@ export default function ImportCenter({
 
         }
 
+    }
+
+    function buildProfilePayload() {
+        const columnOverrides = {};
+        mappingRows.forEach((match) => {
+            const hasOverride = Object.prototype.hasOwnProperty.call(headerMappings, match.key);
+            columnOverrides[match.header] = hasOverride
+                ? headerMappings[match.key]
+                : selectedProfile?.column_overrides?.[match.header] ?? match.field ?? null;
+        });
+        const headerRows = {};
+        results.forEach((result) => {
+            (result.info?.mapping_diagnostics || []).forEach((sheet) => {
+                const key = getScopedImportKey(result.file, sheet.sheet);
+                const row = headerRowMappings[key]
+                    ?? selectedProfile?.header_row_overrides?.[sheet.sheet]
+                    ?? sheet.header_row;
+                if (Number.isInteger(row) && row > 0) headerRows[sheet.sheet] = row;
+            });
+        });
+        return {
+            name: profileName.trim() || selectedProfile?.name || "",
+            operator: selectedProfile?.operator || null,
+            column_overrides: columnOverrides,
+            header_row_overrides: headerRows,
+            expected_revision: profilesRevision,
+        };
+    }
+
+    async function saveImportProfile() {
+        const payload = buildProfilePayload();
+        if (!payload.name) {
+            setError("Donnez un nom au profil avant de l’enregistrer.");
+            return;
+        }
+        if (mappingRows.length === 0) {
+            setError("Analysez au moins un fichier avant d’enregistrer son profil.");
+            return;
+        }
+        setSavingProfile(true);
+        setError(null);
+        try {
+            const response = selectedProfile
+                ? await api.updateImportProfile(selectedProfile.id, payload)
+                : await api.createImportProfile(payload);
+            const profiles = response.data?.profiles || [];
+            setImportProfiles(profiles);
+            setProfilesRevision(response.data?.revision || 0);
+            const saved = selectedProfile
+                ? profiles.find((profile) => profile.id === selectedProfile.id)
+                : profiles.find((profile) => profile.name === payload.name);
+            setSelectedProfileId(saved?.id || "");
+            setProfileName(saved?.name || payload.name);
+        } catch (err) {
+            setError(getApiErrorMessage(err, "Impossible d’enregistrer ce profil."));
+        } finally {
+            setSavingProfile(false);
+        }
+    }
+
+    async function deleteImportProfile() {
+        if (!selectedProfile) return;
+        if (!window.confirm(`Supprimer le profil « ${selectedProfile.name} » ?`)) return;
+        setSavingProfile(true);
+        setError(null);
+        try {
+            const response = await api.deleteImportProfile(selectedProfile.id, profilesRevision);
+            setImportProfiles(response.data?.profiles || []);
+            setProfilesRevision(response.data?.revision || 0);
+            setSelectedProfileId("");
+            setProfileName("");
+        } catch (err) {
+            setError(getApiErrorMessage(err, "Impossible de supprimer ce profil."));
+        } finally {
+            setSavingProfile(false);
+        }
     }
 
     function toggleJob(importId) {
@@ -355,13 +451,13 @@ export default function ImportCenter({
 
                         <h2>
 
-                            Centre d'import Magellan
+                            Centre d'import BlueVector
 
                         </h2>
 
                         <p>
 
-                            Importez les fichiers IAM, Orange ou Inwi.
+                            Adaptez puis importez les fichiers de vos opérateurs sans perdre les valeurs inconnues.
 
                         </p>
 
@@ -382,6 +478,60 @@ export default function ImportCenter({
                 </div>
 
                 <div className="import-body">
+
+                    <section className="import-profile-bar">
+                        <div>
+                            <strong>Profil de fichier</strong>
+                            <small>Réutilisez une correspondance de colonnes déjà vérifiée.</small>
+                        </div>
+                        <label>
+                            <span>Profil actif</span>
+                            <select
+                                value={selectedProfileId}
+                                onChange={(event) => {
+                                    const profile = importProfiles.find((item) => item.id === event.target.value);
+                                    setSelectedProfileId(event.target.value);
+                                    setProfileName(profile?.name || "");
+                                    setHeaderMappings({});
+                                    setHeaderRowMappings({});
+                                }}
+                            >
+                                <option value="">Détection automatique / nouveau profil</option>
+                                {importProfiles.map((profile) => (
+                                    <option value={profile.id} key={profile.id}>{profile.name}</option>
+                                ))}
+                            </select>
+                        </label>
+                        <label>
+                            <span>Nom du profil</span>
+                            <input
+                                value={profileName}
+                                maxLength={80}
+                                onChange={(event) => setProfileName(event.target.value)}
+                                placeholder="Ex. Plaque commandes IAM"
+                            />
+                        </label>
+                        <div className="import-profile-bar__actions">
+                            <button
+                                type="button"
+                                className="import-btn import-btn-secondary"
+                                disabled={savingProfile || mappingRows.length === 0}
+                                onClick={saveImportProfile}
+                            >
+                                {savingProfile ? "Enregistrement…" : selectedProfile ? "Mettre à jour" : "Enregistrer"}
+                            </button>
+                            {selectedProfile ? (
+                                <button
+                                    type="button"
+                                    className="import-btn import-btn-cancel"
+                                    disabled={savingProfile}
+                                    onClick={deleteImportProfile}
+                                >
+                                    Supprimer
+                                </button>
+                            ) : null}
+                        </div>
+                    </section>
 
                     <ImportDropZone
 
@@ -663,7 +813,10 @@ export default function ImportCenter({
                                                 const fileName = result.file?.name || result.filename || "Fichier";
                                                 const key = getScopedImportKey(result.file, sheet.sheet);
                                                 const candidates = sheet.header_candidates || [];
-                                                const currentRow = headerRowMappings[key] ?? sheet.header_row ?? "";
+                                                const currentRow = headerRowMappings[key]
+                                                    ?? selectedProfile?.header_row_overrides?.[sheet.sheet]
+                                                    ?? sheet.header_row
+                                                    ?? "";
                                                 const rows = candidates.some((candidate) => candidate.row === currentRow)
                                                     ? candidates
                                                     : [{ row: currentRow, values: sheet.headers || [] }, ...candidates];
@@ -698,7 +851,9 @@ export default function ImportCenter({
                                                 );
                                                 const value = hasOverride
                                                     ? headerMappings[match.key] ?? ""
-                                                    : match.field ?? "";
+                                                    : selectedProfile?.column_overrides?.[match.header]
+                                                        ?? match.field
+                                                        ?? "";
                                                 return (
                                                     <label key={match.key}>
                                                         <span>{match.fileName} · {match.header}</span>

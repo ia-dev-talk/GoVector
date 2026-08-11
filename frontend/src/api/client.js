@@ -781,6 +781,16 @@ export const api = {
   uploadExcel: uploadExcelFile,
   importExcel: uploadExcelFile,
   getImportContract: () => apiClient.get('/import/excel/contract'),
+  getImportProfiles: () => apiClient.get('/import/excel/profiles'),
+  createImportProfile: (payload) => apiClient.post('/import/excel/profiles', payload),
+  updateImportProfile: (profileId, payload) => apiClient.put(
+    `/import/excel/profiles/${pathSegment(profileId, 'Profil')}`,
+    payload,
+  ),
+  deleteImportProfile: (profileId, expectedRevision) => apiClient.delete(
+    `/import/excel/profiles/${pathSegment(profileId, 'Profil')}`,
+    withParams({ expected_revision: expectedRevision }),
+  ),
 
   confirmExcelImport: (payload) =>
     apiClient.post(

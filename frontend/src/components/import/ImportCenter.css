@@ -128,6 +128,39 @@
 
 }
 
+.import-profile-bar{
+    display:grid;
+    grid-template-columns:minmax(190px,1fr) minmax(210px,1fr) minmax(210px,1fr) auto;
+    gap:12px;
+    align-items:end;
+    margin-bottom:18px;
+    padding:16px;
+    border:1px solid #d8e5f4;
+    border-radius:13px;
+    background:linear-gradient(135deg,#fff,#f2f7ff);
+}
+
+.import-profile-bar>div:first-child{
+    display:flex;
+    flex-direction:column;
+    align-self:center;
+}
+
+.import-profile-bar strong{color:#1e3150;font-size:14px}
+.import-profile-bar small{margin-top:3px;color:#70829b;font-size:11px}
+.import-profile-bar label{display:flex;min-width:0;flex-direction:column;gap:5px}
+.import-profile-bar label>span{color:#61738c;font-size:10px;font-weight:700;text-transform:uppercase}
+.import-profile-bar select,.import-profile-bar input{
+    width:100%;height:40px;padding:0 10px;border:1px solid #cbd9ea;border-radius:8px;
+    outline:none;color:#1a2c48;background:#fff;
+}
+.import-profile-bar select:focus,.import-profile-bar input:focus{border-color:#3979dc;box-shadow:0 0 0 3px rgba(57,121,220,.1)}
+.import-profile-bar__actions{display:flex;gap:7px}
+.import-profile-bar__actions .import-btn{padding:0 13px}
+.import-btn-secondary{background:#2563eb;color:#fff}
+.import-btn-secondary:hover{background:#1d4ed8}
+.import-btn:disabled{cursor:not-allowed;opacity:.48}
+
 .import-footer{
 
     display:flex;
@@ -495,6 +528,7 @@
 }
 
 @media(max-width:720px) {
+  .import-profile-bar{grid-template-columns:1fr}
   .import-header-row-grid,
   .import-mapping-grid {
     grid-template-columns: 1fr;

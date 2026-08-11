@@ -52,6 +52,16 @@ La provenance est conservée sur l'ordre avec `planned_location_source` et `plan
 - Les nouvelles observations de site, actions, médias, positions live, échecs et reports portent un `visit_id` lorsqu’un passage est identifiable.
 - La migration v031 rattache les preuves historiques à un passage reconstitué et conserve `backfill_confidence`; elle ne prétend pas connaître une tentative qui n’a jamais été enregistrée.
 
+## Import adaptatif et vérifiable
+
+- Les profils d'import enregistrent les décisions humaines de correspondance
+  (`en-tête source -> champ canonique`, y compris « ignorer ») et la ligne
+  d'en-tête choisie par feuille.
+- Ils sont versionnés dans la configuration, modifiables uniquement par un
+  administrateur et chaque création, modification ou suppression est auditée.
+- Un profil réutilise une décision déjà vérifiée; il ne transforme jamais une
+  colonne inconnue en donnée métier par supposition.
+
 ## Identité Site et résolution GPS
 
 - La migration v032 ajoute `Site` et relie `Job`/`JobSiteObservation` par `site_id`.
