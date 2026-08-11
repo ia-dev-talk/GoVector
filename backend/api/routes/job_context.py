@@ -5,13 +5,14 @@ from pathlib import Path
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth.dependencies import get_current_user, require_orienteur
+from backend.api.errors import BusinessAPIError
 from backend.config import get_settings
 from backend.database.connection import get_db
 from backend.database.models import (
@@ -45,7 +46,13 @@ from backend.logic.job_communications import (
 )
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_history import site_match_clause
-from backend.logic.site_registry import resolve_site_observation, site_dict
+from backend.logic.site_registry import (
+    find_site_merge_candidates,
+    merge_sites,
+    resolve_site_observation,
+    site_dict,
+    site_merge_conflicts,
+)
 from backend.logic.site_attributes import (
     attribute_observation_dict,
     resolve_site_attribute_observation,
@@ -81,6 +88,15 @@ class SiteObservationResolutionPayload(BaseModel):
 
 class SiteAttributeResolutionPayload(SiteObservationResolutionPayload):
     note: str | None = Field(default=None, max_length=1000)
+
+
+class SiteMergePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_site_id: int = Field(gt=0)
+    expected_source_revision: int = Field(ge=0)
+    expected_target_revision: int = Field(ge=0)
+    reason: str = Field(min_length=8, max_length=1000)
 
 
 class CommunicationAssetPayload(BaseModel):
@@ -607,6 +623,135 @@ async def resolve_job_site_attribute(
         "resolved_attribute": (
             resolved_attribute_dict(resolved) if resolved is not None else None
         ),
+    }
+
+
+@router.get("/{job_id}/site-merge-candidates")
+async def list_job_site_merge_candidates(
+    job_id: int,
+    search: str | None = Query(default=None, max_length=120),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_orienteur),
+):
+    job = await require_job_read_access_by_id(
+        db, job_id=job_id, current_user=current_user
+    )
+    require_job_operations_access(job=job, current_user=current_user)
+    if job.site_id is None:
+        return {"source_site": None, "candidates": []}
+    source = await db.scalar(
+        select(Site).where(
+            Site.id == job.site_id,
+            Site.is_active.is_(True),
+            Site.merged_into_site_id.is_(None),
+        )
+    )
+    if source is None:
+        raise BusinessAPIError(
+            409, "site_not_available", "Le site de cette intervention n'est plus actif"
+        )
+    candidates = await find_site_merge_candidates(
+        db, source=source, current_user=current_user, search=search
+    )
+    site_ids = [source.id, *[candidate.id for candidate, _ in candidates]]
+    attributes = (
+        await db.execute(
+            select(SiteResolvedAttribute).where(
+                SiteResolvedAttribute.site_id.in_(site_ids)
+            )
+        )
+    ).scalars().all()
+    attributes_by_site: dict[int, list[SiteResolvedAttribute]] = {}
+    for item in attributes:
+        attributes_by_site.setdefault(item.site_id, []).append(item)
+    return {
+        "source_site": site_dict(source),
+        "candidates": [
+            {
+                **site_dict(candidate),
+                "job_count": job_count,
+                "merge_blockers": site_merge_conflicts(
+                    source,
+                    candidate,
+                    source_attributes=attributes_by_site.get(source.id, []),
+                    target_attributes=attributes_by_site.get(candidate.id, []),
+                ),
+            }
+            for candidate, job_count in candidates
+        ],
+    }
+
+
+@router.post("/{job_id}/site-merge")
+async def merge_job_site(
+    job_id: int,
+    payload: SiteMergePayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_orienteur),
+):
+    reason = payload.reason.strip()
+    if len(reason) < 8:
+        raise BusinessAPIError(
+            422,
+            "site_merge_reason_required",
+            "Expliquez la vérification ayant conduit au rapprochement",
+        )
+    source_job = await require_job_read_access_by_id(
+        db, job_id=job_id, current_user=current_user
+    )
+    require_job_operations_access(job=source_job, current_user=current_user)
+    if source_job.site_id is None:
+        raise BusinessAPIError(
+            409,
+            "site_not_available",
+            "Cette intervention n'a pas encore d'identité site à fusionner",
+        )
+
+    target_job_statement = select(Job).where(
+        Job.site_id == payload.target_site_id,
+        Job.deleted_at.is_(None),
+    )
+    if current_user.role == UserRole.ORIENTEUR:
+        target_job_statement = target_job_statement.where(
+            Job.orienteur_id == current_user.orienteur_id
+        )
+    target_job = await db.scalar(target_job_statement.limit(1))
+    if target_job is None:
+        raise BusinessAPIError(
+            403,
+            "site_merge_target_denied",
+            "Le site cible n'est pas disponible dans votre périmètre opérationnel",
+        )
+    require_job_operations_access(job=target_job, current_user=current_user)
+
+    target, merge_record, moved_job_ids = await merge_sites(
+        db,
+        source_site_id=source_job.site_id,
+        target_site_id=payload.target_site_id,
+        expected_source_revision=payload.expected_source_revision,
+        expected_target_revision=payload.expected_target_revision,
+        reason=reason,
+        current_user=current_user,
+    )
+    for moved_job_id in moved_job_ids:
+        await log_job_activity(
+            db=db,
+            job_id=moved_job_id,
+            action="site_merged",
+            description="Site rapproché manuellement après vérification bureau",
+            metadata={
+                "user_id": current_user.id,
+                "merge_id": merge_record.id,
+                "source_site_id": merge_record.source_site_id,
+                "target_site_id": target.id,
+                "reason": reason,
+            },
+        )
+    await db.commit()
+    return {
+        "site": site_dict(target),
+        "merge_id": merge_record.id,
+        "moved_job_ids": moved_job_ids,
     }
 
 

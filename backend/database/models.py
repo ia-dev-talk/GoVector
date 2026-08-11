@@ -332,6 +332,14 @@ class Site(Base):
     match_basis: Mapped[str] = mapped_column(String(40), nullable=False)
     match_confidence: Mapped[str] = mapped_column(String(16), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"), nullable=False)
+    merged_into_site_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    merged_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    merged_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    merge_reason: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, server_default=text("CURRENT_TIMESTAMP"), nullable=False
     )
@@ -341,6 +349,39 @@ class Site(Base):
     )
 
     jobs: Mapped[List["Job"]] = relationship("Job", back_populates="site", lazy="selectin")
+
+
+class SiteMergeRecord(Base):
+    """Immutable audit record for an explicit, human-confirmed site merge."""
+
+    __tablename__ = "site_merge_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_site_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    target_site_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    merged_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    source_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_revision_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_revision_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
 
 
 class FieldTeam(Base):

@@ -31,3 +31,15 @@ def test_live_openapi_contains_canonical_workflow_contract_and_security():
     schemas = schema["components"]["schemas"]
     assert "WorkflowCapabilitiesResponse" in schemas
     assert "JobWorkflowCapabilitiesResponse" in schemas
+
+
+def test_live_openapi_protects_manual_site_merge_operations():
+    schema = app.openapi()
+    candidates = schema["paths"][
+        "/api/v1/job-actions/{job_id}/site-merge-candidates"
+    ]["get"]
+    merge = schema["paths"]["/api/v1/job-actions/{job_id}/site-merge"]["post"]
+
+    assert candidates["security"] == [{"OAuth2PasswordBearer": []}]
+    assert merge["security"] == [{"OAuth2PasswordBearer": []}]
+    assert "SiteMergePayload" in schema["components"]["schemas"]

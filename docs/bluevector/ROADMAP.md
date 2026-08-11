@@ -32,7 +32,7 @@
 - [x] Rendre les conflits GPS explicites et résolubles par le bureau.
 - [x] Donner la priorité à `site_id` dans l’historique et l’héritage des repères.
 - [x] Étendre le même contrat de résolution aux conflits PTO/PBO/PM/équipement.
-- [ ] Fournir une action bureau contrôlée pour lier/fusionner deux sites après vérification humaine.
+- [x] Fournir une action bureau contrôlée pour lier/fusionner deux sites après vérification humaine, avec préflight des conflits, révisions optimistes et trace immutable.
 
 ## B4 — intégrations
 

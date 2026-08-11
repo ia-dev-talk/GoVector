@@ -11,7 +11,7 @@ Cet audit distingue le produit réellement raccordé des ambitions futures. Il c
 | Workflow terrain | solide pilote | moteur backend, commandes par rôle, clôture et validation | règles avancées par client/opérateur |
 | Synchronisation Mobile | solide pilote | outbox propriétaire, idempotence, ACK individuel, médias durables | observabilité et purge/réconciliation à grande échelle |
 | Collaboration bureau-terrain | solide pilote | messages structurés, pièces jointes, accusés, compléments post-visite | notifications push et annotations vectorielles collaboratives |
-| Géolocalisation | solide pilote | planned/live/observed/resolved séparés, provenance et conflits | fusion manuelle de sites et politique juridique de production |
+| Géolocalisation | solide pilote | planned/live/observed/resolved séparés, provenance, conflits et fusion manuelle auditée | politique juridique de production et supervision des fournisseurs |
 | Historique | intermédiaire avancé | visites, affectations append-only, journal, actions, médias | backfill métier à auditer et stock entièrement rattaché aux visites |
 | Administration | intermédiaire avancé | clients, comptes opérationnels, activation, réinitialisation, équipes, secteurs, catalogue métier | changement de rôle audité, sessions et historique d’appartenance aux équipes |
 | Import adaptatif | intermédiaire avancé | détection d’en-têtes, mapping corrigible et confirmation | profils mémorisés par source, métriques qualité et reprise massive |

@@ -1571,6 +1571,18 @@ export const api = {
       data,
     ),
 
+  getJobSiteMergeCandidates: (jobId, search = '') =>
+    apiClient.get(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/site-merge-candidates`,
+      { params: search ? { search } : {} },
+    ),
+
+  mergeJobSite: (jobId, data) =>
+    apiClient.post(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/site-merge`,
+      data,
+    ),
+
   resolvePreparedAddress: (data) =>
     apiClient.post('/geocoding/resolve', data),
 
