@@ -21,6 +21,7 @@ La branche V1 dispose d’un workflow technicien piloté par le backend, d’une
 9. [Confidentialité et rétention GPS](GPS_PRIVACY_AND_RETENTION.md)
 10. [Checklist de livraison Android](ANDROID_RELEASE_CHECKLIST.md)
 11. [Import adaptatif Excel et CSV](ADAPTIVE_IMPORT.md)
+12. [Audit système du 11 août 2026](SYSTEM_AUDIT_2026-08-11.md)
 
 ## Principes non négociables
 
