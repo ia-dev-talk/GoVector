@@ -47,3 +47,11 @@ Importer deux fichiers aux entêtes différents. L’utilisateur mappe explicite
 ## H. Rejeu réseau
 
 Couper le réseau après upload média ou après traitement serveur mais avant ACK. Au retour, le même UUID/hash est rejoué : un seul média et une seule action métier existent.
+
+## I. Correction illustrée après passage
+
+1. Le bureau partage un plan ou une photo dans une instruction ou une demande de correction.
+2. Le technicien ouvre la pièce, dessine un repère puis répond depuis le dossier, y compris après un statut terminal.
+3. Couper le réseau pendant la réponse : l’annotation reste dans l’outbox et repart sans duplication.
+4. Le frontend affiche le message, la version annotée, son auteur et son origine.
+5. Vérifier que la pièce initiale est toujours consultable et que `Job.status` n’a pas changé.

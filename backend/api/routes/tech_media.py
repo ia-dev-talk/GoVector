@@ -11,11 +11,9 @@ from backend.api.schemas.tech_media import TechnicianMediaResponse
 from backend.auth.dependencies import require_technician
 from backend.config import get_settings
 from backend.database.connection import get_db
-from backend.database.models import TechnicianMedia, User
-from backend.logic.technician_jobs import (
-    TechnicianJobMutationError,
-    require_assigned_job,
-)
+from backend.api.errors import BusinessAPIError
+from backend.database.models import Job, TechnicianMedia, User
+from backend.logic.job_access import require_job_collaboration_access
 from backend.services.media_storage import FileSystemMediaStorage, MediaStorageError
 
 
@@ -74,15 +72,17 @@ async def upload_technician_media(
     if not isinstance(parsed_metadata, dict):
         raise HTTPException(status_code=422, detail="Metadata doit être un objet JSON")
 
+    job = await db.scalar(select(Job).where(Job.id == job_id))
+    if job is None:
+        raise HTTPException(status_code=404, detail="Intervention introuvable")
     try:
-        await require_assigned_job(
+        await require_job_collaboration_access(
             db,
-            job_id=job_id,
+            job=job,
             current_user=current_user,
         )
-    except TechnicianJobMutationError as exc:
-        code = 404 if exc.code == "job_not_found" else 403
-        raise HTTPException(status_code=code, detail=exc.message) from exc
+    except BusinessAPIError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
 
     existing_result = await db.execute(
         select(TechnicianMedia).where(

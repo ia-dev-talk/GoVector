@@ -14,7 +14,13 @@ from starlette.datastructures import Headers
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.api.routes import tech_media
-from backend.database.models import JobSiteObservation, TechnicianFieldAction, UserRole
+from backend.database.models import (
+    Job,
+    JobSiteObservation,
+    JobStatus,
+    TechnicianFieldAction,
+    UserRole,
+)
 from backend.logic import technician_field_actions
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.services.media_storage import FileSystemMediaStorage, MediaStorageError
@@ -195,6 +201,9 @@ class _MediaDb:
         self.added = []
         self.commit = AsyncMock()
 
+    async def scalar(self, _statement):
+        return Job(id=8, job_type="INSTALLATION", status=JobStatus.FAILED)
+
     async def execute(self, _statement):
         return SimpleNamespace(scalar_one_or_none=lambda: self.existing)
 
@@ -221,8 +230,10 @@ async def test_media_upload_is_streamed_persisted_and_idempotent(
         TECHNICIAN_VIDEO_MAX_BYTES=1024,
     )
     monkeypatch.setattr(tech_media, "get_settings", lambda: settings)
-    assignment = AsyncMock(return_value=SimpleNamespace(id=8))
-    monkeypatch.setattr(tech_media, "require_assigned_job", assignment)
+    collaboration = AsyncMock()
+    monkeypatch.setattr(
+        tech_media, "require_job_collaboration_access", collaboration
+    )
     db = _MediaDb()
     attachment_id = uuid4()
 
@@ -241,6 +252,7 @@ async def test_media_upload_is_streamed_persisted_and_idempotent(
     assert created.sha256 == digest
     assert created.size_bytes == len(content)
     assert len(db.added) == 1
+    collaboration.assert_awaited()
     assert (tmp_path / db.added[0].storage_key).read_bytes() == content
     db.existing = db.added[0]
 
@@ -278,8 +290,8 @@ async def test_media_attachment_id_reuse_with_different_hash_conflicts(
     )
     monkeypatch.setattr(
         tech_media,
-        "require_assigned_job",
-        AsyncMock(return_value=SimpleNamespace(id=8)),
+        "require_job_collaboration_access",
+        AsyncMock(),
     )
     with pytest.raises(HTTPException) as exc_info:
         await tech_media.upload_technician_media(

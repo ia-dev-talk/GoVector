@@ -115,6 +115,22 @@ async def _dispatch(
             parent_id=event.payload.get("parent_id"),
             event_id=str(event.event_id),
             occurred_at=event.occurred_at,
+            asset_refs=(
+                [
+                    {
+                        "asset_type": "technician_media",
+                        "asset_id": str(event.payload["media_id"]),
+                        "role": str(event.payload.get("asset_role") or "attachment"),
+                        **(
+                            {"annotation_of": event.payload["annotation_of"]}
+                            if isinstance(event.payload.get("annotation_of"), dict)
+                            else {}
+                        ),
+                    }
+                ]
+                if event.payload.get("media_id")
+                else event.payload.get("attachments") or []
+            ),
         )
         return
 

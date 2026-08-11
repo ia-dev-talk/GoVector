@@ -1,5 +1,6 @@
 """Unified V1 field record and office-to-field attachments."""
 
+import json
 from pathlib import Path
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -49,6 +50,15 @@ class OfficeNotePayload(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
 
 
+class CommunicationAssetPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    asset_type: str = Field(min_length=1, max_length=32)
+    asset_id: str = Field(min_length=1, max_length=64)
+    role: str = Field(default="attachment", min_length=1, max_length=24)
+    annotation_of: dict | None = None
+
+
 class CommunicationPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -57,6 +67,9 @@ class CommunicationPayload(BaseModel):
     parent_id: int | None = Field(default=None, gt=0)
     audience: str | None = Field(default=None, max_length=16)
     requires_action: bool | None = None
+    attachments: list[CommunicationAssetPayload] = Field(
+        default_factory=list, max_length=6
+    )
 
 
 async def _job_for_collaboration(
@@ -86,7 +99,51 @@ async def _communication_rows(db: AsyncSession, job_id: int) -> list[dict]:
             .order_by(JobCommunication.created_at.asc(), JobCommunication.id.asc())
         )
     ).all()
-    return [communication_dict(item, username) for item, username in rows]
+    office_assets = (
+        await db.execute(select(JobAttachment).where(JobAttachment.job_id == job_id))
+    ).scalars().all()
+    field_assets = (
+        await db.execute(select(TechnicianMedia).where(TechnicianMedia.job_id == job_id))
+    ).scalars().all()
+    office_by_id = {item.attachment_id: item for item in office_assets}
+    field_by_id = {item.media_id: item for item in field_assets}
+
+    result = []
+    for item, username in rows:
+        data = communication_dict(item, username)
+        described = []
+        for reference in data["attachments"]:
+            if reference.get("asset_type") == "office_attachment":
+                asset = office_by_id.get(reference.get("asset_id"))
+                if asset is None:
+                    continue
+                descriptor = {
+                    **reference,
+                    "kind": asset.kind,
+                    "title": asset.title,
+                    "filename": asset.original_filename,
+                    "mime_type": asset.mime_type,
+                    "size_bytes": asset.size_bytes,
+                    "metadata": asset.meta_data or {},
+                }
+            else:
+                asset = field_by_id.get(reference.get("asset_id"))
+                if asset is None:
+                    continue
+                descriptor = {
+                    **reference,
+                    "kind": asset.kind,
+                    "title": None,
+                    "filename": asset.original_filename,
+                    "mime_type": asset.mime_type,
+                    "size_bytes": asset.size_bytes,
+                    "metadata": asset.meta_data or {},
+                    "technician_id": asset.technician_id,
+                }
+            described.append(descriptor)
+        data["attachments"] = described
+        result.append(data)
+    return result
 
 
 def _attachment_dict(item: JobAttachment) -> dict:
@@ -100,6 +157,7 @@ def _attachment_dict(item: JobAttachment) -> dict:
         "mime_type": item.mime_type,
         "size_bytes": item.size_bytes,
         "sha256": item.sha256,
+        "metadata": item.meta_data or {},
         "uploaded_by_user_id": item.uploaded_by_user_id,
         "created_at": item.created_at,
     }
@@ -111,7 +169,7 @@ async def get_field_record(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    job = await require_job_read_access_by_id(
+    job = await _job_for_collaboration(
         db, job_id=job_id, current_user=current_user
     )
     actions = (
@@ -315,6 +373,7 @@ async def add_job_communication(
             audience=payload.audience,
             parent_id=payload.parent_id,
             requires_action=payload.requires_action,
+            asset_refs=[item.model_dump() for item in payload.attachments],
         )
     except TechnicianJobMutationError as exc:
         raise HTTPException(status_code=422, detail=exc.message) from exc
@@ -413,6 +472,7 @@ async def upload_office_attachment(
     kind: str = Form(...),
     title: str | None = Form(None),
     comment: str | None = Form(None),
+    metadata: str = Form("{}"),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_orienteur),
@@ -421,6 +481,41 @@ async def upload_office_attachment(
         raise HTTPException(status_code=422, detail="Type de pièce jointe invalide.")
     job = await require_job_read_access_by_id(db, job_id=job_id, current_user=current_user)
     require_job_operations_access(job=job, current_user=current_user)
+    if len(metadata) > 8000:
+        raise HTTPException(status_code=422, detail="Métadonnées trop volumineuses.")
+    try:
+        parsed_metadata = json.loads(metadata)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=422, detail="Métadonnées JSON invalides.") from exc
+    if not isinstance(parsed_metadata, dict):
+        raise HTTPException(status_code=422, detail="Les métadonnées doivent être un objet.")
+    annotation_of = parsed_metadata.get("annotation_of")
+    if annotation_of is not None:
+        if not isinstance(annotation_of, dict):
+            raise HTTPException(status_code=422, detail="Origine d’annotation invalide.")
+        origin_type = str(annotation_of.get("asset_type") or "")
+        origin_id = str(annotation_of.get("asset_id") or "")
+        if origin_type == "office_attachment":
+            origin = await db.scalar(
+                select(JobAttachment).where(
+                    JobAttachment.job_id == job_id,
+                    JobAttachment.attachment_id == origin_id,
+                )
+            )
+        elif origin_type == "technician_media":
+            origin = await db.scalar(
+                select(TechnicianMedia).where(
+                    TechnicianMedia.job_id == job_id,
+                    TechnicianMedia.media_id == origin_id,
+                )
+            )
+        else:
+            origin = None
+        if origin is None:
+            raise HTTPException(
+                status_code=422,
+                detail="La pièce annotée n’appartient pas à cette intervention.",
+            )
     mime_type = (file.content_type or "application/octet-stream").lower()
     if not (
         mime_type.startswith("image/")
@@ -458,6 +553,7 @@ async def upload_office_attachment(
         mime_type=mime_type,
         size_bytes=stored.size_bytes,
         sha256=stored.sha256,
+        meta_data=parsed_metadata,
     )
     db.add(attachment)
     await db.commit()
@@ -482,7 +578,7 @@ async def download_office_attachment(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_job_read_access_by_id(db, job_id=job_id, current_user=current_user)
+    await _job_for_collaboration(db, job_id=job_id, current_user=current_user)
     item = (
         await db.execute(
             select(JobAttachment).where(
@@ -507,7 +603,7 @@ async def download_technician_media(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await require_job_read_access_by_id(db, job_id=job_id, current_user=current_user)
+    await _job_for_collaboration(db, job_id=job_id, current_user=current_user)
     item = (
         await db.execute(
             select(TechnicianMedia).where(

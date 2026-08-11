@@ -4,7 +4,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.database.models import Job, JobCommunication, JobStatus, UserRole
+from backend.database.models import (
+    Job,
+    JobCommunication,
+    JobStatus,
+    TechnicianMedia,
+    UserRole,
+)
 from backend.logic import job_communications
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_sync import SUPPORTED_SYNC_EVENT_TYPES
@@ -112,3 +118,46 @@ async def test_acknowledgement_updates_request_state_and_keeps_a_child_record(mo
 
 def test_technician_outbox_supports_structured_job_communications():
     assert "job_communication" in SUPPORTED_SYNC_EVENT_TYPES
+
+
+@pytest.mark.asyncio
+async def test_media_only_reply_keeps_a_verified_typed_reference(monkeypatch):
+    media = TechnicianMedia(
+        media_id="11111111-1111-4111-8111-111111111111",
+        attachment_id="22222222-2222-4222-8222-222222222222",
+        user_id=7,
+        technician_id=3,
+        job_id=8,
+        kind="photo",
+        storage_key="3/photo.jpg",
+        mime_type="image/jpeg",
+        size_bytes=12,
+        sha256="a" * 64,
+    )
+    db = _CommunicationDb(parent=media)
+    monkeypatch.setattr(job_communications, "log_job_activity", AsyncMock())
+
+    item = await job_communications.create_job_communication(
+        db,
+        job_id=8,
+        message_type="reply",
+        body=None,
+        current_user=_user(),
+        source="mobile_outbox",
+        asset_refs=[
+            {
+                "asset_type": "technician_media",
+                "asset_id": media.media_id,
+                "role": "annotation",
+            }
+        ],
+    )
+
+    assert item.body is None
+    assert item.meta_data["assets"] == [
+        {
+            "asset_type": "technician_media",
+            "asset_id": media.media_id,
+            "role": "annotation",
+        }
+    ]

@@ -184,7 +184,7 @@ async def test_address_live_gps_and_confirmed_landmarks_remain_distinct(monkeypa
 
     monkeypatch.setattr(
         job_context,
-        "require_job_read_access_by_id",
+        "_job_for_collaboration",
         AsyncMock(return_value=job),
     )
     field_record_db = _FieldRecordDb(
@@ -192,10 +192,12 @@ async def test_address_live_gps_and_confirmed_landmarks_remain_distinct(monkeypa
             actions,
             [],
             list(reversed(observations)),
-                [],
-                [],
-                [],
-                [technician],
+            [],
+            [],
+            [],
+            [],
+            [],
+            [technician],
         ]
     )
     record = await job_context.get_field_record(

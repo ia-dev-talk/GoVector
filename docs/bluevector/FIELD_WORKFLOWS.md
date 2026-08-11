@@ -47,3 +47,15 @@ Ces ajouts ne changent jamais `Job.status`. Une demande nécessitant un nouveau
 déplacement devra devenir un futur `JobVisit` au lieu de rouvrir silencieusement
 le passage précédent. `JobCommunication` est la vérité structurée de cet échange;
 `JobActivityLog` n'en contient qu'une projection de journal.
+
+### Pièces et annotations dans les échanges
+
+Une communication peut référencer jusqu’à six pièces déjà persistées : document
+de préparation bureau ou média terrain. Le message ne contient jamais le blob;
+il conserve une référence typée et vérifiée sur la même intervention.
+
+Une annotation est une nouvelle image dérivée. L’original reste immuable et la
+version annotée conserve `annotation_of`, l’éditeur, l’auteur et la date. Le
+technicien peut répondre avec une pièce même après échec, report ou clôture s’il
+a réellement participé au dossier. Cette permission append-only ne permet ni
+transition de statut ni modification rétroactive du résultat.
