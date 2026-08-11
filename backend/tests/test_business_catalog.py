@@ -26,6 +26,16 @@ def _dependency_names(route):
     }
 
 
+def _grade_query_db(grades=None):
+    scalars = MagicMock()
+    scalars.all.return_value = list(grades or [])
+    result = MagicMock()
+    result.scalars.return_value = scalars
+    db = AsyncMock()
+    db.execute.return_value = result
+    return db
+
+
 def test_catalog_contains_every_protected_business_code():
     values = settings._catalog_defaults()
     assert {item.code for item in values.job_types} == {item.value for item in JobType}
@@ -55,7 +65,7 @@ def test_catalog_write_is_admin_only_but_read_is_authenticated():
 async def test_protected_catalog_rejects_removed_workflow_code():
     values = settings._catalog_defaults()
     values.status_presentations = values.status_presentations[:-1]
-    db = AsyncMock()
+    db = _grade_query_db()
     with pytest.raises(HTTPException) as raised:
         await settings._validated_catalog(db, values)
     assert raised.value.status_code == 422
@@ -68,12 +78,7 @@ async def test_used_technician_grade_cannot_be_archived():
         CatalogItem(**{**item.model_dump(), "active": item.code != "senior"})
         for item in values.technician_grades
     ]
-    scalars = MagicMock()
-    scalars.all.return_value = ["senior"]
-    result = MagicMock()
-    result.scalars.return_value = scalars
-    db = AsyncMock()
-    db.execute.return_value = result
+    db = _grade_query_db(["senior"])
     with pytest.raises(HTTPException) as raised:
         await settings._validated_catalog(db, values)
     assert raised.value.status_code == 409
