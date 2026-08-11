@@ -8,6 +8,12 @@ import ImportDropZone from "./ImportDropZone";
 import ImportFileCard from "./ImportFileCard";
 import ImportSummary from "./ImportSummary";
 import ImportReviewTable from "./ImportReviewTable";
+import {
+    getFileColumnOverrides,
+    getFileHeaderRowOverrides,
+    getImportFileKey,
+    getScopedImportKey,
+} from "../../lib/import-mapping";
 
 function getApiErrorMessage(err, fallback) {
     const detail = err.response?.data?.detail;
@@ -33,6 +39,16 @@ function getApiErrorMessage(err, fallback) {
     return fallback;
 }
 
+function getMappingMethodLabel(match) {
+    if (match.issue === "duplicate_field") {
+        return "Doublon détecté : cette colonne n’est pas utilisée";
+    }
+    if (match.method === "ignored") return "Ignorée manuellement";
+    if (match.method === "manual") return "Choix manuel";
+    if (match.method === "unmapped") return "Non reconnue";
+    return `Détection ${match.method}`;
+}
+
 export default function ImportCenter({
 
     onClose,
@@ -55,22 +71,42 @@ export default function ImportCenter({
 
     const [importMode, setImportMode] = useState("create");
     const [canonicalFields, setCanonicalFields] = useState([]);
+    const [canonicalFieldLabels, setCanonicalFieldLabels] = useState({});
     const [headerMappings, setHeaderMappings] = useState({});
+    const [headerRowMappings, setHeaderRowMappings] = useState({});
 
     useEffect(() => {
         api.getImportContract()
-            .then((response) => setCanonicalFields(response.data?.canonical_fields || []))
-            .catch(() => setCanonicalFields([]));
+            .then((response) => {
+                setCanonicalFields(response.data?.canonical_fields || []);
+                setCanonicalFieldLabels(response.data?.field_labels || {});
+            })
+            .catch(() => {
+                setCanonicalFields([]);
+                setCanonicalFieldLabels({});
+            });
     }, []);
 
-    const mappingOverrides = useMemo(() => {
-        const result = {};
-        Object.entries(headerMappings).forEach(([header, field]) => {
-            if (!field) return;
-            result[field] = [...(result[field] || []), header];
+    const mappingRows = useMemo(() => {
+        const byFileHeader = new Map();
+        results.forEach((result) => {
+            const fileKey = getImportFileKey(result.file);
+            (result.info?.mapping_diagnostics || []).forEach((sheet) => {
+                (sheet.column_matches || []).forEach((match) => {
+                    const key = `${fileKey}::${match?.header || ""}`;
+                    if (!match?.header || byFileHeader.has(key)) return;
+                    byFileHeader.set(key, {
+                        ...match,
+                        key,
+                        fileKey,
+                        fileName: result.file?.name || result.filename || "Fichier",
+                        sheetName: sheet.sheet,
+                    });
+                });
+            });
         });
-        return result;
-    }, [headerMappings]);
+        return [...byFileHeader.values()];
+    }, [results]);
 
     const totalSize = useMemo(() => {
 
@@ -111,8 +147,20 @@ export default function ImportCenter({
             const previews = [];
 
             for (const file of files) {
-
-                const response = await api.uploadExcel(file, mappingOverrides);
+                const rowOverrides = getFileHeaderRowOverrides(
+                    headerRowMappings,
+                    file,
+                );
+                const columnOverrides = getFileColumnOverrides(
+                    headerMappings,
+                    file,
+                );
+                const response = await api.uploadExcel(
+                    file,
+                    null,
+                    columnOverrides,
+                    rowOverrides,
+                );
 
                 previews.push({
 
@@ -276,6 +324,10 @@ export default function ImportCenter({
         setError(null);
 
         setConfirmationResult(null);
+
+        setHeaderMappings({});
+
+        setHeaderRowMappings({});
 
     }
 
@@ -597,30 +649,79 @@ export default function ImportCenter({
                                 }
 
                                 {results.some((result) =>
-                                    (result.info?.mapping_diagnostics || []).some((sheet) =>
-                                        (sheet.unmapped_headers || []).length > 0
-                                    )
+                                    (result.info?.mapping_diagnostics || []).length > 0
                                 ) ? (
                                     <div className="import-preview-card">
-                                        <h3>Adapter les colonnes non reconnues</h3>
+                                        <h3>Comprendre et adapter le fichier</h3>
                                         <p>
-                                            Associez uniquement les en-têtes utiles. Le mapping est appliqué à la prochaine analyse ; aucune valeur n’est inventée.
+                                            Vérifiez la ligne d’en-tête et chaque association. Les corrections manuelles sont prioritaires à la prochaine analyse ; aucune valeur n’est inventée.
                                         </p>
+                                        <div className="import-header-row-grid">
+                                            {results.flatMap((result) =>
+                                                (result.info?.mapping_diagnostics || []).map((sheet) => ({ result, sheet }))
+                                            ).map(({ result, sheet }) => {
+                                                const fileName = result.file?.name || result.filename || "Fichier";
+                                                const key = getScopedImportKey(result.file, sheet.sheet);
+                                                const candidates = sheet.header_candidates || [];
+                                                const currentRow = headerRowMappings[key] ?? sheet.header_row ?? "";
+                                                const rows = candidates.some((candidate) => candidate.row === currentRow)
+                                                    ? candidates
+                                                    : [{ row: currentRow, values: sheet.headers || [] }, ...candidates];
+                                                return (
+                                                    <label key={key}>
+                                                        <span>{fileName} · {sheet.sheet}</span>
+                                                        <select
+                                                            value={currentRow}
+                                                            onChange={(event) => setHeaderRowMappings((current) => ({
+                                                                ...current,
+                                                                [key]: Number(event.target.value),
+                                                            }))}
+                                                        >
+                                                            {rows.filter((candidate) => candidate.row).map((candidate) => (
+                                                                <option key={candidate.row} value={candidate.row}>
+                                                                    Ligne {candidate.row} · {(candidate.values || []).slice(0, 4).join(" | ")}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        <small>
+                                                            Détection {sheet.header_detection === "manual" ? "confirmée" : "automatique"} · confiance {sheet.header_confidence || "faible"}
+                                                        </small>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
                                         <div className="import-mapping-grid">
-                                            {[...new Set(results.flatMap((result) =>
-                                                (result.info?.mapping_diagnostics || []).flatMap((sheet) => sheet.unmapped_headers || [])
-                                            ))].map((header) => (
-                                                <label key={header}>
-                                                    <span>{header}</span>
-                                                    <select
-                                                        value={headerMappings[header] || ""}
-                                                        onChange={(event) => setHeaderMappings((current) => ({ ...current, [header]: event.target.value }))}
-                                                    >
-                                                        <option value="">Ignorer</option>
-                                                        {canonicalFields.map((field) => <option key={field} value={field}>{field}</option>)}
-                                                    </select>
-                                                </label>
-                                            ))}
+                                            {mappingRows.map((match) => {
+                                                const hasOverride = Object.prototype.hasOwnProperty.call(
+                                                    headerMappings,
+                                                    match.key,
+                                                );
+                                                const value = hasOverride
+                                                    ? headerMappings[match.key] ?? ""
+                                                    : match.field ?? "";
+                                                return (
+                                                    <label key={match.key}>
+                                                        <span>{match.fileName} · {match.header}</span>
+                                                        <select
+                                                            value={value}
+                                                            onChange={(event) => setHeaderMappings((current) => ({
+                                                                ...current,
+                                                                [match.key]: event.target.value || null,
+                                                            }))}
+                                                        >
+                                                            <option value="">Ignorer</option>
+                                                            {canonicalFields.map((field) => (
+                                                                <option key={field} value={field}>
+                                                                    {canonicalFieldLabels[field] || field}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        <small>
+                                                            {getMappingMethodLabel(match)}
+                                                        </small>
+                                                    </label>
+                                                );
+                                            })}
                                         </div>
                                         <button
                                             type="button"

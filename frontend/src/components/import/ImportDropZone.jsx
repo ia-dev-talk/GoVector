@@ -46,7 +46,7 @@ export default function ImportDropZone({ setFiles }) {
                 type="file"
                 hidden
                 multiple
-                accept=".xlsx,.xls,.xlsm,.csv"
+                accept=".xlsx,.xlsm,.csv"
                 onChange={(e) => {
 
                     addFiles(e.target.files);
@@ -69,7 +69,7 @@ export default function ImportDropZone({ setFiles }) {
             </p>
 
             <small>
-                Formats supportés : XLSX • XLS • XLSM • CSV
+                Formats supportés : XLSX • XLSM • CSV
             </small>
 
         </div>

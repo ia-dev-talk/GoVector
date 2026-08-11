@@ -244,7 +244,12 @@ function getBearerToken(config) {
     : '';
 }
 
-function createImportFormData(file, mappingOverrides = null) {
+function createImportFormData(
+  file,
+  mappingOverrides = null,
+  columnOverrides = null,
+  headerRowOverrides = null,
+) {
   if (typeof FormData === 'undefined') {
     throw new Error(
       'FormData indisponible dans cet environnement',
@@ -262,6 +267,12 @@ function createImportFormData(file, mappingOverrides = null) {
   formData.append('file', file);
   if (isRecord(mappingOverrides) && Object.keys(mappingOverrides).length > 0) {
     formData.append('mapping_overrides', JSON.stringify(mappingOverrides));
+  }
+  if (isRecord(columnOverrides) && Object.keys(columnOverrides).length > 0) {
+    formData.append('column_overrides', JSON.stringify(columnOverrides));
+  }
+  if (isRecord(headerRowOverrides) && Object.keys(headerRowOverrides).length > 0) {
+    formData.append('header_row_overrides', JSON.stringify(headerRowOverrides));
   }
 
   return formData;
@@ -397,10 +408,20 @@ apiClient.interceptors.response.use(
   },
 );
 
-const uploadExcelFile = (file, mappingOverrides = null) =>
+const uploadExcelFile = (
+  file,
+  mappingOverrides = null,
+  columnOverrides = null,
+  headerRowOverrides = null,
+) =>
   apiClient.post(
     '/import/excel',
-    createImportFormData(file, mappingOverrides),
+    createImportFormData(
+      file,
+      mappingOverrides,
+      columnOverrides,
+      headerRowOverrides,
+    ),
   );
 
 const reassignAssignment = (
