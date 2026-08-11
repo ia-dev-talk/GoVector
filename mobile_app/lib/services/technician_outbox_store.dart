@@ -274,7 +274,7 @@ class TechnicianOutboxStore {
       },
       where: '''
         owner_user_id = ? AND owner_technician_id = ? AND status = ?
-        AND type IN (?, ?, ?)
+        AND type IN (?, ?, ?, ?)
       ''',
       whereArgs: [
         owner.userId,

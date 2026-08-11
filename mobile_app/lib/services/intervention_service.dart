@@ -230,6 +230,24 @@ class InterventionService {
     return response;
   }
 
+  static Future<http.Response> downloadTechnicianMedia({
+    required int jobId,
+    required String mediaId,
+  }) async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Token manquant');
+    final response = await http
+        .get(
+          AppConfig.apiUri('job-actions/$jobId/media/$mediaId/download'),
+          headers: {'Authorization': 'Bearer $token'},
+        )
+        .timeout(AppConfig.httpTimeout);
+    if (response.statusCode != 200) {
+      throw Exception(_extractDetail(response.body));
+    }
+    return response;
+  }
+
   static Future<JobWorkflowCapabilities> getWorkflowCapabilities({
     required int jobId,
   }) async {

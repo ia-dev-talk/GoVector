@@ -1,4 +1,6 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../../design_system/bluevector_tokens.dart';
@@ -68,7 +70,51 @@ class _TechnicianHistoryDetailScreenState
     }
   }
 
-  Future<void> _addComplement() async {
+  Future<void> _openComplementMenu() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            const ListTile(
+              title: Text('Compléter le dossier'),
+              subtitle: Text(
+                'Le résultat reste clôturé. Le complément est ajouté au journal.',
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.chat_bubble_outline_rounded),
+              title: const Text('Message'),
+              onTap: () => Navigator.pop(context, 'message'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_a_photo_outlined),
+              title: const Text('Photo'),
+              onTap: () => Navigator.pop(context, 'photo'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.attach_file_rounded),
+              title: const Text('Document'),
+              onTap: () => Navigator.pop(context, 'document'),
+            ),
+          ],
+        ),
+      ),
+    );
+    switch (action) {
+      case 'message':
+        await _addTextComplement();
+        break;
+      case 'photo':
+        await _addPhotoComplement();
+        break;
+      case 'document':
+        await _addDocumentComplement();
+        break;
+    }
+  }
+
+  Future<void> _addTextComplement() async {
     final controller = TextEditingController();
     final value = await showDialog<String>(
       context: context,
@@ -115,6 +161,96 @@ class _TechnicianHistoryDetailScreenState
     );
     await _load();
   }
+
+  Future<void> _addPhotoComplement() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Appareil photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Galerie'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final photo = await ImagePicker().pickImage(source: source, imageQuality: 92);
+    if (photo == null) return;
+    await OfflineService.addPendingMedia(
+      jobId: widget.historicalJobId,
+      sourcePath: photo.path,
+      kind: 'photo',
+      eventType: 'job_communication',
+      mimeType: photo.mimeType ?? _photoMime(photo.name),
+      metadata: {
+        'message_type': 'reply',
+        'body': 'Photo complémentaire ajoutée après le passage',
+        'asset_role': 'attachment',
+        'captured_at': DateTime.now().toUtc().toIso8601String(),
+      },
+    );
+    await OfflineService.syncPendingActions();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Photo complémentaire enregistrée.')),
+    );
+    await _load();
+  }
+
+  Future<void> _addDocumentComplement() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'txt', 'doc', 'docx'],
+      withData: false,
+    );
+    final file = result?.files.single;
+    if (file?.path == null) return;
+    await OfflineService.addPendingMedia(
+      jobId: widget.historicalJobId,
+      sourcePath: file!.path!,
+      kind: 'document',
+      eventType: 'job_communication',
+      mimeType: _documentMime(file.extension),
+      metadata: {
+        'message_type': 'reply',
+        'body': 'Document complémentaire : ${file.name}',
+        'asset_role': 'attachment',
+        'name': file.name,
+      },
+    );
+    await OfflineService.syncPendingActions();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Document complémentaire enregistré.')),
+    );
+    await _load();
+  }
+
+  String _photoMime(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    return 'image/jpeg';
+  }
+
+  String _documentMime(String? extension) => switch (extension?.toLowerCase()) {
+    'pdf' => 'application/pdf',
+    'txt' => 'text/plain',
+    'doc' => 'application/msword',
+    'docx' =>
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    _ => 'application/octet-stream',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +314,7 @@ class _TechnicianHistoryDetailScreenState
                 ),
               ),
               TextButton.icon(
-                onPressed: _addComplement,
+                onPressed: _openComplementMenu,
                 icon: const Icon(Icons.add_comment_outlined),
                 label: const Text('Compléter'),
               ),

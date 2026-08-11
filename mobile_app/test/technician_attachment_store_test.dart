@@ -95,8 +95,17 @@ void main() {
       await outbox.enqueue(
         owner: owner,
         jobId: item.jobId,
-        type: item.eventType,
-        payload: {'attachment_id': item.attachmentId},
+        type: 'job_communication',
+        payload: {
+          'attachment_id': item.attachmentId,
+          'message_type': 'reply',
+          'body': 'Annotation terrain ajoutée',
+          'asset_role': 'annotation',
+          'annotation_of': {
+            'asset_type': 'office_attachment',
+            'asset_id': 'plan-42',
+          },
+        },
         status: TechnicianOutboxStatus.awaitingMedia,
         eventId: item.eventId,
       );
@@ -122,6 +131,12 @@ void main() {
       expect(
         event?.payload['media_id'],
         '11111111-1111-4111-8111-111111111111',
+      );
+      expect(event?.type, 'job_communication');
+      expect(event?.payload['asset_role'], 'annotation');
+      expect(
+        (event?.payload['annotation_of'] as Map?)?['asset_id'],
+        'plan-42',
       );
       await outbox.close();
     },

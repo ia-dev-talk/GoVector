@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path_util;
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../design_system/bluevector_tokens.dart';
 import '../../services/intervention_service.dart';
 import '../../services/offline_service.dart';
+import '../actions/mobile_image_annotation_screen.dart';
 
 class MobileFieldContextCard extends StatefulWidget {
   const MobileFieldContextCard({super.key, required this.jobId});
@@ -89,6 +94,116 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Pièce jointe indisponible : $error')),
+      );
+    }
+  }
+
+  Future<dynamic> _downloadCommunicationAsset(
+    Map<String, dynamic> item,
+  ) async {
+    final assetType = item['asset_type']?.toString();
+    final assetId = item['asset_id']?.toString();
+    if (assetId == null || assetId.isEmpty) {
+      throw StateError('Référence de pièce absente');
+    }
+    if (assetType == 'technician_media') {
+      return InterventionService.downloadTechnicianMedia(
+        jobId: widget.jobId,
+        mediaId: assetId,
+      );
+    }
+    return InterventionService.downloadOfficeAttachment(
+      jobId: widget.jobId,
+      attachmentId: assetId,
+    );
+  }
+
+  Future<void> _previewCommunicationAsset(Map<String, dynamic> item) async {
+    try {
+      final response = await _downloadCommunicationAsset(item);
+      final mime = item['mime_type']?.toString().toLowerCase() ?? '';
+      if (!mounted) return;
+      if (mime.startsWith('image/')) {
+        await showDialog<void>(
+          context: context,
+          builder: (_) => Dialog(
+            child: InteractiveViewer(
+              child: Image.memory(response.bodyBytes, fit: BoxFit.contain),
+            ),
+          ),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${item['filename'] ?? item['title'] ?? 'Document'} est disponible dans le dossier.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Pièce jointe indisponible : $error')),
+      );
+    }
+  }
+
+  Future<void> _annotateCommunicationAsset(
+    Map<String, dynamic> item, {
+    required int parentId,
+  }) async {
+    try {
+      final response = await _downloadCommunicationAsset(item);
+      final directory = await getTemporaryDirectory();
+      final extension = path_util.extension(item['filename']?.toString() ?? '');
+      final source = File(
+        path_util.join(
+          directory.path,
+          'bluevector-source-${const Uuid().v4()}${extension.isEmpty ? '.jpg' : extension}',
+        ),
+      );
+      await source.writeAsBytes(response.bodyBytes, flush: true);
+      if (!mounted) return;
+      final annotatedPath = await Navigator.of(context).push<String>(
+        MaterialPageRoute<String>(
+          builder: (_) => MobileImageAnnotationScreen(
+            sourcePath: source.path,
+            title: item['title']?.toString() ?? 'Annoter la pièce',
+          ),
+        ),
+      );
+      if (annotatedPath == null) return;
+      await OfflineService.addPendingMedia(
+        jobId: widget.jobId,
+        sourcePath: annotatedPath,
+        kind: 'photo',
+        eventType: 'job_communication',
+        mimeType: 'image/png',
+        metadata: {
+          'message_type': 'reply',
+          'body': 'Annotation terrain ajoutée',
+          'parent_id': parentId,
+          'asset_role': 'annotation',
+          'annotation_of': {
+            'asset_type': item['asset_type'],
+            'asset_id': item['asset_id'],
+          },
+          'captured_at': DateTime.now().toUtc().toIso8601String(),
+        },
+      );
+      await OfflineService.syncPendingActions();
+      if (!mounted) return;
+      setState(() {
+        _future = InterventionService.getFieldRecord(jobId: widget.jobId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Annotation enregistrée pour le bureau.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Annotation impossible : $error')),
       );
     }
   }
@@ -265,6 +380,81 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                         const SizedBox(height: BlueVectorSpacing.xs),
                         Text(item['body'].toString()),
                       ],
+                      if (item['attachments'] is List)
+                        for (final rawAsset in item['attachments'] as List)
+                          if (rawAsset is Map)
+                            Builder(
+                              builder: (context) {
+                                final asset = Map<String, dynamic>.from(
+                                  rawAsset,
+                                );
+                                final isImage = asset['mime_type']
+                                        ?.toString()
+                                        .startsWith('image/') ==
+                                    true;
+                                return Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: BlueVectorSpacing.xs,
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(
+                                      BlueVectorSpacing.xs,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: BlueVectorColors.surface,
+                                      borderRadius: BorderRadius.circular(
+                                        BlueVectorRadius.small,
+                                      ),
+                                      border: Border.all(
+                                        color: BlueVectorColors.border,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isImage
+                                              ? Icons.image_outlined
+                                              : Icons.description_outlined,
+                                          color: BlueVectorColors.primaryBright,
+                                        ),
+                                        const SizedBox(
+                                          width: BlueVectorSpacing.xs,
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            asset['title']?.toString() ??
+                                                asset['filename']?.toString() ??
+                                                'Pièce jointe',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        IconButton(
+                                          tooltip: 'Ouvrir',
+                                          onPressed: () =>
+                                              _previewCommunicationAsset(asset),
+                                          icon: const Icon(
+                                            Icons.visibility_outlined,
+                                          ),
+                                        ),
+                                        if (isImage && item['id'] is int)
+                                          IconButton(
+                                            tooltip: 'Annoter',
+                                            onPressed: () =>
+                                                _annotateCommunicationAsset(
+                                                  asset,
+                                                  parentId: item['id'] as int,
+                                                ),
+                                            icon: const Icon(
+                                              Icons.draw_outlined,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                       if (item['requires_action'] == true &&
                           item['status'] == 'open')
                         Wrap(
