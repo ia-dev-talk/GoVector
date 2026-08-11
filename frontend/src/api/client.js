@@ -1680,6 +1680,12 @@ export const api = {
     apiClient.patch(`/admin/v1/clients/${pathSegment(id, 'Client')}`, data),
   createV1ClientAccount: (data) =>
     apiClient.post('/admin/v1/client-accounts', data),
+  getV1Accounts: () => apiClient.get('/admin/v1/accounts'),
+  createV1Account: (data) => apiClient.post('/admin/v1/accounts', data),
+  updateV1Account: (id, data) =>
+    apiClient.patch(`/admin/v1/accounts/${pathSegment(id, 'Compte')}`, data),
+  resetV1AccountPassword: (id, data) =>
+    apiClient.post(`/admin/v1/accounts/${pathSegment(id, 'Compte')}/reset-password`, data),
   getV1Teams: () => apiClient.get('/admin/v1/teams'),
   createV1Team: (data) => apiClient.post('/admin/v1/teams', data),
   updateV1Team: (id, data) =>

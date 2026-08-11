@@ -14,6 +14,7 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
   const [orienteurs, setOrienteurs] = useState([]);
   const [sectors, setSectors] = useState([]);
   const [technicians, setTechnicians] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [grades, setGrades] = useState([
     { code: 'junior', label: 'Technicien débutant' },
     { code: 'senior', label: 'Technicien senior' },
@@ -26,6 +27,7 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
       isAdmin ? api.getV1Clients() : Promise.resolve({ data: [] }),
       api.getV1Teams(), api.getOrienteurs(), api.getSectors(), api.getTechnicians(),
       api.getBusinessCatalog(),
+      isAdmin ? api.getV1Accounts() : Promise.resolve({ data: [] }),
     ]);
     const value = (index) => results[index].status === 'fulfilled' ? results[index].value?.data || [] : [];
     setClients(value(0)); setTeams(value(1)); setOrienteurs(value(2)); setSectors(value(3)); setTechnicians(value(4));
@@ -34,6 +36,7 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
         .filter((item) => item.active);
       if (configured.length) setGrades(configured);
     }
+    setAccounts(value(6));
     setLoading(false);
   }, [isAdmin]);
 
@@ -66,6 +69,38 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
         organization_id: Number(form.organization_id.value),
       });
       form.reset(); toast?.('Compte client lecture seule créé.', 'success');
+    } catch (error) { toast?.(message(error), 'error'); }
+  };
+
+  const createOfficeAccount = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    try {
+      await api.createV1Account({
+        username: form.username.value.trim(),
+        email: form.email.value.trim(),
+        password: form.password.value,
+        role: form.role.value,
+        technician_id: form.technician_id.value ? Number(form.technician_id.value) : null,
+        orienteur_id: form.orienteur_id.value ? Number(form.orienteur_id.value) : null,
+      });
+      form.reset(); await load(); toast?.('Compte opérationnel créé.', 'success');
+    } catch (error) { toast?.(message(error), 'error'); }
+  };
+
+  const toggleAccount = async (account) => {
+    try {
+      await api.updateV1Account(account.id, { is_active: !account.is_active });
+      await load(); toast?.('Accès du compte mis à jour.', 'success');
+    } catch (error) { toast?.(message(error), 'error'); }
+  };
+
+  const resetAccountPassword = async (event, accountId) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    try {
+      await api.resetV1AccountPassword(accountId, { password: form.password.value });
+      form.reset(); toast?.('Mot de passe remplacé. Transmettez-le par un canal sûr.', 'success');
     } catch (error) { toast?.(message(error), 'error'); }
   };
 
@@ -167,6 +202,27 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
             </details>
             <button type="button" onClick={() => toggleClient(client)}>{client.is_active ? 'Archiver / couper l’accès' : 'Réactiver'}</button>
           </div>)}
+        </div>
+      </section> : null}
+
+      {isAdmin ? <section className="v1-admin-card v1-admin-card--wide">
+        <header><span>Identités et accès</span><h2>Comptes opérationnels</h2></header>
+        <p className="v1-admin-help">Les profils métier existent séparément des identifiants de connexion. Un compte technicien ou orienteur doit être relié au bon profil.</p>
+        <form onSubmit={createOfficeAccount} className="v1-admin-form v1-admin-form--accounts">
+          <input name="username" required minLength="3" placeholder="Identifiant de connexion" />
+          <input name="email" required type="email" placeholder="Email" />
+          <input name="password" required type="password" minLength="12" placeholder="Mot de passe initial · 12 caractères" />
+          <select name="role" required defaultValue=""><option value="" disabled>Rôle</option><option value="ADMIN">Administrateur</option><option value="CHEF_ORIENTEUR">Chef orienteur</option><option value="ORIENTEUR">Orienteur</option><option value="TECHNICIAN">Technicien</option></select>
+          <select name="orienteur_id" defaultValue=""><option value="">Profil orienteur si nécessaire</option>{orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+          <select name="technician_id" defaultValue=""><option value="">Profil technicien si nécessaire</option>{technicians.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+          <button type="submit">Créer le compte</button>
+        </form>
+        <div className="v1-admin-account-grid">
+          {accounts.map((account) => <article key={account.id} className={account.is_active ? '' : 'is-archived'}>
+            <div><strong>{account.username}</strong><span>{account.role} · {account.email}</span></div>
+            <button type="button" onClick={() => toggleAccount(account)}>{account.is_active ? 'Désactiver' : 'Réactiver'}</button>
+            <details><summary>Réinitialiser le mot de passe</summary><form onSubmit={(event) => resetAccountPassword(event, account.id)}><input name="password" type="password" minLength="12" required placeholder="Nouveau mot de passe" /><button type="submit">Remplacer</button></form></details>
+          </article>)}
         </div>
       </section> : null}
 

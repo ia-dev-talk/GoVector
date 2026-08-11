@@ -13,7 +13,7 @@ Cet audit distingue le produit réellement raccordé des ambitions futures. Il c
 | Collaboration bureau-terrain | solide pilote | messages structurés, pièces jointes, accusés, compléments post-visite | notifications push et annotations vectorielles collaboratives |
 | Géolocalisation | solide pilote | planned/live/observed/resolved séparés, provenance et conflits | fusion manuelle de sites et politique juridique de production |
 | Historique | intermédiaire avancé | visites, affectations append-only, journal, actions, médias | backfill métier à auditer et stock entièrement rattaché aux visites |
-| Administration | intermédiaire | clients, comptes clients, équipes, secteurs, catalogue métier | CRUD complet des utilisateurs/sessions et historique d’appartenance aux équipes |
+| Administration | intermédiaire avancé | clients, comptes opérationnels, activation, réinitialisation, équipes, secteurs, catalogue métier | changement de rôle audité, sessions et historique d’appartenance aux équipes |
 | Import adaptatif | intermédiaire avancé | détection d’en-têtes, mapping corrigible et confirmation | profils mémorisés par source, métriques qualité et reprise massive |
 | Portail client | pilote | périmètre organisationnel en lecture seule | carte live, filtres, SLA et exports client finalisés |
 | Rapports | intermédiaire | indicateurs et exports existants | définitions KPI partagées, vues par visite/site/client et tests contractuels |
@@ -60,7 +60,7 @@ Cet audit distingue le produit réellement raccordé des ambitions futures. Il c
 
 ### Importants
 
-- CRUD administrateur complet des comptes et journal des actions sensibles.
+- Journal structuré des changements de rôle, réinitialisations et actions administratives sensibles.
 - Fusion manuelle et réversible de sites avec aperçu d’impact.
 - Définitions KPI canoniques par ordre/visite/site et contrat client.
 - Notifications ciblées avec anti-spam, accusé et escalade.

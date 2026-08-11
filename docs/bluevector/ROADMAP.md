@@ -44,6 +44,7 @@
 
 - [x] Publier des catalogues backend versionnés pour activités, grades, priorités, statuts et actions terrain.
 - [x] Raccorder les grades d’équipe, les présentations du workflow, le wizard Web et les actions Mobile à ce catalogue.
+- [x] Administrer les comptes opérationnels avec liens de profil, activation et réinitialisation protégée.
 - Permettre la préparation puis l’activation d’une configuration après validation.
 - [x] Conserver les identifiants techniques historiques même lorsqu’un libellé est archivé.
 - Fournir une recherche transversale et des vues de travail par exception.

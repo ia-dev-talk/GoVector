@@ -7,7 +7,11 @@ from fastapi import HTTPException
 
 from backend.api.routes import settings, v1_admin
 from backend.api.schemas.settings import CatalogItem
-from backend.api.schemas.v1_admin import FieldTeamWrite, TeamTechnicianUpdate
+from backend.api.schemas.v1_admin import (
+    AdminAccountCreate,
+    FieldTeamWrite,
+    TeamTechnicianUpdate,
+)
 from backend.database.models import ApplicationSetting, JobPriority, JobStatus, JobType
 from backend.logic.technician_field_actions import _require_enabled_action
 from backend.logic.technician_jobs import TechnicianJobMutationError
@@ -130,6 +134,29 @@ def test_grade_validation_is_applied_to_team_mutations():
     )
     assert create_route.endpoint.__name__ == "create_team"
     assert put_route.endpoint.__name__ == "put_team_technician"
+
+
+def test_account_administration_is_admin_scoped_and_requires_profile_links():
+    accounts_route = next(
+        route
+        for route in v1_admin.router.routes
+        if route.path == "/accounts" and "GET" in (route.methods or set())
+    )
+    reset_route = next(
+        route
+        for route in v1_admin.router.routes
+        if route.path == "/accounts/{account_id}/reset-password"
+    )
+    assert "require_admin" in _dependency_names(accounts_route)
+    assert "require_admin" in _dependency_names(reset_route)
+    technician = AdminAccountCreate(
+        username="tech.test",
+        email="tech@example.test",
+        password="mot-de-passe-solide",
+        role="TECHNICIAN",
+        technician_id=8,
+    )
+    assert technician.technician_id == 8
 
 
 @pytest.mark.asyncio
