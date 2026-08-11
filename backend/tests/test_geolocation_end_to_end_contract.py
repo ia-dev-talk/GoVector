@@ -94,6 +94,8 @@ async def test_address_live_gps_and_confirmed_landmarks_remain_distinct(monkeypa
         service_zip=None,
         latitude=None,
         longitude=None,
+        planned_location_source=None,
+        planned_location_precision=None,
         special_instructions="Accès par la cour arrière",
         coordinator_comments=None,
         notes=None,
@@ -190,9 +192,10 @@ async def test_address_live_gps_and_confirmed_landmarks_remain_distinct(monkeypa
             actions,
             [],
             list(reversed(observations)),
-            [],
-            [],
-            [technician],
+                [],
+                [],
+                [],
+                [technician],
         ]
     )
     record = await job_context.get_field_record(

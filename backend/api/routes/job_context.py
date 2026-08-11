@@ -1,11 +1,12 @@
 """Unified V1 field record and office-to-field attachments."""
 
 from pathlib import Path
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,17 +17,26 @@ from backend.database.models import (
     Job,
     JobActivityLog,
     JobAttachment,
+    JobCommunication,
     JobSiteObservation,
     Technician,
     TechnicianFieldAction,
     TechnicianMedia,
     User,
+    UserRole,
 )
 from backend.logic.job_access import (
+    require_job_collaboration_access,
     require_job_operations_access,
     require_job_read_access_by_id,
 )
 from backend.logic.activity_log import log_job_activity
+from backend.logic.job_communications import (
+    MESSAGE_TYPES,
+    communication_dict,
+    create_job_communication,
+)
+from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_history import site_match_clause
 from backend.services.media_storage import FileSystemMediaStorage, MediaStorageError
 
@@ -37,6 +47,46 @@ _KINDS = {"plan", "photo", "document", "instruction"}
 
 class OfficeNotePayload(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
+
+
+class CommunicationPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: str = Field(default="message", min_length=1, max_length=32)
+    body: str | None = Field(default=None, max_length=4000)
+    parent_id: int | None = Field(default=None, gt=0)
+    audience: str | None = Field(default=None, max_length=16)
+    requires_action: bool | None = None
+
+
+async def _job_for_collaboration(
+    db: AsyncSession,
+    *,
+    job_id: int,
+    current_user: User,
+) -> Job:
+    job = await db.scalar(select(Job).where(Job.id == job_id))
+    if job is None:
+        raise HTTPException(status_code=404, detail="Intervention introuvable.")
+    if current_user.role == UserRole.TECHNICIAN:
+        return await require_job_collaboration_access(
+            db, job=job, current_user=current_user
+        )
+    return await require_job_read_access_by_id(
+        db, job_id=job_id, current_user=current_user
+    )
+
+
+async def _communication_rows(db: AsyncSession, job_id: int) -> list[dict]:
+    rows = (
+        await db.execute(
+            select(JobCommunication, User.username)
+            .join(User, User.id == JobCommunication.author_user_id)
+            .where(JobCommunication.job_id == job_id)
+            .order_by(JobCommunication.created_at.asc(), JobCommunication.id.asc())
+        )
+    ).all()
+    return [communication_dict(item, username) for item, username in rows]
 
 
 def _attachment_dict(item: JobAttachment) -> dict:
@@ -61,7 +111,9 @@ async def get_field_record(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    job = await require_job_read_access_by_id(db, job_id=job_id, current_user=current_user)
+    job = await require_job_read_access_by_id(
+        db, job_id=job_id, current_user=current_user
+    )
     actions = (
         await db.execute(
             select(TechnicianFieldAction)
@@ -100,6 +152,7 @@ async def get_field_record(
             .order_by(JobActivityLog.created_at.desc())
         )
     ).scalars().all()
+    communications = await _communication_rows(db, job_id)
     technician_ids = {item.technician_id for item in actions} | {
         item.technician_id for item in media
     }
@@ -221,12 +274,115 @@ async def get_field_record(
             }
             for item in office_notes
         ],
+        "communications": communications,
         "instructions": {
             "special_instructions": job.special_instructions,
             "coordinator_comments": job.coordinator_comments,
             "notes": job.notes,
         },
     }
+
+
+@router.get("/{job_id}/communications")
+async def list_job_communications(
+    job_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _job_for_collaboration(db, job_id=job_id, current_user=current_user)
+    return await _communication_rows(db, job_id)
+
+
+@router.post("/{job_id}/communications", status_code=201)
+async def add_job_communication(
+    job_id: int,
+    payload: CommunicationPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = await _job_for_collaboration(db, job_id=job_id, current_user=current_user)
+    await require_job_collaboration_access(db, job=job, current_user=current_user)
+    if payload.type not in MESSAGE_TYPES:
+        raise HTTPException(status_code=422, detail="Type de message invalide.")
+    try:
+        item = await create_job_communication(
+            db,
+            job_id=job_id,
+            message_type=payload.type,
+            body=payload.body,
+            current_user=current_user,
+            source="mobile" if current_user.role == UserRole.TECHNICIAN else "web",
+            audience=payload.audience,
+            parent_id=payload.parent_id,
+            requires_action=payload.requires_action,
+        )
+    except TechnicianJobMutationError as exc:
+        raise HTTPException(status_code=422, detail=exc.message) from exc
+    await db.commit()
+    return communication_dict(item, current_user.username)
+
+
+@router.post("/{job_id}/communications/{communication_id}/acknowledge", status_code=201)
+async def acknowledge_job_communication(
+    job_id: int,
+    communication_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = await _job_for_collaboration(db, job_id=job_id, current_user=current_user)
+    await require_job_collaboration_access(db, job=job, current_user=current_user)
+    try:
+        item = await create_job_communication(
+            db,
+            job_id=job_id,
+            message_type="acknowledgement",
+            body="Message pris en compte",
+            current_user=current_user,
+            source="mobile" if current_user.role == UserRole.TECHNICIAN else "web",
+            parent_id=communication_id,
+        )
+    except TechnicianJobMutationError as exc:
+        raise HTTPException(status_code=422, detail=exc.message) from exc
+    await db.commit()
+    return communication_dict(item, current_user.username)
+
+
+@router.post("/{job_id}/communications/{communication_id}/resolve")
+async def resolve_job_communication(
+    job_id: int,
+    communication_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_orienteur),
+):
+    job = await require_job_read_access_by_id(
+        db, job_id=job_id, current_user=current_user
+    )
+    require_job_operations_access(job=job, current_user=current_user)
+    item = await db.scalar(
+        select(JobCommunication).where(
+            JobCommunication.id == communication_id,
+            JobCommunication.job_id == job_id,
+        )
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="Message introuvable.")
+    if item.requires_action and item.status != "resolved":
+        item.status = "resolved"
+        item.resolved_at = datetime.now(timezone.utc)
+        await log_job_activity(
+            db,
+            job_id=job_id,
+            action="communication_resolved",
+            description="Demande opérationnelle résolue",
+            metadata={
+                "source": "web",
+                "communication_id": item.id,
+                "user_id": current_user.id,
+                "workflow_unchanged": True,
+            },
+        )
+        await db.commit()
+    return communication_dict(item, None)
 
 
 @router.post("/{job_id}/office-notes", status_code=201)
@@ -238,15 +394,17 @@ async def add_office_note(
 ):
     job = await require_job_read_access_by_id(db, job_id=job_id, current_user=current_user)
     require_job_operations_access(job=job, current_user=current_user)
-    entry = await log_job_activity(
+    entry = await create_job_communication(
         db,
         job_id=job_id,
-        action="office_instruction",
-        description=payload.text.strip(),
-        metadata={"source": "web", "user_id": current_user.id, "role": current_user.role.value},
+        message_type="instruction",
+        body=payload.text,
+        current_user=current_user,
+        source="web",
+        audience="field",
     )
     await db.commit()
-    return {"id": entry.id, "text": entry.description, "created_at": entry.created_at}
+    return communication_dict(entry, current_user.username)
 
 
 @router.post("/{job_id}/attachments", status_code=201)

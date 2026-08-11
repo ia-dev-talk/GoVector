@@ -36,3 +36,14 @@ Photos, signature, mesures et longueur de câble sont facultatives. La `Completi
 ## Journal
 
 Le journal métier agrège les transitions, actions terrain, médias, échecs, reports et mouvements pertinents. `TechnicianSyncEvent` reste un reçu technique. Chaque future entrée doit être attribuable à un acteur/source et, après introduction de `JobVisit`, à un passage.
+
+## Collaboration après la fin du passage
+
+Un passage terminal ne rend pas le dossier muet. Le bureau et le technicien
+peuvent encore ajouter des communications et preuves append-only : instruction,
+demande de correction, accusé de prise en compte, réponse et complément.
+
+Ces ajouts ne changent jamais `Job.status`. Une demande nécessitant un nouveau
+déplacement devra devenir un futur `JobVisit` au lieu de rouvrir silencieusement
+le passage précédent. `JobCommunication` est la vérité structurée de cet échange;
+`JobActivityLog` n'en contient qu'une projection de journal.

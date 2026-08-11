@@ -1076,6 +1076,59 @@ class JobActivityLog(Base):
         return f"<JobActivityLog(id={self.id}, job_id={self.job_id}, action='{self.action}')>"
 
 
+class JobCommunication(Base):
+    """Append-only operational conversation attached to an intervention.
+
+    Communications remain writable after a field visit reaches a terminal
+    status. They never mutate the workflow status themselves.
+    """
+
+    __tablename__ = "job_communications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    job_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("jobs.id"), nullable=False, index=True
+    )
+    parent_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_communications.id"), nullable=True, index=True
+    )
+    event_id: Mapped[Optional[str]] = mapped_column(
+        String(36), nullable=True, unique=True, index=True
+    )
+    message_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    body: Mapped[Optional[str]] = mapped_column(Text)
+    author_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    author_technician_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("technicians.id"), nullable=True, index=True
+    )
+    author_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    source: Mapped[str] = mapped_column(String(24), nullable=False)
+    audience: Mapped[str] = mapped_column(String(16), nullable=False)
+    requires_action: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default="open", server_default="open", nullable=False, index=True
+    )
+    meta_data: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+        index=True,
+    )
+    acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+
 class TechnicianSyncEvent(Base):
     """Durable receipt for an event received from the technician outbox."""
 

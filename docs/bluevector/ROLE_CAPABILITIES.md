@@ -5,7 +5,7 @@
 | Admin | plateforme entière | clients, comptes, paramètres, équipes, référentiels | aucune donnée inventée; actions auditées |
 | Chef orienteur | organisation opérationnelle | équipes, techniciens, secteurs, arbitrage | pas d’accès client hors périmètre futur |
 | Orienteur | dossiers/équipes sous responsabilité | préparation, affectation, consignes, pièces, validation, stock opérationnel | ne peut agir hors périmètre |
-| Technicien | jobs affectés et son profil | commandes terrain, observations, médias, outbox | pas de mutation stock autoritative ni job d’un autre technicien |
+| Technicien | jobs affectés, et dossiers auxquels il a réellement participé | commandes terrain pendant le passage; observations, médias, réponses et compléments append-only après le passage | pas de mutation stock autoritative, de réouverture implicite ni job d’un autre technicien |
 | Client entreprise | son organisation | aucune en V1 | lecture seule stricte, jamais stock/personnel interne |
 
 `COORDINATEUR` et `SUPERVISEUR` existent encore dans l’enum mais leur périmètre final n’est pas défini. Ils restent des rôles internes; ne pas leur ajouter de droits métier par supposition.
@@ -28,3 +28,4 @@ Ces règles décrivent l’organisation courante, pas l’historique. La future 
 - Les contrôles visuels React/Flutter améliorent l’UX mais ne constituent pas une sécurité.
 - Les comptes clients sont filtrés par `client_organization_id` et restent read-only.
 - Les routes internes (FTTH, stock, import, dispatch) ne sont jamais publiques.
+- Une intervention terminale reste collaborative en lecture/ajout append-only pour ses participants historiques; son résultat et son workflow restent immuables.

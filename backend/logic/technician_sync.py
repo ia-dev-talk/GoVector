@@ -10,7 +10,8 @@ from backend.api.schemas.tech_sync import (
     TechnicianSyncEventRequest,
     TechnicianSyncEventResult,
 )
-from backend.database.models import TechnicianSyncEvent, User
+from backend.api.errors import BusinessAPIError
+from backend.database.models import Job, TechnicianSyncEvent, User
 from backend.logic.technician_field_actions import (
     SUPPORTED_FIELD_ACTION_TYPES,
     record_technician_field_action,
@@ -19,6 +20,11 @@ from backend.logic.technician_jobs import (
     TechnicianJobMutationError,
     terminate_technician_job,
 )
+from backend.logic.job_communications import create_job_communication
+from backend.logic.job_access import require_job_collaboration_access
+
+
+SUPPORTED_SYNC_EVENT_TYPES = SUPPORTED_FIELD_ACTION_TYPES | {"job_communication"}
 
 
 def _request_hash(event: TechnicianSyncEventRequest) -> str:
@@ -81,6 +87,34 @@ async def _dispatch(
             job_id=event.job_id,
             payload=event.payload,
             current_user=current_user,
+        )
+        return
+
+    if event.type == "job_communication":
+        job = await db.scalar(select(Job).where(Job.id == event.job_id))
+        if job is None:
+            raise TechnicianJobMutationError(
+                "rejected", "job_not_found", "Intervention introuvable"
+            )
+        try:
+            await require_job_collaboration_access(
+                db, job=job, current_user=current_user
+            )
+        except BusinessAPIError as exc:
+            raise TechnicianJobMutationError(
+                "rejected", "permission_denied", str(exc.message)
+            ) from exc
+        await create_job_communication(
+            db,
+            job_id=event.job_id,
+            message_type=str(event.payload.get("message_type") or "reply"),
+            body=event.payload.get("body") or event.payload.get("value"),
+            current_user=current_user,
+            source="mobile_outbox",
+            audience="office",
+            parent_id=event.payload.get("parent_id"),
+            event_id=str(event.event_id),
+            occurred_at=event.occurred_at,
         )
         return
 
@@ -173,7 +207,7 @@ async def process_technician_sync_event(
         newly_supported_retry = (
             existing.status == "rejected"
             and existing.code == "unsupported_action"
-            and event.type in SUPPORTED_FIELD_ACTION_TYPES
+            and event.type in SUPPORTED_SYNC_EVENT_TYPES
         )
         if existing.status != "retryable" and not newly_supported_retry:
             return _stored_result(existing)
