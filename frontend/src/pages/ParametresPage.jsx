@@ -9,6 +9,8 @@ import {
 import Toast from '../components/Toast';
 import OperationalSettingsSection from '../components/settings/OperationalSettingsSection';
 import AdminOrganizationSection from '../components/settings/AdminOrganizationSection';
+import BusinessCatalogSection from '../components/settings/BusinessCatalogSection';
+import OperationalAuditSection from '../components/settings/OperationalAuditSection';
 import { useRuntimeSettings } from '../contexts/RuntimeSettingsContext';
 import SettingsAbout from '../features/settings-v3/SettingsAbout';
 import SettingsHeader from '../features/settings-v3/SettingsHeader';
@@ -68,6 +70,9 @@ export default function ParametresPage({
 
   const [refreshRevision, setRefreshRevision] =
     useState(0);
+
+  const [settingsDirty, setSettingsDirty] =
+    useState(false);
 
   const [toasts, setToasts] =
     useState([]);
@@ -138,8 +143,48 @@ export default function ParametresPage({
       [],
     );
 
+  const confirmSettingsDiscard =
+    useCallback(() => {
+      if (!settingsDirty) {
+        return true;
+      }
+
+      const confirmed = window.confirm(
+        'Cette section contient des modifications non enregistrées. Les abandonner ?',
+      );
+
+      if (!confirmed) {
+        toast(
+          'Navigation annulée : enregistrez ou annulez les modifications de la section.',
+          'warning',
+        );
+      }
+
+      return confirmed;
+    }, [settingsDirty, toast]);
+
+  const selectSection =
+    useCallback((sectionId) => {
+      if (sectionId === activeSection) {
+        return true;
+      }
+
+      if (!confirmSettingsDiscard()) {
+        return false;
+      }
+
+      setSettingsDirty(false);
+      setActiveSection(sectionId);
+      return true;
+    }, [activeSection, confirmSettingsDiscard]);
+
   const handleRefresh =
     useCallback(async () => {
+      if (!confirmSettingsDiscard()) {
+        return;
+      }
+
+      setSettingsDirty(false);
       setRefreshing(true);
 
       try {
@@ -163,6 +208,7 @@ export default function ParametresPage({
       }
     }, [
       reloadRuntimeSettings,
+      confirmSettingsDiscard,
       toast,
     ]);
 
@@ -191,7 +237,9 @@ export default function ParametresPage({
         });
 
       if (match) {
-        setActiveSection(match.id);
+        if (!selectSection(match.id)) {
+          return;
+        }
 
         toast(
           `Section ouverte : ${match.label}.`,
@@ -208,6 +256,7 @@ export default function ParametresPage({
     }, [
       navigationItems,
       query,
+      selectSection,
       toast,
     ]);
 
@@ -240,7 +289,18 @@ export default function ParametresPage({
             <AdminOrganizationSection
               toast={toast}
               userRole={userRole}
+              refreshRevision={refreshRevision}
               surface="settings"
+            />
+          );
+
+        case 'business-catalog':
+          return (
+            <BusinessCatalogSection
+              toast={toast}
+              userRole={userRole}
+              refreshRevision={refreshRevision}
+              onDirtyChange={setSettingsDirty}
             />
           );
 
@@ -250,8 +310,17 @@ export default function ParametresPage({
               <OperationalSettingsSection
                 toast={toast}
                 refreshRevision={refreshRevision}
+                onDirtyChange={setSettingsDirty}
               />
             </div>
+          );
+
+        case 'operational-audit':
+          return (
+            <OperationalAuditSection
+              userRole={userRole}
+              refreshRevision={refreshRevision}
+            />
           );
 
         case 'modules':
@@ -297,9 +366,7 @@ export default function ParametresPage({
               error={runtimeError}
               userRole={userRole}
               onOpenOperational={() =>
-                setActiveSection(
-                  'operational',
-                )
+                selectSection('operational')
               }
             />
           );
@@ -312,6 +379,7 @@ export default function ParametresPage({
       runtimeError,
       runtimeLoading,
       settings,
+      selectSection,
       toast,
       userRole,
     ]);
@@ -335,7 +403,7 @@ export default function ParametresPage({
         <SettingsNavigation
           groups={SETTINGS_NAV_GROUPS}
           activeSection={activeSection}
-          onSelect={setActiveSection}
+          onSelect={selectSection}
         />
 
         <main className="sv3-content">

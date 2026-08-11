@@ -28,6 +28,13 @@ cd mobile_app && flutter pub get && flutter analyze && flutter test
 
 Les décisions de domaine et de protection des données se trouvent dans [`docs/bluevector`](docs/bluevector/README.md).
 
+La procédure de sauvegarde et de restauration pilote est documentée dans
+[`BACKUP_AND_RECOVERY.md`](docs/bluevector/BACKUP_AND_RECOVERY.md).
+
 ## Statut
 
 Projet privé en développement actif. Les environnements de test ne doivent contenir aucun secret ni donnée client réelle.
+
+## Licence et attribution
+
+BlueVector est distribué sous GNU AGPL v3. Les développements et modifications propres à BlueVector sont attribués à **Nizar Iounes (BigDataai-Dev), © 2026**. Consultez [LICENSE](LICENSE) et [NOTICE](NOTICE) ; les composants tiers conservent leurs droits et notices respectifs.

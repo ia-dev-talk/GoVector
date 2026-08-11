@@ -781,6 +781,16 @@ export const api = {
   uploadExcel: uploadExcelFile,
   importExcel: uploadExcelFile,
   getImportContract: () => apiClient.get('/import/excel/contract'),
+  getImportProfiles: () => apiClient.get('/import/excel/profiles'),
+  createImportProfile: (payload) => apiClient.post('/import/excel/profiles', payload),
+  updateImportProfile: (profileId, payload) => apiClient.put(
+    `/import/excel/profiles/${pathSegment(profileId, 'Profil')}`,
+    payload,
+  ),
+  deleteImportProfile: (profileId, expectedRevision) => apiClient.delete(
+    `/import/excel/profiles/${pathSegment(profileId, 'Profil')}`,
+    withParams({ expected_revision: expectedRevision }),
+  ),
 
   confirmExcelImport: (payload) =>
     apiClient.post(
@@ -1565,6 +1575,24 @@ export const api = {
       data,
     ),
 
+  resolveJobSiteAttribute: (jobId, observationId, data) =>
+    apiClient.post(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/site-attributes/${pathSegment(observationId, 'Observation')}/resolve`,
+      data,
+    ),
+
+  getJobSiteMergeCandidates: (jobId, search = '') =>
+    apiClient.get(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/site-merge-candidates`,
+      { params: search ? { search } : {} },
+    ),
+
+  mergeJobSite: (jobId, data) =>
+    apiClient.post(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/site-merge`,
+      data,
+    ),
+
   resolvePreparedAddress: (data) =>
     apiClient.post('/geocoding/resolve', data),
 
@@ -1657,6 +1685,16 @@ export const api = {
     );
   },
 
+  getBusinessCatalog: () =>
+    apiClient.get('/settings/catalog'),
+
+  updateBusinessCatalog: (data) => {
+    if (!isRecord(data)) {
+      throw new TypeError('Le référentiel métier doit être un objet');
+    }
+    return apiClient.put('/settings/catalog', data);
+  },
+
   // V1 ADMINISTRATION
   getV1Clients: () => apiClient.get('/admin/v1/clients'),
   createV1Client: (data) => apiClient.post('/admin/v1/clients', data),
@@ -1664,6 +1702,14 @@ export const api = {
     apiClient.patch(`/admin/v1/clients/${pathSegment(id, 'Client')}`, data),
   createV1ClientAccount: (data) =>
     apiClient.post('/admin/v1/client-accounts', data),
+  getV1Accounts: () => apiClient.get('/admin/v1/accounts'),
+  createV1Account: (data) => apiClient.post('/admin/v1/accounts', data),
+  updateV1Account: (id, data) =>
+    apiClient.patch(`/admin/v1/accounts/${pathSegment(id, 'Compte')}`, data),
+  resetV1AccountPassword: (id, data) =>
+    apiClient.post(`/admin/v1/accounts/${pathSegment(id, 'Compte')}/reset-password`, data),
+  getOperationalAuditEvents: (params = {}) =>
+    apiClient.get('/admin/v1/audit-events', withParams(params)),
   getV1Teams: () => apiClient.get('/admin/v1/teams'),
   createV1Team: (data) => apiClient.post('/admin/v1/teams', data),
   updateV1Team: (id, data) =>
@@ -1677,7 +1723,10 @@ export const api = {
     apiClient.delete(
       `/admin/v1/teams/${pathSegment(teamId, 'Équipe')}/technicians/${pathSegment(technicianId, 'Technicien')}`,
     ),
-  getClientV1Overview: () => apiClient.get('/client/v1/overview'),
+  getClientV1Overview: (params = {}) => apiClient.get(
+    '/client/v1/overview',
+    withParams(params),
+  ),
 
   // AUDIT & SECURITY
   getAuditLog: (params = {}) =>

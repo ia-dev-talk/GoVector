@@ -1,11 +1,8 @@
-"""
-Magellan Configuration
-Manages environment variables and application settings
-"""
-import os
-from pathlib import Path
-from typing import Optional
+"""BlueVector runtime configuration and production safety invariants."""
+
 from functools import lru_cache
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -13,7 +10,7 @@ class Settings(BaseSettings):
 	"""Application settings loaded from environment variables"""
 
 	# Application
-	APP_NAME: str = "Magellan"
+	APP_NAME: str = "BlueVector"
 	APP_VERSION: str = "0.0.8"
 	DEBUG: bool = True
 	ENVIRONMENT: str = "development"
@@ -46,7 +43,7 @@ class Settings(BaseSettings):
 	NOMINATIM_URL: str = "https://nominatim.openstreetmap.org/search"
 	GEOCODING_COUNTRY: str = "Morocco"
 	GEOCODING_COUNTRY_CODE: str = "ma"
-	GEOCODING_USER_AGENT: str = "Magellan-FTTH/1.0"
+	GEOCODING_USER_AGENT: str = "BlueVector-FTTH/0.0.8"
 	GEOCODING_TIMEOUT: float = 10.0
 	GEOCODING_DELAY_SECONDS: float = 0.05
 
@@ -69,6 +66,27 @@ class Settings(BaseSettings):
 	# Distance Calculation
 	MILES_PER_DEGREE_LAT: float = 69.0  # Approximate miles per degree latitude
 	MILES_PER_DEGREE_LON: float = 54.6  # Approximate miles per degree longitude (at 40° latitude)
+
+	@model_validator(mode="after")
+	def validate_deployment_safety(self):
+		"""Refuse known development defaults outside a development environment."""
+		environment = self.ENVIRONMENT.strip().lower()
+		if environment not in {"staging", "production"}:
+			return self
+		errors = []
+		if self.SECRET_KEY == "CHANGE_ME_SUPER_SECRET_KEY" or len(self.SECRET_KEY) < 32:
+			errors.append("SECRET_KEY doit être remplacée par un secret d'au moins 32 caractères")
+		if self.DEBUG:
+			errors.append("DEBUG doit être désactivé")
+		if self.API_RELOAD:
+			errors.append("API_RELOAD doit être désactivé")
+		if "*" in self.CORS_ORIGINS:
+			errors.append("CORS_ORIGINS ne peut pas contenir '*' ")
+		if "fieldopt:fieldopt" in self.DATABASE_URL:
+			errors.append("DATABASE_URL utilise encore les identifiants de développement")
+		if errors:
+			raise ValueError("Configuration de déploiement non sûre : " + "; ".join(errors))
+		return self
 
 	class Config:
 		env_file = ".env"

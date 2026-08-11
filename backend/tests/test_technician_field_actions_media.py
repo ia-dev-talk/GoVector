@@ -31,6 +31,11 @@ class _FieldActionDb:
         self.added = []
         self.flush = AsyncMock()
 
+    async def scalar(self, _statement):
+        # No persisted business catalog in these unit tests: production falls
+        # back to the complete supported action set.
+        return None
+
     def add(self, value):
         if isinstance(value, TechnicianFieldAction):
             value.id = len(self.added) + 1

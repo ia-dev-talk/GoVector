@@ -33,7 +33,7 @@ class ClientOrganizationResponse(ClientOrganizationWrite):
 class ClientAccountCreate(BaseModel):
     username: str = Field(min_length=3, max_length=100)
     email: str = Field(min_length=3, max_length=255)
-    password: str = Field(min_length=8, max_length=200)
+    password: str = Field(min_length=12, max_length=200)
     organization_id: int = Field(gt=0)
 
 
@@ -45,13 +45,48 @@ class ClientAccountResponse(BaseModel):
     is_active: bool
 
 
+class AdminAccountCreate(BaseModel):
+    username: str = Field(min_length=3, max_length=100)
+    email: str = Field(min_length=3, max_length=255)
+    password: str = Field(min_length=12, max_length=200)
+    role: Literal["ADMIN", "CHEF_ORIENTEUR", "ORIENTEUR", "TECHNICIAN"]
+    technician_id: Optional[int] = Field(default=None, gt=0)
+    orienteur_id: Optional[int] = Field(default=None, gt=0)
+
+
+class AdminAccountPatch(BaseModel):
+    username: Optional[str] = Field(default=None, min_length=3, max_length=100)
+    email: Optional[str] = Field(default=None, min_length=3, max_length=255)
+    is_active: Optional[bool] = None
+
+
+class AdminPasswordReset(BaseModel):
+    password: str = Field(min_length=12, max_length=200)
+
+
+class AdminAccountResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: str
+    is_active: bool
+    technician_id: Optional[int]
+    orienteur_id: Optional[int]
+    client_organization_id: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+
 class FieldTeamWrite(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     code: Optional[str] = Field(default=None, max_length=50)
     orienteur_id: int = Field(gt=0)
     sector_ids: list[int] = Field(min_length=1)
     initial_technician_id: int = Field(gt=0)
-    initial_grade: Literal["junior", "senior"] = "junior"
+    initial_grade: str = Field(
+        default="junior",
+        pattern=r"^[A-Za-z][A-Za-z0-9_-]{1,47}$",
+    )
     is_active: bool = True
 
 
@@ -64,7 +99,10 @@ class FieldTeamPatch(BaseModel):
 
 
 class TeamTechnicianUpdate(BaseModel):
-    grade: Literal["junior", "senior"] = "junior"
+    grade: str = Field(
+        default="junior",
+        pattern=r"^[A-Za-z][A-Za-z0-9_-]{1,47}$",
+    )
 
 
 class TeamTechnicianResponse(BaseModel):

@@ -45,8 +45,16 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
         keywords: ['équipe', 'client', 'iam', 'orange', 'unifiber', 'orienteur'],
       },
       {
-        id: 'modules',
+        id: 'business-catalog',
         label: 'Référentiels métier',
+        description: 'Grades, activités, statuts et actions terrain',
+        status: 'connected',
+        icon: 'modules',
+        keywords: ['grade', 'senior', 'débutant', 'activité', 'priorité', 'statut', 'action terrain'],
+      },
+      {
+        id: 'modules',
+        label: 'Modules opérationnels',
         description: 'Accès aux modules réels',
         status: 'available',
         icon: 'modules',
@@ -79,6 +87,14 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
     id: 'system',
     label: 'Gouvernance',
     items: [
+      {
+        id: 'operational-audit',
+        label: 'Journal d’administration',
+        description: 'Qui a modifié comptes, équipes et référentiels',
+        status: 'connected',
+        icon: 'roadmap',
+        keywords: ['audit', 'trace', 'compte', 'équipe', 'configuration', 'sécurité'],
+      },
       {
         id: 'roadmap',
         label: 'Capacités à connecter',
@@ -222,29 +238,29 @@ export const ROADMAP_CAPABILITIES = Object.freeze([
   {
     id: 'identity',
     label: 'Utilisateurs et rôles',
-    status: 'backendRequired',
+    status: 'partial',
     description:
       'Comptes, permissions granulaires, délégations et sessions.',
     nextStep:
-      'Définir le modèle RBAC cible et exposer un CRUD administrateur audité.',
+      'Compléter le CRUD des comptes, la désactivation, la réinitialisation et l’audit des sessions.',
   },
   {
     id: 'workflow',
     label: 'Statuts et workflows',
-    status: 'backendRequired',
+    status: 'connected',
     description:
       'Transitions, motifs, validations et règles par activité/opérateur.',
     nextStep:
-      'Créer un moteur de workflow versionné consommé par le web et le mobile.',
+      'Étendre les politiques par activité sans rendre les transitions techniques modifiables.',
   },
   {
     id: 'forms',
     label: 'Formulaires terrain',
-    status: 'backendRequired',
+    status: 'partial',
     description:
       'Champs dynamiques, preuves obligatoires, mesures et contrôles qualité.',
     nextStep:
-      'Établir un schéma JSON versionné avec contraintes par type d’intervention.',
+      'Ajouter les formulaires spécifiques client/opérateur au-dessus des actions terrain libres.',
   },
   {
     id: 'security',
@@ -254,6 +270,24 @@ export const ROADMAP_CAPABILITIES = Object.freeze([
       'Journal d’audit existant, politiques de sécurité encore à administrer.',
     nextStep:
       'Ajouter des endpoints de politique avant toute interface d’édition.',
+  },
+  {
+    id: 'site',
+    label: 'Sites et provenance',
+    status: 'partial',
+    description:
+      'Identité physique, positions et observations réseau structurées.',
+    nextStep:
+      'Livrer la fusion manuelle contrôlée et la réconciliation des doublons historiques.',
+  },
+  {
+    id: 'import',
+    label: 'Import adaptatif',
+    status: 'partial',
+    description:
+      'Détection d’en-têtes, mapping corrigible, aperçu et validation progressive.',
+    nextStep:
+      'Mémoriser les profils par donneur d’ordre et mesurer les corrections récurrentes.',
   },
   {
     id: 'backup',
@@ -267,11 +301,11 @@ export const ROADMAP_CAPABILITIES = Object.freeze([
   {
     id: 'mobileConfig',
     label: 'Configuration mobile',
-    status: 'planned',
+    status: 'partial',
     description:
       'Actions, widgets, preuves, formulaires et règles synchronisées.',
     nextStep:
-      'Faire du backend la source de vérité avant l’implémentation Flutter.',
+      'Mettre en cache le catalogue versionné et étendre la configuration aux formulaires client.',
   },
 ]);
 

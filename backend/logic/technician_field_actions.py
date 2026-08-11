@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
+    ApplicationSetting,
     Job,
     TechnicianFieldAction,
     TechnicianMedia,
@@ -16,6 +17,7 @@ from backend.api.errors import BusinessAPIError
 from backend.logic.job_access import require_job_collaboration_access
 from backend.logic.job_visits import resolve_visit_for_technician
 from backend.logic.site_registry import attach_observation_to_site
+from backend.logic.site_attributes import record_site_attribute_observation
 from backend.logic.technician_jobs import (
     TechnicianJobMutationError,
     require_assigned_job,
@@ -70,6 +72,63 @@ _ACTION_LABELS = {
     "cable_exit": "Sortie de câble signalée",
     "client_call": "Appel client enregistré",
 }
+
+# Read-only source for the governed presentation catalog. Business support is
+# still enforced by SUPPORTED_FIELD_ACTION_TYPES, not by a client-side list.
+FIELD_ACTION_LABELS = {
+    "intervention_photo": "Photo",
+    "intervention_video": "Vidéo",
+    "intervention_document": "Document",
+    "intervention_comment": "Commentaire",
+    "custom_intervention_action": "Autre action",
+    "equipment_scan": "Scan QR / code-barres",
+    "client_signature": "Signature client",
+    "field_measurement": "Mesure / test",
+    "otdr_measurement": "OTDR",
+    "incident_report": "Incident / anomalie",
+    "installation_work": "Installation / travaux",
+    "network_reference": "PBO / PM / PTO",
+    "material_used": "Matériel utilisé",
+    "gps_position": "Position GPS",
+    "site_location": "Position exacte du site",
+    "cable_entry": "Entrée câble",
+    "cable_exit": "Sortie câble",
+    "client_call": "Appel client",
+}
+
+
+async def _require_enabled_action(
+    db: AsyncSession,
+    *,
+    event_type: str,
+    occurred_at: datetime,
+) -> None:
+    document = await db.scalar(
+        select(ApplicationSetting).where(
+            ApplicationSetting.namespace == "business_catalog"
+        )
+    )
+    if document is None or not isinstance(getattr(document, "values", None), dict):
+        return
+    item = next(
+        (
+            candidate
+            for candidate in document.values.get("field_actions", [])
+            if isinstance(candidate, dict) and candidate.get("code") == event_type
+        ),
+        None,
+    )
+    if item is None or item.get("active") is not False:
+        return
+    # An action captured before the administrator archived its type remains a
+    # legitimate offline fact and must not be lost during a later sync.
+    if document.updated_at is not None and occurred_at <= document.updated_at:
+        return
+    raise TechnicianJobMutationError(
+        "rejected",
+        "action_disabled",
+        "Ce type d'action terrain a été désactivé par l'administrateur",
+    )
 
 
 def _non_empty(payload: dict[str, Any], *keys: str) -> Any | None:
@@ -198,6 +257,12 @@ async def record_technician_field_action(
             f"Le type d'action '{event_type}' n'est pas supporté par sync v1",
         )
 
+    await _require_enabled_action(
+        db,
+        event_type=event_type,
+        occurred_at=occurred_at,
+    )
+
     try:
         job = await require_assigned_job(
             db,
@@ -270,6 +335,15 @@ async def record_technician_field_action(
                 observation=observation,
                 current_user=current_user,
             )
+    if event_type in {"network_reference", "equipment_scan"} and isinstance(
+        db, AsyncSession
+    ):
+        await record_site_attribute_observation(
+            db,
+            job=job,
+            action=action,
+            current_user=current_user,
+        )
     await log_job_activity(
         db=db,
         job_id=job_id,

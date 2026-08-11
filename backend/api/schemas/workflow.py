@@ -13,6 +13,8 @@ from backend.api.schemas.settings import (
 class WorkflowStatusCapability(BaseModel):
     code: str
     label: str
+    color: str | None = None
+    sort_order: int = 0
     order_open: bool
     field_active: bool
     canonical: str

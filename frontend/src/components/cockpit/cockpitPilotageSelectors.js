@@ -212,7 +212,7 @@ function buildDecisions(jobs, summary, personnel, quality, statusMetadata) {
       tone: 'danger',
       title: `${urgentCount} urgence${urgentCount > 1 ? 's' : ''} non affectée${urgentCount > 1 ? 's' : ''}`,
       detail: 'Affectation immédiate requise.',
-      page: 'exploitation',
+      page: 'supervision',
     });
   }
 

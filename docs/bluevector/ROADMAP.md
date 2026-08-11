@@ -12,10 +12,13 @@
 - ESLint ramené à zéro sans désactiver les règles.
 - CI backend, frontend et Flutter ajoutée avec analyze/tests/build APK.
 - Contrat GPS complet backend ajouté et rétention quotidienne configurable.
-- Choisir un `applicationId` BlueVector, une stratégie de version et une signature release; la configuration `com.example`/debug est seulement pilote local.
+- [x] Remplacer les identifiants `com.example` par `dev.bigdataai.bluevector` et harmoniser l’identité affichée.
+- Choisir une stratégie de version et configurer une signature release dédiée; la clé debug reste uniquement destinée au pilote local/CI.
 - Exécuter le scénario GPS sur PostgreSQL/Docker puis sur un téléphone réel.
 - Faire valider la finalité, l'information technicien et la durée GPS avant production.
 - Remplacer le stockage média filesystem par un object storage de production.
+- [x] Fournir une sauvegarde PostgreSQL/médias avec manifeste SHA-256 et une restauration base protégée par confirmation explicite.
+- Exécuter et consigner un test de restauration sur une copie isolée avant chaque version bêta.
 
 ## B2 — modèle multi-passage
 
@@ -30,14 +33,25 @@
 - [x] Conserver planned/observed/resolved pour le GPS avec auteur, source, date et révision.
 - [x] Rendre les conflits GPS explicites et résolubles par le bureau.
 - [x] Donner la priorité à `site_id` dans l’historique et l’héritage des repères.
-- [ ] Étendre le même contrat de résolution aux conflits PTO/PBO/équipement.
-- [ ] Fournir une action bureau contrôlée pour lier/fusionner deux sites après vérification humaine.
+- [x] Étendre le même contrat de résolution aux conflits PTO/PBO/PM/équipement.
+- [x] Fournir une action bureau contrôlée pour lier/fusionner deux sites après vérification humaine, avec préflight des conflits, révisions optimistes et trace immutable.
 
 ## B4 — intégrations
 
 - Obtenir la documentation/les accès sandbox Praxedo, écrire mapping et tests contractuels.
 - Définir le format de delta QField et sa stratégie de conflit.
 - Ajouter inbox/outbox d’intégration idempotentes et observabilité.
+
+## B3.1 — paramétrage gouverné et expérience opérateur
+
+- [x] Publier des catalogues backend versionnés pour activités, grades, priorités, statuts et actions terrain.
+- [x] Raccorder les grades d’équipe, les présentations du workflow, le wizard Web et les actions Mobile à ce catalogue.
+- [x] Administrer les comptes opérationnels avec liens de profil, activation et réinitialisation protégée.
+- [x] Conserver et consulter une trace append-only des mutations administratives sans secrets.
+- Permettre la préparation puis l’activation d’une configuration après validation.
+- [x] Conserver les identifiants techniques historiques même lorsqu’un libellé est archivé.
+- Fournir une recherche transversale et des vues de travail par exception.
+- Unifier les états chargement/vide/erreur/succès du Web et du Mobile.
 
 ## Hors promesse actuelle
 

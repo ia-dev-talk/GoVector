@@ -3648,21 +3648,23 @@ export default function InterventionsPage({
 									)
 								}
 								onImported={(
-									created
+									created,
+									result
 								) => {
-									loadData(
-										true
-									);
+									const firstScheduledDate =
+										result?.planning?.first_scheduled_date;
+
+									if (firstScheduledDate) {
+										setViewDate(new Date(`${firstScheduledDate}T12:00:00`));
+									} else {
+										loadData(true);
+									}
 
 									toast(
 										created
-											? `${created} intervention(s) importée(s).`
-											: 'Import terminé.',
-										'success'
-									);
-
-									setImportOpen(
-										false
+											? `${created} intervention(s) importée(s)${firstScheduledDate ? ` · planning du ${firstScheduledDate} ouvert` : ''}.`
+											: 'Aucune intervention créée ou mise à jour.',
+										created ? 'success' : 'warning'
 									);
 								}}
 							/>

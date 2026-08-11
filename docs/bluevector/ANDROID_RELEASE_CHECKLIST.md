@@ -7,7 +7,7 @@ L'APK construit par la CI est un artefact **pilote interne** :
 - nom visible : `BlueVector` ;
 - `compileSdk = 36` ;
 - endpoint injecté avec `--dart-define=API_BASE_URL=...` ;
-- `applicationId = com.example.mobile_app` ;
+- `applicationId = dev.bigdataai.bluevector` ;
 - signature release utilisant encore la clé debug ;
 - HTTP local autorisé pour les essais sur le même Wi-Fi.
 
@@ -16,9 +16,8 @@ publique ou définitive.
 
 ## Décisions propriétaire requises
 
-1. Identifiant Android irréversible, recommandé sous un domaine détenu, par
-   exemple `com.bigdataai.bluevector` si ce namespace appartient réellement à
-   l'éditeur.
+1. Confirmer la maîtrise durable du namespace déjà configuré
+   `dev.bigdataai.bluevector` avant la première publication Play Console.
 2. Nom légal de l'éditeur et compte Play Console.
 3. Mode de distribution : MDM/privé, test fermé Play Console ou public.
 4. URL API HTTPS de pilote et de production.

@@ -19,6 +19,7 @@ from backend.logic.workflow.capabilities import (
     all_status_capabilities,
     allowed_commands_for_job,
     configured_completion_policy,
+    configured_status_presentations,
     status_capability,
 )
 
@@ -31,9 +32,10 @@ async def get_workflow_capabilities(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    presentations = await configured_status_presentations(db)
     return WorkflowCapabilitiesResponse(
         current_role=current_user.role.value,
-        statuses=all_status_capabilities(),
+        statuses=all_status_capabilities(presentations),
         commands=list(COMMAND_DEFINITIONS),
         completion_policy=await configured_completion_policy(db),
     )
@@ -60,9 +62,10 @@ async def get_job_workflow_capabilities(
     policy = CompletionPolicy(db)
     requirements = await policy.resolve(job)
     assessment = await policy.evaluate(job)
+    presentations = await configured_status_presentations(db)
     return JobWorkflowCapabilitiesResponse(
         job_id=job.id,
-        status=status_capability(job.status),
+        status=status_capability(job.status, presentations.get(job.status.value)),
         allowed_commands=await allowed_commands_for_job(
             db,
             job=job,

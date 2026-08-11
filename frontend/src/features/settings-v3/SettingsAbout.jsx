@@ -85,10 +85,24 @@ const SettingsAbout = memo(
 
             <div>
               <dt>Licence</dt>
-              <dd>Propriétaire</dd>
+              <dd>AGPL-3.0 + NOTICE</dd>
             </div>
           </dl>
         </div>
+
+        <article className="sv3-principles-panel">
+          <header>
+            <InfoIcon />
+            <div>
+              <span>Identité du produit</span>
+              <strong>© 2026 Nizar Iounes · BigDataai-Dev</strong>
+            </div>
+          </header>
+          <p>
+            BlueVector est distribué selon GNU AGPL v3. Les composants tiers
+            conservent leurs licences et attributions respectives.
+          </p>
+        </article>
 
         <div className="sv3-architecture-grid">
           {architecture.map((item) => (

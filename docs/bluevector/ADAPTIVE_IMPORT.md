@@ -22,6 +22,16 @@ confirme ensuite les interventions valides.
   retenue silencieusement.
 - Les corrections sont cloisonnées par fichier. Deux fichiers utilisant le même
   mot, par exemple `CLIENT`, peuvent donc recevoir des mappings différents.
+- Les dates Excel sont acceptées sous forme de cellule date, de numéro de série
+  Excel ou de texte usuel. `DATE` alimente le planning; `DATE D’ACTION` reste
+  visible comme colonne non mappée et ne peut pas voler la date planifiée. Un
+  administrateur peut l’associer explicitement à `DATE` si le contrat du
+  donneur d’ordre lui donne réellement cette signification.
+- Après confirmation, l’API retourne le nombre de dossiers par journée et le
+  nombre de dossiers sans date. Le web ouvre la première journée réellement
+  importée au lieu de rester silencieusement sur la journée courante.
+- Un doublon ignoré n’est pas présenté comme une création. L’interface reste
+  ouverte et propose le mode de mise à jour pour compléter le dossier existant.
 
 ## Séquence de traitement
 
@@ -41,12 +51,18 @@ La prévisualisation conserve le numéro physique de la ligne source. Le géocod
 reste indépendant du mapping : une adresse non résolue conserve son texte et des
 coordonnées `null`.
 
+## Profils réutilisables
+
+Les associations de colonnes et les lignes d’en-tête confirmées peuvent être
+enregistrées dans un profil versionné. Un profil reste révisable et audité; une
+modification concurrente produit un conflit explicite plutôt qu’un écrasement.
+
 ## Limites assumées
 
 - Les anciens fichiers binaires `.xls` doivent être enregistrés en `.xlsx` ou
   `.csv`; l’interface ne prétend pas les accepter.
-- Les mappings sont appliqués à la prévisualisation courante. La gestion de
-  modèles persistants par donneur d’ordre/opérateur viendra après validation des
-  formats réels reçus.
 - BlueVector ne déduit pas une donnée métier depuis une colonne ambiguë. Une
   association de faible confiance doit être vérifiée par l’utilisateur.
+- Les colonnes sans destination canonique restent visibles comme non reconnues.
+  Elles ne sont jamais injectées arbitrairement dans les commentaires; leur
+  conservation structurée par ligne source reste une évolution distincte.

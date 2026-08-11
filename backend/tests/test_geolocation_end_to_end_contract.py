@@ -57,6 +57,12 @@ class _FieldActionDb:
         self.added = []
         self.flush = AsyncMock()
 
+    async def scalar(self, _statement):
+        # No persisted business catalog in this contract fixture. The service
+        # therefore uses the complete supported action set, as production does
+        # before an administrator customizes the catalog.
+        return None
+
     def add(self, value):
         if isinstance(value, TechnicianFieldAction):
             value.id = len(self.added) + 1
@@ -175,8 +181,16 @@ async def test_address_live_gps_and_confirmed_landmarks_remain_distinct(monkeypa
             current_user=user,
         )
 
-    actions = [value for value in field_db.added if isinstance(value, TechnicianFieldAction)]
-    observations = [value for value in field_db.added if isinstance(value, JobSiteObservation)]
+    actions = [
+        value
+        for value in field_db.added
+        if isinstance(value, TechnicianFieldAction)
+    ]
+    observations = [
+        value
+        for value in field_db.added
+        if isinstance(value, JobSiteObservation)
+    ]
     assert [value.observation_type for value in observations] == list(coordinates)
     assert all(value.technician_id == user.technician_id for value in observations)
     assert job.latitude is None
@@ -192,6 +206,7 @@ async def test_address_live_gps_and_confirmed_landmarks_remain_distinct(monkeypa
             actions,
             [],
             list(reversed(observations)),
+            [],
             [],
             [],
             [],
@@ -217,6 +232,12 @@ async def test_address_live_gps_and_confirmed_landmarks_remain_distinct(monkeypa
     }
     assert record["field_reference_location"]["origin"] == "current_job"
     assert record["field_reference_location"]["source_job_id"] == job.id
-    assert record["field_reference_location"]["latitude"] == coordinates["site_location"][0]
+    assert (
+        record["field_reference_location"]["latitude"]
+        == coordinates["site_location"][0]
+    )
     assert {item["type"] for item in record["site_observations"]} == set(coordinates)
-    assert all(item["technician_name"] == "Karim Tazi" for item in record["site_observations"])
+    assert all(
+        item["technician_name"] == "Karim Tazi"
+        for item in record["site_observations"]
+    )

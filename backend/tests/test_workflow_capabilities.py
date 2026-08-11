@@ -41,6 +41,8 @@ def test_every_job_status_has_canonical_metadata_and_two_axes():
         item = capabilities.status_capability(status)
         assert item["code"] == status.value
         assert item["label"]
+        assert "color" in item
+        assert "sort_order" in item
         assert item["order_open"] is order_open
         assert item["field_active"] is field_active
         assert item["category"]

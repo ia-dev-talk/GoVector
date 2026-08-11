@@ -4,7 +4,7 @@
 
 BlueVector (formerly FieldOpt) is a multi-client field-service platform. The FastAPI/SQLAlchemy backend lives in `backend/`: routes are under `backend/api/`, domain rules under `backend/logic/`, persistence under `backend/database/`, and integrations under `backend/services/`. PostgreSQL revisions belong in `alembic/versions/`; never edit a shared migration.
 
-Before changing workflow, geolocation, assignments, field evidence, roles, imports, or external integrations, read `docs/bluevector/README.md` and the referenced domain documents. They distinguish current behavior from the target architecture; verify each capability in code and migrations before presenting it as implemented. `JobVisit` and historical assignments exist from v031, while canonical `Site`, Praxedo and QField adapters remain targets.
+Before changing workflow, geolocation, assignments, field evidence, roles, imports, or external integrations, read `docs/bluevector/README.md` and the referenced domain documents. They distinguish current behavior from the target architecture; verify each capability in code and migrations before presenting it as implemented. `JobVisit` and historical assignments exist from v031. Canonical `Site` and GPS resolution exist from v032; structured network/equipment provenance exists from v033. Praxedo and QField adapters remain targets.
 
 The React/Vite client is in `frontend/src/`; the Flutter client is in `mobile_app/lib/`. Their screens/pages, services, and reusable components stay in the existing subdirectories. Tests live in `backend/tests/` and `mobile_app/test/`; shared static resources are in `assets/`.
 

@@ -1,7 +1,9 @@
 """
 Map parsed Excel row values to create_job()-compatible field dicts.
 """
-from datetime import datetime, timezone
+from datetime import date as date_type
+from datetime import datetime, time, timedelta, timezone
+import math
 import re
 from typing import Any, Optional
 
@@ -91,6 +93,28 @@ def _clean_identifier(value: Any) -> Optional[str]:
     return text
 
 
+_EXCEL_DATE_EPOCH = datetime(1899, 12, 30, tzinfo=timezone.utc)
+_EXCEL_MAX_SERIAL = 2_958_465
+
+
+def _excel_serial_datetime(value: Any) -> Optional[datetime]:
+    if isinstance(value, bool):
+        return None
+
+    try:
+        serial = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(serial) or not 1 <= serial <= _EXCEL_MAX_SERIAL:
+        return None
+
+    try:
+        return _EXCEL_DATE_EPOCH + timedelta(days=serial)
+    except OverflowError:
+        return None
+
+
 def _parse_datetime(value: Any) -> Optional[datetime]:
     if value is None:
         return None
@@ -98,9 +122,17 @@ def _parse_datetime(value: Any) -> Optional[datetime]:
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
         return value
+    if isinstance(value, date_type):
+        return datetime.combine(value, time.min, tzinfo=timezone.utc)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return _excel_serial_datetime(value)
     text = str(value).strip()
     if not text:
         return None
+    if re.fullmatch(r"[+-]?\d+(?:[.,]\d+)?", text):
+        excel_date = _excel_serial_datetime(text.replace(",", "."))
+        if excel_date is not None:
+            return excel_date
     try:
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
         if parsed.tzinfo is None:
@@ -108,7 +140,14 @@ def _parse_datetime(value: Any) -> Optional[datetime]:
         return parsed
     except ValueError:
         pass
-    for fmt in ("%d/%m/%Y", "%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M:%S"):
+    for fmt in (
+        "%d/%m/%Y",
+        "%d/%m/%Y %H:%M",
+        "%d-%m-%Y",
+        "%d-%m-%Y %H:%M",
+        "%d.%m.%Y",
+        "%Y-%m-%d %H:%M:%S",
+    ):
         try:
             parsed = datetime.strptime(text, fmt)
             return parsed.replace(tzinfo=timezone.utc)

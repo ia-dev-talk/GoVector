@@ -1,0 +1,25 @@
+.business-catalog__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.business-catalog__footer .business-catalog__secondary {
+  border: 1px solid #345078;
+  color: #aabbd2;
+  background: #111e31;
+}
+
+.business-catalog__footer button:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+@media (max-width: 850px) {
+  .business-catalog__actions {
+    width: 100%;
+  }
+
+  .business-catalog__actions button {
+    flex: 1;
+  }
+}

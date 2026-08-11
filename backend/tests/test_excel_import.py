@@ -4,6 +4,7 @@ from backend.services.excel.ftth_mapper import map_excel_row
 from backend.services.excel.job_factory import create_job
 from backend.services.excel import job_fields
 from backend.services.excel.job_fields import build_job_record
+from backend.services.excel.job_fields import _parse_datetime
 from backend.services.excel.mapper import ExcelMapper
 from backend.services.excel.jobs_builder import JobsBuilder
 from backend.services.excel.parser import parse_spreadsheet
@@ -36,6 +37,37 @@ def test_build_job_record_minimal():
     assert job["gps_source"] is None
     assert "install" in job["required_skills"]
     assert job["_import_id"]
+
+
+def test_excel_numeric_dates_are_preserved_as_scheduled_dates():
+    first = _parse_datetime(46245.41180555556)
+    second = _parse_datetime("46246.625")
+
+    assert first is not None
+    assert first.isoformat().startswith("2026-08-11T09:53")
+    assert second is not None
+    assert second.isoformat() == "2026-08-12T15:00:00+00:00"
+
+
+def test_source_action_date_does_not_steal_the_planning_date_mapping():
+    workbook = [{
+        "sheet": "Feuil1",
+        "rows": [
+            [_cell(1, 1, "DATE"), _cell(1, 2, "DATE D'ACTION")],
+            [_cell(2, 1, 46245.41180555556), _cell(2, 2, 46196.51388888889)],
+        ],
+    }]
+
+    mapped = ExcelMapper(workbook).map()
+    job = JobsBuilder(mapped).build()[0]
+
+    assert mapped[0]["mapping"]["DATE"] == 1
+    assert job["scheduled_date"].startswith("2026-08-11T09:53")
+    action_match = next(
+        item for item in mapped[0]["column_matches"]
+        if item["header"] == "DATE D'ACTION"
+    )
+    assert action_match["method"] == "unmapped"
 
 
 def test_import_mapping_override_accepts_a_real_file_header_without_code_change():

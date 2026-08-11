@@ -1,5 +1,9 @@
 # Rapport de validation B0 — 10 août 2026
 
+Ce rapport décrit la baseline B0 historique `125847b`. Pour l'état courant et
+les évolutions ultérieures, consulter `SYSTEM_AUDIT_2026-08-11.md` et l'historique
+Git. Aucun chiffre de cette page ne doit être présenté comme le résultat du HEAD.
+
 Base auditée : `125847b` (`origin/bluevector-ai-review`). Branche locale de travail : `codex/v2.1-b0`. Aucun push.
 
 ## Backend

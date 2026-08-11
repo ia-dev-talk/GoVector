@@ -52,6 +52,16 @@ La provenance est conservée sur l'ordre avec `planned_location_source` et `plan
 - Les nouvelles observations de site, actions, médias, positions live, échecs et reports portent un `visit_id` lorsqu’un passage est identifiable.
 - La migration v031 rattache les preuves historiques à un passage reconstitué et conserve `backfill_confidence`; elle ne prétend pas connaître une tentative qui n’a jamais été enregistrée.
 
+## Import adaptatif et vérifiable
+
+- Les profils d'import enregistrent les décisions humaines de correspondance
+  (`en-tête source -> champ canonique`, y compris « ignorer ») et la ligne
+  d'en-tête choisie par feuille.
+- Ils sont versionnés dans la configuration, modifiables uniquement par un
+  administrateur et chaque création, modification ou suppression est auditée.
+- Un profil réutilise une décision déjà vérifiée; il ne transforme jamais une
+  colonne inconnue en donnée métier par supposition.
+
 ## Identité Site et résolution GPS
 
 - La migration v032 ajoute `Site` et relie `Job`/`JobSiteObservation` par `site_id`.
@@ -63,10 +73,20 @@ La provenance est conservée sur l'ordre avec `planned_location_source` et `plan
 - L’orienteur, le chef orienteur ou l’administrateur peut accepter ou rejeter le repère. La résolution utilise une révision optimiste afin de refuser une décision prise sur un dossier périmé.
 - Les entrées/sorties câble restent append-only et `unreviewed` jusqu’à une décision bureau; elles ne changent jamais la position canonique.
 
+## Références réseau et équipements structurés
+
+- Depuis v033, une nouvelle saisie Mobile distingue explicitement PTO, PBO ou PM.
+- Les scans ONT, routeur, boîtier WiFi, PTO et splitter deviennent des observations structurées liées au site et au passage.
+- Une valeur identique à la référence préparée ou résolue est corroborée.
+- Une valeur différente devient `conflict`; une valeur sans référence antérieure reste `unreviewed`.
+- Seul le bureau peut accepter une valeur nouvelle comme référence résolue. La valeur préparée sur l’ordre reste conservée.
+- Une PTO déjà rattachée à un autre site dans le même périmètre provoque `site_identity_conflict`; BlueVector ne fusionne jamais silencieusement les sites.
+- Les anciennes notes réseau non typées restent dans le journal mais ne sont pas transformées rétroactivement en faits structurés.
+
 ## Limites V1 connues
 
 - Les dossiers historiques sans PTO et sans position terrain explicite peuvent rester sans `site_id`; ils utilisent temporairement le rapprochement prudent de compatibilité.
-- Le workflow de résolution v032 couvre le GPS et les repères câble. Les conflits structurés PTO/PBO/équipement restent à ajouter.
+- La résolution structurée couvre GPS, PTO/PBO/PM et principaux scans d’équipement. La liaison/fusion manuelle de sites reste à ajouter avec prévisualisation obligatoire.
 - Le GPS live nécessite une politique explicite de consentement, rétention et visibilité avant production.
 
 ## Cible minimale

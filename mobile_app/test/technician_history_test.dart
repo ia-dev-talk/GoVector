@@ -278,10 +278,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Compléter'), findsOneWidget);
-    expect(find.text('Installation terminée'), findsOneWidget);
     expect(find.text('Passages terrain'), findsOneWidget);
     expect(find.text('Échec terrain'), findsOneWidget);
     expect(find.text('Terminée'), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('Journal métier'), 250);
+    await tester.pumpAndSettle();
+    expect(find.text('Journal métier'), findsOneWidget);
+    expect(find.text('Installation terminée'), findsOneWidget);
     expect(find.textContaining('Modifier'), findsNothing);
     expect(find.textContaining('Terminer'), findsNothing);
   });

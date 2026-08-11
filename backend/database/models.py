@@ -332,6 +332,14 @@ class Site(Base):
     match_basis: Mapped[str] = mapped_column(String(40), nullable=False)
     match_confidence: Mapped[str] = mapped_column(String(16), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"), nullable=False)
+    merged_into_site_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    merged_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    merged_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    merge_reason: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, server_default=text("CURRENT_TIMESTAMP"), nullable=False
     )
@@ -341,6 +349,39 @@ class Site(Base):
     )
 
     jobs: Mapped[List["Job"]] = relationship("Job", back_populates="site", lazy="selectin")
+
+
+class SiteMergeRecord(Base):
+    """Immutable audit record for an explicit, human-confirmed site merge."""
+
+    __tablename__ = "site_merge_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    source_site_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    target_site_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    merged_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    source_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_revision_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_revision_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    snapshot: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
 
 
 class FieldTeam(Base):
@@ -1506,6 +1547,126 @@ class JobSiteObservation(Base):
     )
 
 
+class SiteResolvedAttribute(Base):
+    """Canonical structured fact for a site after an explicit resolution.
+
+    This deliberately covers only conflict-prone network and installed-asset
+    references. It is not a generic replacement for typed business models.
+    """
+
+    __tablename__ = "site_resolved_attributes"
+    __table_args__ = (
+        UniqueConstraint(
+            "site_id",
+            "attribute_key",
+            name="uq_site_resolved_attributes_site_key",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    site_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    attribute_key: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    value_text: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    value_json: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        nullable=False,
+    )
+    source_observation_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("site_attribute_observations.id", ondelete="SET NULL")
+    )
+    resolved_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    resolved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    revision: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+
+class SiteAttributeObservation(Base):
+    """Append-only field proposal for a structured site attribute."""
+
+    __tablename__ = "site_attribute_observations"
+    __table_args__ = (
+        UniqueConstraint(
+            "field_action_id",
+            name="uq_site_attribute_observations_field_action",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    site_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    job_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), index=True
+    )
+    field_action_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("technician_field_actions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    attribute_key: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    value_text: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    value_json: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        nullable=False,
+    )
+    source: Mapped[str] = mapped_column(
+        String(32), default="mobile", server_default="mobile", nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    technician_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("technicians.id"), nullable=False, index=True
+    )
+    base_site_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    resolution_status: Mapped[str] = mapped_column(
+        String(16), default="unreviewed", server_default="unreviewed", nullable=False, index=True
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    resolved_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    resolution_note: Mapped[Optional[str]] = mapped_column(Text)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+
 class JobAttachment(Base):
     """Document de préparation partagé par le bureau avec le terrain."""
 
@@ -1742,3 +1903,32 @@ class ApplicationSetting(Base):
             f"revision={self.revision}"
             ")>"
         )
+
+
+class OperationalAuditEvent(Base):
+    """Append-only trace for sensitive administration and configuration changes."""
+
+    __tablename__ = "operational_audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    actor_username: Mapped[str] = mapped_column(String(100), nullable=False)
+    actor_role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    entity_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    changes: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb"), nullable=False
+    )
+    context: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+        index=True,
+    )

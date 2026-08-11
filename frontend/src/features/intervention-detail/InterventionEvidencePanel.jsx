@@ -144,6 +144,10 @@ export default function InterventionEvidencePanel({
   const [uploadError, setUploadError] = useState('');
   const [annotationTarget, setAnnotationTarget] = useState(null);
   const [resolvingSiteObservation, setResolvingSiteObservation] = useState(null);
+  const [siteMergeOpen, setSiteMergeOpen] = useState(false);
+  const [siteMergeCandidates, setSiteMergeCandidates] = useState([]);
+  const [selectedSiteId, setSelectedSiteId] = useState(null);
+  const [siteMergeLoading, setSiteMergeLoading] = useState(false);
   const photos = PHOTO_FIELDS
     .map((item) => ({
       ...item,
@@ -172,6 +176,12 @@ export default function InterventionEvidencePanel({
     : [];
   const siteObservations = Array.isArray(fieldRecord?.site_observations)
     ? fieldRecord.site_observations
+    : [];
+  const siteResolvedAttributes = Array.isArray(fieldRecord?.site_resolved_attributes)
+    ? fieldRecord.site_resolved_attributes
+    : [];
+  const siteAttributeObservations = Array.isArray(fieldRecord?.site_attribute_observations)
+    ? fieldRecord.site_attribute_observations
     : [];
   const officeNotes = Array.isArray(fieldRecord?.office_notes)
     ? fieldRecord.office_notes
@@ -260,6 +270,7 @@ export default function InterventionEvidencePanel({
     technicianMedia.length +
     officeAttachments.length +
     siteObservations.length +
+    siteAttributeObservations.length +
     communications.length;
 
   const openBlob = async (request) => {
@@ -276,7 +287,7 @@ export default function InterventionEvidencePanel({
   );
 
   const handleResolveSiteObservation = async (item, decision) => {
-    setResolvingSiteObservation(item.id);
+    setResolvingSiteObservation(`location:${item.id}`);
     setUploadError('');
     try {
       await api.resolveJobSiteObservation(job.id, item.id, {
@@ -293,6 +304,98 @@ export default function InterventionEvidencePanel({
       );
     } finally {
       setResolvingSiteObservation(null);
+    }
+  };
+
+  const handleResolveSiteAttribute = async (item, decision) => {
+    setResolvingSiteObservation(`attribute:${item.id}`);
+    setUploadError('');
+    try {
+      await api.resolveJobSiteAttribute(job.id, item.id, {
+        decision,
+        expected_revision: fieldRecord?.site?.revision ?? null,
+      });
+      if (typeof onRecordChanged === 'function') onRecordChanged();
+    } catch (error) {
+      setUploadError(
+        error?.response?.data?.message ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Résolution de la donnée terrain impossible.',
+      );
+    } finally {
+      setResolvingSiteObservation(null);
+    }
+  };
+
+  const loadSiteMergeCandidates = async (search = '') => {
+    setSiteMergeLoading(true);
+    setUploadError('');
+    try {
+      const response = await api.getJobSiteMergeCandidates(job.id, search);
+      const candidates = Array.isArray(response.data?.candidates)
+        ? response.data.candidates
+        : [];
+      setSiteMergeCandidates(candidates);
+      setSelectedSiteId((current) => (
+        candidates.some((candidate) => candidate.id === current) ? current : null
+      ));
+    } catch (error) {
+      setUploadError(
+        error?.response?.data?.message
+          || error?.response?.data?.detail
+          || error?.message
+          || 'Recherche de sites impossible.',
+      );
+    } finally {
+      setSiteMergeLoading(false);
+    }
+  };
+
+  const toggleSiteMerge = async () => {
+    const next = !siteMergeOpen;
+    setSiteMergeOpen(next);
+    if (next && siteMergeCandidates.length === 0) {
+      await loadSiteMergeCandidates();
+    }
+  };
+
+  const handleSiteMergeSearch = async (event) => {
+    event.preventDefault();
+    const search = event.currentTarget.elements.namedItem('site_search')?.value?.trim() || '';
+    await loadSiteMergeCandidates(search);
+  };
+
+  const handleSiteMerge = async (event) => {
+    event.preventDefault();
+    const candidate = siteMergeCandidates.find((item) => item.id === selectedSiteId);
+    const reason = event.currentTarget.elements.namedItem('merge_reason')?.value?.trim() || '';
+    if (!candidate || reason.length < 8 || candidate.merge_blockers?.length) return;
+    setSiteMergeLoading(true);
+    setUploadError('');
+    try {
+      await api.mergeJobSite(job.id, {
+        target_site_id: candidate.id,
+        expected_source_revision: fieldRecord?.site?.revision,
+        expected_target_revision: candidate.revision,
+        reason,
+      });
+      setSiteMergeOpen(false);
+      setSiteMergeCandidates([]);
+      setSelectedSiteId(null);
+      if (typeof onRecordChanged === 'function') onRecordChanged();
+    } catch (error) {
+      const conflicts = error?.response?.data?.details?.conflicts;
+      setUploadError(
+        Array.isArray(conflicts) && conflicts.length
+          ? `Fusion bloquée : ${conflicts.map((item) => item.field).join(', ')}.`
+          : error?.response?.data?.message
+            || error?.response?.data?.detail
+            || error?.message
+            || 'Fusion des sites impossible.',
+      );
+    } finally {
+      setSiteMergeLoading(false);
     }
   };
 
@@ -660,6 +763,92 @@ export default function InterventionEvidencePanel({
                 <small>
                   Identité stable · rapprochement {fieldRecord.site.match_basis} ({fieldRecord.site.match_confidence})
                 </small>
+                <div className="intervention-detail-inline-actions">
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    disabled={siteMergeLoading}
+                    onClick={toggleSiteMerge}
+                  >
+                    {siteMergeOpen ? 'Fermer le rapprochement' : 'Rapprocher un doublon vérifié'}
+                  </button>
+                </div>
+              </article>
+            ) : null}
+            {siteMergeOpen ? (
+              <article className="intervention-detail-site-merge">
+                <span>Fusion manuelle contrôlée</span>
+                <p>
+                  Recherchez un autre dossier du même client et opérateur. Aucune valeur
+                  contradictoire ne sera écrasée.
+                </p>
+                <form className="intervention-detail-upload-form" onSubmit={handleSiteMergeSearch}>
+                  <input
+                    name="site_search"
+                    type="search"
+                    maxLength="120"
+                    placeholder="PTO, PBO, adresse ou identifiant site"
+                  />
+                  <button type="submit" className="btn btn--secondary" disabled={siteMergeLoading}>
+                    {siteMergeLoading ? 'Recherche…' : 'Rechercher'}
+                  </button>
+                </form>
+                <div className="intervention-detail-site-candidates">
+                  {siteMergeCandidates.map((candidate) => {
+                    const blockers = Array.isArray(candidate.merge_blockers)
+                      ? candidate.merge_blockers
+                      : [];
+                    return (
+                      <label
+                        key={`merge-candidate-${candidate.id}`}
+                        className={blockers.length ? 'is-blocked' : ''}
+                      >
+                        <input
+                          type="radio"
+                          name="site_candidate"
+                          value={candidate.id}
+                          checked={selectedSiteId === candidate.id}
+                          disabled={blockers.length > 0}
+                          onChange={() => setSelectedSiteId(candidate.id)}
+                        />
+                        <span>
+                          <strong>
+                            {candidate.pto_reference
+                              || candidate.pbo_reference
+                              || candidate.address_snapshot
+                              || candidate.public_id}
+                          </strong>
+                          <small>
+                            {candidate.city_snapshot || 'Ville non renseignée'}
+                            {' · '}{candidate.job_count} intervention(s)
+                            {blockers.length
+                              ? ` · Conflits : ${blockers.map((item) => item.field).join(', ')}`
+                              : ' · Compatible'}
+                          </small>
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {!siteMergeLoading && siteMergeCandidates.length === 0 ? (
+                    <small>Aucun autre site compatible trouvé dans votre périmètre.</small>
+                  ) : null}
+                </div>
+                <form className="intervention-detail-upload-form" onSubmit={handleSiteMerge}>
+                  <textarea
+                    name="merge_reason"
+                    minLength="8"
+                    maxLength="1000"
+                    required
+                    placeholder="Pourquoi ces deux fiches représentent-elles le même site ?"
+                  />
+                  <button
+                    type="submit"
+                    className="btn btn--secondary"
+                    disabled={!selectedSiteId || siteMergeLoading}
+                  >
+                    Confirmer la fusion auditée
+                  </button>
+                </form>
               </article>
             ) : null}
             {siteObservations.map((item) => (
@@ -682,7 +871,7 @@ export default function InterventionEvidencePanel({
                     <button
                       type="button"
                       className="btn btn--secondary"
-                      disabled={resolvingSiteObservation === item.id}
+                      disabled={resolvingSiteObservation === `location:${item.id}`}
                       onClick={() => handleResolveSiteObservation(item, 'accepted')}
                     >
                       Utiliser comme référence
@@ -690,8 +879,70 @@ export default function InterventionEvidencePanel({
                     <button
                       type="button"
                       className="btn btn--secondary"
-                      disabled={resolvingSiteObservation === item.id}
+                      disabled={resolvingSiteObservation === `location:${item.id}`}
                       onClick={() => handleResolveSiteObservation(item, 'rejected')}
+                    >
+                      Rejeter
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </ModuleSection>
+
+        <ModuleSection
+          title="Réseau et équipements observés"
+          count={siteAttributeObservations.length}
+          emptyLabel="Aucune référence structurée relevée sur le terrain"
+          hasContent={siteAttributeObservations.length > 0 || siteResolvedAttributes.length > 0}
+        >
+          <div className="intervention-detail-comment-list">
+            {siteResolvedAttributes.length > 0 ? (
+              <article>
+                <span>Référentiel actuellement validé</span>
+                <div className="intervention-detail-structured-facts">
+                  {siteResolvedAttributes.map((item) => (
+                    <p key={`resolved-${item.id}`}>
+                      <strong>{item.label}</strong>
+                      <code>{item.value}</code>
+                    </p>
+                  ))}
+                </div>
+              </article>
+            ) : null}
+            {siteAttributeObservations.map((item) => (
+              <article key={`attribute-${item.id}`}>
+                <span>
+                  {item.label}
+                  {' · '}
+                  {item.resolution_status === 'accepted'
+                    ? 'Confirmé'
+                    : item.resolution_status === 'conflict'
+                      ? 'Différent du référentiel'
+                      : item.resolution_status === 'rejected'
+                        ? 'Rejeté'
+                        : 'À examiner'}
+                </span>
+                <p><code>{item.value}</code></p>
+                <small>
+                  {item.technician_name || 'Technicien terrain'} · {formatVisitDate(item.occurred_at)}
+                </small>
+                {['conflict', 'unreviewed'].includes(item.resolution_status) ? (
+                  <div className="intervention-detail-inline-actions">
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={resolvingSiteObservation === `attribute:${item.id}`}
+                      onClick={() => handleResolveSiteAttribute(item, 'accepted')}
+                    >
+                      Confirmer cette valeur
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={resolvingSiteObservation === `attribute:${item.id}`}
+                      onClick={() => handleResolveSiteAttribute(item, 'rejected')}
                     >
                       Rejeter
                     </button>
