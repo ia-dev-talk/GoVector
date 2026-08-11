@@ -8,6 +8,7 @@ import {
   finiteNumber,
   text,
 } from './interventionDetailUtils';
+import ImageAnnotationDialog from './ImageAnnotationDialog';
 
 const PHOTO_FIELDS = [
   { field: 'before_photo', label: 'Avant' },
@@ -131,6 +132,7 @@ export default function InterventionEvidencePanel({
 }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [annotationTarget, setAnnotationTarget] = useState(null);
   const photos = PHOTO_FIELDS
     .map((item) => ({
       ...item,
@@ -252,6 +254,73 @@ export default function InterventionEvidencePanel({
     window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
   };
 
+  const downloadAsset = (asset) => (
+    asset.asset_type === 'technician_media'
+      ? api.downloadTechnicianMedia(job.id, asset.asset_id)
+      : api.downloadJobAttachment(job.id, asset.asset_id)
+  );
+
+  const beginAnnotation = async (asset) => {
+    if (!asset?.mime_type?.startsWith('image/')) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      const response = await downloadAsset(asset);
+      setAnnotationTarget({ ...asset, blob: response.data });
+    } catch (error) {
+      setUploadError(
+        error?.response?.data?.detail || error?.message || 'Image indisponible.',
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const saveAnnotation = async (blob) => {
+    const origin = annotationTarget;
+    if (!origin) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      const originLabel = origin.title || origin.filename || 'pièce terrain';
+      const metadata = {
+        is_annotation: true,
+        editor: 'bluevector_web_freehand_v1',
+        annotation_of: {
+          asset_type: origin.asset_type,
+          asset_id: origin.asset_id,
+        },
+      };
+      const data = new FormData();
+      data.append('kind', 'photo');
+      data.append('title', `Annotation — ${originLabel}`);
+      data.append('comment', 'Annotation bureau conservant la pièce originale.');
+      data.append('metadata', JSON.stringify(metadata));
+      data.append('file', blob, `annotation-${Date.now()}.png`);
+      const uploaded = await api.uploadJobAttachment(job.id, data);
+      const attachmentId = uploaded.data?.attachment_id;
+      await api.addJobCommunication(job.id, {
+        type: 'message',
+        body: `Annotation ajoutée sur ${originLabel}`,
+        audience: 'field',
+        attachments: [{
+          asset_type: 'office_attachment',
+          asset_id: attachmentId,
+          role: 'annotation',
+          annotation_of: metadata.annotation_of,
+        }],
+      });
+      setAnnotationTarget(null);
+      if (typeof onRecordChanged === 'function') onRecordChanged();
+    } catch (error) {
+      setUploadError(
+        error?.response?.data?.detail || error?.message || 'Annotation impossible.',
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleAttachmentUpload = async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -265,7 +334,24 @@ export default function InterventionEvidencePanel({
     setUploading(true);
     setUploadError('');
     try {
-      await api.uploadJobAttachment(job.id, data);
+      const metadata = {};
+      data.append('metadata', JSON.stringify(metadata));
+      const uploaded = await api.uploadJobAttachment(job.id, data);
+      const attachmentId = uploaded.data?.attachment_id;
+      const messageType = form.elements.namedItem('message_type')?.value || 'instruction';
+      const comment = form.elements.namedItem('comment')?.value?.trim();
+      const title = form.elements.namedItem('title')?.value?.trim() || file.name;
+      await api.addJobCommunication(job.id, {
+        type: messageType,
+        body: comment || `Pièce partagée : ${title}`,
+        audience: 'field',
+        requires_action: messageType === 'correction_request',
+        attachments: [{
+          asset_type: 'office_attachment',
+          asset_id: attachmentId,
+          role: 'attachment',
+        }],
+      });
       form.reset();
       if (typeof onRecordChanged === 'function') onRecordChanged();
     } catch (error) {
@@ -408,20 +494,35 @@ export default function InterventionEvidencePanel({
               </a>
             ))}
             {officeAttachments.map((document) => (
-              <button
-                key={document.attachment_id}
-                type="button"
-                className="intervention-detail-file-link"
-                onClick={() => openBlob(() =>
-                  api.downloadJobAttachment(job.id, document.attachment_id),
-                )}
-              >
-                <span className="intervention-detail-file-icon"><FileIcon /></span>
-                <span>
-                  <strong>{document.title || document.filename || 'Pièce bureau'}</strong>
-                  <small>{document.comment || 'Ouvrir la pièce jointe'}</small>
-                </span>
-              </button>
+              <div key={document.attachment_id} className="intervention-detail-asset-row">
+                <button
+                  type="button"
+                  className="intervention-detail-file-link"
+                  onClick={() => openBlob(() =>
+                    api.downloadJobAttachment(job.id, document.attachment_id),
+                  )}
+                >
+                  <span className="intervention-detail-file-icon"><FileIcon /></span>
+                  <span>
+                    <strong>{document.title || document.filename || 'Pièce bureau'}</strong>
+                    <small>{document.comment || 'Ouvrir la pièce jointe'}</small>
+                  </span>
+                </button>
+                {document.mime_type?.startsWith('image/') ? (
+                  <button
+                    type="button"
+                    className="intervention-detail-annotate-button"
+                    disabled={uploading}
+                    onClick={() => beginAnnotation({
+                      ...document,
+                      asset_type: 'office_attachment',
+                      asset_id: document.attachment_id,
+                    })}
+                  >
+                    Annoter
+                  </button>
+                ) : null}
+              </div>
             ))}
           </div>
         </ModuleSection>
@@ -434,22 +535,37 @@ export default function InterventionEvidencePanel({
         >
           <div className="intervention-detail-file-list">
             {technicianMedia.map((media) => (
-              <button
-                key={media.media_id}
-                type="button"
-                className="intervention-detail-file-link"
-                onClick={() => openBlob(() =>
-                  api.downloadTechnicianMedia(job.id, media.media_id),
-                )}
-              >
-                <span className="intervention-detail-file-icon">
-                  {media.kind === 'photo' ? <PhotoIcon /> : <FileIcon />}
-                </span>
-                <span>
-                  <strong>{media.filename || media.kind}</strong>
-                  <small>{media.technician_name || 'Technicien terrain'}</small>
-                </span>
-              </button>
+              <div key={media.media_id} className="intervention-detail-asset-row">
+                <button
+                  type="button"
+                  className="intervention-detail-file-link"
+                  onClick={() => openBlob(() =>
+                    api.downloadTechnicianMedia(job.id, media.media_id),
+                  )}
+                >
+                  <span className="intervention-detail-file-icon">
+                    {media.kind === 'photo' ? <PhotoIcon /> : <FileIcon />}
+                  </span>
+                  <span>
+                    <strong>{media.filename || media.kind}</strong>
+                    <small>{media.technician_name || 'Technicien terrain'}</small>
+                  </span>
+                </button>
+                {media.mime_type?.startsWith('image/') ? (
+                  <button
+                    type="button"
+                    className="intervention-detail-annotate-button"
+                    disabled={uploading}
+                    onClick={() => beginAnnotation({
+                      ...media,
+                      asset_type: 'technician_media',
+                      asset_id: media.media_id,
+                    })}
+                  >
+                    Annoter
+                  </button>
+                ) : null}
+              </div>
             ))}
           </div>
         </ModuleSection>
@@ -558,6 +674,37 @@ export default function InterventionEvidencePanel({
                   {' · '}{item.author_name || item.author_role}
                 </span>
                 <p>{item.body || 'Message pris en compte'}</p>
+                {item.attachments?.length ? (
+                  <div className="intervention-detail-communication-assets">
+                    {item.attachments.map((asset) => (
+                      <div key={`${item.id}-${asset.asset_type}-${asset.asset_id}`}>
+                        <button
+                          type="button"
+                          className="intervention-detail-file-link"
+                          onClick={() => openBlob(() => downloadAsset(asset))}
+                        >
+                          <span className="intervention-detail-file-icon">
+                            {asset.mime_type?.startsWith('image/') ? <PhotoIcon /> : <FileIcon />}
+                          </span>
+                          <span>
+                            <strong>{asset.title || asset.filename || 'Pièce jointe'}</strong>
+                            <small>{asset.role === 'annotation' ? 'Annotation · original conservé' : 'Ouvrir la pièce'}</small>
+                          </span>
+                        </button>
+                        {asset.mime_type?.startsWith('image/') ? (
+                          <button
+                            type="button"
+                            className="intervention-detail-annotate-button"
+                            disabled={uploading}
+                            onClick={() => beginAnnotation(asset)}
+                          >
+                            Annoter cette image
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <small>
                   {item.requires_action && item.status === 'open'
                     ? 'Action attendue du terrain'
@@ -633,6 +780,11 @@ export default function InterventionEvidencePanel({
             </button>
           </form>
           <form className="intervention-detail-upload-form" onSubmit={handleAttachmentUpload}>
+            <select name="message_type" defaultValue="instruction" aria-label="Nature du partage">
+              <option value="instruction">Plan ou consigne</option>
+              <option value="correction_request">Pièce avec correction attendue</option>
+              <option value="message">Information</option>
+            </select>
             <select name="kind" defaultValue="plan" aria-label="Type de pièce">
               <option value="plan">Plan</option>
               <option value="photo">Photo</option>
@@ -650,6 +802,14 @@ export default function InterventionEvidencePanel({
           </form>
         </ModuleSection>
       </div>
+      {annotationTarget ? (
+        <ImageAnnotationDialog
+          blob={annotationTarget.blob}
+          title={annotationTarget.title || annotationTarget.filename}
+          onCancel={() => setAnnotationTarget(null)}
+          onSave={saveAnnotation}
+        />
+      ) : null}
     </aside>
   );
 }
