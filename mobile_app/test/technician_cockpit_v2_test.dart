@@ -81,7 +81,8 @@ void main() {
     expect(find.text('Pour quelle intervention ?'), findsOneWidget);
     expect(find.text('DTLI-8'), findsOneWidget);
     expect(find.text('DTLI-41'), findsOneWidget);
-    expect(find.text('DTLI-9'), findsNothing);
+    expect(find.text('DTLI-9'), findsOneWidget);
+    expect(find.textContaining('complément'), findsOneWidget);
     expect(selected, isNull);
 
     await tester.tap(find.text('DTLI-41'));

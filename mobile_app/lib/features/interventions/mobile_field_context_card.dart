@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../design_system/bluevector_tokens.dart';
 import '../../services/intervention_service.dart';
+import '../../services/offline_service.dart';
 
 class MobileFieldContextCard extends StatefulWidget {
   const MobileFieldContextCard({super.key, required this.jobId});
@@ -15,11 +18,24 @@ class MobileFieldContextCard extends StatefulWidget {
 
 class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
   late Future<Map<String, dynamic>> _future;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _future = InterventionService.getFieldRecord(jobId: widget.jobId);
+    _refreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!mounted) return;
+      setState(() {
+        _future = InterventionService.getFieldRecord(jobId: widget.jobId);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -77,6 +93,69 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
     }
   }
 
+  Future<void> _sendCommunication({
+    int? parentId,
+    bool acknowledge = false,
+  }) async {
+    String? body;
+    if (!acknowledge) {
+      final controller = TextEditingController();
+      body = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Répondre au bureau'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            minLines: 3,
+            maxLines: 6,
+            decoration: const InputDecoration(
+              hintText: 'Votre réponse ou complément…',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final value = controller.text.trim();
+                if (value.isNotEmpty) Navigator.pop(dialogContext, value);
+              },
+              child: const Text('Envoyer'),
+            ),
+          ],
+        ),
+      );
+      controller.dispose();
+      if (body == null) return;
+    }
+    await OfflineService.addPendingAction(
+      action: 'job_communication',
+      data: {
+        'job_id': widget.jobId,
+        'message_type': acknowledge ? 'acknowledgement' : 'reply',
+        'body': acknowledge ? 'Message pris en compte' : body,
+        if (parentId != null) 'parent_id': parentId,
+      },
+    );
+    await OfflineService.syncPendingActions();
+    if (!mounted) return;
+    setState(() {
+      _future = InterventionService.getFieldRecord(jobId: widget.jobId);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          acknowledge
+              ? 'Prise en compte enregistrée.'
+              : 'Réponse enregistrée pour synchronisation.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>>(
@@ -102,6 +181,12 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                   .map((item) => Map<String, dynamic>.from(item))
                   .toList()
             : <Map<String, dynamic>>[];
+        final communications = data['communications'] is List
+            ? (data['communications'] as List)
+                  .whereType<Map>()
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList()
+            : <Map<String, dynamic>>[];
         final observations = data['site_observations'] is List
             ? (data['site_observations'] as List)
                   .whereType<Map>()
@@ -119,6 +204,7 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
         ].where((value) => value?.toString().trim().isNotEmpty == true).toList();
         if (textValues.isEmpty &&
             attachments.isEmpty &&
+            communications.isEmpty &&
             observations.isEmpty &&
             reference == null) {
           return const SizedBox.shrink();
@@ -147,6 +233,62 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                 const SizedBox(height: BlueVectorSpacing.sm),
                 Text(value.toString()),
               ],
+              for (final item in communications) ...[
+                const SizedBox(height: BlueVectorSpacing.sm),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+                  decoration: BoxDecoration(
+                    color:
+                        item['requires_action'] == true &&
+                            item['status'] == 'open'
+                        ? BlueVectorColors.warning.withValues(alpha: 0.1)
+                        : BlueVectorColors.background,
+                    borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+                    border: Border.all(color: BlueVectorColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item['type'] == 'correction_request'
+                            ? 'Correction demandée'
+                            : item['type'] == 'instruction'
+                              ? 'Instruction bureau'
+                              : item['type'] == 'reply'
+                                ? 'Réponse terrain'
+                                : 'Échange opérationnel',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      if (item['body']?.toString().trim().isNotEmpty ==
+                          true) ...[
+                        const SizedBox(height: BlueVectorSpacing.xs),
+                        Text(item['body'].toString()),
+                      ],
+                      if (item['requires_action'] == true &&
+                          item['status'] == 'open')
+                        Wrap(
+                          spacing: BlueVectorSpacing.xs,
+                          children: [
+                            TextButton(
+                              onPressed: () => _sendCommunication(
+                                parentId: item['id'] as int?,
+                                acknowledge: true,
+                              ),
+                              child: const Text('Pris en compte'),
+                            ),
+                            FilledButton.tonal(
+                              onPressed: () => _sendCommunication(
+                                parentId: item['id'] as int?,
+                              ),
+                              child: const Text('Répondre'),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
               if (reference != null) ...[
                 const SizedBox(height: BlueVectorSpacing.sm),
                 if (reference['origin'] == 'previous_field_visit')
@@ -164,7 +306,9 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                 ),
               ],
               for (final observation in observations.where(
-                (item) => item['type'] == 'cable_entry' || item['type'] == 'cable_exit',
+                (item) =>
+                    item['type'] == 'cable_entry' ||
+                    item['type'] == 'cable_exit',
               ))
                 Padding(
                   padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
@@ -179,7 +323,9 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                   leading: Icon(
-                    item['kind'] == 'photo' ? Icons.photo_outlined : Icons.description_outlined,
+                    item['kind'] == 'photo'
+                        ? Icons.photo_outlined
+                        : Icons.description_outlined,
                     color: BlueVectorColors.primaryBright,
                   ),
                   title: Text(

@@ -281,6 +281,7 @@ class TechnicianOutboxStore {
         owner.technicianId,
         TechnicianOutboxStatus.rejected.name,
         'intervention_comment',
+        'job_communication',
         'custom_intervention_action',
         'equipment_scan',
       ],

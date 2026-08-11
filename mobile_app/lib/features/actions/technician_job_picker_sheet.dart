@@ -9,7 +9,9 @@ Future<Job?> showTechnicianJobPickerSheet({
   required List<Job> jobs,
   int? currentJobId,
 }) {
-  final eligible = jobs.where(MobileJobPresenter.isActive).toList()
+  // A terminal field visit is immutable, but its dossier can still receive
+  // append-only evidence and operational replies.
+  final eligible = jobs.toList()
     ..sort((a, b) {
       if (a.id == currentJobId) return -1;
       if (b.id == currentJobId) return 1;
@@ -49,7 +51,7 @@ Future<Job?> showTechnicianJobPickerSheet({
             child: eligible.isEmpty
                 ? const Center(
                     child: Text(
-                      'Aucune intervention active disponible.',
+                      'Aucune intervention disponible.',
                       style: TextStyle(color: BlueVectorColors.textMuted),
                     ),
                   )
@@ -107,6 +109,8 @@ Future<Job?> showTechnicianJobPickerSheet({
                               Text(
                                 current
                                     ? 'Courante'
+                                    : MobileJobPresenter.isTerminal(job)
+                                    ? '${MobileJobPresenter.statusLabel(job)} · complément'
                                     : MobileJobPresenter.statusLabel(job),
                                 style: TextStyle(
                                   color: MobileJobPresenter.statusColor(job),

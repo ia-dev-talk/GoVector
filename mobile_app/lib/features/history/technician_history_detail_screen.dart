@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../design_system/bluevector_tokens.dart';
+import '../../services/offline_service.dart';
+import '../interventions/mobile_field_context_card.dart';
 import 'technician_history_models.dart';
 import 'technician_history_repository.dart';
 
@@ -66,6 +68,54 @@ class _TechnicianHistoryDetailScreenState
     }
   }
 
+  Future<void> _addComplement() async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Ajouter un complément'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 6,
+          decoration: const InputDecoration(
+            hintText: 'Précision, réponse ou information complémentaire…',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) Navigator.pop(dialogContext, text);
+            },
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null) return;
+    await OfflineService.addPendingAction(
+      action: 'job_communication',
+      data: {
+        'job_id': widget.historicalJobId,
+        'message_type': 'reply',
+        'body': value,
+      },
+    );
+    await OfflineService.syncPendingActions();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Complément enregistré.')),
+    );
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final detail = _detail;
@@ -110,20 +160,27 @@ class _TechnicianHistoryDetailScreenState
             ),
           ),
           const SizedBox(height: BlueVectorSpacing.sm),
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.lock_outline_rounded,
                 size: 16,
                 color: BlueVectorColors.textMuted,
               ),
-              SizedBox(width: BlueVectorSpacing.xs),
-              Text(
-                'Consultation uniquement',
-                style: TextStyle(
-                  color: BlueVectorColors.textMuted,
-                  fontSize: 12,
+              const SizedBox(width: BlueVectorSpacing.xs),
+              const Expanded(
+                child: Text(
+                  'Résultat clôturé · compléments autorisés',
+                  style: TextStyle(
+                    color: BlueVectorColors.textMuted,
+                    fontSize: 12,
+                  ),
                 ),
+              ),
+              TextButton.icon(
+                onPressed: _addComplement,
+                icon: const Icon(Icons.add_comment_outlined),
+                label: const Text('Compléter'),
               ),
             ],
           ),
@@ -137,6 +194,8 @@ class _TechnicianHistoryDetailScreenState
               ),
             ),
           ],
+          const SizedBox(height: BlueVectorSpacing.lg),
+          MobileFieldContextCard(jobId: widget.historicalJobId),
           const SizedBox(height: BlueVectorSpacing.lg),
           if (_loading)
             const Center(child: CircularProgressIndicator())

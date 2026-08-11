@@ -215,7 +215,9 @@ void main() {
     expect(opened, isTrue);
   });
 
-  testWidgets('historical detail is read-only', (tester) async {
+  testWidgets('historical result is immutable but accepts complements', (
+    tester,
+  ) async {
     await initializeBlueVectorMobile();
     final repository = TechnicianHistoryRepository(
       client: MockClient(
@@ -236,7 +238,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Consultation uniquement'), findsOneWidget);
+    expect(
+      find.text('Résultat clôturé · compléments autorisés'),
+      findsOneWidget,
+    );
+    expect(find.text('Compléter'), findsOneWidget);
     expect(find.text('Installation terminée'), findsOneWidget);
     expect(find.textContaining('Modifier'), findsNothing);
     expect(find.textContaining('Terminer'), findsNothing);

@@ -174,6 +174,11 @@ class _JournalEntry {
     'intervention_video' => 'Vidéo ajoutée',
     'intervention_document' => 'Document ajouté',
     'intervention_comment' => 'Commentaire',
+    'job_communication' ||
+    'communication_reply' => 'Réponse au bureau',
+    'communication_acknowledgement' => 'Message pris en compte',
+    'communication_correction_request' => 'Correction demandée par le bureau',
+    'communication_instruction' => 'Instruction du bureau',
     'field_measurement' => 'Mesure ajoutée',
     'otdr_measurement' => 'Mesure OTDR ajoutée',
     'incident_report' => 'Incident / anomalie',
