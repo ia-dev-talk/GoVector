@@ -88,6 +88,14 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
     label: 'Gouvernance',
     items: [
       {
+        id: 'operational-audit',
+        label: 'Journal d’administration',
+        description: 'Qui a modifié comptes, équipes et référentiels',
+        status: 'connected',
+        icon: 'roadmap',
+        keywords: ['audit', 'trace', 'compte', 'équipe', 'configuration', 'sécurité'],
+      },
+      {
         id: 'roadmap',
         label: 'Capacités à connecter',
         description: 'Feuille de route sans faux contrôles',

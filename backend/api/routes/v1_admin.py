@@ -1,7 +1,7 @@
 """V1 administration: clients and operational teams."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete, func, select, update
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,14 +30,26 @@ from backend.database.models import (
     FieldTeam,
     FieldTeamSector,
     Orienteur,
+    OperationalAuditEvent,
     Sector,
     Technician,
     User,
     UserRole,
 )
+from backend.logic.operational_audit import record_operational_audit
 
 
 router = APIRouter(tags=["V1 Administration"])
+
+
+def _client_snapshot(client: ClientOrganization) -> dict:
+    return {
+        "id": client.id,
+        "name": client.name,
+        "code": client.code,
+        "operator": client.operator,
+        "is_active": client.is_active,
+    }
 
 
 def _account_response(user: User) -> AdminAccountResponse:
@@ -167,17 +179,88 @@ async def list_clients(
     ).scalars().all()
 
 
+@router.get("/audit-events")
+async def list_operational_audit_events(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    action: str | None = Query(default=None, max_length=80),
+    entity_type: str | None = Query(default=None, max_length=48),
+    search: str | None = Query(default=None, max_length=120),
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    filters = []
+    if action:
+        filters.append(OperationalAuditEvent.action == action)
+    if entity_type:
+        filters.append(OperationalAuditEvent.entity_type == entity_type)
+    if search and search.strip():
+        pattern = f"%{search.strip()}%"
+        filters.append(
+            or_(
+                OperationalAuditEvent.actor_username.ilike(pattern),
+                OperationalAuditEvent.action.ilike(pattern),
+                OperationalAuditEvent.entity_type.ilike(pattern),
+                OperationalAuditEvent.entity_id.ilike(pattern),
+            )
+        )
+    total = await db.scalar(
+        select(func.count(OperationalAuditEvent.id)).where(*filters)
+    )
+    rows = (
+        await db.execute(
+            select(OperationalAuditEvent)
+            .where(*filters)
+            .order_by(
+                OperationalAuditEvent.created_at.desc(),
+                OperationalAuditEvent.id.desc(),
+            )
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).scalars().all()
+    return {
+        "page": page,
+        "page_size": page_size,
+        "total": int(total or 0),
+        "items": [
+            {
+                "id": item.id,
+                "actor_user_id": item.actor_user_id,
+                "actor_username": item.actor_username,
+                "actor_role": item.actor_role,
+                "action": item.action,
+                "entity_type": item.entity_type,
+                "entity_id": item.entity_id,
+                "changes": item.changes,
+                "context": item.context,
+                "created_at": item.created_at,
+            }
+            for item in rows
+        ],
+    }
+
+
 @router.post(
     "/clients", response_model=ClientOrganizationResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_client(
     payload: ClientOrganizationWrite,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     client = ClientOrganization(**payload.model_dump())
     db.add(client)
     try:
+        await db.flush()
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="client.created",
+            entity_type="client_organization",
+            entity_id=client.id,
+            after=_client_snapshot(client),
+        )
         await db.commit()
         await db.refresh(client)
     except IntegrityError as exc:
@@ -191,14 +274,24 @@ async def update_client(
     client_id: int,
     payload: ClientOrganizationPatch,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     client = await db.get(ClientOrganization, client_id)
     if client is None:
         raise HTTPException(status_code=404, detail="Entreprise cliente introuvable.")
+    before = _client_snapshot(client)
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(client, key, value)
     try:
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="client.updated",
+            entity_type="client_organization",
+            entity_id=client.id,
+            before=before,
+            after=_client_snapshot(client),
+        )
         await db.commit()
         await db.refresh(client)
     except IntegrityError as exc:
@@ -213,7 +306,7 @@ async def update_client(
 async def create_client_account(
     payload: ClientAccountCreate,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     organization = await db.get(ClientOrganization, payload.organization_id)
     if organization is None or not organization.is_active:
@@ -227,6 +320,16 @@ async def create_client_account(
     )
     db.add(user)
     try:
+        await db.flush()
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="account.created",
+            entity_type="user_account",
+            entity_id=user.id,
+            after=_account_response(user).model_dump(mode="json"),
+            context={"client_organization_id": organization.id},
+        )
         await db.commit()
         await db.refresh(user)
     except IntegrityError as exc:
@@ -260,7 +363,7 @@ async def list_accounts(
 async def create_account(
     payload: AdminAccountCreate,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     role = UserRole(payload.role)
     technician_id = payload.technician_id
@@ -294,6 +397,15 @@ async def create_account(
     )
     db.add(account)
     try:
+        await db.flush()
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="account.created",
+            entity_type="user_account",
+            entity_id=account.id,
+            after=_account_response(account).model_dump(mode="json"),
+        )
         await db.commit()
         await db.refresh(account)
     except IntegrityError as exc:
@@ -312,6 +424,7 @@ async def update_account(
     account = await db.get(User, account_id)
     if account is None:
         raise HTTPException(status_code=404, detail="Compte introuvable.")
+    before = _account_response(account).model_dump(mode="json")
     data = payload.model_dump(exclude_unset=True)
     if account.id == current_user.id and data.get("is_active") is False:
         raise HTTPException(status_code=409, detail="Vous ne pouvez pas désactiver votre propre compte.")
@@ -327,6 +440,15 @@ async def update_account(
     for key, value in data.items():
         setattr(account, key, value.strip() if isinstance(value, str) else value)
     try:
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="account.updated",
+            entity_type="user_account",
+            entity_id=account.id,
+            before=before,
+            after=_account_response(account).model_dump(mode="json"),
+        )
         await db.commit()
         await db.refresh(account)
     except IntegrityError as exc:
@@ -340,12 +462,20 @@ async def reset_account_password(
     account_id: int,
     payload: AdminPasswordReset,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_admin),
+    current_user: User = Depends(require_admin),
 ):
     account = await db.get(User, account_id)
     if account is None:
         raise HTTPException(status_code=404, detail="Compte introuvable.")
     account.password_hash = get_password_hash(payload.password)
+    record_operational_audit(
+        db,
+        current_user=current_user,
+        action="account.password_reset",
+        entity_type="user_account",
+        entity_id=account.id,
+        context={"target_username": account.username},
+    )
     await db.commit()
     await db.refresh(account)
     return _account_response(account)
@@ -364,7 +494,7 @@ async def list_teams(
 async def create_team(
     payload: FieldTeamWrite,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_chef_orienteur),
+    current_user: User = Depends(require_chef_orienteur),
 ):
     await _validate_active_grade(db, payload.initial_grade)
     if await db.get(Orienteur, payload.orienteur_id) is None:
@@ -388,6 +518,15 @@ async def create_team(
         technician.team_id = team.id
         technician.grade = payload.initial_grade
         technician.orienteur_id = team.orienteur_id
+        team_snapshot = (await _team_response(db, team)).model_dump(mode="json")
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="team.created",
+            entity_type="field_team",
+            entity_id=team.id,
+            after=team_snapshot,
+        )
         await db.commit()
         await db.refresh(team)
     except IntegrityError as exc:
@@ -404,11 +543,12 @@ async def update_team(
     team_id: int,
     payload: FieldTeamPatch,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_chef_orienteur),
+    current_user: User = Depends(require_chef_orienteur),
 ):
     team = await db.get(FieldTeam, team_id)
     if team is None:
         raise HTTPException(status_code=404, detail="Équipe introuvable.")
+    before = (await _team_response(db, team)).model_dump(mode="json")
     data = payload.model_dump(exclude_unset=True)
     sector_ids = data.pop("sector_ids", None)
     previous_orienteur_id = team.orienteur_id
@@ -439,6 +579,16 @@ async def update_team(
                 detail="Une équipe active doit contenir au moins un technicien.",
             )
     try:
+        after = (await _team_response(db, team)).model_dump(mode="json")
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="team.updated",
+            entity_type="field_team",
+            entity_id=team.id,
+            before=before,
+            after=after,
+        )
         await db.commit()
         await db.refresh(team)
     except IntegrityError as exc:
@@ -456,7 +606,7 @@ async def put_team_technician(
     technician_id: int,
     payload: TeamTechnicianUpdate,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_chef_orienteur),
+    current_user: User = Depends(require_chef_orienteur),
 ):
     await _validate_active_grade(db, payload.grade)
     team = await db.get(FieldTeam, team_id)
@@ -467,6 +617,11 @@ async def put_team_technician(
         raise HTTPException(status_code=409, detail="Impossible d’affecter à une équipe inactive.")
     if not technician.is_active:
         raise HTTPException(status_code=409, detail="Impossible d’affecter un technicien inactif.")
+    previous = {
+        "team_id": technician.team_id,
+        "grade": technician.grade,
+        "orienteur_id": technician.orienteur_id,
+    }
     await _deactivate_empty_previous_team(
         db, technician=technician, next_team_id=team.id
     )
@@ -474,6 +629,19 @@ async def put_team_technician(
     technician.grade = payload.grade
     # Keep the legacy ownership path coherent during the V1 transition.
     technician.orienteur_id = team.orienteur_id
+    record_operational_audit(
+        db,
+        current_user=current_user,
+        action="team.technician_assigned",
+        entity_type="technician",
+        entity_id=technician.id,
+        before=previous,
+        after={
+            "team_id": team.id,
+            "grade": technician.grade,
+            "orienteur_id": technician.orienteur_id,
+        },
+    )
     await db.commit()
     await db.refresh(team)
     return await _team_response(db, team)
@@ -484,7 +652,7 @@ async def remove_team_technician(
     team_id: int,
     technician_id: int,
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(require_chef_orienteur),
+    current_user: User = Depends(require_chef_orienteur),
 ):
     team = await db.get(FieldTeam, team_id)
     technician = await db.get(Technician, technician_id)
@@ -505,6 +673,23 @@ async def remove_team_technician(
         )
     technician.team_id = None
     technician.orienteur_id = None
+    record_operational_audit(
+        db,
+        current_user=current_user,
+        action="team.technician_removed",
+        entity_type="technician",
+        entity_id=technician.id,
+        before={
+            "team_id": team.id,
+            "grade": technician.grade,
+            "orienteur_id": team.orienteur_id,
+        },
+        after={
+            "team_id": None,
+            "grade": technician.grade,
+            "orienteur_id": None,
+        },
+    )
     await db.commit()
     await db.refresh(team)
     return await _team_response(db, team)

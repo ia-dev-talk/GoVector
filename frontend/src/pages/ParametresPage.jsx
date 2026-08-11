@@ -10,6 +10,7 @@ import Toast from '../components/Toast';
 import OperationalSettingsSection from '../components/settings/OperationalSettingsSection';
 import AdminOrganizationSection from '../components/settings/AdminOrganizationSection';
 import BusinessCatalogSection from '../components/settings/BusinessCatalogSection';
+import OperationalAuditSection from '../components/settings/OperationalAuditSection';
 import { useRuntimeSettings } from '../contexts/RuntimeSettingsContext';
 import SettingsAbout from '../features/settings-v3/SettingsAbout';
 import SettingsHeader from '../features/settings-v3/SettingsHeader';
@@ -250,6 +251,14 @@ export default function ParametresPage({
                 refreshRevision={refreshRevision}
               />
             </div>
+          );
+
+        case 'operational-audit':
+          return (
+            <OperationalAuditSection
+              userRole={userRole}
+              refreshRevision={refreshRevision}
+            />
           );
 
         case 'modules':

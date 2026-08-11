@@ -12,6 +12,7 @@ Cet audit distingue le produit réellement raccordé des ambitions futures. Il c
 | Synchronisation Mobile | solide pilote | outbox propriétaire, idempotence, ACK individuel, médias durables | observabilité et purge/réconciliation à grande échelle |
 | Collaboration bureau-terrain | solide pilote | messages structurés, pièces jointes, accusés, compléments post-visite | notifications push et annotations vectorielles collaboratives |
 | Géolocalisation | solide pilote | planned/live/observed/resolved séparés, provenance, conflits et fusion manuelle auditée | politique juridique de production et supervision des fournisseurs |
+| Administration | solide pilote | comptes liés aux profils, catalogues gouvernés et journal append-only sans secrets | sessions, MFA/SSO et délégations fines |
 | Historique | intermédiaire avancé | visites, affectations append-only, journal, actions, médias | backfill métier à auditer et stock entièrement rattaché aux visites |
 | Administration | intermédiaire avancé | clients, comptes opérationnels, activation, réinitialisation, équipes, secteurs, catalogue métier | changement de rôle audité, sessions et historique d’appartenance aux équipes |
 | Import adaptatif | intermédiaire avancé | détection d’en-têtes, mapping corrigible et confirmation | profils mémorisés par source, métriques qualité et reprise massive |

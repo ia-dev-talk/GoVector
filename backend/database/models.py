@@ -1903,3 +1903,32 @@ class ApplicationSetting(Base):
             f"revision={self.revision}"
             ")>"
         )
+
+
+class OperationalAuditEvent(Base):
+    """Append-only trace for sensitive administration and configuration changes."""
+
+    __tablename__ = "operational_audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    actor_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    actor_username: Mapped[str] = mapped_column(String(100), nullable=False)
+    actor_role: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    entity_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    changes: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb"), nullable=False
+    )
+    context: Mapped[dict] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+        index=True,
+    )

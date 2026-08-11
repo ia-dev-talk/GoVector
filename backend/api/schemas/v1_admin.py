@@ -33,7 +33,7 @@ class ClientOrganizationResponse(ClientOrganizationWrite):
 class ClientAccountCreate(BaseModel):
     username: str = Field(min_length=3, max_length=100)
     email: str = Field(min_length=3, max_length=255)
-    password: str = Field(min_length=8, max_length=200)
+    password: str = Field(min_length=12, max_length=200)
     organization_id: int = Field(gt=0)
 
 

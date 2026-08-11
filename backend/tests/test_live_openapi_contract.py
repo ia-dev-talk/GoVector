@@ -43,3 +43,9 @@ def test_live_openapi_protects_manual_site_merge_operations():
     assert candidates["security"] == [{"OAuth2PasswordBearer": []}]
     assert merge["security"] == [{"OAuth2PasswordBearer": []}]
     assert "SiteMergePayload" in schema["components"]["schemas"]
+
+
+def test_live_openapi_protects_operational_audit_log():
+    schema = app.openapi()
+    audit = schema["paths"]["/api/v1/admin/v1/audit-events"]["get"]
+    assert audit["security"] == [{"OAuth2PasswordBearer": []}]

@@ -1698,6 +1698,8 @@ export const api = {
     apiClient.patch(`/admin/v1/accounts/${pathSegment(id, 'Compte')}`, data),
   resetV1AccountPassword: (id, data) =>
     apiClient.post(`/admin/v1/accounts/${pathSegment(id, 'Compte')}/reset-password`, data),
+  getOperationalAuditEvents: (params = {}) =>
+    apiClient.get('/admin/v1/audit-events', withParams(params)),
   getV1Teams: () => apiClient.get('/admin/v1/teams'),
   createV1Team: (data) => apiClient.post('/admin/v1/teams', data),
   updateV1Team: (id, data) =>

@@ -158,6 +158,11 @@ def test_account_administration_is_admin_scoped_and_requires_profile_links():
     )
     assert technician.technician_id == 8
 
+    audit_route = next(
+        route for route in v1_admin.router.routes if route.path == "/audit-events"
+    )
+    assert "require_admin" in _dependency_names(audit_route)
+
 
 @pytest.mark.asyncio
 async def test_archived_action_rejects_new_capture_but_preserves_offline_prior_fact():

@@ -44,6 +44,7 @@ from backend.logic.job_communications import (
     communication_dict,
     create_job_communication,
 )
+from backend.logic.operational_audit import record_operational_audit
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_history import site_match_clause
 from backend.logic.site_registry import (
@@ -747,6 +748,20 @@ async def merge_job_site(
                 "reason": reason,
             },
         )
+    record_operational_audit(
+        db,
+        current_user=current_user,
+        action="site.merged",
+        entity_type="site",
+        entity_id=target.id,
+        before={"source_site_id": merge_record.source_site_id},
+        after={"target_site_id": target.id, "site_revision": target.revision},
+        context={
+            "merge_id": merge_record.id,
+            "reason": reason,
+            "moved_job_ids": moved_job_ids,
+        },
+    )
     await db.commit()
     return {
         "site": site_dict(target),

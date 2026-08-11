@@ -44,6 +44,7 @@ from backend.logic.technician_field_actions import (
     FIELD_ACTION_LABELS,
     SUPPORTED_FIELD_ACTION_TYPES,
 )
+from backend.logic.operational_audit import record_operational_audit
 from backend.logic.workflow.capabilities import STATUS_METADATA
 
 
@@ -385,6 +386,8 @@ async def update_operational_settings(
         db,
         _OPERATIONAL_NAMESPACE,
     )
+    previous_values = dict(document.values or {}) if document is not None else None
+    previous_revision = int(document.revision or 0) if document is not None else 0
 
     if (
         document is not None
@@ -424,6 +427,15 @@ async def update_operational_settings(
         document.updated_by = current_user.id
 
     try:
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="settings.operational_updated",
+            entity_type="application_setting",
+            entity_id=_OPERATIONAL_NAMESPACE,
+            before={"revision": previous_revision, "values": previous_values},
+            after={"revision": document.revision, "values": serialized_values},
+        )
         await db.commit()
         await db.refresh(document)
     except IntegrityError as error:
@@ -457,6 +469,7 @@ async def update_business_catalog(
     """Atomically replace catalog presentation using optimistic revision."""
     document = await _get_document(db, _CATALOG_NAMESPACE)
     current_revision = int(document.revision or 0) if document is not None else 0
+    previous_values = dict(document.values or {}) if document is not None else None
     if payload.expected_revision != current_revision:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -479,6 +492,15 @@ async def update_business_catalog(
         document.values = serialized
         document.updated_by = current_user.id
     try:
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="settings.catalog_updated",
+            entity_type="application_setting",
+            entity_id=_CATALOG_NAMESPACE,
+            before={"revision": current_revision, "values": previous_values},
+            after={"revision": document.revision, "values": serialized},
+        )
         await db.commit()
         await db.refresh(document)
     except IntegrityError as error:

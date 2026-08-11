@@ -232,7 +232,7 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
           <select name="organization_id" required defaultValue=""><option value="" disabled>Entreprise</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select>
           <input name="username" required placeholder="Identifiant" />
           <input name="email" type="email" required placeholder="Email" />
-          <input name="password" type="password" minLength="8" required placeholder="Mot de passe initial" />
+          <input name="password" type="password" minLength="12" required placeholder="Mot de passe initial · 12 caractères" />
           <button type="submit">Créer le compte</button>
         </form>
       </section> : null}
