@@ -23,6 +23,7 @@ from backend.database.models import (
     JobCommunication,
     JobSiteObservation,
     JobVisit,
+    Site,
     Technician,
     TechnicianFieldAction,
     TechnicianMedia,
@@ -42,6 +43,7 @@ from backend.logic.job_communications import (
 )
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_history import site_match_clause
+from backend.logic.site_registry import resolve_site_observation, site_dict
 from backend.logic.workflow.capabilities import STATUS_METADATA
 from backend.services.media_storage import FileSystemMediaStorage, MediaStorageError
 
@@ -61,6 +63,13 @@ def _visit_status_label(value: str | None) -> str | None:
 
 class OfficeNotePayload(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
+
+
+class SiteObservationResolutionPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    decision: str = Field(pattern="^(accepted|rejected)$")
+    expected_revision: int | None = Field(default=None, ge=0)
 
 
 class CommunicationAssetPayload(BaseModel):
@@ -206,6 +215,9 @@ async def get_field_record(
             .order_by(JobSiteObservation.occurred_at.desc())
         )
     ).scalars().all()
+    site = None
+    if isinstance(db, AsyncSession) and getattr(job, "site_id", None) is not None:
+        site = await db.scalar(select(Site).where(Site.id == job.site_id))
     visits = []
     assignment_history = []
     if isinstance(db, AsyncSession):
@@ -256,13 +268,41 @@ async def get_field_record(
         technicians = {row.id: row.name for row in rows}
 
     latest_site = next(
-        (item for item in observations if item.observation_type == "site_location"), None
+        (
+            item
+            for item in observations
+            if item.observation_type == "site_location"
+            and getattr(item, "resolution_status", None) not in {"conflict", "rejected"}
+        ),
+        None,
     )
     reference_origin = "current_job" if latest_site is not None else None
     reference_job_id = job.id if latest_site is not None else None
     reference_match_basis = "current_job" if latest_site is not None else None
     reference_match_confidence = "high" if latest_site is not None else None
-    if latest_site is None:
+    canonical_reference = None
+    if (
+        site is not None
+        and site.canonical_latitude is not None
+        and site.canonical_longitude is not None
+    ):
+        canonical_reference = {
+            "latitude": site.canonical_latitude,
+            "longitude": site.canonical_longitude,
+            "accuracy_m": site.canonical_accuracy_m,
+            "label": "Position canonique du site",
+            "note": None,
+            "observed_at": site.resolved_at,
+            "technician_id": None,
+            "origin": "canonical_site",
+            "source_job_id": None,
+            "match_basis": "site_id",
+            "match_confidence": "high",
+            "site_id": site.id,
+            "site_revision": site.revision,
+            "resolved_observation_id": site.resolved_observation_id,
+        }
+    if canonical_reference is None and latest_site is None:
         match_clause, match_basis, match_confidence = site_match_clause(job)
         if match_basis != "none":
             inherited = (
@@ -271,6 +311,7 @@ async def get_field_record(
                     .join(Job, Job.id == JobSiteObservation.job_id)
                     .where(
                         JobSiteObservation.observation_type == "site_location",
+                        JobSiteObservation.resolution_status == "accepted",
                         JobSiteObservation.job_id != job.id,
                         Job.deleted_at.is_(None),
                         match_clause,
@@ -287,6 +328,7 @@ async def get_field_record(
                 reference_match_confidence = match_confidence
     return {
         "job_id": job.id,
+        "site": site_dict(site),
         "planned_location": {
             "address": job.service_address,
             "city": job.service_city,
@@ -296,7 +338,7 @@ async def get_field_record(
             "source": job.planned_location_source,
             "precision": job.planned_location_precision,
         },
-        "field_reference_location": (
+        "field_reference_location": canonical_reference or (
             {
                 "latitude": latest_site.latitude,
                 "longitude": latest_site.longitude,
@@ -309,6 +351,13 @@ async def get_field_record(
                 "source_job_id": reference_job_id,
                 "match_basis": reference_match_basis,
                 "match_confidence": reference_match_confidence,
+                "site_id": getattr(latest_site, "site_id", None),
+                "site_revision": site.revision if site is not None else None,
+                "resolved_observation_id": (
+                    latest_site.id
+                    if getattr(latest_site, "resolution_status", None) == "accepted"
+                    else None
+                ),
             }
             if latest_site is not None
             else None
@@ -327,6 +376,10 @@ async def get_field_record(
                 "technician_name": technicians.get(item.technician_id),
                 "occurred_at": item.occurred_at,
                 "source": item.source,
+                "site_id": getattr(item, "site_id", None),
+                "resolution_status": getattr(item, "resolution_status", "unreviewed") or "unreviewed",
+                "resolved_at": getattr(item, "resolved_at", None),
+                "resolved_by_user_id": getattr(item, "resolved_by_user_id", None),
             }
             for item in observations
         ],
@@ -413,6 +466,58 @@ async def get_field_record(
             "special_instructions": job.special_instructions,
             "coordinator_comments": job.coordinator_comments,
             "notes": job.notes,
+        },
+    }
+
+
+@router.post("/{job_id}/site-observations/{observation_id}/resolve")
+async def resolve_job_site_observation(
+    job_id: int,
+    observation_id: int,
+    payload: SiteObservationResolutionPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_orienteur),
+):
+    job = await require_job_read_access_by_id(
+        db, job_id=job_id, current_user=current_user
+    )
+    require_job_operations_access(job=job, current_user=current_user)
+    site, observation = await resolve_site_observation(
+        db,
+        job=job,
+        observation_id=observation_id,
+        decision=payload.decision,
+        expected_revision=payload.expected_revision,
+        current_user=current_user,
+    )
+    await log_job_activity(
+        db=db,
+        job_id=job.id,
+        visit_id=observation.visit_id,
+        action="site_observation_resolved",
+        description=(
+            "Repère terrain accepté comme référence du site"
+            if payload.decision == "accepted"
+            else "Repère terrain rejeté"
+        ),
+        latitude=observation.latitude,
+        longitude=observation.longitude,
+        metadata={
+            "user_id": current_user.id,
+            "site_id": site.id,
+            "site_revision": site.revision,
+            "observation_id": observation.id,
+            "decision": payload.decision,
+        },
+    )
+    await db.commit()
+    return {
+        "site": site_dict(site),
+        "observation": {
+            "id": observation.id,
+            "resolution_status": observation.resolution_status,
+            "resolved_at": observation.resolved_at,
+            "resolved_by_user_id": observation.resolved_by_user_id,
         },
     }
 

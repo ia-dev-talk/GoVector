@@ -522,6 +522,8 @@ async def _build_history_detail(
 
 def site_match_clause(job: Job):
     """Return a conservative server-side site match and its audit metadata."""
+    if getattr(job, "site_id", None) is not None:
+        return Job.site_id == job.site_id, "site_id", "high"
     if job.pto_id:
         return Job.pto_id == job.pto_id, "pto_id", "high"
     pto_raw = (job.pto_raw or "").strip().lower()

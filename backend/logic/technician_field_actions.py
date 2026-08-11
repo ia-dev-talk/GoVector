@@ -15,6 +15,7 @@ from backend.logic.activity_log import log_job_activity
 from backend.api.errors import BusinessAPIError
 from backend.logic.job_access import require_job_collaboration_access
 from backend.logic.job_visits import resolve_visit_for_technician
+from backend.logic.site_registry import attach_observation_to_site
 from backend.logic.technician_jobs import (
     TechnicianJobMutationError,
     require_assigned_job,
@@ -198,7 +199,7 @@ async def record_technician_field_action(
         )
 
     try:
-        await require_assigned_job(
+        job = await require_assigned_job(
             db,
             job_id=job_id,
             current_user=current_user,
@@ -241,8 +242,7 @@ async def record_technician_field_action(
     db.add(action)
     await db.flush()
     if event_type in {"site_location", "cable_entry", "cable_exit"}:
-        db.add(
-            JobSiteObservation(
+        observation = JobSiteObservation(
                 job_id=job_id,
                 visit_id=visit.id if visit is not None else None,
                 field_action_id=action.id,
@@ -261,7 +261,15 @@ async def record_technician_field_action(
                 source="mobile",
                 occurred_at=occurred_at,
             )
-        )
+        db.add(observation)
+        if isinstance(db, AsyncSession):
+            await db.flush()
+            await attach_observation_to_site(
+                db,
+                job=job,
+                observation=observation,
+                current_user=current_user,
+            )
     await log_job_activity(
         db=db,
         job_id=job_id,

@@ -4,9 +4,9 @@ Ce dossier est la mémoire métier et architecturale du produit. Il doit être l
 
 ## État réel au 11 août 2026
 
-La branche V1 dispose d’un workflow technicien piloté par le backend, d’une outbox mobile idempotente, de médias durables, d’un historique personnel/site, d’un contexte bureau-terrain, d’une géolocalisation live distincte de la position planifiée, d’un premier modèle d’équipes/clients et, depuis v031, de passages terrain et d’affectations historiques.
+La branche V1 dispose d’un workflow technicien piloté par le backend, d’une outbox mobile idempotente, de médias durables, d’un historique personnel/site, d’un contexte bureau-terrain, d’une géolocalisation live distincte de la position planifiée, d’un premier modèle d’équipes/clients, de passages terrain et d’affectations historiques depuis v031, puis d’une identité `Site` et d’une résolution GPS explicite depuis v032.
 
-`Job` reste l’ordre de travail stable consommé par les anciens clients. `JobVisit` porte chaque tentative terrain et `Assignment` conserve chaque participation, avec une seule visite et une seule affectation courantes par ordre. Le produit ne dispose pas encore d’une entité `Site` canonique, d’une résolution formelle des observations contradictoires, ni d’adaptateurs Praxedo/QField.
+`Job` reste l’ordre de travail stable consommé par les anciens clients. `JobVisit` porte chaque tentative terrain et `Assignment` conserve chaque participation, avec une seule visite et une seule affectation courantes par ordre. `Site` stabilise l’identité physique et la position terrain résolue sans fusion approximative d’adresses. La résolution structurée des conflits PTO/PBO/équipement et les adaptateurs Praxedo/QField restent à construire.
 
 ## Ordre de lecture
 

@@ -9,6 +9,7 @@ from typing import List, Optional
 from datetime import datetime, date, timedelta
 
 from backend.database.models import Job, JobStatus, JobType, JobPriority, Technician, Assignment
+from backend.logic.site_registry import find_existing_site_for_job
 
 
 async def create_job(
@@ -122,11 +123,13 @@ async def create_job(
     )
 
     db.add(job)
+    await db.flush()
+    existing_site = await find_existing_site_for_job(db, job=job)
+    if existing_site is not None:
+        job.site_id = existing_site.id
     if commit:
         await db.commit()
         await db.refresh(job)
-    else:
-        await db.flush()
 
     return job
 

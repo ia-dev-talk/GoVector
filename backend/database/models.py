@@ -287,6 +287,62 @@ class ClientOrganization(Base):
     )
 
 
+class Site(Base):
+    """Stable physical-site identity, separate from mutable work orders."""
+
+    __tablename__ = "sites"
+    __table_args__ = (
+        Index(
+            "uq_sites_canonical_pto",
+            "pto_id",
+            unique=True,
+            postgresql_where=text("pto_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    client_organization_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("client_organizations.id", ondelete="SET NULL"), index=True
+    )
+    operator: Mapped[Optional[str]] = mapped_column(String(50))
+    pto_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("pto.id", ondelete="SET NULL"), index=True
+    )
+    pbo_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("pbo.id", ondelete="SET NULL"), index=True
+    )
+    pto_reference: Mapped[Optional[str]] = mapped_column(String(100))
+    pbo_reference: Mapped[Optional[str]] = mapped_column(String(100))
+    address_snapshot: Mapped[Optional[str]] = mapped_column(String(255))
+    city_snapshot: Mapped[Optional[str]] = mapped_column(String(100))
+    zip_snapshot: Mapped[Optional[str]] = mapped_column(String(20))
+    canonical_latitude: Mapped[Optional[float]] = mapped_column(Float)
+    canonical_longitude: Mapped[Optional[float]] = mapped_column(Float)
+    canonical_accuracy_m: Mapped[Optional[float]] = mapped_column(Float)
+    location_source: Mapped[Optional[str]] = mapped_column(String(32))
+    resolved_observation_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_site_observations.id", ondelete="SET NULL")
+    )
+    resolved_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    match_basis: Mapped[str] = mapped_column(String(40), nullable=False)
+    match_confidence: Mapped[str] = mapped_column(String(16), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+
+    jobs: Mapped[List["Job"]] = relationship("Job", back_populates="site", lazy="selectin")
+
+
 class FieldTeam(Base):
     """Équipe opérationnelle : un orienteur, des techniciens et des secteurs."""
 
@@ -472,6 +528,9 @@ class Job(Base):
         nullable=True,
         index=True,
     )
+    site_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     nro_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("nro.id"))
     sro_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("sro.id"))
     pbo_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("pbo.id"))
@@ -534,6 +593,7 @@ class Job(Base):
         back_populates="jobs",
         lazy="selectin",
     )
+    site: Mapped[Optional["Site"]] = relationship("Site", back_populates="jobs", lazy="selectin")
     pto: Mapped[Optional["PTO"]] = relationship("PTO", back_populates="jobs", lazy="selectin")
     orienteur: Mapped[Optional["Orienteur"]] = relationship("Orienteur", lazy="selectin")
     assignment: Mapped[Optional["Assignment"]] = relationship(
@@ -1402,6 +1462,9 @@ class JobSiteObservation(Base):
     visit_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    site_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     field_action_id: Mapped[Optional[int]] = mapped_column(
         Integer,
         ForeignKey("technician_field_actions.id"),
@@ -1424,6 +1487,13 @@ class JobSiteObservation(Base):
     )
     source: Mapped[str] = mapped_column(
         String(32), default="mobile", server_default="mobile", nullable=False
+    )
+    resolution_status: Mapped[str] = mapped_column(
+        String(16), default="unreviewed", server_default="unreviewed", nullable=False, index=True
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    resolved_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
     )
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True

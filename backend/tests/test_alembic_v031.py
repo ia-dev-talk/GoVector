@@ -197,7 +197,7 @@ def test_v031_adopts_legacy_passage_without_data_loss():
     try:
         job_id, assignment_id = asyncio.run(_prepare_v030_schema(database_url))
         _run_alembic(database_url, "stamp", PREVIOUS_REVISION)
-        _run_alembic(database_url, "upgrade", "head")
+        _run_alembic(database_url, "upgrade", HEAD_REVISION)
         result = asyncio.run(
             _inspect_result(
                 database_url,

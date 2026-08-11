@@ -75,6 +75,7 @@ def _job(
         latitude=33.57,
         longitude=-7.59,
         operator="Orange",
+        site_id=None,
         nro_id=None,
         nro_raw="NRO-1",
         sro_id=None,
@@ -191,6 +192,13 @@ def test_site_identity_prefers_canonical_pto_and_uses_only_exact_address():
     assert confidence == "high"
     assert "jobs.pto_id = 12" in compiled
     assert "service_address" not in compiled
+
+    stable_site = _job(10)
+    stable_site.site_id = 77
+    clause, basis, confidence = technician_history.site_match_clause(stable_site)
+    assert basis == "site_id"
+    assert confidence == "high"
+    assert "jobs.site_id = 77" in _compiled(clause)
 
     no_identity = _job(9, pto_id=None, pto_raw=None)
     no_identity.pbo_id = None

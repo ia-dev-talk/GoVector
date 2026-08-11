@@ -26,10 +26,12 @@
 
 ## B3 — site et provenance
 
-- Introduire un identifiant `Site` stable.
-- Conserver planned/observed/resolved avec auteur, source, date et révision.
-- Résoudre explicitement conflits PTO/PBO/GPS/équipement.
-- Ne plus faire dépendre l’historique du site de valeurs modifiables du job.
+- [x] Introduire un identifiant `Site` stable sans fusion approximative d’adresses.
+- [x] Conserver planned/observed/resolved pour le GPS avec auteur, source, date et révision.
+- [x] Rendre les conflits GPS explicites et résolubles par le bureau.
+- [x] Donner la priorité à `site_id` dans l’historique et l’héritage des repères.
+- [ ] Étendre le même contrat de résolution aux conflits PTO/PBO/équipement.
+- [ ] Fournir une action bureau contrôlée pour lier/fusionner deux sites après vérification humaine.
 
 ## B4 — intégrations
 

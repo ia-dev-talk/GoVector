@@ -35,7 +35,7 @@ La provenance est conservée sur l'ordre avec `planned_location_source` et `plan
 5. Sur place, le technicien choisit explicitement « Position exacte du site »; précision, auteur et date sont conservés.
 6. Il peut enregistrer séparément entrée et sortie câble.
 7. Le frontend montre position planifiée, repère confirmé et provenance sans les fusionner.
-8. Lors d’un futur ordre, le repère peut être hérité si le rapprochement serveur est fiable; l’UI doit préciser « passage précédent », critère de rapprochement et confiance.
+8. Lors d’un futur ordre lié au même `Site`, la position canonique est réutilisée avec sa provenance. Les dossiers non encore liés conservent le rapprochement prudent de compatibilité.
 
 ## Données préparées et observations
 
@@ -52,10 +52,21 @@ La provenance est conservée sur l'ordre avec `planned_location_source` et `plan
 - Les nouvelles observations de site, actions, médias, positions live, échecs et reports portent un `visit_id` lorsqu’un passage est identifiable.
 - La migration v031 rattache les preuves historiques à un passage reconstitué et conserve `backfill_confidence`; elle ne prétend pas connaître une tentative qui n’a jamais été enregistrée.
 
+## Identité Site et résolution GPS
+
+- La migration v032 ajoute `Site` et relie `Job`/`JobSiteObservation` par `site_id`.
+- Le backfill privilégie le PTO canonique ou une référence PTO exacte dans le même périmètre opérateur/client.
+- Sans PTO, un rapprochement n’est permis que si adresse, ville, code postal et périmètre opérateur/client sont tous exactement identiques et désignent un seul site existant. Aucune correction orthographique ou distance approximative n’est utilisée pour fusionner.
+- Un dossier insuffisamment identifié n’est jamais fusionné automatiquement. Une première action explicite « Position exacte du site » crée son conteneur stable.
+- La première position explicite devient la référence canonique avec observation, auteur, date, source et révision.
+- Une observation compatible dans le rayon de précision corrobore le site. Une observation éloignée devient `conflict` et n’écrase rien.
+- L’orienteur, le chef orienteur ou l’administrateur peut accepter ou rejeter le repère. La résolution utilise une révision optimiste afin de refuser une décision prise sur un dossier périmé.
+- Les entrées/sorties câble restent append-only et `unreviewed` jusqu’à une décision bureau; elles ne changent jamais la position canonique.
+
 ## Limites V1 connues
 
-- L’héritage d’un repère repose sur un rapprochement prudent, pas sur un identifiant `Site` stable.
-- Il n’existe pas encore de workflow `unreviewed/accepted/rejected/conflict` pour résoudre PTO/PBO/GPS contradictoires.
+- Les dossiers historiques sans PTO et sans position terrain explicite peuvent rester sans `site_id`; ils utilisent temporairement le rapprochement prudent de compatibilité.
+- Le workflow de résolution v032 couvre le GPS et les repères câble. Les conflits structurés PTO/PBO/équipement restent à ajouter.
 - Le GPS live nécessite une politique explicite de consentement, rétention et visibilité avant production.
 
 ## Cible minimale

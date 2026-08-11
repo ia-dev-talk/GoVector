@@ -53,6 +53,7 @@ jobs:
           python -m pytest -q
           backend/tests/test_geolocation_postgres_contract.py
           backend/tests/test_alembic_v031.py
+          backend/tests/test_alembic_v032.py
 
   frontend:
     runs-on: ubuntu-latest

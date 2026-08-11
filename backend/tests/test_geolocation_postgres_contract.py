@@ -21,6 +21,7 @@ from backend.database.models import (
     JobStatus,
     JobType,
     JobVisit,
+    Site,
     Technician,
     TechnicianFieldAction,
     TechnicianLiveStatus,
@@ -174,6 +175,25 @@ async def test_postgres_preserves_planned_live_and_confirmed_locations(
         assert gps_count == 1
         assert action_count == 3
         assert observation_count == 3
+        assert job.site_id is not None
+        site = await db.scalar(select(Site).where(Site.id == job.site_id))
+        assert site is not None
+        assert site.canonical_latitude == pytest.approx(33.5732)
+        assert site.canonical_longitude == pytest.approx(-7.5897)
+        assert site.location_source == "technician_confirmed"
+        assert site.revision == 1
+
+        observations = (
+            await db.execute(
+                select(JobSiteObservation).order_by(JobSiteObservation.id)
+            )
+        ).scalars().all()
+        assert all(item.site_id == site.id for item in observations)
+        assert observations[0].resolution_status == "accepted"
+        assert [item.resolution_status for item in observations[1:]] == [
+            "unreviewed",
+            "unreviewed",
+        ]
 
         record = await job_context.get_field_record(
             job.id,
@@ -183,6 +203,8 @@ async def test_postgres_preserves_planned_live_and_confirmed_locations(
         assert record["planned_location"]["latitude"] is None
         assert record["planned_location"]["longitude"] is None
         assert record["field_reference_location"]["latitude"] == 33.5732
+        assert record["field_reference_location"]["origin"] == "canonical_site"
+        assert record["site"]["id"] == site.id
         assert {item["type"] for item in record["site_observations"]} == {
             "site_location",
             "cable_entry",
