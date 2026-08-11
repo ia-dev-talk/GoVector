@@ -11,7 +11,9 @@ export default function AdminOrganizationSection({
   toast,
   userRole = 'ADMIN',
   refreshRevision = 0,
+  surface = 'embedded',
 }) {
+  const enabled = surface === 'settings';
   const isAdmin = userRole === 'ADMIN';
   const [clients, setClients] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -23,10 +25,14 @@ export default function AdminOrganizationSection({
     { code: 'junior', label: 'Technicien débutant' },
     { code: 'senior', label: 'Technicien senior' },
   ]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [loadWarnings, setLoadWarnings] = useState([]);
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
+
     setLoading(true);
     setLoadWarnings([]);
     const sources = [
@@ -56,12 +62,16 @@ export default function AdminOrganizationSection({
     }
     setAccounts(value(6));
     setLoading(false);
-  }, [isAdmin]);
+  }, [enabled, isAdmin]);
 
   useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
+
     const timer = window.setTimeout(() => load(), 0);
     return () => window.clearTimeout(timer);
-  }, [load, refreshRevision]);
+  }, [enabled, load, refreshRevision]);
 
   const createClient = async (event) => {
     event.preventDefault();
@@ -194,6 +204,7 @@ export default function AdminOrganizationSection({
     } catch (error) { toast?.(message(error), 'error'); }
   };
 
+  if (!enabled) return null;
   if (loading) return <div className="v1-admin-loading">Chargement de l’organisation réelle…</div>;
 
   return (
