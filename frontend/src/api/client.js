@@ -1713,7 +1713,10 @@ export const api = {
     apiClient.delete(
       `/admin/v1/teams/${pathSegment(teamId, 'Équipe')}/technicians/${pathSegment(technicianId, 'Technicien')}`,
     ),
-  getClientV1Overview: () => apiClient.get('/client/v1/overview'),
+  getClientV1Overview: (params = {}) => apiClient.get(
+    '/client/v1/overview',
+    withParams(params),
+  ),
 
   // AUDIT & SECURITY
   getAuditLog: (params = {}) =>

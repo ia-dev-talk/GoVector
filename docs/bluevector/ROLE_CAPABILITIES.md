@@ -27,5 +27,13 @@ Ces règles décrivent l’organisation courante, pas l’historique. La future 
 - L’identité utilisateur/technicien vient du JWT.
 - Les contrôles visuels React/Flutter améliorent l’UX mais ne constituent pas une sécurité.
 - Les comptes clients sont filtrés par `client_organization_id` et restent read-only.
+- Leur portail sépare les ordres ouverts, les passages terrain actifs, les dossiers
+  en attente de validation et les ordres terminés; il permet recherche, filtres et
+  cartographie des positions planifiées.
+- Une position technicien n'y apparaît que pendant une intervention active de
+  cette organisation, si le technicien travaille bien sur ce dossier et si le
+  point respecte le seuil de fraîcheur GPS configuré.
+- Cette vue n'expose jamais téléphone, domicile, vitesse, cap, batterie,
+  commentaire interne ou intervention d'une autre organisation.
 - Les routes internes (FTTH, stock, import, dispatch) ne sont jamais publiques.
 - Une intervention terminale reste collaborative en lecture/ajout append-only pour ses participants historiques; son résultat et son workflow restent immuables.
