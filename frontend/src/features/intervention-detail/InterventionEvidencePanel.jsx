@@ -143,6 +143,7 @@ export default function InterventionEvidencePanel({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [annotationTarget, setAnnotationTarget] = useState(null);
+  const [resolvingSiteObservation, setResolvingSiteObservation] = useState(null);
   const photos = PHOTO_FIELDS
     .map((item) => ({
       ...item,
@@ -273,6 +274,27 @@ export default function InterventionEvidencePanel({
       ? api.downloadTechnicianMedia(job.id, asset.asset_id)
       : api.downloadJobAttachment(job.id, asset.asset_id)
   );
+
+  const handleResolveSiteObservation = async (item, decision) => {
+    setResolvingSiteObservation(item.id);
+    setUploadError('');
+    try {
+      await api.resolveJobSiteObservation(job.id, item.id, {
+        decision,
+        expected_revision: fieldRecord?.site?.revision ?? null,
+      });
+      if (typeof onRecordChanged === 'function') onRecordChanged();
+    } catch (error) {
+      setUploadError(
+        error?.response?.data?.message ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Résolution du repère impossible.',
+      );
+    } finally {
+      setResolvingSiteObservation(null);
+    }
+  };
 
   const beginAnnotation = async (asset) => {
     if (!asset?.mime_type?.startsWith('image/')) return;
@@ -629,11 +651,52 @@ export default function InterventionEvidencePanel({
           hasContent={siteObservations.length > 0}
         >
           <div className="intervention-detail-comment-list">
+            {fieldRecord?.site ? (
+              <article>
+                <span>Site BlueVector · révision {fieldRecord.site.revision}</span>
+                <p>
+                  {fieldRecord.site.pto_reference || fieldRecord.site.pbo_reference || fieldRecord.site.public_id}
+                </p>
+                <small>
+                  Identité stable · rapprochement {fieldRecord.site.match_basis} ({fieldRecord.site.match_confidence})
+                </small>
+              </article>
+            ) : null}
             {siteObservations.map((item) => (
               <article key={`site-${item.id}`}>
-                <span>{item.type === 'site_location' ? 'Position du site' : item.type === 'cable_entry' ? 'Entrée câble' : 'Sortie câble'}</span>
+                <span>
+                  {item.type === 'site_location' ? 'Position du site' : item.type === 'cable_entry' ? 'Entrée câble' : 'Sortie câble'}
+                  {' · '}
+                  {item.resolution_status === 'accepted'
+                    ? 'Accepté'
+                    : item.resolution_status === 'conflict'
+                      ? 'Conflit à vérifier'
+                      : item.resolution_status === 'rejected'
+                        ? 'Rejeté'
+                        : 'À examiner'}
+                </span>
                 <p>{item.latitude}, {item.longitude}{item.accuracy_m != null ? ` · ±${Math.round(item.accuracy_m)} m` : ''}</p>
                 {item.note ? <small>{item.note}</small> : null}
+                {['conflict', 'unreviewed'].includes(item.resolution_status) ? (
+                  <div className="intervention-detail-inline-actions">
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={resolvingSiteObservation === item.id}
+                      onClick={() => handleResolveSiteObservation(item, 'accepted')}
+                    >
+                      Utiliser comme référence
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={resolvingSiteObservation === item.id}
+                      onClick={() => handleResolveSiteObservation(item, 'rejected')}
+                    >
+                      Rejeter
+                    </button>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
