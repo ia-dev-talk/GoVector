@@ -27,7 +27,7 @@ def test_import_profile_preserves_explicit_unknown_and_header_decisions():
         name="  Plaque commandes IAM  ",
         operator=" IAM ",
         column_overrides={
-            "Adresse client": "service_address",
+            "Adresse client": "ADRESSE",
             "Colonne métier inconnue": None,
         },
         header_row_overrides={"Commandes": 3},
@@ -35,6 +35,7 @@ def test_import_profile_preserves_explicit_unknown_and_header_decisions():
 
     assert profile.name == "Plaque commandes IAM"
     assert profile.operator == "IAM"
+    assert profile.column_overrides["Adresse client"] == "ADRESSE"
     assert profile.column_overrides["Colonne métier inconnue"] is None
     assert profile.header_row_overrides == {"Commandes": 3}
 
