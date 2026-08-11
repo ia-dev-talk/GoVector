@@ -9,6 +9,7 @@ import {
 import Toast from '../components/Toast';
 import OperationalSettingsSection from '../components/settings/OperationalSettingsSection';
 import AdminOrganizationSection from '../components/settings/AdminOrganizationSection';
+import BusinessCatalogSection from '../components/settings/BusinessCatalogSection';
 import { useRuntimeSettings } from '../contexts/RuntimeSettingsContext';
 import SettingsAbout from '../features/settings-v3/SettingsAbout';
 import SettingsHeader from '../features/settings-v3/SettingsHeader';
@@ -237,6 +238,9 @@ export default function ParametresPage({
       switch (activeSection) {
         case 'organization-admin':
           return <AdminOrganizationSection toast={toast} userRole={userRole} />;
+
+        case 'business-catalog':
+          return <BusinessCatalogSection toast={toast} userRole={userRole} refreshRevision={refreshRevision} />;
 
         case 'operational':
           return (

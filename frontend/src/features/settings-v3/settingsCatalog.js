@@ -45,6 +45,14 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
         keywords: ['équipe', 'client', 'iam', 'orange', 'unifiber', 'orienteur'],
       },
       {
+        id: 'business-catalog',
+        label: 'Référentiels métier',
+        description: 'Grades, activités, statuts et actions terrain',
+        status: 'connected',
+        icon: 'modules',
+        keywords: ['grade', 'senior', 'débutant', 'activité', 'priorité', 'statut', 'action terrain'],
+      },
+      {
         id: 'modules',
         label: 'Référentiels métier',
         description: 'Accès aux modules réels',

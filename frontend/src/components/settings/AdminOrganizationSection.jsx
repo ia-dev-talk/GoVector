@@ -14,6 +14,10 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
   const [orienteurs, setOrienteurs] = useState([]);
   const [sectors, setSectors] = useState([]);
   const [technicians, setTechnicians] = useState([]);
+  const [grades, setGrades] = useState([
+    { code: 'junior', label: 'Technicien débutant' },
+    { code: 'senior', label: 'Technicien senior' },
+  ]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -21,9 +25,15 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
     const results = await Promise.allSettled([
       isAdmin ? api.getV1Clients() : Promise.resolve({ data: [] }),
       api.getV1Teams(), api.getOrienteurs(), api.getSectors(), api.getTechnicians(),
+      api.getBusinessCatalog(),
     ]);
     const value = (index) => results[index].status === 'fulfilled' ? results[index].value?.data || [] : [];
     setClients(value(0)); setTeams(value(1)); setOrienteurs(value(2)); setSectors(value(3)); setTechnicians(value(4));
+    if (results[5].status === 'fulfilled') {
+      const configured = (results[5].value?.data?.values?.technician_grades || [])
+        .filter((item) => item.active);
+      if (configured.length) setGrades(configured);
+    }
     setLoading(false);
   }, [isAdmin]);
 
@@ -178,7 +188,7 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
           <input name="code" placeholder="Code (optionnel)" />
           <select name="orienteur_id" required defaultValue=""><option value="" disabled>Orienteur unique</option>{orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
           <select name="initial_technician_id" required defaultValue=""><option value="" disabled>Premier technicien</option>{technicians.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-          <select name="initial_grade" required defaultValue="junior"><option value="junior">Technicien junior</option><option value="senior">Technicien senior</option></select>
+          <select name="initial_grade" required defaultValue={grades[0]?.code || 'junior'}>{grades.map((grade) => <option key={grade.code} value={grade.code}>{grade.label}</option>)}</select>
           <fieldset><legend>Un ou plusieurs secteurs</legend>{sectors.map((sector) => <label key={sector.id}><input type="checkbox" name="sector_ids" value={sector.id} />{sector.name}</label>)}</fieldset>
           <button type="submit">Créer l’équipe</button>
         </form>
@@ -200,8 +210,7 @@ export default function AdminOrganizationSection({ toast, userRole = 'ADMIN' }) 
               <div className="v1-admin-team-add">
                 <select disabled={!team.is_active} defaultValue="" onChange={(event) => { const [id, grade] = event.target.value.split(':'); if (id) assignTechnician(team.id, Number(id), grade); event.target.value = ''; }}>
                   <option value="">Déplacer/ajouter un technicien…</option>
-                  {technicians.map((tech) => <option key={`${team.id}-${tech.id}-j`} value={`${tech.id}:junior`}>{tech.name} · junior</option>)}
-                  {technicians.map((tech) => <option key={`${team.id}-${tech.id}-s`} value={`${tech.id}:senior`}>{tech.name} · senior</option>)}
+                  {technicians.flatMap((tech) => grades.map((grade) => <option key={`${team.id}-${tech.id}-${grade.code}`} value={`${tech.id}:${grade.code}`}>{tech.name} · {grade.label}</option>))}
                 </select>
                 <button type="button" className="v1-admin-quiet-button" onClick={() => toggleTeam(team)}>{team.is_active ? 'Archiver l’équipe' : 'Réactiver l’équipe'}</button>
               </div>

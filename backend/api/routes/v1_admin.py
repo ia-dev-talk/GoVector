@@ -21,6 +21,7 @@ from backend.auth.dependencies import require_admin, require_chef_orienteur
 from backend.auth.security import get_password_hash
 from backend.database.connection import get_db
 from backend.database.models import (
+    ApplicationSetting,
     ClientOrganization,
     FieldTeam,
     FieldTeamSector,
@@ -33,6 +34,30 @@ from backend.database.models import (
 
 
 router = APIRouter(tags=["V1 Administration"])
+
+
+async def _validate_active_grade(db: AsyncSession, grade: str) -> None:
+    """Reject grades that are not part of the governed active catalog."""
+    document = (
+        await db.execute(
+            select(ApplicationSetting).where(
+                ApplicationSetting.namespace == "business_catalog"
+            )
+        )
+    ).scalar_one_or_none()
+    items = (document.values or {}).get("technician_grades", []) if document else []
+    active_codes = {
+        str(item.get("code"))
+        for item in items
+        if isinstance(item, dict) and item.get("active") is True
+    }
+    if not active_codes:
+        active_codes = {"junior", "senior"}
+    if grade not in active_codes:
+        raise HTTPException(
+            status_code=422,
+            detail="Grade technicien inactif ou inconnu dans le référentiel métier.",
+        )
 
 
 async def _team_response(db: AsyncSession, team: FieldTeam) -> FieldTeamResponse:
@@ -212,6 +237,7 @@ async def create_team(
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(require_chef_orienteur),
 ):
+    await _validate_active_grade(db, payload.initial_grade)
     if await db.get(Orienteur, payload.orienteur_id) is None:
         raise HTTPException(status_code=422, detail="Orienteur inconnu.")
     technician = await db.get(Technician, payload.initial_technician_id)
@@ -303,6 +329,7 @@ async def put_team_technician(
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(require_chef_orienteur),
 ):
+    await _validate_active_grade(db, payload.grade)
     team = await db.get(FieldTeam, team_id)
     technician = await db.get(Technician, technician_id)
     if team is None or technician is None:

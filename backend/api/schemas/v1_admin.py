@@ -1,7 +1,7 @@
 """Administrative contracts introduced for the BlueVector V1 pilot."""
 
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -51,7 +51,10 @@ class FieldTeamWrite(BaseModel):
     orienteur_id: int = Field(gt=0)
     sector_ids: list[int] = Field(min_length=1)
     initial_technician_id: int = Field(gt=0)
-    initial_grade: Literal["junior", "senior"] = "junior"
+    initial_grade: str = Field(
+        default="junior",
+        pattern=r"^[A-Za-z][A-Za-z0-9_-]{1,47}$",
+    )
     is_active: bool = True
 
 
@@ -64,7 +67,10 @@ class FieldTeamPatch(BaseModel):
 
 
 class TeamTechnicianUpdate(BaseModel):
-    grade: Literal["junior", "senior"] = "junior"
+    grade: str = Field(
+        default="junior",
+        pattern=r"^[A-Za-z][A-Za-z0-9_-]{1,47}$",
+    )
 
 
 class TeamTechnicianResponse(BaseModel):

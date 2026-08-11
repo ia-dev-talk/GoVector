@@ -10,7 +10,7 @@ les interfaces.
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, field_validator
 
 
 class CompletionRequirementsValues(BaseModel):
@@ -99,3 +99,54 @@ class RuntimeSettingsResponse(BaseModel):
     generated_at: datetime
     operational: OperationalSettingsValues
     meta: Dict[str, RuntimeNamespaceMeta]
+
+
+class CatalogItem(BaseModel):
+    """Editable presentation around an immutable technical identifier."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{1,47}$")
+    label: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = Field(default=None, max_length=500)
+    color: Optional[str] = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    sort_order: int = Field(default=0, ge=0, le=10000)
+    active: bool = True
+    metadata: Dict[str, object] = Field(default_factory=dict)
+
+    @field_validator("label")
+    @classmethod
+    def clean_label(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Le libellé ne peut pas être vide")
+        return cleaned
+
+
+class BusinessCatalogValues(BaseModel):
+    """Governed catalogs consumed by administrative and runtime clients."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    technician_grades: List[CatalogItem] = Field(default_factory=list)
+    job_types: List[CatalogItem] = Field(default_factory=list)
+    priorities: List[CatalogItem] = Field(default_factory=list)
+    status_presentations: List[CatalogItem] = Field(default_factory=list)
+    field_actions: List[CatalogItem] = Field(default_factory=list)
+
+
+class BusinessCatalogUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: NonNegativeInt
+    values: BusinessCatalogValues
+
+
+class BusinessCatalogDocumentResponse(BaseModel):
+    namespace: str
+    schema_version: int
+    revision: int
+    values: BusinessCatalogValues
+    updated_by: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

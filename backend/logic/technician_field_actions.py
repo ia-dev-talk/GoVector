@@ -72,6 +72,10 @@ _ACTION_LABELS = {
     "client_call": "Appel client enregistré",
 }
 
+# Read-only source for the governed presentation catalog. Business support is
+# still enforced by SUPPORTED_FIELD_ACTION_TYPES, not by a client-side list.
+FIELD_ACTION_LABELS = dict(_ACTION_LABELS)
+
 
 def _non_empty(payload: dict[str, Any], *keys: str) -> Any | None:
     for key in keys:

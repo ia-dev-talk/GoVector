@@ -64,11 +64,14 @@ COMMAND_DEFINITIONS = (
 )
 
 
-def status_capability(status: JobStatus) -> dict:
+def status_capability(status: JobStatus, presentation: dict | None = None) -> dict:
     metadata = STATUS_METADATA[status]
+    configured = presentation or {}
     return {
         "code": status.value,
-        "label": metadata.label,
+        "label": configured.get("label") or metadata.label,
+        "color": configured.get("color"),
+        "sort_order": configured.get("sort_order", 0),
         "order_open": metadata.order_open,
         "field_active": metadata.field_active,
         "canonical": metadata.canonical.value,
@@ -76,8 +79,29 @@ def status_capability(status: JobStatus) -> dict:
     }
 
 
-def all_status_capabilities() -> list[dict]:
-    return [status_capability(status) for status in JobStatus]
+def all_status_capabilities(presentations: dict[str, dict] | None = None) -> list[dict]:
+    configured = presentations or {}
+    return [
+        status_capability(status, configured.get(status.value))
+        for status in JobStatus
+    ]
+
+
+async def configured_status_presentations(db: AsyncSession) -> dict[str, dict]:
+    result = await db.execute(
+        select(ApplicationSetting).where(
+            ApplicationSetting.namespace == "business_catalog"
+        )
+    )
+    document = result.scalar_one_or_none()
+    if document is None:
+        return {}
+    items = (document.values or {}).get("status_presentations", [])
+    return {
+        str(item["code"]): item
+        for item in items
+        if isinstance(item, dict) and item.get("code")
+    }
 
 
 async def configured_completion_policy(db: AsyncSession) -> CompletionPolicyValues:

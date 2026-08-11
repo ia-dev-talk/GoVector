@@ -1663,6 +1663,16 @@ export const api = {
     );
   },
 
+  getBusinessCatalog: () =>
+    apiClient.get('/settings/catalog'),
+
+  updateBusinessCatalog: (data) => {
+    if (!isRecord(data)) {
+      throw new TypeError('Le référentiel métier doit être un objet');
+    }
+    return apiClient.put('/settings/catalog', data);
+  },
+
   // V1 ADMINISTRATION
   getV1Clients: () => apiClient.get('/admin/v1/clients'),
   createV1Client: (data) => apiClient.post('/admin/v1/clients', data),
