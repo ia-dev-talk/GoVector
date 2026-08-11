@@ -24,6 +24,16 @@ const DOCUMENT_FIELDS = [
   { field: 'attachment', label: 'Pièce jointe' },
 ];
 
+function formatVisitDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 function FileIcon() {
   return (
     <svg
@@ -167,6 +177,10 @@ export default function InterventionEvidencePanel({
     : [];
   const communications = Array.isArray(fieldRecord?.communications)
     ? fieldRecord.communications
+    : [];
+  const visits = Array.isArray(fieldRecord?.visits) ? fieldRecord.visits : [];
+  const assignmentHistory = Array.isArray(fieldRecord?.assignment_history)
+    ? fieldRecord.assignment_history
     : [];
 
   const actionMeasurements = useMemo(
@@ -420,6 +434,44 @@ export default function InterventionEvidencePanel({
       </header>
 
       <div className="intervention-detail-card-body intervention-detail-evidence-body">
+        <ModuleSection
+          title="Passages terrain"
+          count={visits.length}
+          emptyLabel="Aucun passage terrain enregistré"
+          hasContent={visits.length > 0}
+          defaultOpen={visits.length > 1}
+        >
+          <div className="intervention-detail-comment-list">
+            {visits.map((visit) => {
+              const assignments = assignmentHistory.filter(
+                (assignment) => assignment.visit_id === visit.id,
+              );
+              return (
+                <article key={`visit-${visit.id}`}>
+                  <span>
+                    Passage {visit.attempt_number} · {' '}
+                    {visit.status_label
+                      || visit.outcome
+                      || visit.status}
+                  </span>
+                  <p>
+                    {visit.primary_technician_name || 'Technicien non renseigné'}
+                    {' · '}{formatVisitDate(visit.assigned_at || visit.scheduled_at)}
+                    {visit.ended_at ? ` → ${formatVisitDate(visit.ended_at)}` : ' · en cours'}
+                  </p>
+                  {assignments.length > 1 ? (
+                    <small>
+                      Affectations : {assignments.map((assignment) => (
+                        assignment.technician_name || `Technicien #${assignment.technician_id}`
+                      )).join(' → ')}
+                    </small>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </ModuleSection>
+
         <ModuleSection
           title="Photos"
           count={photos.length}
