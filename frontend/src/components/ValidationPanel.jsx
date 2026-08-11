@@ -859,11 +859,21 @@ export default function ValidationPanel({
       setError('');
 
       try {
-        const data =
-          await persistComment(
-            'CORRECTION ORIENTEUR',
-            true,
+        if (!normalizedComment) {
+          throw new Error(
+            'Un commentaire est obligatoire pour demander une correction.',
           );
+        }
+        await api.addJobCommunication(
+          job.id,
+          {
+            type: 'correction_request',
+            body: normalizedComment,
+            audience: 'field',
+            requires_action: true,
+          },
+        );
+        const data = job;
 
         if (
           requestSequence !==
@@ -890,7 +900,7 @@ export default function ValidationPanel({
           setOutcome({
             type: 'success',
             message:
-              'La demande de correction est enregistrée dans les notes. Le statut n’a pas été modifié, mais le rafraîchissement de l’écran a échoué.',
+              'La demande de correction est enregistrée dans le fil opérationnel. Le statut n’a pas été modifié, mais le rafraîchissement de l’écran a échoué.',
             detail:
               getApiErrorMessage(
                 callbackError,
@@ -926,7 +936,6 @@ export default function ValidationPanel({
       normalizedComment,
       notifyAndClose,
       outcome,
-      persistComment,
       validJob,
     ]);
 

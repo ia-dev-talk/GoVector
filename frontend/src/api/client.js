@@ -1560,6 +1560,27 @@ export const api = {
       { text },
     ),
 
+  getJobCommunications: (jobId) =>
+    apiClient.get(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/communications`,
+    ),
+
+  addJobCommunication: (jobId, data) =>
+    apiClient.post(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/communications`,
+      data,
+    ),
+
+  acknowledgeJobCommunication: (jobId, communicationId) =>
+    apiClient.post(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/communications/${pathSegment(communicationId, 'Message')}/acknowledge`,
+    ),
+
+  resolveJobCommunication: (jobId, communicationId) =>
+    apiClient.post(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/communications/${pathSegment(communicationId, 'Message')}/resolve`,
+    ),
+
   downloadJobAttachment: (jobId, attachmentId) =>
     apiClient.get(
       `/job-actions/${pathSegment(jobId, 'Intervention')}/attachments/${pathSegment(attachmentId, 'Pièce jointe')}/download`,

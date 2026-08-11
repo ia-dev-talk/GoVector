@@ -163,6 +163,9 @@ export default function InterventionEvidencePanel({
   const officeNotes = Array.isArray(fieldRecord?.office_notes)
     ? fieldRecord.office_notes
     : [];
+  const communications = Array.isArray(fieldRecord?.communications)
+    ? fieldRecord.communications
+    : [];
 
   const actionMeasurements = useMemo(
     () => fieldActions.filter((item) =>
@@ -239,7 +242,8 @@ export default function InterventionEvidencePanel({
     fieldActions.length +
     technicianMedia.length +
     officeAttachments.length +
-    siteObservations.length;
+    siteObservations.length +
+    communications.length;
 
   const openBlob = async (request) => {
     const response = await request();
@@ -283,12 +287,33 @@ export default function InterventionEvidencePanel({
     setUploading(true);
     setUploadError('');
     try {
-      await api.addJobOfficeNote(job.id, value);
+      await api.addJobCommunication(job.id, {
+        type: form.elements.namedItem('message_type')?.value || 'instruction',
+        body: value,
+        audience: 'field',
+        requires_action:
+          form.elements.namedItem('message_type')?.value === 'correction_request',
+      });
       form.reset();
       if (typeof onRecordChanged === 'function') onRecordChanged();
     } catch (error) {
       setUploadError(
         error?.response?.data?.detail || error?.message || 'Commentaire impossible.',
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleResolveCommunication = async (communicationId) => {
+    setUploading(true);
+    setUploadError('');
+    try {
+      await api.resolveJobCommunication(job.id, communicationId);
+      if (typeof onRecordChanged === 'function') onRecordChanged();
+    } catch (error) {
+      setUploadError(
+        error?.response?.data?.detail || error?.message || 'Résolution impossible.',
       );
     } finally {
       setUploading(false);
@@ -511,6 +536,51 @@ export default function InterventionEvidencePanel({
         </ModuleSection>
 
         <ModuleSection
+          title="Échanges bureau ↔ terrain"
+          count={communications.length}
+          emptyLabel="Aucun échange opérationnel"
+          hasContent={communications.length > 0}
+          defaultOpen={communications.some((item) => item.requires_action && item.status === 'open')}
+        >
+          <div className="intervention-detail-comment-list">
+            {communications.map((item) => (
+              <article key={`communication-${item.id}`}>
+                <span>
+                  {item.type === 'correction_request'
+                    ? 'Correction demandée'
+                    : item.type === 'instruction'
+                      ? 'Instruction bureau'
+                      : item.type === 'reply'
+                        ? 'Réponse terrain'
+                        : item.type === 'acknowledgement'
+                          ? 'Pris en compte'
+                          : 'Message'}
+                  {' · '}{item.author_name || item.author_role}
+                </span>
+                <p>{item.body || 'Message pris en compte'}</p>
+                <small>
+                  {item.requires_action && item.status === 'open'
+                    ? 'Action attendue du terrain'
+                    : item.status === 'acknowledged'
+                      ? 'Pris en compte'
+                      : 'Information enregistrée'}
+                </small>
+                {item.requires_action && item.status !== 'resolved' ? (
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    disabled={uploading}
+                    onClick={() => handleResolveCommunication(item.id)}
+                  >
+                    Marquer comme résolue
+                  </button>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </ModuleSection>
+
+        <ModuleSection
           title="Commentaires"
           count={comments.length + actionNotes.length + officeNotes.length}
           emptyLabel="Aucun commentaire"
@@ -547,11 +617,16 @@ export default function InterventionEvidencePanel({
           defaultOpen
         >
           <form className="intervention-detail-upload-form" onSubmit={handleOfficeNote}>
+            <select name="message_type" defaultValue="instruction" aria-label="Type de message">
+              <option value="instruction">Instruction</option>
+              <option value="correction_request">Demande de correction</option>
+              <option value="message">Message</option>
+            </select>
             <input
               name="office_note"
               type="text"
               required
-              placeholder="Instruction ou commentaire pour le technicien"
+              placeholder="Information à transmettre au technicien"
             />
             <button type="submit" className="btn btn--primary" disabled={uploading}>
               Ajouter le commentaire
