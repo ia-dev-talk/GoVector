@@ -225,6 +225,7 @@ async def get_technician_workload(
 		.join(Job, Assignment.job_id == Job.id)
 		.where(
 			Assignment.technician_id == tech_id,
+			Assignment.ended_at.is_(None),
 			Job.scheduled_date >= start_of_day,
 			Job.scheduled_date <= end_of_day,
 			Job.status.in_([JobStatus.ASSIGNED, JobStatus.IN_PROGRESS]),

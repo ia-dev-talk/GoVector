@@ -60,7 +60,8 @@ def _jobs_query(current_user):
         return query.where(Job.orienteur_id == current_user.orienteur_id)
     if current_user.role == UserRole.TECHNICIAN:
         return query.join(Assignment).where(
-            Assignment.technician_id == current_user.technician_id
+            Assignment.technician_id == current_user.technician_id,
+            Assignment.ended_at.is_(None),
         )
     if current_user.role == UserRole.CLIENT:
         if current_user.client_organization_id is None:

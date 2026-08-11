@@ -571,7 +571,11 @@ def can_technician_do_job(job: Job, technician: Technician) -> dict:
 			assigned_mins = 0
 			if technician.assignments:
 				for a in technician.assignments:
-					if a.job and a.job.status not in ('completed', 'cancelled'):
+					if (
+						a.ended_at is None
+						and a.job
+						and a.job.status not in ('completed', 'cancelled')
+					):
 						assigned_mins += (a.job.estimated_duration or 0)
 			start_h, start_m = map(int, technician.shift_start.split(':')) if technician.shift_start else (8, 0)
 			shift_start_mins = start_h * 60 + start_m
@@ -649,7 +653,12 @@ async def search_jobs(
 	# Tech filter — need to join through assignments
 	if tech_id:
 		query = query.join(Assignment, Assignment.job_id == Job.id)
-		filters.append(Assignment.technician_id == tech_id)
+		filters.extend(
+			[
+				Assignment.technician_id == tech_id,
+				Assignment.ended_at.is_(None),
+			]
+		)
 
 	if filters:
 		query = query.where(and_(*filters))

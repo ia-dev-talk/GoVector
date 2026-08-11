@@ -5,11 +5,15 @@ Manage job assignments to technicians
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from backend.database.models import Assignment, Job, Technician, JobStatus, TechnicianStatus
 from backend.logic.routing.distance import haversine_distance, calculate_travel_time
-from backend.logic.workflow.engine import WorkflowEngine
+from backend.logic.workflow.engine import WorkflowEngine, get_valid_transitions
+from backend.logic.job_visits import (
+	close_current_assignment,
+	reset_current_passage_projection,
+)
 from backend.simulation.sampler import sample_duration
 
 
@@ -51,25 +55,48 @@ async def create_assignment(
 	sequence: Optional[int] = None,
 	*,
 	now: Optional[datetime] = None,
+	assigned_by_user_id: Optional[int] = None,
 ) -> Assignment:
 	"""Create a new assignment linking a job to a technician"""
+	job_result = await db.execute(
+		select(Job).where(Job.id == job_id).with_for_update()
+	)
+	job = job_result.scalar_one_or_none()
+	if not job:
+		raise ValueError(f"Job {job_id} not found")
+
 	existing_result = await db.execute(
-		select(Assignment).where(Assignment.job_id == job_id)
+		select(Assignment).where(
+			Assignment.job_id == job_id,
+			Assignment.ended_at.is_(None),
+		).with_for_update()
 	)
 	existing = existing_result.scalar_one_or_none()
 	if existing:
 		raise ValueError(f"Job {job_id} is already assigned to technician {existing.technician_id}")
 
-	job_result = await db.execute(select(Job).where(Job.id == job_id))
-	job = job_result.scalar_one_or_none()
-
 	tech_result = await db.execute(select(Technician).where(Technician.id == technician_id))
 	tech = tech_result.scalar_one_or_none()
 
-	if not job:
-		raise ValueError(f"Job {job_id} not found")
 	if not tech:
 		raise ValueError(f"Technician {technician_id} not found")
+	if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED}:
+		raise ValueError("Une intervention clôturée ne peut pas être réaffectée")
+	is_retry = job.status in {
+		JobStatus.FAILED,
+		JobStatus.POSTPONED,
+		JobStatus.CLIENT_ABSENT,
+		JobStatus.ON_HOLD,
+		JobStatus.SUSPENDED,
+	}
+	if job.status == JobStatus.CLIENT_ABSENT:
+		await WorkflowEngine(db).transition_job(
+			job,
+			JobStatus.PENDING,
+			metadata={"extra": {"source": "assignment_retry"}},
+		)
+	if is_retry:
+		reset_current_passage_projection(job)
 
 	origin_lat = tech.current_latitude if tech.current_latitude is not None else tech.home_latitude
 	origin_lon = tech.current_longitude if tech.current_longitude is not None else tech.home_longitude
@@ -84,6 +111,7 @@ async def create_assignment(
 	assignment = Assignment(
 		job_id=job_id,
 		technician_id=technician_id,
+		assigned_by_user_id=assigned_by_user_id,
 		sequence=sequence,
 		estimated_distance=distance,
 		estimated_travel_time=travel_time,
@@ -129,7 +157,10 @@ async def get_assignments_for_technician(
 	"""Get all assignments for a technician ordered by sequence"""
 	result = await db.execute(
 		select(Assignment)
-		.where(Assignment.technician_id == technician_id)
+		.where(
+			Assignment.technician_id == technician_id,
+			Assignment.ended_at.is_(None),
+		)
 		.order_by(Assignment.sequence)
 	)
 	return result.scalars().all()
@@ -137,8 +168,25 @@ async def get_assignments_for_technician(
 
 async def get_assignments_for_job(db: AsyncSession, job_id: int) -> Optional[Assignment]:
 	"""Get assignment for a job"""
-	result = await db.execute(select(Assignment).where(Assignment.job_id == job_id))
+	result = await db.execute(
+		select(Assignment).where(
+			Assignment.job_id == job_id,
+			Assignment.ended_at.is_(None),
+		)
+	)
 	return result.scalar_one_or_none()
+
+
+async def get_assignment_history_for_job(
+	db: AsyncSession, job_id: int
+) -> List[Assignment]:
+	"""Return every participation without changing the current-assignment API."""
+	result = await db.execute(
+		select(Assignment)
+		.where(Assignment.job_id == job_id)
+		.order_by(Assignment.assigned_at.asc(), Assignment.id.asc())
+	)
+	return result.scalars().all()
 
 
 async def get_assignment_for_technician_job(
@@ -151,22 +199,33 @@ async def get_assignment_for_technician_job(
 		select(Assignment).where(
 			Assignment.technician_id == technician_id,
 			Assignment.job_id == job_id,
+			Assignment.ended_at.is_(None),
 		)
 	)
 	return result.scalar_one_or_none()
 
 
-async def unassign_job(db: AsyncSession, job_id: int) -> bool:
+async def unassign_job(
+	db: AsyncSession,
+	job_id: int,
+	*,
+	ended_by_user_id: Optional[int] = None,
+) -> bool:
 	"""Remove assignment for a job and revert job status to pending"""
+	job_result = await db.execute(
+		select(Job).where(Job.id == job_id).with_for_update()
+	)
+	job = job_result.scalar_one_or_none()
 	assignment_result = await db.execute(
-		select(Assignment).where(Assignment.job_id == job_id)
+		select(Assignment).where(
+			Assignment.job_id == job_id,
+			Assignment.ended_at.is_(None),
+		).with_for_update()
 	)
 	assignment = assignment_result.scalar_one_or_none()
 	if not assignment:
 		return False
 
-	job_result = await db.execute(select(Job).where(Job.id == job_id))
-	job = job_result.scalar_one_or_none()
 	if job:
 		await WorkflowEngine(db).transition_job(
 			job,
@@ -175,7 +234,10 @@ async def unassign_job(db: AsyncSession, job_id: int) -> bool:
 			metadata={"extra": {"source": "unassignment"}},
 		)
 
-	await db.delete(assignment)
+	if assignment.ended_at is None:
+		assignment.ended_at = datetime.now(timezone.utc)
+		assignment.end_reason = "unassigned"
+	assignment.ended_by_user_id = ended_by_user_id
 	await db.commit()
 
 	return True
@@ -185,27 +247,59 @@ async def reassign_job(
 	db: AsyncSession,
 	job_id: int,
 	new_technician_id: int,
+	*,
+	assigned_by_user_id: Optional[int] = None,
 ) -> Assignment:
 	"""
 	Reassign a job to a different technician.
 	Runs as a single atomic transaction.
 	"""
-	assignment_result = await db.execute(
-		select(Assignment).where(Assignment.job_id == job_id)
+	job_result = await db.execute(
+		select(Job).where(Job.id == job_id).with_for_update()
 	)
-	existing = assignment_result.scalar_one_or_none()
-	if existing:
-		await db.delete(existing)
-
-	job_result = await db.execute(select(Job).where(Job.id == job_id))
 	job = job_result.scalar_one_or_none()
 	if not job:
 		raise ValueError(f"Job {job_id} not found")
+
+	assignment_result = await db.execute(
+		select(Assignment).where(
+			Assignment.job_id == job_id,
+			Assignment.ended_at.is_(None),
+		).with_for_update()
+	)
+	existing = assignment_result.scalar_one_or_none()
+
+	if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED}:
+		raise ValueError("Une intervention clôturée ne peut pas être réaffectée")
+	if existing and existing.technician_id == new_technician_id:
+		return existing
 
 	tech_result = await db.execute(select(Technician).where(Technician.id == new_technician_id))
 	tech = tech_result.scalar_one_or_none()
 	if not tech:
 		raise ValueError(f"Technician {new_technician_id} not found")
+
+	# A dispatch change closes the old participation instead of deleting it.
+	# Returning to PENDING closes the current visit through WorkflowEngine.
+	if job.status != JobStatus.PENDING:
+		if JobStatus.PENDING not in get_valid_transitions(job.status):
+			raise ValueError(
+				"Terminez, reportez ou mettez en échec le passage terrain avant de réaffecter"
+			)
+		await WorkflowEngine(db).transition_job(
+			job,
+			JobStatus.PENDING,
+			technician_id=existing.technician_id if existing else None,
+			metadata={"extra": {"source": "reassignment"}},
+		)
+	if existing and existing.ended_at is None:
+		await close_current_assignment(
+			db,
+			job_id=job_id,
+			reason="reassigned",
+			ended_by_user_id=assigned_by_user_id,
+		)
+	reset_current_passage_projection(job)
 
 	origin_lat = tech.current_latitude if tech.current_latitude is not None else tech.home_latitude
 	origin_lon = tech.current_longitude if tech.current_longitude is not None else tech.home_longitude
@@ -220,19 +314,19 @@ async def reassign_job(
 	new_assignment = Assignment(
 		job_id=job_id,
 		technician_id=new_technician_id,
+		assigned_by_user_id=assigned_by_user_id,
 		estimated_distance=distance,
 		estimated_travel_time=travel_time,
 	)
 
-	if job.status == JobStatus.PENDING:
-		await WorkflowEngine(db).transition_job(
-			job,
-			JobStatus.ASSIGNED,
-			technician_id=new_technician_id,
-			metadata={"extra": {"source": "reassignment"}},
-		)
-
 	db.add(new_assignment)
+	await db.flush()
+	await WorkflowEngine(db).transition_job(
+		job,
+		JobStatus.ASSIGNED,
+		technician_id=new_technician_id,
+		metadata={"extra": {"source": "reassignment"}},
+	)
 	await db.commit()
 	await db.refresh(new_assignment)
 
@@ -243,6 +337,8 @@ async def batch_assign(
 	db: AsyncSession,
 	job_ids: List[int],
 	technician_id: int,
+	*,
+	assigned_by_user_id: Optional[int] = None,
 ) -> dict:
 	"""
 	Assign multiple jobs to a single technician in one transaction.
@@ -263,22 +359,48 @@ async def batch_assign(
 
 	for job_id in job_ids:
 		try:
-			# Check existing assignment
-			existing_result = await db.execute(
-				select(Assignment).where(Assignment.job_id == job_id)
+			job_result = await db.execute(
+				select(Job).where(Job.id == job_id).with_for_update()
 			)
-			existing = existing_result.scalar_one_or_none()
-
-			if existing:
-				# Reassign — delete old, create new
-				await db.delete(existing)
-
-			job_result = await db.execute(select(Job).where(Job.id == job_id))
 			job = job_result.scalar_one_or_none()
 			if not job:
 				errors.append(f"Job {job_id} not found")
 				skipped += 1
 				continue
+			existing_result = await db.execute(
+				select(Assignment).where(
+					Assignment.job_id == job_id,
+					Assignment.ended_at.is_(None),
+				).with_for_update()
+			)
+			existing = existing_result.scalar_one_or_none()
+			if existing and existing.technician_id == technician_id:
+				skipped += 1
+				continue
+
+			if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED}:
+				errors.append(f"Job {job_id} is closed")
+				skipped += 1
+				continue
+			if job.status != JobStatus.PENDING:
+				if JobStatus.PENDING not in get_valid_transitions(job.status):
+					errors.append(f"Job {job_id} has an active field visit")
+					skipped += 1
+					continue
+				await WorkflowEngine(db).transition_job(
+					job,
+					JobStatus.PENDING,
+					technician_id=existing.technician_id if existing else None,
+					metadata={"extra": {"source": "batch_reassignment"}},
+				)
+			if existing and existing.ended_at is None:
+				await close_current_assignment(
+					db,
+					job_id=job_id,
+					reason="reassigned",
+					ended_by_user_id=assigned_by_user_id,
+				)
+			reset_current_passage_projection(job)
 
 			distance, travel_time = estimate_assignment_route(
 				origin_lat,
@@ -290,18 +412,18 @@ async def batch_assign(
 			assignment = Assignment(
 				job_id=job_id,
 				technician_id=technician_id,
+				assigned_by_user_id=assigned_by_user_id,
 				estimated_distance=distance,
 				estimated_travel_time=travel_time,
 			)
 			db.add(assignment)
 			await db.flush()
-			if job.status == JobStatus.PENDING:
-				await WorkflowEngine(db).transition_job(
-					job,
-					JobStatus.ASSIGNED,
-					technician_id=technician_id,
-					metadata={"extra": {"source": "batch_assignment"}},
-				)
+			await WorkflowEngine(db).transition_job(
+				job,
+				JobStatus.ASSIGNED,
+				technician_id=technician_id,
+				metadata={"extra": {"source": "batch_assignment"}},
+			)
 			assigned += 1
 		except Exception as e:
 			errors.append(f"Job {job_id}: {str(e)}")
@@ -314,6 +436,8 @@ async def batch_assign(
 async def batch_unassign(
 	db: AsyncSession,
 	job_ids: List[int],
+	*,
+	ended_by_user_id: Optional[int] = None,
 ) -> dict:
 	"""
 	Unassign multiple jobs in one transaction.
@@ -323,16 +447,21 @@ async def batch_unassign(
 	skipped = 0
 
 	for job_id in job_ids:
+		job_result = await db.execute(
+			select(Job).where(Job.id == job_id).with_for_update()
+		)
+		job = job_result.scalar_one_or_none()
 		assignment_result = await db.execute(
-			select(Assignment).where(Assignment.job_id == job_id)
+			select(Assignment).where(
+				Assignment.job_id == job_id,
+				Assignment.ended_at.is_(None),
+			).with_for_update()
 		)
 		assignment = assignment_result.scalar_one_or_none()
 		if not assignment:
 			skipped += 1
 			continue
 
-		job_result = await db.execute(select(Job).where(Job.id == job_id))
-		job = job_result.scalar_one_or_none()
 		if job:
 			try:
 				await WorkflowEngine(db).transition_job(
@@ -345,7 +474,10 @@ async def batch_unassign(
 				skipped += 1
 				continue
 
-		await db.delete(assignment)
+		if assignment.ended_at is None:
+			assignment.ended_at = datetime.now(timezone.utc)
+			assignment.end_reason = "unassigned"
+		assignment.ended_by_user_id = ended_by_user_id
 		unassigned += 1
 
 	await db.commit()

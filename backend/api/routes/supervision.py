@@ -34,6 +34,7 @@ from backend.api.schemas.technicians import (
 )
 from backend.auth.dependencies import require_orienteur, require_technician
 from backend.logic.job_access import require_job_read_access_by_id
+from backend.logic.job_visits import resolve_visit_for_technician
 from backend.services.realtime.dashboard_service import DashboardService
 from backend.services.realtime.websocket_manager import ws_manager, WSEvent
 
@@ -102,9 +103,17 @@ async def update_technician_gps(
             tech.current_job_id = gps_data.job_id
 
     # Historiser dans GPSHistory
+    visit = (
+        await resolve_visit_for_technician(
+            db, job_id=gps_data.job_id, technician_id=tech_id
+        )
+        if gps_data.job_id is not None
+        else None
+    )
     gps_record = GPSHistory(
         technician_id=tech_id,
         job_id=gps_data.job_id,
+        visit_id=visit.id if visit is not None else None,
         latitude=gps_data.latitude,
         longitude=gps_data.longitude,
         speed=gps_data.speed,

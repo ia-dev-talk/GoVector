@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Text,
     text,
+    Index,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -536,7 +537,27 @@ class Job(Base):
     pto: Mapped[Optional["PTO"]] = relationship("PTO", back_populates="jobs", lazy="selectin")
     orienteur: Mapped[Optional["Orienteur"]] = relationship("Orienteur", lazy="selectin")
     assignment: Mapped[Optional["Assignment"]] = relationship(
-        "Assignment", back_populates="job", uselist=False, cascade="all, delete-orphan", lazy="selectin"
+        "Assignment",
+        primaryjoin="and_(Job.id == foreign(Assignment.job_id), Assignment.ended_at.is_(None))",
+        uselist=False,
+        viewonly=True,
+        lazy="selectin",
+        overlaps="assignment_history,job",
+    )
+    assignment_history: Mapped[List["Assignment"]] = relationship(
+        "Assignment",
+        back_populates="job",
+        cascade="all, delete-orphan",
+        order_by="Assignment.assigned_at",
+        lazy="selectin",
+        overlaps="assignment",
+    )
+    visits: Mapped[List["JobVisit"]] = relationship(
+        "JobVisit",
+        back_populates="job",
+        cascade="all, delete-orphan",
+        order_by="JobVisit.attempt_number",
+        lazy="selectin",
     )
     incidents: Mapped[List["Incident"]] = relationship("Incident", back_populates="job", lazy="selectin")
 
@@ -544,12 +565,89 @@ class Job(Base):
         return f"<Job(id={self.id}, type='{self.job_type}', status='{self.status}')>"
 
 
+class JobVisit(Base):
+    """One physical field passage for a work order.
+
+    ``Job`` remains the stable order consumed by existing clients.  A visit is
+    append-only operational history: retries after a failure, postponement or
+    absence receive a new attempt instead of overwriting the previous passage.
+    """
+
+    __tablename__ = "job_visits"
+    __table_args__ = (
+        UniqueConstraint("job_id", "attempt_number", name="uq_job_visits_attempt"),
+        Index(
+            "uq_job_visits_open_job",
+            "job_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    job_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    primary_technician_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("technicians.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    outcome: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    assigned_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    arrived_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    work_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
+    start_latitude: Mapped[Optional[float]] = mapped_column(Float)
+    start_longitude: Mapped[Optional[float]] = mapped_column(Float)
+    end_latitude: Mapped[Optional[float]] = mapped_column(Float)
+    end_longitude: Mapped[Optional[float]] = mapped_column(Float)
+    backfill_confidence: Mapped[Optional[str]] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+
+    job: Mapped["Job"] = relationship("Job", back_populates="visits", lazy="selectin")
+    primary_technician: Mapped[Optional["Technician"]] = relationship(
+        "Technician", lazy="selectin"
+    )
+    assignments: Mapped[List["Assignment"]] = relationship(
+        "Assignment", back_populates="visit", lazy="selectin"
+    )
+
+
 class Assignment(Base):
     __tablename__ = "assignments"
+    __table_args__ = (
+        Index(
+            "uq_assignments_current_job",
+            "job_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+        ),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id"), unique=True, nullable=False)
+    job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id"), nullable=False)
     technician_id: Mapped[int] = mapped_column(Integer, ForeignKey("technicians.id"), nullable=False)
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
+    end_reason: Mapped[Optional[str]] = mapped_column(String(40))
+    assigned_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    ended_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     sequence: Mapped[Optional[int]] = mapped_column(Integer)
     estimated_travel_time: Mapped[Optional[int]] = mapped_column(Integer)
     estimated_distance: Mapped[Optional[float]] = mapped_column(Float)
@@ -560,8 +658,13 @@ class Assignment(Base):
     actual_duration_minutes: Mapped[Optional[int]] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
-    job: Mapped["Job"] = relationship("Job", back_populates="assignment", lazy="selectin")
+    job: Mapped["Job"] = relationship(
+        "Job", back_populates="assignment_history", lazy="selectin", overlaps="assignment"
+    )
     technician: Mapped["Technician"] = relationship("Technician", back_populates="assignments", lazy="selectin")
+    visit: Mapped[Optional["JobVisit"]] = relationship(
+        "JobVisit", back_populates="assignments", lazy="selectin"
+    )
 
     def __repr__(self):
         return f"<Assignment(id={self.id}, job_id={self.job_id}, tech_id={self.technician_id})>"
@@ -670,6 +773,9 @@ class GPSHistory(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     technician_id: Mapped[int] = mapped_column(Integer, ForeignKey("technicians.id"), nullable=False, index=True)
     job_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("jobs.id"), nullable=True, index=True)
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     latitude: Mapped[float] = mapped_column(Float, nullable=False)
     longitude: Mapped[float] = mapped_column(Float, nullable=False)
     speed: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # m/s (device ground speed)
@@ -1058,6 +1164,9 @@ class JobActivityLog(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id"), nullable=False, index=True)
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     technician_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("technicians.id"))
     action: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     description: Mapped[Optional[str]] = mapped_column(Text)
@@ -1213,6 +1322,9 @@ class TechnicianFieldAction(Base):
     job_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("jobs.id"), nullable=False, index=True
     )
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     action_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     payload: Mapped[dict] = mapped_column(
         JSONB,
@@ -1255,6 +1367,9 @@ class TechnicianMedia(Base):
     job_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("jobs.id"), nullable=False, index=True
     )
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     storage_key: Mapped[str] = mapped_column(String(255), nullable=False)
     original_filename: Mapped[Optional[str]] = mapped_column(String(255))
@@ -1283,6 +1398,9 @@ class JobSiteObservation(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     job_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("jobs.id"), nullable=False, index=True
+    )
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
     )
     field_action_id: Mapped[Optional[int]] = mapped_column(
         Integer,
@@ -1363,6 +1481,9 @@ class JobFailure(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id"), nullable=False, index=True)
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     technician_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("technicians.id"))
     reason: Mapped[str] = mapped_column(String(100), nullable=False)
     comment: Mapped[Optional[str]] = mapped_column(Text)
@@ -1386,6 +1507,9 @@ class JobPostponement(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id"), nullable=False, index=True)
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     technician_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("technicians.id"))
     reason: Mapped[str] = mapped_column(String(100), nullable=False)
     comment: Mapped[Optional[str]] = mapped_column(Text)

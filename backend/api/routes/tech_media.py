@@ -14,6 +14,7 @@ from backend.database.connection import get_db
 from backend.api.errors import BusinessAPIError
 from backend.database.models import Job, TechnicianMedia, User
 from backend.logic.job_access import require_job_collaboration_access
+from backend.logic.job_visits import resolve_visit_for_technician
 from backend.services.media_storage import FileSystemMediaStorage, MediaStorageError
 
 
@@ -113,12 +114,18 @@ async def upload_technician_media(
     except MediaStorageError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    visit = await resolve_visit_for_technician(
+        db,
+        job_id=job_id,
+        technician_id=current_user.technician_id,
+    )
     media = TechnicianMedia(
         media_id=str(uuid4()),
         attachment_id=str(attachment_id),
         user_id=current_user.id,
         technician_id=current_user.technician_id,
         job_id=job_id,
+        visit_id=visit.id if visit is not None else None,
         kind=kind,
         storage_key=stored.storage_key,
         original_filename=file.filename,

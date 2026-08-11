@@ -452,7 +452,18 @@ class FieldOptExportService:
         Construit la requête SQLAlchemy pour récupérer les jobs selon les filtres.
         Optimisée pour ne charger que les données nécessaires.
         """
-        query = select(Job).outerjoin(Assignment).outerjoin(Technician).outerjoin(Orienteur)
+        query = (
+            select(Job)
+            .outerjoin(
+                Assignment,
+                and_(
+                    Assignment.job_id == Job.id,
+                    Assignment.ended_at.is_(None),
+                ),
+            )
+            .outerjoin(Technician)
+            .outerjoin(Orienteur)
+        )
 
         if not filters:
             filters = {}

@@ -194,18 +194,18 @@ class TechnicianResponse(TechnicianBase):
 
     @classmethod
     def from_orm_with_counts(cls, tech):
-        """Build response with job counts from assignments and orienteur info"""
+        """Build current workload and completed-passage counts."""
         assigned = 0
         completed = 0
         if tech.assignments:
             for a in tech.assignments:
-                if a.job:
-                    if a.job.status == JobStatus.COMPLETED:
-                        completed += 1
-                    else:
-                        assigned += 1
-                else:
+                if a.ended_at is None:
                     assigned += 1
+                elif a.end_reason in {
+                    JobStatus.EN_ATTENTE_VALIDATION.value,
+                    JobStatus.COMPLETED.value,
+                }:
+                    completed += 1
 
         orienteur_name = None
         if tech.orienteur:

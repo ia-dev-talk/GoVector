@@ -27,7 +27,7 @@ Effectuer toutes les transitions puis clôturer sans photo, mesure, câble ni si
 
 ## D. Échec puis reprise
 
-Le technicien A déclare un échec avec motif. Le job quitte « En cours » et reste consultable dans l’historique. Après replanification, le technicien B doit voir le motif et les preuves de A. Ce scénario n’est pleinement conforme qu’après `JobVisit` et affectations historiques.
+Le technicien A déclare un échec avec motif. Le passage 1 est clôturé et reste consultable avec son affectation et ses preuves. Après replanification, le technicien B reçoit le passage 2 et peut consulter le motif et les preuves de A sans devenir artificiellement l’auteur du premier passage.
 
 ## E. Capture libre contextuelle
 

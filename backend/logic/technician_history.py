@@ -25,6 +25,7 @@ from backend.database.models import (
     JobPostponement,
     JobStatus,
     JobSiteObservation,
+    JobVisit,
     StockConsumption,
     StockConsumptionItem,
     TechnicianFieldAction,
@@ -35,6 +36,7 @@ from backend.logic.technician_jobs import (
     TechnicianJobMutationError,
     require_assigned_job,
 )
+from backend.logic.workflow.capabilities import STATUS_METADATA
 
 
 HISTORICAL_STATUSES = (
@@ -45,6 +47,15 @@ HISTORICAL_STATUSES = (
     JobStatus.CLIENT_ABSENT,
     JobStatus.CANCELLED,
 )
+
+
+def _visit_status_label(value: str | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return STATUS_METADATA[JobStatus(value)].label
+    except (KeyError, ValueError):
+        return value
 
 
 def _utc_start(value: date) -> datetime:
@@ -100,7 +111,11 @@ def _item(
     timeline: list[TechnicianHistoryActivity] | None = None,
 ) -> TechnicianHistoryItem:
     assignment = getattr(job, "assignment", None)
-    technician = getattr(assignment, "technician", None)
+    visits = list(getattr(job, "visits", []) or [])
+    latest_visit = visits[-1] if visits else None
+    technician = getattr(assignment, "technician", None) or getattr(
+        latest_visit, "primary_technician", None
+    )
     duration = job.real_duration_minutes
     if duration is None and assignment is not None:
         duration = assignment.actual_duration_minutes
@@ -234,7 +249,10 @@ async def list_technician_history(
             .options(
                 selectinload(Job.assignment).selectinload(
                     Assignment.technician
-                )
+                ),
+                selectinload(Job.visits).selectinload(
+                    JobVisit.primary_technician
+                ),
             )
             .where(Job.id.in_(historical_job_ids), *filters)
             .order_by(_history_time_expression().desc(), Job.id.desc())
@@ -262,7 +280,8 @@ async def get_technician_history_detail(
     result = await db.execute(
         select(Job)
         .options(
-            selectinload(Job.assignment).selectinload(Assignment.technician)
+            selectinload(Job.assignment).selectinload(Assignment.technician),
+            selectinload(Job.visits).selectinload(JobVisit.primary_technician),
         )
         .where(
             Job.id == job_id,
@@ -343,6 +362,21 @@ async def _build_history_detail(
             .order_by(JobSiteObservation.occurred_at.asc())
         )
     ).scalars().all()
+    visits = []
+    if isinstance(db, AsyncSession):
+        visits = (
+            await db.execute(
+                select(JobVisit)
+                .options(
+                    selectinload(JobVisit.primary_technician),
+                    selectinload(JobVisit.assignments).selectinload(
+                        Assignment.technician
+                    ),
+                )
+                .where(JobVisit.job_id == job.id)
+                .order_by(JobVisit.attempt_number.asc())
+            )
+        ).scalars().unique().all()
 
     activity_log = [_activity(entry) for entry in logs]
     materials = []
@@ -442,6 +476,47 @@ async def _build_history_detail(
         ],
         materials=materials,
         media_references=media,
+        visits=[
+            {
+                "id": visit.id,
+                "attempt_number": visit.attempt_number,
+                "status": visit.status,
+                "outcome": visit.outcome,
+                "status_label": _visit_status_label(
+                    visit.outcome or visit.status
+                ),
+                "primary_technician_id": visit.primary_technician_id,
+                "primary_technician_name": getattr(
+                    visit.primary_technician, "name", None
+                ),
+                "scheduled_at": visit.scheduled_at,
+                "assigned_at": visit.assigned_at,
+                "accepted_at": visit.accepted_at,
+                "started_at": visit.started_at,
+                "arrived_at": visit.arrived_at,
+                "work_started_at": visit.work_started_at,
+                "ended_at": visit.ended_at,
+                "start_latitude": visit.start_latitude,
+                "start_longitude": visit.start_longitude,
+                "end_latitude": visit.end_latitude,
+                "end_longitude": visit.end_longitude,
+                "backfill_confidence": visit.backfill_confidence,
+                "assignments": [
+                    {
+                        "id": assignment.id,
+                        "technician_id": assignment.technician_id,
+                        "technician_name": getattr(
+                            assignment.technician, "name", None
+                        ),
+                        "assigned_at": assignment.assigned_at,
+                        "ended_at": assignment.ended_at,
+                        "end_reason": assignment.end_reason,
+                    }
+                    for assignment in visit.assignments
+                ],
+            }
+            for visit in visits
+        ],
     )
 
 

@@ -19,10 +19,10 @@
 
 ## B2 — modèle multi-passage
 
-- Ajouter `JobVisit` sans renommer brutalement `Job`.
-- Rendre affectations et appartenances d’équipe historiques.
-- Relier logs, actions, médias, échecs, reports, stock et GPS au passage.
-- Backfill prudent avec niveau de confiance.
+- Consolider `JobVisit` sans renommer brutalement `Job` et étendre les tests de reprise.
+- Exploiter les affectations append-only dans les indicateurs et exports.
+- Relier aussi les consommations de stock au passage.
+- Auditer le backfill prudent avec son niveau de confiance.
 
 ## B3 — site et provenance
 

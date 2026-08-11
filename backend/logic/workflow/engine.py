@@ -33,6 +33,10 @@ from backend.database.models import (
 )
 from backend.logic.activity_log import log_job_activity
 from backend.logic.completion_policy import CompletionPolicy
+from backend.logic.job_visits import (
+    get_current_assignment,
+    sync_job_visit_transition,
+)
 from backend.services.realtime.dashboard_service import DashboardService
 from backend.services.stock_service import StockService
 
@@ -101,6 +105,7 @@ class WorkflowEngine:
         self.db = db
         self._dashboard = DashboardService(db)
         self._stock = StockService(db)
+        self.last_visit_id: int | None = None
 
     # ============================================================
     # CŒUR DU WORKFLOW
@@ -138,12 +143,12 @@ class WorkflowEngine:
             job.arrival_time = datetime.now(timezone.utc)
             job.end_latitude = metadata.get("latitude")
             job.end_longitude = metadata.get("longitude")
-            if job.assignment and not getattr(
-                job.assignment,
-                "actual_arrival",
-                None,
+            current_assignment = getattr(job, "assignment", None)
+            if (
+                current_assignment is not None
+                and current_assignment.actual_arrival is None
             ):
-                job.assignment.actual_arrival = job.arrival_time
+                current_assignment.actual_arrival = job.arrival_time
         if new_status == JobStatus.COMPLETED and not job.completed_at:
             job.completed_at = datetime.now(timezone.utc)
             self._calculate_duration(job)
@@ -151,15 +156,38 @@ class WorkflowEngine:
         job.status = new_status
         job.updated_at = datetime.now(timezone.utc)
 
+        visit = await sync_job_visit_transition(
+            self.db,
+            job=job,
+            old_status=old_status,
+            new_status=new_status,
+            technician_id=technician_id,
+            metadata=metadata,
+        )
+        self.last_visit_id = visit.id if visit is not None else None
+
         # 3. LOGUER l'activité
-        await self._log(job, old_status, new_status, technician_id, metadata)
+        await self._log(
+            job,
+            old_status,
+            new_status,
+            technician_id,
+            metadata,
+            visit_id=self.last_visit_id,
+        )
 
         # 4. BROADCASTER
         if broadcast:
             await self._broadcast(job, old_status, new_status)
 
         # 5. GÉRER LES CONSÉQUENCES MÉTIER
-        await self._handle_business_rules(job, new_status, metadata)
+        await self._handle_business_rules(
+            job,
+            new_status,
+            metadata,
+            technician_id=technician_id,
+            visit_id=self.last_visit_id,
+        )
 
         await self.db.flush()
         return job
@@ -176,12 +204,14 @@ class WorkflowEngine:
     async def _log(
         self, job: Job, old_status: JobStatus,
         new_status: JobStatus, technician_id: Optional[int],
-        metadata: Dict
+        metadata: Dict,
+        visit_id: int | None = None,
     ):
         """Crée et persist une entrée de timeline."""
         await log_job_activity(
             db=self.db,
             job_id=job.id,
+            visit_id=visit_id,
             action=job.status.value,
             technician_id=technician_id,
             description=self._build_description(job, old_status, new_status),
@@ -240,19 +270,32 @@ class WorkflowEngine:
         await self._dashboard.broadcast_dashboard_update()
 
     async def _handle_business_rules(
-        self, job: Job, new_status: JobStatus, metadata: Dict
+        self,
+        job: Job,
+        new_status: JobStatus,
+        metadata: Dict,
+        *,
+        technician_id: int | None = None,
+        visit_id: int | None,
     ):
         """Applique les règles métier après transition."""
 
         # 1. Mettre à jour le statut live du technicien
-        await self._update_technician_status(job, new_status, metadata)
+        await self._update_technician_status(
+            job, new_status, metadata, technician_id=technician_id
+        )
 
         # 2. Enregistrer la position GPS si fournie
         if (
             metadata.get("latitude") is not None
             and metadata.get("longitude") is not None
         ):
-            await self._record_gps_position(job, metadata)
+            await self._record_gps_position(
+                job,
+                metadata,
+                technician_id=technician_id,
+                visit_id=visit_id,
+            )
 
         # 3. Si terminée → libérer le stock réservé
         if new_status == JobStatus.COMPLETED:
@@ -260,7 +303,9 @@ class WorkflowEngine:
 
         # 4. Si équipement scanné → enregistrer consommation via StockService
         if metadata.get("equipment_serial") or metadata.get("consumption_items"):
-            await self._register_consumption(job, metadata)
+            await self._register_consumption(
+                job, metadata, technician_id=technician_id
+            )
 
     # ============================================================
     # TECHNICIEN — Mise à jour du statut live
@@ -271,16 +316,27 @@ class WorkflowEngine:
         job: Job,
         new_status: JobStatus,
         metadata: Dict,
+        *,
+        technician_id: int | None = None,
     ):
         """Met à jour le live_status du technicien selon le statut du job."""
         from sqlalchemy import select
         from backend.database.models import Technician, TechnicianLiveStatus
 
-        if not job.assignment or not job.assignment.technician_id:
+        effective_technician_id = technician_id
+        job_assignment = getattr(job, "assignment", None)
+        if effective_technician_id is None and job_assignment is not None:
+            effective_technician_id = job_assignment.technician_id
+        if effective_technician_id is None:
+            assignment = await get_current_assignment(self.db, job.id)
+            effective_technician_id = (
+                assignment.technician_id if assignment is not None else None
+            )
+        if effective_technician_id is None:
             return
 
         result = await self.db.execute(
-            select(Technician).where(Technician.id == job.assignment.technician_id)
+            select(Technician).where(Technician.id == effective_technician_id)
         )
         tech = result.scalar_one_or_none()
         if not tech:
@@ -331,18 +387,32 @@ class WorkflowEngine:
     # GPS — Enregistrement de position
     # ============================================================
 
-    async def _record_gps_position(self, job: Job, metadata: Dict):
+    async def _record_gps_position(
+        self,
+        job: Job,
+        metadata: Dict,
+        *,
+        technician_id: int | None = None,
+        visit_id: int | None = None,
+    ):
         """Enregistre une position GPS dans l'historique."""
         from backend.database.models import GPSHistory
 
         lat = metadata.get("latitude")
         lon = metadata.get("longitude")
-        tech_id = job.assignment.technician_id if job.assignment else None
+        tech_id = technician_id
+        job_assignment = getattr(job, "assignment", None)
+        if tech_id is None and job_assignment is not None:
+            tech_id = job_assignment.technician_id
+        if tech_id is None:
+            assignment = await get_current_assignment(self.db, job.id)
+            tech_id = assignment.technician_id if assignment is not None else None
 
         if lat is not None and lon is not None and tech_id:
             gps = GPSHistory(
                 technician_id=tech_id,
                 job_id=job.id,
+                visit_id=visit_id,
                 latitude=lat,
                 longitude=lon,
                 speed=metadata.get("speed"),
@@ -390,14 +460,23 @@ class WorkflowEngine:
 
         logger.info(f"[WORKFLOW] Stock consommé pour job #{job.id} ({len(movements)} lignes)")
 
-    async def _register_consumption(self, job: Job, metadata: Dict):
+    async def _register_consumption(
+        self,
+        job: Job,
+        metadata: Dict,
+        *,
+        technician_id: int | None,
+    ):
         """Enregistre la consommation d'équipement via StockService."""
         serial = metadata.get("equipment_serial")
         items = metadata.get("consumption_items")
         if not serial and not items:
             return
 
-        tech_id = job.assignment.technician_id if job.assignment else None
+        tech_id = technician_id
+        if tech_id is None:
+            assignment = await get_current_assignment(self.db, job.id)
+            tech_id = assignment.technician_id if assignment is not None else None
         consumption_items = []
 
         if serial:

@@ -6,7 +6,7 @@ Demande opérationnelle à réaliser pour un donneur d’ordre. Il porte la réf
 
 ## Intervention / passage terrain
 
-Tentative concrète d’exécution sur le terrain : technicien, départ, arrivée, travaux, résultat et preuves. Un ordre peut nécessiter plusieurs passages après absence client, report, échec ou reprise. Aujourd’hui ce concept n’a pas encore sa table propre; `Job` porte le passage courant. La cible est `JobVisit`.
+Tentative concrète d’exécution sur le terrain : technicien, départ, arrivée, travaux, résultat et preuves. Un ordre peut nécessiter plusieurs passages après absence client, report, échec ou reprise. Depuis v031, `JobVisit` conserve ces tentatives; `Job` reste l’ordre de travail stable et sa projection courante pour compatibilité.
 
 ## Affectation
 

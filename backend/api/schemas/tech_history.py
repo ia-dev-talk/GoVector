@@ -62,6 +62,7 @@ class TechnicianHistoryDetail(BaseModel):
     postponements: list[dict[str, Any]]
     materials: list[dict[str, Any]]
     media_references: list[dict[str, Any]]
+    visits: list[dict[str, Any]] = Field(default_factory=list)
     read_only: bool = True
 
 

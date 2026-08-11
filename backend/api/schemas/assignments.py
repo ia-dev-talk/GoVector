@@ -18,7 +18,12 @@ class AssignmentResponse(BaseModel):
 	id: int
 	job_id: int
 	technician_id: int
+	visit_id: Optional[int] = None
 	assigned_at: datetime
+	ended_at: Optional[datetime] = None
+	end_reason: Optional[str] = None
+	assigned_by_user_id: Optional[int] = None
+	ended_by_user_id: Optional[int] = None
 	sequence: Optional[int]
 	estimated_travel_time: Optional[int]
 	estimated_distance: Optional[float]

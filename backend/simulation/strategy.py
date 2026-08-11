@@ -121,6 +121,7 @@ async def _get_available_techs(db: AsyncSession, now_minutes: int | None = None)
     # Exclude techs already on an active job (defense-in-depth — status flag is the
     # primary gate, but a stale status shouldn't allow double-booking).
     busy_tech_ids = select(Assignment.technician_id).join(Job, Assignment.job_id == Job.id).where(
+        Assignment.ended_at.is_(None),
         Job.status.in_([JobStatus.ASSIGNED, JobStatus.IN_PROGRESS])
     )
     result = await db.execute(

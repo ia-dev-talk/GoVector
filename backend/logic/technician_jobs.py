@@ -200,8 +200,9 @@ async def transition_technician_job(
         return TechnicianTransitionResult(job=job, transitions=())
 
     old_status = job.status
+    engine = WorkflowEngine(db)
     try:
-        await WorkflowEngine(db).transition_job(
+        await engine.transition_job(
             job,
             new_status,
             technician_id=current_user.technician_id,
@@ -249,8 +250,9 @@ async def fail_technician_job(
         return TechnicianTransitionResult(job=job, transitions=())
 
     old_status = job.status
+    engine = WorkflowEngine(db)
     try:
-        await WorkflowEngine(db).transition_job(
+        await engine.transition_job(
             job,
             JobStatus.FAILED,
             technician_id=current_user.technician_id,
@@ -278,6 +280,7 @@ async def fail_technician_job(
     db.add(
         JobFailure(
             job_id=job.id,
+            visit_id=engine.last_visit_id,
             technician_id=current_user.technician_id,
             reason=payload["reason"],
             comment=payload.get("comment"),
@@ -323,8 +326,9 @@ async def postpone_technician_job(
 
     requested_date = _requested_datetime(payload.get("requested_date"))
     old_status = job.status
+    engine = WorkflowEngine(db)
     try:
-        await WorkflowEngine(db).transition_job(
+        await engine.transition_job(
             job,
             JobStatus.POSTPONED,
             technician_id=current_user.technician_id,
@@ -351,6 +355,7 @@ async def postpone_technician_job(
     db.add(
         JobPostponement(
             job_id=job.id,
+            visit_id=engine.last_visit_id,
             technician_id=current_user.technician_id,
             reason=payload["reason"],
             comment=payload.get("comment"),

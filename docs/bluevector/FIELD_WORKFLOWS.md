@@ -27,7 +27,7 @@ Les commandes exposées au client sont métier : `accept_and_start`, `arrive`, `
 
 ## Échec, absence et report
 
-Un échec clôt le passage courant mais ne ferme pas nécessairement l’ordre. Le bureau doit pouvoir diagnostiquer, replanifier puis créer un nouveau passage. Sans `JobVisit`, V1 ne peut pas encore représenter proprement deux tentatives; éviter toute logique qui efface l’auteur, les dates ou preuves de la première.
+Un échec clôt le passage courant mais ne ferme pas nécessairement l’ordre. Le bureau peut diagnostiquer, replanifier puis créer un nouveau passage. Chaque tentative reçoit un `JobVisit.attempt_number`; l’ancienne affectation est clôturée avec son motif au lieu d’être supprimée. Les dates et preuves de la première tentative restent consultables.
 
 ## Clôture pilote
 
@@ -35,7 +35,7 @@ Photos, signature, mesures et longueur de câble sont facultatives. La `Completi
 
 ## Journal
 
-Le journal métier agrège les transitions, actions terrain, médias, échecs, reports et mouvements pertinents. `TechnicianSyncEvent` reste un reçu technique. Chaque future entrée doit être attribuable à un acteur/source et, après introduction de `JobVisit`, à un passage.
+Le journal métier agrège les transitions, actions terrain, médias, échecs, reports et mouvements pertinents. `TechnicianSyncEvent` reste un reçu technique. Les nouvelles entrées terrain portent `visit_id`; les lignes historiques migrées sont rattachées à un passage reconstitué avec un niveau de confiance explicite.
 
 ## Collaboration après la fin du passage
 
@@ -44,7 +44,7 @@ peuvent encore ajouter des communications et preuves append-only : instruction,
 demande de correction, accusé de prise en compte, réponse et complément.
 
 Ces ajouts ne changent jamais `Job.status`. Une demande nécessitant un nouveau
-déplacement devra devenir un futur `JobVisit` au lieu de rouvrir silencieusement
+déplacement doit créer un nouveau `JobVisit` au lieu de rouvrir silencieusement
 le passage précédent. `JobCommunication` est la vérité structurée de cet échange;
 `JobActivityLog` n'en contient qu'une projection de journal.
 

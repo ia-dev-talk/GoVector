@@ -112,6 +112,7 @@ async def _tick(db: AsyncSession, now: datetime, strategy: DispatchStrategy, sim
 	# ── 1. Stamp estimated_arrival on newly-assigned jobs ──────────────────
 	result = await db.execute(
 		select(Assignment).join(Job, Assignment.job_id == Job.id).where(
+			Assignment.ended_at.is_(None),
 			Job.status == JobStatus.ASSIGNED,
 			Assignment.estimated_arrival.is_(None),
 		)
@@ -124,6 +125,7 @@ async def _tick(db: AsyncSession, now: datetime, strategy: DispatchStrategy, sim
 	# ── 2. ASSIGNED → IN_PROGRESS when arrival passes ──────────────────────
 	result = await db.execute(
 		select(Assignment).join(Job, Assignment.job_id == Job.id).where(
+			Assignment.ended_at.is_(None),
 			Job.status == JobStatus.ASSIGNED,
 			Assignment.estimated_arrival <= now,
 		)
@@ -159,6 +161,7 @@ async def _tick(db: AsyncSession, now: datetime, strategy: DispatchStrategy, sim
 	# ── 3. IN_PROGRESS → COMPLETED / overrun checks ────────────────────────
 	result = await db.execute(
 		select(Assignment).join(Job, Assignment.job_id == Job.id).where(
+			Assignment.ended_at.is_(None),
 			Job.status == JobStatus.IN_PROGRESS,
 			Job.started_at.is_not(None),
 		)

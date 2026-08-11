@@ -87,6 +87,7 @@ async def create_assignment(
 			job_id=assign_data.job_id,
 			technician_id=assign_data.technician_id,
 			sequence=assign_data.sequence,
+			assigned_by_user_id=current_user.id,
 		)
 		return assignment
 	except ValueError as e:
@@ -147,6 +148,21 @@ async def get_job_assignment(
 	return assignment
 
 
+@router.get("/job/{job_id}/history", response_model=List[AssignmentResponse])
+async def get_job_assignment_history(
+	job_id: int,
+	db: AsyncSession = Depends(get_db),
+	current_user: User = Depends(get_current_user),
+):
+	"""Read-only audit of every technician participation on an intervention."""
+	result = await db.execute(select(Job).where(Job.id == job_id))
+	job = result.scalar_one_or_none()
+	if not job:
+		raise HTTPException(status_code=404, detail=f"Intervention {job_id} introuvable")
+	await require_job_read_access(db, job=job, current_user=current_user)
+	return await assignment_logic.get_assignment_history_for_job(db, job_id)
+
+
 @router.post("/unassign", response_model=MessageResponse)
 async def unassign_job(
     unassign_data: UnassignRequest,
@@ -163,7 +179,9 @@ async def unassign_job(
 		job_id=unassign_data.job_id,
 		current_user=current_user,
 	)
-	success = await assignment_logic.unassign_job(db, unassign_data.job_id)
+	success = await assignment_logic.unassign_job(
+		db, unassign_data.job_id, ended_by_user_id=current_user.id
+	)
 	if not success:
 		raise HTTPException(status_code=404, detail=f"No assignment found for job {unassign_data.job_id}")
 	return MessageResponse(success=True, message=f"Job {unassign_data.job_id} unassigned")
@@ -189,6 +207,7 @@ async def reassign_job(
 			db=db,
 			job_id=reassign_data.job_id,
 			new_technician_id=reassign_data.new_technician_id,
+			assigned_by_user_id=current_user.id,
 		)
 		return assignment
 	except ValueError as e:
@@ -216,6 +235,7 @@ async def batch_assign(
 			db=db,
 			job_ids=data.job_ids,
 			technician_id=data.technician_id,
+			assigned_by_user_id=current_user.id,
 		)
 		return BatchResult(
 			success=result["assigned"] > 0,
@@ -263,6 +283,7 @@ async def get_available_technicians(
             .join(Assignment, Assignment.job_id == Job.id)
             .where(
                 Assignment.technician_id == tech.id,
+                Assignment.ended_at.is_(None),
                 Job.status.notin_([JobStatus.COMPLETED, JobStatus.CANCELLED]),
             )
         )
@@ -298,7 +319,9 @@ async def batch_unassign(
 			job_id=job_id,
 			current_user=current_user,
 		)
-	result = await assignment_logic.batch_unassign(db=db, job_ids=data.job_ids)
+	result = await assignment_logic.batch_unassign(
+		db=db, job_ids=data.job_ids, ended_by_user_id=current_user.id
+	)
 	return BatchResult(
 		success=result["unassigned"] > 0,
 		unassigned=result["unassigned"],

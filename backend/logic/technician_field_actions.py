@@ -5,12 +5,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
+    Job,
     TechnicianFieldAction,
     TechnicianMedia,
     JobSiteObservation,
     User,
 )
 from backend.logic.activity_log import log_job_activity
+from backend.api.errors import BusinessAPIError
+from backend.logic.job_access import require_job_collaboration_access
+from backend.logic.job_visits import resolve_visit_for_technician
 from backend.logic.technician_jobs import (
     TechnicianJobMutationError,
     require_assigned_job,
@@ -193,11 +197,24 @@ async def record_technician_field_action(
             f"Le type d'action '{event_type}' n'est pas supporté par sync v1",
         )
 
-    await require_assigned_job(
-        db,
-        job_id=job_id,
-        current_user=current_user,
-    )
+    try:
+        await require_assigned_job(
+            db,
+            job_id=job_id,
+            current_user=current_user,
+        )
+    except TechnicianJobMutationError:
+        job = await db.scalar(select(Job).where(Job.id == job_id))
+        if job is None:
+            raise
+        try:
+            await require_job_collaboration_access(
+                db, job=job, current_user=current_user
+            )
+        except BusinessAPIError as exc:
+            raise TechnicianJobMutationError(
+                "rejected", exc.code, exc.message
+            ) from exc
     await _validate_payload(
         db,
         job_id=job_id,
@@ -206,11 +223,17 @@ async def record_technician_field_action(
         current_user=current_user,
     )
 
+    visit = await resolve_visit_for_technician(
+        db,
+        job_id=job_id,
+        technician_id=current_user.technician_id,
+    )
     action = TechnicianFieldAction(
         event_id=event_id,
         user_id=current_user.id,
         technician_id=current_user.technician_id,
         job_id=job_id,
+        visit_id=visit.id if visit is not None else None,
         action_type=event_type,
         payload=payload,
         occurred_at=occurred_at,
@@ -221,6 +244,7 @@ async def record_technician_field_action(
         db.add(
             JobSiteObservation(
                 job_id=job_id,
+                visit_id=visit.id if visit is not None else None,
                 field_action_id=action.id,
                 observation_type=event_type,
                 latitude=float(payload["latitude"]),
@@ -241,6 +265,7 @@ async def record_technician_field_action(
     await log_job_activity(
         db=db,
         job_id=job_id,
+        visit_id=visit.id if visit is not None else None,
         technician_id=current_user.technician_id,
         action=event_type,
         description=_description(event_type, payload),

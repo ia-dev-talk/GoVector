@@ -644,7 +644,10 @@ async def get_technician_kpis(
     today = datetime.utcnow().date()
     start_today = datetime(today.year, today.month, today.day)
 
-    assignments_q = select(Assignment).where(Assignment.technician_id == tech_id)
+    assignments_q = select(Assignment).where(
+        Assignment.technician_id == tech_id,
+        Assignment.ended_at.is_(None),
+    )
     all_assignments = (await db.execute(assignments_q)).scalars().all()
     job_ids = [a.job_id for a in all_assignments]
 

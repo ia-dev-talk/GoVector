@@ -14,7 +14,7 @@ import logging
 from backend.database.models import (
     Technician, TechnicianStatus, TechnicianLiveStatus,
     EquipmentInventory, Warehouse, Stock, StockItem, StockMovement,
-    Assignment, Job, JobStatus, JobActivityLog, GPSHistory,
+    Assignment, Job, JobStatus, JobVisit, JobActivityLog, GPSHistory,
     Orienteur, Sector, StockMovementType,
 )
 
@@ -200,22 +200,33 @@ async def get_technician_full_details(db: AsyncSession, technician_id: int) -> D
     # 4. Interventions (Assignment → Job)
     today = date.today()
     assignments_result = await db.execute(
-        select(Assignment, Job)
+        select(Assignment, Job, JobVisit)
         .join(Job, Assignment.job_id == Job.id)
+        .outerjoin(JobVisit, Assignment.visit_id == JobVisit.id)
         .where(Assignment.technician_id == technician_id)
-        .order_by(Job.scheduled_date.desc())
+        .order_by(Assignment.assigned_at.desc(), Assignment.id.desc())
         .limit(50)
     )
     assignments = []
-    for ass, job in assignments_result.all():
+    for ass, job, visit in assignments_result.all():
         assignments.append({
             "job_id": job.id,
+            "visit_id": visit.id if visit else None,
+            "attempt_number": visit.attempt_number if visit else None,
             "job_number": job.job_number,
             "customer_name": job.customer_name,
             "service_address": job.service_address,
             "job_type": job.job_type.value if job.job_type else None,
-            "status": job.status.value if job.status else None,
-            "scheduled_date": job.scheduled_date.isoformat() if job.scheduled_date else None,
+            "status": (
+                visit.outcome or visit.status
+                if visit
+                else (job.status.value if job.status else None)
+            ),
+            "scheduled_date": (
+                (visit.scheduled_at or job.scheduled_date).isoformat()
+                if (visit and visit.scheduled_at) or job.scheduled_date
+                else None
+            ),
             "estimated_duration": job.estimated_duration,
             "actual_duration_minutes": ass.actual_duration_minutes,
         })

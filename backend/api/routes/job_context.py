@@ -15,11 +15,14 @@ from backend.auth.dependencies import get_current_user, require_orienteur
 from backend.config import get_settings
 from backend.database.connection import get_db
 from backend.database.models import (
+    Assignment,
     Job,
+    JobStatus,
     JobActivityLog,
     JobAttachment,
     JobCommunication,
     JobSiteObservation,
+    JobVisit,
     Technician,
     TechnicianFieldAction,
     TechnicianMedia,
@@ -39,11 +42,21 @@ from backend.logic.job_communications import (
 )
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_history import site_match_clause
+from backend.logic.workflow.capabilities import STATUS_METADATA
 from backend.services.media_storage import FileSystemMediaStorage, MediaStorageError
 
 
 router = APIRouter(tags=["V1 Job Context"])
 _KINDS = {"plan", "photo", "document", "instruction"}
+
+
+def _visit_status_label(value: str | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return STATUS_METADATA[JobStatus(value)].label
+    except (KeyError, ValueError):
+        return value
 
 
 class OfficeNotePayload(BaseModel):
@@ -193,6 +206,23 @@ async def get_field_record(
             .order_by(JobSiteObservation.occurred_at.desc())
         )
     ).scalars().all()
+    visits = []
+    assignment_history = []
+    if isinstance(db, AsyncSession):
+        visits = (
+            await db.execute(
+                select(JobVisit)
+                .where(JobVisit.job_id == job_id)
+                .order_by(JobVisit.attempt_number.asc())
+            )
+        ).scalars().all()
+        assignment_history = (
+            await db.execute(
+                select(Assignment)
+                .where(Assignment.job_id == job_id)
+                .order_by(Assignment.assigned_at.asc(), Assignment.id.asc())
+            )
+        ).scalars().all()
     attachments = (
         await db.execute(
             select(JobAttachment)
@@ -213,6 +243,10 @@ async def get_field_record(
     communications = await _communication_rows(db, job_id)
     technician_ids = {item.technician_id for item in actions} | {
         item.technician_id for item in media
+    } | {item.technician_id for item in assignment_history} | {
+        item.primary_technician_id
+        for item in visits
+        if item.primary_technician_id is not None
     }
     technicians = {}
     if technician_ids:
@@ -282,6 +316,7 @@ async def get_field_record(
         "site_observations": [
             {
                 "id": item.id,
+                "visit_id": item.visit_id,
                 "type": item.observation_type,
                 "latitude": item.latitude,
                 "longitude": item.longitude,
@@ -298,6 +333,7 @@ async def get_field_record(
         "field_actions": [
             {
                 "id": item.id,
+                "visit_id": item.visit_id,
                 "event_id": item.event_id,
                 "type": item.action_type,
                 "payload": item.payload,
@@ -310,6 +346,7 @@ async def get_field_record(
         "technician_media": [
             {
                 "media_id": item.media_id,
+                "visit_id": item.visit_id,
                 "kind": item.kind,
                 "filename": item.original_filename,
                 "mime_type": item.mime_type,
@@ -321,6 +358,45 @@ async def get_field_record(
                 "created_at": item.created_at,
             }
             for item in media
+        ],
+        "visits": [
+            {
+                "id": item.id,
+                "attempt_number": item.attempt_number,
+                "status": item.status,
+                "outcome": item.outcome,
+                "status_label": _visit_status_label(item.outcome or item.status),
+                "primary_technician_id": item.primary_technician_id,
+                "primary_technician_name": technicians.get(
+                    item.primary_technician_id
+                ),
+                "scheduled_at": item.scheduled_at,
+                "assigned_at": item.assigned_at,
+                "accepted_at": item.accepted_at,
+                "started_at": item.started_at,
+                "arrived_at": item.arrived_at,
+                "work_started_at": item.work_started_at,
+                "ended_at": item.ended_at,
+                "start_latitude": item.start_latitude,
+                "start_longitude": item.start_longitude,
+                "end_latitude": item.end_latitude,
+                "end_longitude": item.end_longitude,
+                "backfill_confidence": item.backfill_confidence,
+            }
+            for item in visits
+        ],
+        "assignment_history": [
+            {
+                "id": item.id,
+                "visit_id": item.visit_id,
+                "technician_id": item.technician_id,
+                "technician_name": technicians.get(item.technician_id),
+                "assigned_at": item.assigned_at,
+                "ended_at": item.ended_at,
+                "end_reason": item.end_reason,
+                "is_current": item.ended_at is None,
+            }
+            for item in assignment_history
         ],
         "office_attachments": [_attachment_dict(item) for item in attachments],
         "office_notes": [

@@ -20,6 +20,7 @@ from backend.database.models import (
     JobSiteObservation,
     JobStatus,
     JobType,
+    JobVisit,
     Technician,
     TechnicianFieldAction,
     TechnicianLiveStatus,
@@ -29,6 +30,12 @@ from backend.database.models import (
 from backend.logic.technician_field_actions import (
     record_technician_field_action,
 )
+from backend.logic import assignments as assignment_logic
+from backend.logic.technician_jobs import (
+    accept_and_start_technician_job,
+    fail_technician_job,
+)
+from backend.logic.workflow.engine import WorkflowEngine
 
 
 ADMIN_URL_ENV = "BLUEVECTOR_POSTGRES_CONTRACT_ADMIN_URL"
@@ -181,3 +188,98 @@ async def test_postgres_preserves_planned_live_and_confirmed_locations(
             "cable_entry",
             "cable_exit",
         }
+
+
+@pytest.mark.asyncio
+async def test_postgres_preserves_each_visit_and_assignment_after_retry(
+    postgres_session_factory,
+    monkeypatch,
+):
+    monkeypatch.setattr(WorkflowEngine, "_broadcast", AsyncMock())
+    async with postgres_session_factory() as db:
+        first_technician = Technician(
+            name="Premier technicien",
+            employee_id="B1-VISIT-A",
+            home_latitude=33.57,
+            home_longitude=-7.59,
+        )
+        second_technician = Technician(
+            name="Technicien reprise",
+            employee_id="B1-VISIT-B",
+            home_latitude=33.58,
+            home_longitude=-7.60,
+        )
+        db.add_all([first_technician, second_technician])
+        await db.flush()
+        first_user = User(
+            username="visit.first",
+            email="visit.first@bluevector.test",
+            password_hash="not-used",
+            role=UserRole.TECHNICIAN,
+            technician_id=first_technician.id,
+        )
+        job = Job(
+            job_type=JobType.DEPANNAGE,
+            status=JobStatus.PENDING,
+            service_address="Site multi-passage",
+        )
+        db.add_all([first_user, job])
+        await db.commit()
+
+        first_assignment = await assignment_logic.create_assignment(
+            db,
+            job_id=job.id,
+            technician_id=first_technician.id,
+        )
+        await accept_and_start_technician_job(
+            db,
+            job_id=job.id,
+            payload={},
+            current_user=first_user,
+        )
+        await fail_technician_job(
+            db,
+            job_id=job.id,
+            payload={"reason": "Accès impossible"},
+            current_user=first_user,
+        )
+        await db.commit()
+
+        await db.refresh(first_assignment)
+        assert first_assignment.ended_at is not None
+        assert first_assignment.end_reason == JobStatus.FAILED.value
+        first_visit_id = first_assignment.visit_id
+
+        second_assignment = await assignment_logic.create_assignment(
+            db,
+            job_id=job.id,
+            technician_id=second_technician.id,
+        )
+        await db.commit()
+
+        assignments = (
+            await db.execute(
+                select(Assignment)
+                .where(Assignment.job_id == job.id)
+                .order_by(Assignment.assigned_at.asc(), Assignment.id.asc())
+            )
+        ).scalars().all()
+        visits = (
+            await db.execute(
+                select(JobVisit)
+                .where(JobVisit.job_id == job.id)
+                .order_by(JobVisit.attempt_number.asc())
+            )
+        ).scalars().all()
+
+        assert [visit.attempt_number for visit in visits] == [1, 2]
+        assert visits[0].id == first_visit_id
+        assert visits[0].outcome == JobStatus.FAILED.value
+        assert visits[0].ended_at is not None
+        assert visits[1].ended_at is None
+        assert len(assignments) == 2
+        assert assignments[0].technician_id == first_technician.id
+        assert assignments[0].ended_at is not None
+        assert assignments[1].id == second_assignment.id
+        assert assignments[1].technician_id == second_technician.id
+        assert assignments[1].ended_at is None

@@ -17,6 +17,7 @@ async def log_job_activity(
     db: AsyncSession,
     job_id: int,
     action: str,
+    visit_id: Optional[int] = None,
     technician_id: Optional[int] = None,
     description: Optional[str] = None,
     old_status: Optional[str] = None,
@@ -28,6 +29,7 @@ async def log_job_activity(
     """Enregistre une action dans le journal d'activité."""
     log_entry = JobActivityLog(
         job_id=job_id,
+        visit_id=visit_id,
         technician_id=technician_id,
         action=action,
         description=description,
