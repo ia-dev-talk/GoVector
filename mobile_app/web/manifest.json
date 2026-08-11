@@ -1,11 +1,11 @@
 {
-    "name": "mobile_app",
-    "short_name": "mobile_app",
+    "name": "BlueVector Terrain",
+    "short_name": "BlueVector",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Application terrain offline-first BlueVector.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

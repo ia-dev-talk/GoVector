@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mobile_app"
+    namespace = "dev.bigdataai.bluevector"
     // flutter_plugin_android_lifecycle currently requires API 36 metadata.
     // compileSdk is independent from targetSdk/runtime behaviour.
     compileSdk = 36
@@ -20,8 +20,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.mobile_app"
+        applicationId = "dev.bigdataai.bluevector"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

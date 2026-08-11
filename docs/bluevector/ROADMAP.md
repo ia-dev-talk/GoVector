@@ -12,7 +12,8 @@
 - ESLint ramené à zéro sans désactiver les règles.
 - CI backend, frontend et Flutter ajoutée avec analyze/tests/build APK.
 - Contrat GPS complet backend ajouté et rétention quotidienne configurable.
-- Choisir un `applicationId` BlueVector, une stratégie de version et une signature release; la configuration `com.example`/debug est seulement pilote local.
+- [x] Remplacer les identifiants `com.example` par `dev.bigdataai.bluevector` et harmoniser l’identité affichée.
+- Choisir une stratégie de version et configurer une signature release dédiée; la clé debug reste uniquement destinée au pilote local/CI.
 - Exécuter le scénario GPS sur PostgreSQL/Docker puis sur un téléphone réel.
 - Faire valider la finalité, l'information technicien et la durée GPS avant production.
 - Remplacer le stockage média filesystem par un object storage de production.
