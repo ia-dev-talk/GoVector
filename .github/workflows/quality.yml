@@ -55,6 +55,7 @@ jobs:
           backend/tests/test_alembic_v031.py
           backend/tests/test_alembic_v032.py
           backend/tests/test_alembic_v033.py
+          backend/tests/test_alembic_v035.py
 
   frontend:
     runs-on: ubuntu-latest

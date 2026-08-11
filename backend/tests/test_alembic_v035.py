@@ -1,4 +1,4 @@
-"""PostgreSQL contract for structured site provenance in v033."""
+"""PostgreSQL contract for the v034/v035 operational governance chain."""
 
 import asyncio
 import os
@@ -17,8 +17,8 @@ from backend.database.models import Base
 
 ROOT = Path(__file__).resolve().parents[2]
 ADMIN_URL_ENV = "BLUEVECTOR_POSTGRES_CONTRACT_ADMIN_URL"
-PREVIOUS_REVISION = "wj0e1f2a3b4c"
-HEAD_REVISION = "xk1f2a3b4c5d"
+PREVIOUS_REVISION = "xk1f2a3b4c5d"
+HEAD_REVISION = "zm3h4c5d6e7f"
 
 
 def _admin_url() -> str:
@@ -65,7 +65,7 @@ async def _drop_database(admin_url: str, database_name: str) -> None:
         await connection.close()
 
 
-async def _prepare_v032_schema(database_url: str) -> None:
+async def _prepare_v033_schema(database_url: str) -> None:
     engine = create_async_engine(_sqlalchemy_url(database_url))
     try:
         async with engine.begin() as connection:
@@ -74,13 +74,17 @@ async def _prepare_v032_schema(database_url: str) -> None:
         await engine.dispose()
     connection = await asyncpg.connect(database_url)
     try:
-        await connection.execute("DROP TABLE site_resolved_attributes CASCADE")
-        await connection.execute("DROP TABLE site_attribute_observations CASCADE")
+        await connection.execute("DROP TABLE operational_audit_events CASCADE")
+        await connection.execute("DROP TABLE site_merge_records CASCADE")
+        await connection.execute("ALTER TABLE sites DROP COLUMN merge_reason")
+        await connection.execute("ALTER TABLE sites DROP COLUMN merged_by_user_id")
+        await connection.execute("ALTER TABLE sites DROP COLUMN merged_at")
+        await connection.execute("ALTER TABLE sites DROP COLUMN merged_into_site_id")
     finally:
         await connection.close()
 
 
-async def _inspect(database_url: str) -> tuple[set[str], str]:
+async def _inspect(database_url: str) -> dict:
     connection = await asyncpg.connect(database_url)
     try:
         tables = {
@@ -89,26 +93,41 @@ async def _inspect(database_url: str) -> tuple[set[str], str]:
                 "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
             )
         }
+        site_columns = {
+            row["column_name"]
+            for row in await connection.fetch(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'sites'
+                """
+            )
+        }
         revision = await connection.fetchval("SELECT version_num FROM alembic_version")
-        return tables, revision
+        return {"tables": tables, "site_columns": site_columns, "revision": revision}
     finally:
         await connection.close()
 
 
-def test_v033_creates_structured_site_provenance_tables():
+def test_v034_v035_upgrade_from_v033_to_current_head():
     admin_url = _admin_url()
-    database_name = f"bluevector_v033_{uuid4().hex}"
-    assert re.fullmatch(r"bluevector_v033_[0-9a-f]{32}", database_name)
+    database_name = f"bluevector_v035_{uuid4().hex}"
+    assert re.fullmatch(r"bluevector_v035_[0-9a-f]{32}", database_name)
     asyncio.run(_create_database(admin_url, database_name))
     database_url = _database_url(admin_url, database_name)
     try:
-        asyncio.run(_prepare_v032_schema(database_url))
+        asyncio.run(_prepare_v033_schema(database_url))
         _run_alembic(database_url, "stamp", PREVIOUS_REVISION)
-        _run_alembic(database_url, "upgrade", HEAD_REVISION)
-        tables, revision = asyncio.run(_inspect(database_url))
+        _run_alembic(database_url, "upgrade", "head")
+        result = asyncio.run(_inspect(database_url))
     finally:
         asyncio.run(_drop_database(admin_url, database_name))
 
-    assert revision == HEAD_REVISION
-    assert "site_attribute_observations" in tables
-    assert "site_resolved_attributes" in tables
+    assert result["revision"] == HEAD_REVISION
+    assert "site_merge_records" in result["tables"]
+    assert "operational_audit_events" in result["tables"]
+    assert {
+        "merged_into_site_id",
+        "merged_at",
+        "merged_by_user_id",
+        "merge_reason",
+    }.issubset(result["site_columns"])
