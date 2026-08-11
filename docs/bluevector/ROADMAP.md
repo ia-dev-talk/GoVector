@@ -17,6 +17,8 @@
 - Exécuter le scénario GPS sur PostgreSQL/Docker puis sur un téléphone réel.
 - Faire valider la finalité, l'information technicien et la durée GPS avant production.
 - Remplacer le stockage média filesystem par un object storage de production.
+- [x] Fournir une sauvegarde PostgreSQL/médias avec manifeste SHA-256 et une restauration base protégée par confirmation explicite.
+- Exécuter et consigner un test de restauration sur une copie isolée avant chaque version bêta.
 
 ## B2 — modèle multi-passage
 

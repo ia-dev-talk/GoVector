@@ -6,7 +6,7 @@ Ce dossier est la mémoire métier et architecturale du produit. Il doit être l
 
 La branche V1 dispose d’un workflow technicien piloté par le backend, d’une outbox mobile idempotente, de médias durables, d’un historique personnel/site, d’un contexte bureau-terrain, d’une géolocalisation live distincte de la position planifiée, d’un premier modèle d’équipes/clients, de passages terrain et d’affectations historiques depuis v031, puis d’une identité `Site` et d’une résolution GPS explicite depuis v032.
 
-`Job` reste l’ordre de travail stable consommé par les anciens clients. `JobVisit` porte chaque tentative terrain et `Assignment` conserve chaque participation, avec une seule visite et une seule affectation courantes par ordre. `Site` stabilise l’identité physique et la position terrain résolue sans fusion approximative d’adresses. Depuis v033, les observations PTO/PBO/PM et les principaux scans d’équipement utilisent aussi un contrat planned/observed/resolved. La fusion manuelle de sites et les adaptateurs Praxedo/QField restent à construire.
+`Job` reste l’ordre de travail stable consommé par les anciens clients. `JobVisit` porte chaque tentative terrain et `Assignment` conserve chaque participation, avec une seule visite et une seule affectation courantes par ordre. `Site` stabilise l’identité physique et la position terrain résolue sans fusion approximative d’adresses. Depuis v033, les observations PTO/PBO/PM et les principaux scans d’équipement utilisent aussi un contrat planned/observed/resolved. La fusion manuelle contrôlée existe depuis v034; les adaptateurs Praxedo/QField restent à construire.
 
 ## Ordre de lecture
 
@@ -22,6 +22,7 @@ La branche V1 dispose d’un workflow technicien piloté par le backend, d’une
 10. [Checklist de livraison Android](ANDROID_RELEASE_CHECKLIST.md)
 11. [Import adaptatif Excel et CSV](ADAPTIVE_IMPORT.md)
 12. [Audit système du 11 août 2026](SYSTEM_AUDIT_2026-08-11.md)
+13. [Sauvegarde et reprise](BACKUP_AND_RECOVERY.md)
 
 ## Principes non négociables
 
