@@ -308,6 +308,18 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                   .map((item) => Map<String, dynamic>.from(item))
                   .toList()
             : <Map<String, dynamic>>[];
+        final resolvedAttributes = data['site_resolved_attributes'] is List
+            ? (data['site_resolved_attributes'] as List)
+                  .whereType<Map>()
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList()
+            : <Map<String, dynamic>>[];
+        final attributeObservations = data['site_attribute_observations'] is List
+            ? (data['site_attribute_observations'] as List)
+                  .whereType<Map>()
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList()
+            : <Map<String, dynamic>>[];
         final reference = data['field_reference_location'] is Map
             ? Map<String, dynamic>.from(data['field_reference_location'] as Map)
             : null;
@@ -321,6 +333,8 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
             attachments.isEmpty &&
             communications.isEmpty &&
             observations.isEmpty &&
+            resolvedAttributes.isEmpty &&
+            attributeObservations.isEmpty &&
             reference == null) {
           return const SizedBox.shrink();
         }
@@ -525,6 +539,45 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                     '${observation['type'] == 'cable_entry' ? 'Entrée' : 'Sortie'} câble · '
                     '${observation['latitude']}, ${observation['longitude']}',
                     style: const TextStyle(color: BlueVectorColors.textSecondary),
+                  ),
+                ),
+              if (resolvedAttributes.isNotEmpty) ...[
+                const SizedBox(height: BlueVectorSpacing.sm),
+                const Text(
+                  'Référentiel validé du site',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                for (final item in resolvedAttributes)
+                  Padding(
+                    padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.verified_outlined,
+                          size: 18,
+                          color: BlueVectorColors.success,
+                        ),
+                        const SizedBox(width: BlueVectorSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            '${item['label'] ?? item['key']} · ${item['value']}',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              for (final item in attributeObservations.where(
+                (value) =>
+                    value['resolution_status'] == 'conflict' ||
+                    value['resolution_status'] == 'unreviewed',
+              ))
+                Padding(
+                  padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
+                  child: Text(
+                    '${item['label'] ?? item['key']} relevé · ${item['value']} · '
+                    '${item['resolution_status'] == 'conflict' ? 'différent du dossier préparé' : 'en attente de vérification bureau'}',
+                    style: const TextStyle(color: BlueVectorColors.warning),
                   ),
                 ),
               for (final item in attachments)

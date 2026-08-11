@@ -173,6 +173,12 @@ export default function InterventionEvidencePanel({
   const siteObservations = Array.isArray(fieldRecord?.site_observations)
     ? fieldRecord.site_observations
     : [];
+  const siteResolvedAttributes = Array.isArray(fieldRecord?.site_resolved_attributes)
+    ? fieldRecord.site_resolved_attributes
+    : [];
+  const siteAttributeObservations = Array.isArray(fieldRecord?.site_attribute_observations)
+    ? fieldRecord.site_attribute_observations
+    : [];
   const officeNotes = Array.isArray(fieldRecord?.office_notes)
     ? fieldRecord.office_notes
     : [];
@@ -260,6 +266,7 @@ export default function InterventionEvidencePanel({
     technicianMedia.length +
     officeAttachments.length +
     siteObservations.length +
+    siteAttributeObservations.length +
     communications.length;
 
   const openBlob = async (request) => {
@@ -276,7 +283,7 @@ export default function InterventionEvidencePanel({
   );
 
   const handleResolveSiteObservation = async (item, decision) => {
-    setResolvingSiteObservation(item.id);
+    setResolvingSiteObservation(`location:${item.id}`);
     setUploadError('');
     try {
       await api.resolveJobSiteObservation(job.id, item.id, {
@@ -290,6 +297,27 @@ export default function InterventionEvidencePanel({
         error?.response?.data?.detail ||
         error?.message ||
         'Résolution du repère impossible.',
+      );
+    } finally {
+      setResolvingSiteObservation(null);
+    }
+  };
+
+  const handleResolveSiteAttribute = async (item, decision) => {
+    setResolvingSiteObservation(`attribute:${item.id}`);
+    setUploadError('');
+    try {
+      await api.resolveJobSiteAttribute(job.id, item.id, {
+        decision,
+        expected_revision: fieldRecord?.site?.revision ?? null,
+      });
+      if (typeof onRecordChanged === 'function') onRecordChanged();
+    } catch (error) {
+      setUploadError(
+        error?.response?.data?.message ||
+        error?.response?.data?.detail ||
+        error?.message ||
+        'Résolution de la donnée terrain impossible.',
       );
     } finally {
       setResolvingSiteObservation(null);
@@ -682,7 +710,7 @@ export default function InterventionEvidencePanel({
                     <button
                       type="button"
                       className="btn btn--secondary"
-                      disabled={resolvingSiteObservation === item.id}
+                      disabled={resolvingSiteObservation === `location:${item.id}`}
                       onClick={() => handleResolveSiteObservation(item, 'accepted')}
                     >
                       Utiliser comme référence
@@ -690,8 +718,70 @@ export default function InterventionEvidencePanel({
                     <button
                       type="button"
                       className="btn btn--secondary"
-                      disabled={resolvingSiteObservation === item.id}
+                      disabled={resolvingSiteObservation === `location:${item.id}`}
                       onClick={() => handleResolveSiteObservation(item, 'rejected')}
+                    >
+                      Rejeter
+                    </button>
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </ModuleSection>
+
+        <ModuleSection
+          title="Réseau et équipements observés"
+          count={siteAttributeObservations.length}
+          emptyLabel="Aucune référence structurée relevée sur le terrain"
+          hasContent={siteAttributeObservations.length > 0 || siteResolvedAttributes.length > 0}
+        >
+          <div className="intervention-detail-comment-list">
+            {siteResolvedAttributes.length > 0 ? (
+              <article>
+                <span>Référentiel actuellement validé</span>
+                <div className="intervention-detail-structured-facts">
+                  {siteResolvedAttributes.map((item) => (
+                    <p key={`resolved-${item.id}`}>
+                      <strong>{item.label}</strong>
+                      <code>{item.value}</code>
+                    </p>
+                  ))}
+                </div>
+              </article>
+            ) : null}
+            {siteAttributeObservations.map((item) => (
+              <article key={`attribute-${item.id}`}>
+                <span>
+                  {item.label}
+                  {' · '}
+                  {item.resolution_status === 'accepted'
+                    ? 'Confirmé'
+                    : item.resolution_status === 'conflict'
+                      ? 'Différent du référentiel'
+                      : item.resolution_status === 'rejected'
+                        ? 'Rejeté'
+                        : 'À examiner'}
+                </span>
+                <p><code>{item.value}</code></p>
+                <small>
+                  {item.technician_name || 'Technicien terrain'} · {formatVisitDate(item.occurred_at)}
+                </small>
+                {['conflict', 'unreviewed'].includes(item.resolution_status) ? (
+                  <div className="intervention-detail-inline-actions">
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={resolvingSiteObservation === `attribute:${item.id}`}
+                      onClick={() => handleResolveSiteAttribute(item, 'accepted')}
+                    >
+                      Confirmer cette valeur
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--secondary"
+                      disabled={resolvingSiteObservation === `attribute:${item.id}`}
+                      onClick={() => handleResolveSiteAttribute(item, 'rejected')}
                     >
                       Rejeter
                     </button>

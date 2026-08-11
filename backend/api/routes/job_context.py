@@ -24,6 +24,8 @@ from backend.database.models import (
     JobSiteObservation,
     JobVisit,
     Site,
+    SiteAttributeObservation,
+    SiteResolvedAttribute,
     Technician,
     TechnicianFieldAction,
     TechnicianMedia,
@@ -44,6 +46,11 @@ from backend.logic.job_communications import (
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_history import site_match_clause
 from backend.logic.site_registry import resolve_site_observation, site_dict
+from backend.logic.site_attributes import (
+    attribute_observation_dict,
+    resolve_site_attribute_observation,
+    resolved_attribute_dict,
+)
 from backend.logic.workflow.capabilities import STATUS_METADATA
 from backend.services.media_storage import FileSystemMediaStorage, MediaStorageError
 
@@ -70,6 +77,10 @@ class SiteObservationResolutionPayload(BaseModel):
 
     decision: str = Field(pattern="^(accepted|rejected)$")
     expected_revision: int | None = Field(default=None, ge=0)
+
+
+class SiteAttributeResolutionPayload(SiteObservationResolutionPayload):
+    note: str | None = Field(default=None, max_length=1000)
 
 
 class CommunicationAssetPayload(BaseModel):
@@ -215,9 +226,25 @@ async def get_field_record(
             .order_by(JobSiteObservation.occurred_at.desc())
         )
     ).scalars().all()
+    attribute_observations = (
+        await db.execute(
+            select(SiteAttributeObservation)
+            .where(SiteAttributeObservation.job_id == job_id)
+            .order_by(SiteAttributeObservation.occurred_at.desc())
+        )
+    ).scalars().all()
     site = None
     if isinstance(db, AsyncSession) and getattr(job, "site_id", None) is not None:
         site = await db.scalar(select(Site).where(Site.id == job.site_id))
+    resolved_attributes = []
+    if site is not None:
+        resolved_attributes = (
+            await db.execute(
+                select(SiteResolvedAttribute)
+                .where(SiteResolvedAttribute.site_id == site.id)
+                .order_by(SiteResolvedAttribute.attribute_key.asc())
+            )
+        ).scalars().all()
     visits = []
     assignment_history = []
     if isinstance(db, AsyncSession):
@@ -329,6 +356,16 @@ async def get_field_record(
     return {
         "job_id": job.id,
         "site": site_dict(site),
+        "site_resolved_attributes": [
+            resolved_attribute_dict(item) for item in resolved_attributes
+        ],
+        "site_attribute_observations": [
+            {
+                **attribute_observation_dict(item),
+                "technician_name": technicians.get(item.technician_id),
+            }
+            for item in attribute_observations
+        ],
         "planned_location": {
             "address": job.service_address,
             "city": job.service_city,
@@ -519,6 +556,57 @@ async def resolve_job_site_observation(
             "resolved_at": observation.resolved_at,
             "resolved_by_user_id": observation.resolved_by_user_id,
         },
+    }
+
+
+@router.post("/{job_id}/site-attributes/{observation_id}/resolve")
+async def resolve_job_site_attribute(
+    job_id: int,
+    observation_id: int,
+    payload: SiteAttributeResolutionPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_orienteur),
+):
+    job = await require_job_read_access_by_id(
+        db, job_id=job_id, current_user=current_user
+    )
+    require_job_operations_access(job=job, current_user=current_user)
+    site, observation, resolved = await resolve_site_attribute_observation(
+        db,
+        job=job,
+        observation_id=observation_id,
+        decision=payload.decision,
+        expected_revision=payload.expected_revision,
+        current_user=current_user,
+        note=payload.note,
+    )
+    await log_job_activity(
+        db=db,
+        job_id=job.id,
+        visit_id=observation.visit_id,
+        action="site_attribute_resolved",
+        description=(
+            f"{observation.attribute_key} confirmé pour le site"
+            if payload.decision == "accepted"
+            else f"{observation.attribute_key} rejeté"
+        ),
+        metadata={
+            "user_id": current_user.id,
+            "site_id": site.id,
+            "site_revision": site.revision,
+            "observation_id": observation.id,
+            "attribute_key": observation.attribute_key,
+            "decision": payload.decision,
+            "note": payload.note,
+        },
+    )
+    await db.commit()
+    return {
+        "site": site_dict(site),
+        "observation": attribute_observation_dict(observation),
+        "resolved_attribute": (
+            resolved_attribute_dict(resolved) if resolved is not None else None
+        ),
     }
 
 

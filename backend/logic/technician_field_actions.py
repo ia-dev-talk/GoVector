@@ -16,6 +16,7 @@ from backend.api.errors import BusinessAPIError
 from backend.logic.job_access import require_job_collaboration_access
 from backend.logic.job_visits import resolve_visit_for_technician
 from backend.logic.site_registry import attach_observation_to_site
+from backend.logic.site_attributes import record_site_attribute_observation
 from backend.logic.technician_jobs import (
     TechnicianJobMutationError,
     require_assigned_job,
@@ -270,6 +271,15 @@ async def record_technician_field_action(
                 observation=observation,
                 current_user=current_user,
             )
+    if event_type in {"network_reference", "equipment_scan"} and isinstance(
+        db, AsyncSession
+    ):
+        await record_site_attribute_observation(
+            db,
+            job=job,
+            action=action,
+            current_user=current_user,
+        )
     await log_job_activity(
         db=db,
         job_id=job_id,

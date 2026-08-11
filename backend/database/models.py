@@ -1506,6 +1506,126 @@ class JobSiteObservation(Base):
     )
 
 
+class SiteResolvedAttribute(Base):
+    """Canonical structured fact for a site after an explicit resolution.
+
+    This deliberately covers only conflict-prone network and installed-asset
+    references. It is not a generic replacement for typed business models.
+    """
+
+    __tablename__ = "site_resolved_attributes"
+    __table_args__ = (
+        UniqueConstraint(
+            "site_id",
+            "attribute_key",
+            name="uq_site_resolved_attributes_site_key",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    site_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    attribute_key: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    value_text: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    value_json: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        nullable=False,
+    )
+    source_observation_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("site_attribute_observations.id", ondelete="SET NULL")
+    )
+    resolved_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    resolved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    revision: Mapped[int] = mapped_column(
+        Integer, default=1, server_default="1", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+
+class SiteAttributeObservation(Base):
+    """Append-only field proposal for a structured site attribute."""
+
+    __tablename__ = "site_attribute_observations"
+    __table_args__ = (
+        UniqueConstraint(
+            "field_action_id",
+            name="uq_site_attribute_observations_field_action",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    site_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("sites.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    job_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), index=True
+    )
+    field_action_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("technician_field_actions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    attribute_key: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    value_text: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_value: Mapped[str] = mapped_column(String(255), nullable=False)
+    value_json: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        nullable=False,
+    )
+    source: Mapped[str] = mapped_column(
+        String(32), default="mobile", server_default="mobile", nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    technician_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("technicians.id"), nullable=False, index=True
+    )
+    base_site_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    resolution_status: Mapped[str] = mapped_column(
+        String(16), default="unreviewed", server_default="unreviewed", nullable=False, index=True
+    )
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    resolved_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL")
+    )
+    resolution_note: Mapped[Optional[str]] = mapped_column(Text)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+
 class JobAttachment(Base):
     """Document de préparation partagé par le bureau avec le terrain."""
 

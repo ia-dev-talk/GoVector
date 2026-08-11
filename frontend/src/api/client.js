@@ -1565,6 +1565,12 @@ export const api = {
       data,
     ),
 
+  resolveJobSiteAttribute: (jobId, observationId, data) =>
+    apiClient.post(
+      `/job-actions/${pathSegment(jobId, 'Intervention')}/site-attributes/${pathSegment(observationId, 'Observation')}/resolve`,
+      data,
+    ),
+
   resolvePreparedAddress: (data) =>
     apiClient.post('/geocoding/resolve', data),
 

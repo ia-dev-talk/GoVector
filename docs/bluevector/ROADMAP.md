@@ -30,7 +30,7 @@
 - [x] Conserver planned/observed/resolved pour le GPS avec auteur, source, date et révision.
 - [x] Rendre les conflits GPS explicites et résolubles par le bureau.
 - [x] Donner la priorité à `site_id` dans l’historique et l’héritage des repères.
-- [ ] Étendre le même contrat de résolution aux conflits PTO/PBO/équipement.
+- [x] Étendre le même contrat de résolution aux conflits PTO/PBO/PM/équipement.
 - [ ] Fournir une action bureau contrôlée pour lier/fusionner deux sites après vérification humaine.
 
 ## B4 — intégrations
@@ -38,6 +38,14 @@
 - Obtenir la documentation/les accès sandbox Praxedo, écrire mapping et tests contractuels.
 - Définir le format de delta QField et sa stratégie de conflit.
 - Ajouter inbox/outbox d’intégration idempotentes et observabilité.
+
+## B3.1 — paramétrage gouverné et expérience opérateur
+
+- Publier des catalogues backend versionnés pour activités, grades, champs et libellés.
+- Permettre la préparation puis l’activation d’une configuration après validation.
+- Conserver les identifiants techniques historiques même lorsqu’un libellé est archivé.
+- Fournir une recherche transversale et des vues de travail par exception.
+- Unifier les états chargement/vide/erreur/succès du Web et du Mobile.
 
 ## Hors promesse actuelle
 

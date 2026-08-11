@@ -184,6 +184,83 @@ Future<void> showMobileActionSheet({
     showMessage('$title enregistré.');
   }
 
+  Future<void> promptNetworkReference() async {
+    final controller = TextEditingController();
+    var referenceType = 'pto';
+    final result = await showDialog<Map<String, String>>(
+      context: pageContext,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Référence réseau observée'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Choisissez ce que vous relevez. La valeur préparée par le bureau reste conservée en cas de différence.',
+              ),
+              const SizedBox(height: BlueVectorSpacing.sm),
+              DropdownButtonFormField<String>(
+                initialValue: referenceType,
+                decoration: const InputDecoration(labelText: 'Type de repère'),
+                items: const [
+                  DropdownMenuItem(value: 'pto', child: Text('PTO')),
+                  DropdownMenuItem(value: 'pbo', child: Text('PBO')),
+                  DropdownMenuItem(value: 'pm', child: Text('PM / SRO')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => referenceType = value);
+                  }
+                },
+              ),
+              const SizedBox(height: BlueVectorSpacing.sm),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Référence lue sur place',
+                  hintText: 'Ex. PTO-CASA-001234',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final value = controller.text.trim();
+                if (value.isNotEmpty) {
+                  Navigator.pop(dialogContext, {
+                    'reference_type': referenceType,
+                    'value': value,
+                  });
+                }
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (result == null) return;
+    await OfflineService.addPendingAction(
+      action: 'network_reference',
+      data: {
+        'job_id': job.id,
+        ...result,
+        'created_at': DateTime.now().toIso8601String(),
+      },
+    );
+    unawaited(OfflineService.syncPendingActions());
+    await onDataChanged();
+    showMessage('${result['reference_type']?.toUpperCase()} enregistré.');
+  }
+
   Future<void> scanEquipment() async {
     final result = await Navigator.of(pageContext).push<EquipmentScanResult>(
       MaterialPageRoute<EquipmentScanResult>(
@@ -272,11 +349,7 @@ Future<void> showMobileActionSheet({
           label: 'PBO / PM / PTO',
           icon: Icons.inventory_2_outlined,
           color: BlueVectorColors.violet,
-          onTap: () => promptTextAction(
-            title: 'PBO / PM / PTO',
-            action: 'network_reference',
-            hint: 'Référence réseau, scan ou note…',
-          ),
+          onTap: promptNetworkReference,
         ),
         _MobileAction(
           category: _ActionCategory.compteRendu,

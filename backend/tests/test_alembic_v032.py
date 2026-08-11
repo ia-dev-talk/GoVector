@@ -192,7 +192,8 @@ def test_v032_adopts_strong_site_identity_and_preserves_field_fix():
             _prepare_v031_schema(database_url)
         )
         _run_alembic(database_url, "stamp", PREVIOUS_REVISION)
-        _run_alembic(database_url, "upgrade", "head")
+        # This test owns v032 only; future migrations have their own contract.
+        _run_alembic(database_url, "upgrade", HEAD_REVISION)
         result, revision = asyncio.run(
             _inspect_result(
                 database_url,

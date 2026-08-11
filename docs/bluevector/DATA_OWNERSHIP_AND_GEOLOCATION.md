@@ -63,10 +63,20 @@ La provenance est conservée sur l'ordre avec `planned_location_source` et `plan
 - L’orienteur, le chef orienteur ou l’administrateur peut accepter ou rejeter le repère. La résolution utilise une révision optimiste afin de refuser une décision prise sur un dossier périmé.
 - Les entrées/sorties câble restent append-only et `unreviewed` jusqu’à une décision bureau; elles ne changent jamais la position canonique.
 
+## Références réseau et équipements structurés
+
+- Depuis v033, une nouvelle saisie Mobile distingue explicitement PTO, PBO ou PM.
+- Les scans ONT, routeur, boîtier WiFi, PTO et splitter deviennent des observations structurées liées au site et au passage.
+- Une valeur identique à la référence préparée ou résolue est corroborée.
+- Une valeur différente devient `conflict`; une valeur sans référence antérieure reste `unreviewed`.
+- Seul le bureau peut accepter une valeur nouvelle comme référence résolue. La valeur préparée sur l’ordre reste conservée.
+- Une PTO déjà rattachée à un autre site dans le même périmètre provoque `site_identity_conflict`; BlueVector ne fusionne jamais silencieusement les sites.
+- Les anciennes notes réseau non typées restent dans le journal mais ne sont pas transformées rétroactivement en faits structurés.
+
 ## Limites V1 connues
 
 - Les dossiers historiques sans PTO et sans position terrain explicite peuvent rester sans `site_id`; ils utilisent temporairement le rapprochement prudent de compatibilité.
-- Le workflow de résolution v032 couvre le GPS et les repères câble. Les conflits structurés PTO/PBO/équipement restent à ajouter.
+- La résolution structurée couvre GPS, PTO/PBO/PM et principaux scans d’équipement. La liaison/fusion manuelle de sites reste à ajouter avec prévisualisation obligatoire.
 - Le GPS live nécessite une politique explicite de consentement, rétention et visibilité avant production.
 
 ## Cible minimale
