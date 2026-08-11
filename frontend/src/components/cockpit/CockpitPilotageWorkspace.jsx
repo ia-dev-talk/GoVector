@@ -1,9 +1,64 @@
-import { memo, useMemo } from 'react';
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import {
   buildCockpitPilotage,
   text,
 } from './cockpitPilotageSelectors';
+import '../../styles/cockpit-customization.css';
+
+
+const COCKPIT_VIEW_STORAGE_KEY = 'bluevector:cockpit-view:v1';
+
+const DEFAULT_COCKPIT_VIEW = Object.freeze({
+  metrics: true,
+  progression: true,
+  decisions: true,
+  capacity: true,
+  quality: true,
+  activity: true,
+  quickAccess: true,
+});
+
+const COCKPIT_VIEW_OPTIONS = Object.freeze([
+  ['metrics', 'Indicateurs'],
+  ['progression', 'Progression'],
+  ['decisions', 'Décisions'],
+  ['capacity', 'Capacité'],
+  ['quality', 'Qualité'],
+  ['activity', 'Activité live'],
+  ['quickAccess', 'Accès rapides'],
+]);
+
+
+function readCockpitView() {
+  try {
+    const stored = window.localStorage.getItem(COCKPIT_VIEW_STORAGE_KEY);
+
+    if (!stored) {
+      return { ...DEFAULT_COCKPIT_VIEW };
+    }
+
+    const parsed = JSON.parse(stored);
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ...DEFAULT_COCKPIT_VIEW };
+    }
+
+    return Object.fromEntries(
+      Object.entries(DEFAULT_COCKPIT_VIEW).map(([key, fallback]) => [
+        key,
+        typeof parsed[key] === 'boolean' ? parsed[key] : fallback,
+      ]),
+    );
+  } catch {
+    return { ...DEFAULT_COCKPIT_VIEW };
+  }
+}
 
 
 function Icon({ name }) {
@@ -114,6 +169,48 @@ function Metric({ label, value, subtitle, tone, icon, onClick }) {
 }
 
 
+function CockpitViewControls({ visibility, onToggle, onReset }) {
+  const visibleCount = Object.values(visibility).filter(Boolean).length;
+
+  return (
+    <div className="cpv4-configbar">
+      <div className="cpv4-configbar-copy">
+        <strong>Vue cockpit personnalisable</strong>
+        <span>
+          {visibleCount}/{COCKPIT_VIEW_OPTIONS.length} blocs visibles · préférence conservée sur cet appareil
+        </span>
+      </div>
+
+      <details>
+        <summary>Personnaliser la vue</summary>
+        <div className="cpv4-config-popover">
+          <span>Blocs du cockpit</span>
+          <div className="cpv4-config-grid">
+            {COCKPIT_VIEW_OPTIONS.map(([key, label]) => (
+              <label className="cpv4-config-option" key={key}>
+                <input
+                  type="checkbox"
+                  checked={visibility[key]}
+                  onChange={() => onToggle(key)}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="cpv4-config-reset"
+            onClick={onReset}
+          >
+            Réinitialiser la vue par défaut
+          </button>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+
 function Progression({ stages, onOpen }) {
   const completed = stages.find((stage) => stage.key === 'completed');
 
@@ -164,7 +261,7 @@ function Decisions({ decisions, onNavigate }) {
         eyebrow="Arbitrage"
         title="À décider maintenant"
         action={
-          <LinkButton onClick={() => onNavigate?.('exploitation')}>
+          <LinkButton onClick={() => onNavigate?.('supervision')}>
             Supervision <Icon name="arrow" />
           </LinkButton>
         }
@@ -340,7 +437,7 @@ function RecentActivity({ activities }) {
 
 function QuickAccess({ pilotage, canAssign, onNavigate }) {
   const links = [
-    ['exploitation', 'Supervision', `${pilotage.decisions.length} décision${pilotage.decisions.length !== 1 ? 's' : ''}`, 'warning'],
+    ['supervision', 'Supervision', `${pilotage.decisions.length} décision${pilotage.decisions.length !== 1 ? 's' : ''}`, 'warning'],
     ['interventions', 'Interventions', canAssign ? `${pilotage.summary.unassigned} à affecter` : `${pilotage.summary.total} planifiées`, 'planned'],
     ['carte', 'Carte live', `${pilotage.geo.technicians} techniciens GPS`, 'map'],
     ['rapports', 'Rapports', `Qualité ${percentage(pilotage.quality.overall)}`, 'chart'],
@@ -378,6 +475,19 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
   onNavigate,
   statusMetadata = [],
 }) {
+  const [visibility, setVisibility] = useState(readCockpitView);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        COCKPIT_VIEW_STORAGE_KEY,
+        JSON.stringify(visibility),
+      );
+    } catch {
+      // Le cockpit reste utilisable même si le stockage navigateur est bloqué.
+    }
+  }, [visibility]);
+
   const pilotage = useMemo(
     () =>
       buildCockpitPilotage({
@@ -400,46 +510,83 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     ['Disponibles', pilotage.personnel.available, `${pilotage.personnel.total} techniciens`, 'success', 'users', 'personnel'],
   ];
 
+  const toggleSection = (key) => {
+    if (!Object.hasOwn(DEFAULT_COCKPIT_VIEW, key)) {
+      return;
+    }
+
+    setVisibility((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  };
+
   return (
     <div className="cockpit-body cockpit-v4-workspace">
-      <section className="cpv4-metrics" aria-label="Situation de la journée">
-        {metrics.map(([label, value, subtitle, tone, icon, page]) => (
-          <Metric
-            key={label}
-            label={label}
-            value={value}
-            subtitle={subtitle}
-            tone={tone}
-            icon={icon}
-            onClick={() => onNavigate?.(page)}
-          />
-        ))}
-      </section>
+      <CockpitViewControls
+        visibility={visibility}
+        onToggle={toggleSection}
+        onReset={() => setVisibility({ ...DEFAULT_COCKPIT_VIEW })}
+      />
 
-      <div className="cpv4-primary">
-        <Progression
-          stages={pilotage.stages}
-          onOpen={() => onNavigate?.('interventions')}
-        />
-        <Decisions decisions={pilotage.decisions} onNavigate={onNavigate} />
-      </div>
+      {visibility.metrics ? (
+        <section className="cpv4-metrics" aria-label="Situation de la journée">
+          {metrics.map(([label, value, subtitle, tone, icon, page]) => (
+            <Metric
+              key={label}
+              label={label}
+              value={value}
+              subtitle={subtitle}
+              tone={tone}
+              icon={icon}
+              onClick={() => onNavigate?.(page)}
+            />
+          ))}
+        </section>
+      ) : null}
 
-      <div className="cpv4-secondary">
-        <Capacity pilotage={pilotage} onNavigate={onNavigate} />
-        <Quality
-          quality={pilotage.quality}
-          onOpen={() => onNavigate?.('rapports')}
-        />
-      </div>
+      {visibility.progression || visibility.decisions ? (
+        <div className="cpv4-primary">
+          {visibility.progression ? (
+            <Progression
+              stages={pilotage.stages}
+              onOpen={() => onNavigate?.('interventions')}
+            />
+          ) : null}
+          {visibility.decisions ? (
+            <Decisions decisions={pilotage.decisions} onNavigate={onNavigate} />
+          ) : null}
+        </div>
+      ) : null}
 
-      <div className="cpv4-tertiary">
-        <RecentActivity activities={activities} />
-        <QuickAccess
-          pilotage={pilotage}
-          canAssign={canAssign}
-          onNavigate={onNavigate}
-        />
-      </div>
+      {visibility.capacity || visibility.quality ? (
+        <div className="cpv4-secondary">
+          {visibility.capacity ? (
+            <Capacity pilotage={pilotage} onNavigate={onNavigate} />
+          ) : null}
+          {visibility.quality ? (
+            <Quality
+              quality={pilotage.quality}
+              onOpen={() => onNavigate?.('rapports')}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {visibility.activity || visibility.quickAccess ? (
+        <div className="cpv4-tertiary">
+          {visibility.activity ? (
+            <RecentActivity activities={activities} />
+          ) : null}
+          {visibility.quickAccess ? (
+            <QuickAccess
+              pilotage={pilotage}
+              canAssign={canAssign}
+              onNavigate={onNavigate}
+            />
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 });
