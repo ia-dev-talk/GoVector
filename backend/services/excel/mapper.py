@@ -225,6 +225,14 @@ class ExcelMapper:
             explicit = self._explicit_header_mapping[norm]
             return explicit, "manual" if explicit else "ignored"
 
+        # A source action date is not the planned appointment. Until a
+        # dedicated destination exists, keep it reviewable and unmapped rather
+        # than silently scheduling the job on the wrong day. An administrator
+        # can still map it explicitly when a customer contract defines it as
+        # the appointment date.
+        if norm in {"DATE D'ACTION", "DATE DACTION", "DATE ACTION", "DATE_ACTION"}:
+            return None, "unmapped"
+
         # 1. Match exact dans l'index
         if norm in self._alias_index:
             return self._alias_index[norm], "exact"

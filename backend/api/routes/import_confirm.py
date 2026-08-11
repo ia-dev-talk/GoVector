@@ -334,6 +334,7 @@ async def confirm_import(
                 logs={
                     "errors": result["errors"],
                     "total_jobs": len(selected),
+                    "planning": result["planning"],
                 },
             )
 
@@ -347,11 +348,12 @@ async def confirm_import(
             )
 
     return {
-        "success": True,
+        "success": len(result["errors"]) == 0,
         "created": result["created"],
         "updated": result["updated"],
         "ignored": result["ignored"],
         "errors": result["errors"],
+        "planning": result["planning"],
         "message": (
             f"{result['created']} création(s), "
             f"{result['updated']} mise(s) à jour, "
@@ -375,6 +377,16 @@ async def _persist_jobs(
     updated = 0
     ignored = 0
     errors: list[dict] = []
+    planning_dates: dict[str, int] = {}
+    unscheduled = 0
+
+    def track_planning(job: Job) -> None:
+        nonlocal unscheduled
+        if job.scheduled_date is None:
+            unscheduled += 1
+            return
+        date_key = job.scheduled_date.date().isoformat()
+        planning_dates[date_key] = planning_dates.get(date_key, 0) + 1
 
     sector_result = await db.execute(
         select(
@@ -462,6 +474,7 @@ async def _persist_jobs(
                         await _update_job_from_dict(db, existing, item)
                         await db.flush()
                     updated += 1
+                    track_planning(existing)
                     continue
                 else:
                     # create mode: skip
@@ -476,6 +489,7 @@ async def _persist_jobs(
             async with db.begin_nested():
                 job = await _create_job_from_dict(db, item)
             created += 1
+            track_planning(job)
 
             if job and job.job_number:
                 existing_numbers.add(job.job_number)
@@ -498,6 +512,11 @@ async def _persist_jobs(
         "updated": updated,
         "ignored": ignored,
         "errors": errors,
+        "planning": {
+            "dates": dict(sorted(planning_dates.items())),
+            "unscheduled": unscheduled,
+            "first_scheduled_date": min(planning_dates) if planning_dates else None,
+        },
     }
 
 

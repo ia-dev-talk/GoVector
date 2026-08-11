@@ -370,19 +370,26 @@ export default function ImportCenter({
             const errors = Array.isArray(data?.errors)
                 ? data.errors
                 : [];
+            const planning = data?.planning || { dates: {}, unscheduled: 0 };
 
             setConfirmationResult({
                 created,
                 updated,
                 ignored,
                 errors,
+                planning,
             });
 
             if (onImported) {
-                onImported(created + updated);
+                onImported(created + updated, data);
             }
 
-            if (errors.length === 0) {
+            if (
+                errors.length === 0
+                && ignored === 0
+                && created + updated > 0
+                && Number(planning.unscheduled || 0) === 0
+            ) {
                 onClose();
             }
 
@@ -652,6 +659,23 @@ export default function ImportCenter({
 
                                     </div>
 
+                                </div>
+
+                                <div className="import-planning-result">
+                                    <strong>Destination planning</strong>
+                                    {Object.entries(confirmationResult.planning?.dates || {}).map(([date, count]) => (
+                                        <span key={date}>{date} · {count} intervention(s)</span>
+                                    ))}
+                                    {Number(confirmationResult.planning?.unscheduled || 0) > 0 ? (
+                                        <span className="import-planning-result__warning">
+                                            Sans date · {confirmationResult.planning.unscheduled} intervention(s). Elles sont enregistrées mais ne peuvent pas apparaître dans une journée tant qu’elles ne sont pas planifiées.
+                                        </span>
+                                    ) : null}
+                                    {Number(confirmationResult.ignored || 0) > 0 ? (
+                                        <span className="import-planning-result__warning">
+                                            {confirmationResult.ignored} doublon(s) ignoré(s). Pour compléter les interventions déjà présentes, sélectionnez le mode « Mettre à jour » puis confirmez de nouveau.
+                                        </span>
+                                    ) : null}
                                 </div>
 
                                 {
