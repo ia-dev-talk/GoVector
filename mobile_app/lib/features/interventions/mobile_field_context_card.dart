@@ -481,6 +481,14 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
               ],
               if (reference != null) ...[
                 const SizedBox(height: BlueVectorSpacing.sm),
+                if (reference['origin'] == 'canonical_site')
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: BlueVectorSpacing.xs),
+                    child: Text(
+                      'Position de référence validée du site BlueVector.',
+                      style: TextStyle(color: BlueVectorColors.success),
+                    ),
+                  ),
                 if (reference['origin'] == 'previous_field_visit')
                   const Padding(
                     padding: EdgeInsets.only(bottom: BlueVectorSpacing.xs),
@@ -495,6 +503,17 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                   label: const Text('Ouvrir la position terrain confirmée'),
                 ),
               ],
+              for (final observation in observations.where(
+                (item) => item['resolution_status'] == 'conflict',
+              ))
+                Padding(
+                  padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
+                  child: Text(
+                    'Repère GPS contradictoire conservé pour vérification bureau · '
+                    '${observation['latitude']}, ${observation['longitude']}',
+                    style: const TextStyle(color: BlueVectorColors.warning),
+                  ),
+                ),
               for (final observation in observations.where(
                 (item) =>
                     item['type'] == 'cable_entry' ||
