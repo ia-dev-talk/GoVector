@@ -41,9 +41,10 @@
 
 ## B3.1 — paramétrage gouverné et expérience opérateur
 
-- Publier des catalogues backend versionnés pour activités, grades, champs et libellés.
+- [x] Publier des catalogues backend versionnés pour activités, grades, priorités, statuts et actions terrain.
+- [x] Raccorder les grades d’équipe, les présentations du workflow, le wizard Web et les actions Mobile à ce catalogue.
 - Permettre la préparation puis l’activation d’une configuration après validation.
-- Conserver les identifiants techniques historiques même lorsqu’un libellé est archivé.
+- [x] Conserver les identifiants techniques historiques même lorsqu’un libellé est archivé.
 - Fournir une recherche transversale et des vues de travail par exception.
 - Unifier les états chargement/vide/erreur/succès du Web et du Mobile.
 

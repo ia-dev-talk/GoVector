@@ -778,6 +778,9 @@ export default function JobWizard({
   const [technicians, setTechnicians] =
     useState([]);
 
+  const [businessCatalog, setBusinessCatalog] =
+    useState(null);
+
   const [
     techniciansLoading,
     setTechniciansLoading,
@@ -909,6 +912,52 @@ export default function JobWizard({
         1;
     };
   }, [loadTechnicians]);
+
+  useEffect(() => {
+    let active = true;
+    api.getBusinessCatalog()
+      .then((response) => {
+        if (active) setBusinessCatalog(response?.data?.values || null);
+      })
+      .catch(() => {
+        // Catalog presentation is an enhancement. Core rules remain local
+        // until the authenticated endpoint becomes reachable again.
+      });
+    return () => { active = false; };
+  }, []);
+
+  const displayedJobTypes = useMemo(() => {
+    const configured = new Map(
+      (businessCatalog?.job_types || []).map((item) => [item.code, item]),
+    );
+    return Object.entries(JOB_TYPES_CONFIG)
+      .filter(([code]) => configured.get(code)?.active !== false || code === form.job_type)
+      .map(([code, config]) => ({
+        code,
+        config: {
+          ...config,
+          label: configured.get(code)?.label || config.label,
+          color: configured.get(code)?.color || config.color,
+        },
+        order: configured.get(code)?.sort_order ?? 10000,
+      }))
+      .sort((first, second) => first.order - second.order || first.code.localeCompare(second.code));
+  }, [businessCatalog, form.job_type]);
+
+  const displayedPriorities = useMemo(() => {
+    const defaults = [
+      { code: 'FAIBLE', label: 'Faible', sort_order: 30, active: true },
+      { code: 'NORMALE', label: 'Normale', sort_order: 20, active: true },
+      { code: 'HAUTE', label: 'Haute', sort_order: 10, active: true },
+      { code: 'URGENT', label: 'Urgente', sort_order: 0, active: true },
+    ];
+    const configured = businessCatalog?.priorities?.length
+      ? businessCatalog.priorities
+      : defaults;
+    return [...configured]
+      .filter((item) => item.active !== false || item.code === form.priority)
+      .sort((first, second) => first.sort_order - second.sort_order);
+  }, [businessCatalog, form.priority]);
 
   const sortedTechnicians =
     useMemo(() => {
@@ -2209,9 +2258,7 @@ export default function JobWizard({
             : undefined
         }
       >
-        {Object.entries(
-          JOB_TYPES_CONFIG,
-        ).map(([key, config]) => {
+        {displayedJobTypes.map(({ code: key, config }) => {
           const selected =
             form.job_type === key;
 
@@ -2613,18 +2660,9 @@ export default function JobWizard({
               Boolean(savedOutcome)
             }
           >
-            <option value="FAIBLE">
-              Faible
-            </option>
-            <option value="NORMALE">
-              Normale
-            </option>
-            <option value="HAUTE">
-              Haute
-            </option>
-            <option value="URGENT">
-              Urgent
-            </option>
+            {displayedPriorities.map((priority) => (
+              <option key={priority.code} value={priority.code}>{priority.label}</option>
+            ))}
           </select>
         </Field>
 

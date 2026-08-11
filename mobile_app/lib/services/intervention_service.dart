@@ -210,6 +210,22 @@ class InterventionService {
     throw Exception(_extractDetail(response.body));
   }
 
+  /// Governed presentation shared by office and field clients.
+  static Future<Map<String, dynamic>> getBusinessCatalog() async {
+    final token = await _getToken();
+    if (token == null) throw Exception('Token manquant');
+    final response = await http
+        .get(
+          AppConfig.apiUri('settings/catalog'),
+          headers: _headers(token),
+        )
+        .timeout(AppConfig.httpTimeout);
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception(_extractDetail(response.body));
+  }
+
   static Future<http.Response> downloadOfficeAttachment({
     required int jobId,
     required String attachmentId,

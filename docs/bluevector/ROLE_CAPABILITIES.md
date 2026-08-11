@@ -15,7 +15,7 @@
 - Une équipe active possède exactement un orienteur.
 - Un orienteur ne possède qu’une équipe V1.
 - Une équipe active contient au moins un technicien.
-- Un technicien appartient au plus à une équipe et porte un grade `junior` ou `senior`.
+- Un technicien appartient au plus à une équipe et porte un grade actif du référentiel métier versionné. `junior` et `senior` restent les valeurs initiales de compatibilité.
 - Une équipe couvre un ou plusieurs secteurs.
 - Le chef orienteur/admin peut déplacer un technicien; la projection legacy `Technician.orienteur_id` reste synchronisée.
 

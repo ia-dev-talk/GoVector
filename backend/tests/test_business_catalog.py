@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -7,7 +8,9 @@ from fastapi import HTTPException
 from backend.api.routes import settings, v1_admin
 from backend.api.schemas.settings import CatalogItem
 from backend.api.schemas.v1_admin import FieldTeamWrite, TeamTechnicianUpdate
-from backend.database.models import JobPriority, JobStatus, JobType
+from backend.database.models import ApplicationSetting, JobPriority, JobStatus, JobType
+from backend.logic.technician_field_actions import _require_enabled_action
+from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.workflow import capabilities
 
 
@@ -127,3 +130,34 @@ def test_grade_validation_is_applied_to_team_mutations():
     )
     assert create_route.endpoint.__name__ == "create_team"
     assert put_route.endpoint.__name__ == "put_team_technician"
+
+
+@pytest.mark.asyncio
+async def test_archived_action_rejects_new_capture_but_preserves_offline_prior_fact():
+    archived_at = datetime.now(timezone.utc)
+    document = ApplicationSetting(
+        namespace="business_catalog",
+        schema_version=1,
+        revision=2,
+        values={
+            "field_actions": [
+                {"code": "client_signature", "active": False}
+            ]
+        },
+    )
+    document.updated_at = archived_at
+    db = AsyncMock()
+    db.scalar.return_value = document
+
+    await _require_enabled_action(
+        db,
+        event_type="client_signature",
+        occurred_at=archived_at - timedelta(minutes=1),
+    )
+    with pytest.raises(TechnicianJobMutationError) as raised:
+        await _require_enabled_action(
+            db,
+            event_type="client_signature",
+            occurred_at=archived_at + timedelta(minutes=1),
+        )
+    assert raised.value.code == "action_disabled"

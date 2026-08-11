@@ -230,29 +230,29 @@ export const ROADMAP_CAPABILITIES = Object.freeze([
   {
     id: 'identity',
     label: 'Utilisateurs et rôles',
-    status: 'backendRequired',
+    status: 'partial',
     description:
       'Comptes, permissions granulaires, délégations et sessions.',
     nextStep:
-      'Définir le modèle RBAC cible et exposer un CRUD administrateur audité.',
+      'Compléter le CRUD des comptes, la désactivation, la réinitialisation et l’audit des sessions.',
   },
   {
     id: 'workflow',
     label: 'Statuts et workflows',
-    status: 'backendRequired',
+    status: 'connected',
     description:
       'Transitions, motifs, validations et règles par activité/opérateur.',
     nextStep:
-      'Créer un moteur de workflow versionné consommé par le web et le mobile.',
+      'Étendre les politiques par activité sans rendre les transitions techniques modifiables.',
   },
   {
     id: 'forms',
     label: 'Formulaires terrain',
-    status: 'backendRequired',
+    status: 'partial',
     description:
       'Champs dynamiques, preuves obligatoires, mesures et contrôles qualité.',
     nextStep:
-      'Établir un schéma JSON versionné avec contraintes par type d’intervention.',
+      'Ajouter les formulaires spécifiques client/opérateur au-dessus des actions terrain libres.',
   },
   {
     id: 'security',
@@ -262,6 +262,24 @@ export const ROADMAP_CAPABILITIES = Object.freeze([
       'Journal d’audit existant, politiques de sécurité encore à administrer.',
     nextStep:
       'Ajouter des endpoints de politique avant toute interface d’édition.',
+  },
+  {
+    id: 'site',
+    label: 'Sites et provenance',
+    status: 'partial',
+    description:
+      'Identité physique, positions et observations réseau structurées.',
+    nextStep:
+      'Livrer la fusion manuelle contrôlée et la réconciliation des doublons historiques.',
+  },
+  {
+    id: 'import',
+    label: 'Import adaptatif',
+    status: 'partial',
+    description:
+      'Détection d’en-têtes, mapping corrigible, aperçu et validation progressive.',
+    nextStep:
+      'Mémoriser les profils par donneur d’ordre et mesurer les corrections récurrentes.',
   },
   {
     id: 'backup',
@@ -275,11 +293,11 @@ export const ROADMAP_CAPABILITIES = Object.freeze([
   {
     id: 'mobileConfig',
     label: 'Configuration mobile',
-    status: 'planned',
+    status: 'partial',
     description:
       'Actions, widgets, preuves, formulaires et règles synchronisées.',
     nextStep:
-      'Faire du backend la source de vérité avant l’implémentation Flutter.',
+      'Mettre en cache le catalogue versionné et étendre la configuration aux formulaires client.',
   },
 ]);
 

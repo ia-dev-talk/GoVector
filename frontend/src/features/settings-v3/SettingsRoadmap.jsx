@@ -14,6 +14,11 @@ function statusInfo(status) {
       tone: 'warning',
       Icon: CheckIcon,
     },
+    connected: {
+      label: 'Raccordé',
+      tone: 'ready',
+      Icon: CheckIcon,
+    },
     planned: {
       label: 'Planifié',
       tone: 'planned',
