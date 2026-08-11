@@ -290,6 +290,7 @@ export default function ParametresPage({
               toast={toast}
               userRole={userRole}
               refreshRevision={refreshRevision}
+              surface="settings"
             />
           );
 
