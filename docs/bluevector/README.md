@@ -24,6 +24,7 @@ La branche V1 dispose d’un workflow technicien piloté par le backend, d’une
 12. [Audit système du 11 août 2026](SYSTEM_AUDIT_2026-08-11.md)
 13. [Sauvegarde et reprise](BACKUP_AND_RECOVERY.md)
 14. [Remise VNext du 11 août 2026](RELEASE_HANDOFF_2026-08-11.md)
+15. [Audit fonctionnel des paramètres](SETTINGS_AUDIT_2026-08-11.md)
 
 ## Principes non négociables
 
