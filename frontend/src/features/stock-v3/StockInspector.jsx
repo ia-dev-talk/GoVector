@@ -18,12 +18,7 @@ import {
   text,
 } from './stockUtils';
 
-
-function Metric({
-  label,
-  value,
-  tone = 'neutral',
-}) {
+function Metric({ label, value, tone = 'neutral' }) {
   return (
     <div className={`st3-metric st3-metric--${tone}`}>
       <span>{label}</span>
@@ -32,10 +27,7 @@ function Metric({
   );
 }
 
-
-function WarehouseLines({
-  lines,
-}) {
+function WarehouseLines({ lines }) {
   if (lines.length === 0) {
     return (
       <div className="st3-inspector-empty">
@@ -48,34 +40,20 @@ function WarehouseLines({
     <div className="st3-line-list">
       {lines.map((line) => (
         <div key={line.id}>
-          <span className="st3-line-icon">
-            <WarehouseIcon />
-          </span>
-
+          <span className="st3-line-icon"><WarehouseIcon /></span>
           <span>
             <strong>
-              {text(
-                line?.warehouse?.name,
-                `Dépôt #${line.warehouse_id}`,
-              )}
+              {text(line?.warehouse?.name, `Dépôt #${line.warehouse_id}`)}
             </strong>
-            <small>
-              Lot {text(line?.batch_number, 'non renseigné')}
-            </small>
+            <small>Lot {text(line?.batch_number, 'non renseigné')}</small>
           </span>
-
           <span>
-            <strong>
-              {numeric(line?.quantity)}
-            </strong>
+            <strong>{numeric(line?.quantity)}</strong>
             <small>physique</small>
           </span>
-
           <span>
             <strong className="st3-success">
-              {numeric(
-                line?.available_quantity,
-              )}
+              {numeric(line?.available_quantity)}
             </strong>
             <small>disponible</small>
           </span>
@@ -85,10 +63,7 @@ function WarehouseLines({
   );
 }
 
-
-function MovementList({
-  movements,
-}) {
+function MovementList({ movements }) {
   if (movements.length === 0) {
     return (
       <div className="st3-inspector-empty">
@@ -106,27 +81,17 @@ function MovementList({
               movement?.movement_type,
             ).toLocaleLowerCase('fr')}`}
           >
-            {movementLabel(
-              movement?.movement_type,
-            )}
+            {movementLabel(movement?.movement_type)}
           </span>
-
           <span>
-            <strong>
-              {numeric(movement?.quantity)}
-            </strong>
-            <small>
-              {formatDateTime(
-                movement?.created_at,
-              )}
-            </small>
+            <strong>{numeric(movement?.quantity)}</strong>
+            <small>{formatDateTime(movement?.created_at)}</small>
           </span>
-
           <span>
-            {text(
-              movement?.notes,
-              'Aucune note',
-            )}
+            {text(movement?.notes, 'Aucune note')}
+            {movement?.technician_id ? (
+              <small> · Technicien #{movement.technician_id}</small>
+            ) : null}
           </span>
         </div>
       ))}
@@ -134,26 +99,24 @@ function MovementList({
   );
 }
 
-
 const StockInspector = memo(function StockInspector({
   item,
   movements,
   canManageCatalog,
   canMoveStock,
   canReceive,
+  canIssue = false,
   onEdit,
   onReceive,
+  onIssue,
 }) {
-  const [tab, setTab] =
-    useState('overview');
+  const [tab, setTab] = useState('overview');
 
   if (!item) {
     return (
       <aside className="st3-inspector st3-inspector--empty">
         <BoxIcon />
-        <strong>
-          Sélectionnez un article
-        </strong>
+        <strong>Sélectionnez un article</strong>
         <span>
           Consultez sa disponibilité, ses dépôts et sa traçabilité.
         </span>
@@ -161,24 +124,18 @@ const StockInspector = memo(function StockInspector({
     );
   }
 
+  const hasAvailableStock = Number(item?.totals?.available ?? 0) > 0;
+
   return (
     <aside className="st3-inspector">
       <header className="st3-inspector-header">
-        <span className="st3-inspector-icon">
-          <BoxIcon />
-        </span>
-
+        <span className="st3-inspector-icon"><BoxIcon /></span>
         <div>
           <span>Fiche article</span>
-          <strong>
-            {text(item?.label, 'Article')}
-          </strong>
-          <small>
-            {text(item?.reference, 'Référence inconnue')}
-          </small>
+          <strong>{text(item?.label, 'Article')}</strong>
+          <small>{text(item?.reference, 'Référence inconnue')}</small>
         </div>
-
-        {canManageCatalog && (
+        {canManageCatalog ? (
           <button
             type="button"
             className="st3-icon-button"
@@ -188,7 +145,7 @@ const StockInspector = memo(function StockInspector({
           >
             <EditIcon />
           </button>
-        )}
+        ) : null}
       </header>
 
       <div className="st3-inspector-tabs">
@@ -200,9 +157,7 @@ const StockInspector = memo(function StockInspector({
           <button
             type="button"
             key={key}
-            className={
-              tab === key ? 'active' : ''
-            }
+            className={tab === key ? 'active' : ''}
             onClick={() => setTab(key)}
           >
             {label}
@@ -211,68 +166,46 @@ const StockInspector = memo(function StockInspector({
       </div>
 
       <div className="st3-inspector-body">
-        {tab === 'overview' && (
+        {tab === 'overview' ? (
           <>
             <section>
-              <div className="st3-section-title">
-                Référentiel
-              </div>
-
+              <div className="st3-section-title">Référentiel</div>
               <div className="st3-detail-grid">
                 <div>
                   <span>Type</span>
-                  <strong>
-                    {text(item?.equipment_type, '—')}
-                  </strong>
+                  <strong>{text(item?.equipment_type, '—')}</strong>
                 </div>
-
                 <div>
                   <span>Opérateur</span>
-                  <strong>
-                    {text(item?.operator, '—')}
-                  </strong>
+                  <strong>{text(item?.operator, '—')}</strong>
                 </div>
-
                 <div>
                   <span>Fabricant</span>
-                  <strong>
-                    {text(item?.manufacturer, '—')}
-                  </strong>
+                  <strong>{text(item?.manufacturer, '—')}</strong>
                 </div>
-
                 <div>
                   <span>Modèle</span>
-                  <strong>
-                    {text(item?.model, '—')}
-                  </strong>
+                  <strong>{text(item?.model, '—')}</strong>
                 </div>
-
                 <div>
                   <span>Catégorie</span>
-                  <strong>
-                    {text(item?.category, '—')}
-                  </strong>
+                  <strong>{text(item?.category, '—')}</strong>
                 </div>
-
                 <div>
                   <span>Prix unitaire</span>
                   <strong>
-                    {formatMoney(item?.unit_price)}
+                    {item?.unit_price === null || item?.unit_price === undefined
+                      ? 'Non suivi'
+                      : formatMoney(item.unit_price)}
                   </strong>
                 </div>
               </div>
             </section>
 
             <section>
-              <div className="st3-section-title">
-                Situation consolidée
-              </div>
-
+              <div className="st3-section-title">Situation consolidée</div>
               <div className="st3-metrics-grid">
-                <Metric
-                  label="Stock physique"
-                  value={item.totals.quantity}
-                />
+                <Metric label="Stock physique" value={item.totals.quantity} />
                 <Metric
                   label="Disponible"
                   value={item.totals.available}
@@ -283,71 +216,73 @@ const StockInspector = memo(function StockInspector({
                   value={item.totals.reserved}
                   tone="info"
                 />
-                <Metric
-                  label="Dépôts"
-                  value={item.warehouseCount}
-                />
+                <Metric label="Dépôts" value={item.warehouseCount} />
                 <Metric
                   label="Seuil minimum"
                   value={item.threshold}
-                  tone={
-                    item.lowStock
-                      ? 'warning'
-                      : 'neutral'
-                  }
+                  tone={item.lowStock ? 'warning' : 'neutral'}
                 />
                 <Metric
                   label="Valeur"
-                  value={formatMoney(
-                    item.totals.quantity *
-                      numeric(
-                        item?.unit_price,
-                      ),
-                  )}
+                  value={
+                    item?.unit_price === null || item?.unit_price === undefined
+                      ? 'Non suivie'
+                      : formatMoney(
+                          item.totals.quantity * numeric(item.unit_price),
+                        )
+                  }
                 />
               </div>
 
-              {item.lowStock && (
+              {item.lowStock ? (
                 <div className="st3-alert-note">
                   <AlertIcon />
                   Le disponible est inférieur ou égal au seuil configuré.
                 </div>
-              )}
+              ) : null}
             </section>
           </>
-        )}
+        ) : null}
 
-        {tab === 'warehouses' && (
+        {tab === 'warehouses' ? (
           <section>
-            <div className="st3-section-title">
-              Répartition par dépôt
-            </div>
-
-            <WarehouseLines
-              lines={item.lines}
-            />
+            <div className="st3-section-title">Répartition par dépôt</div>
+            <WarehouseLines lines={item.lines} />
           </section>
-        )}
+        ) : null}
 
-        {tab === 'history' && (
+        {tab === 'history' ? (
           <section>
             <div className="st3-section-title">
               <HistoryIcon />
               Mouvements récents
             </div>
-
-            <MovementList
-              movements={movements}
-            />
+            <MovementList movements={movements} />
           </section>
-        )}
+        ) : null}
       </div>
 
-      {canMoveStock && (
-        <footer className="st3-inspector-footer">
+      {canMoveStock ? (
+        <footer className="st3-inspector-footer st3-inspector-footer--stacked">
+          {canIssue ? (
+            <button
+              type="button"
+              className="st3-primary-button"
+              onClick={() => onIssue(item)}
+              disabled={!hasAvailableStock}
+              title={
+                hasAvailableStock
+                  ? 'Affecter une quantité à un technicien'
+                  : 'Aucun stock disponible à affecter'
+              }
+            >
+              <BoxIcon />
+              Affecter au technicien
+            </button>
+          ) : null}
           <button
             type="button"
-            className="st3-primary-button"
+            className="st3-secondary-button"
             onClick={() => onReceive(item)}
             disabled={!canReceive}
             title={
@@ -357,15 +292,12 @@ const StockInspector = memo(function StockInspector({
             }
           >
             <ReceptionIcon />
-            {canReceive
-              ? 'Enregistrer une réception'
-              : 'Aucun dépôt configuré'}
+            {canReceive ? 'Réception' : 'Aucun dépôt'}
           </button>
         </footer>
-      )}
+      ) : null}
     </aside>
   );
 });
-
 
 export default StockInspector;
