@@ -5,7 +5,7 @@ import {
   useState,
 } from 'react';
 
-import { api } from '../../api/client';
+import { api, apiClient } from '../../api/client';
 import ValidationPanel from '../../components/ValidationPanel';
 import { jobAllowsCommand } from '../../lib/workflow-capabilities';
 import InterventionDetailHeader from './InterventionDetailHeader';
@@ -105,7 +105,7 @@ export default function InterventionDetailPage({
         api.getJob(jobId),
         api.getJobTimeline(jobId),
         api.getJobEquipment(jobId),
-        api.getJobStock(jobId),
+        apiClient.get(`/stock-ftth/job-context/${encodeURIComponent(jobId)}`),
         api.getJobFieldRecord(jobId),
         api.getJobWorkflowCapabilities(jobId),
       ]);
