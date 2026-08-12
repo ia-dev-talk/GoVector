@@ -49,6 +49,13 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements-dev.txt
+      - name: Validate clean PostgreSQL bootstrap
+        env:
+          DATABASE_URL: postgresql+asyncpg://fieldopt:fieldopt@localhost:5432/postgres
+        run: |
+          python -m backend.database.bootstrap_schema
+          python -m backend.database.bootstrap_schema
+          python -m alembic current
       - run: >-
           python -m pytest -q
           backend/tests/test_geolocation_postgres_contract.py
