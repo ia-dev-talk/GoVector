@@ -15,7 +15,22 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(name: str) -> bool:
+    """Keep upgrades safe when a schema was pre-created from current metadata.
+
+    BlueVector's clean bootstrap creates the current SQLAlchemy schema before
+    stamping the head. Contract/legacy upgrade fixtures can also contain newer
+    additive tables while being stamped at an older revision. In that case an
+    additive migration must not fail by trying to recreate the table.
+    """
+
+    return sa.inspect(op.get_bind()).has_table(name)
+
+
 def upgrade():
+    if _table_exists("territory_nodes"):
+        return
+
     op.create_table(
         "territory_nodes",
         sa.Column("id", sa.Integer(), primary_key=True),
@@ -54,6 +69,8 @@ def upgrade():
 
 
 def downgrade():
+    if not _table_exists("territory_nodes"):
+        return
     op.drop_index("ix_territory_nodes_external_id", table_name="territory_nodes")
     op.drop_index("ix_territory_nodes_legacy_sector_id", table_name="territory_nodes")
     op.drop_index("ix_territory_nodes_parent_id", table_name="territory_nodes")
