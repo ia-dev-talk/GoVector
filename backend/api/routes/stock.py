@@ -1,44 +1,116 @@
-"""
-Inventory and stock management API routes.
-"""
+"""Serialized equipment inventory management API routes."""
+
 import logging
-from typing import List, Optional
 from datetime import datetime
+from io import BytesIO
+from typing import List, Optional
+
+import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-import openpyxl
-from io import BytesIO
 
-from backend.database.connection import get_db
-from backend.database.models import EquipmentInventory, Job, User
 from backend.auth.dependencies import (
     require_internal_user,
     require_orienteur_or_above,
 )
+from backend.database.connection import get_db
+from backend.database.models import EquipmentInventory, Job, User
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(tags=["Stock Management"])
 
 
+def _required_text(value: str, field: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        raise ValueError(f"{field} est obligatoire")
+    return normalized
+
+
+def _optional_text(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized or None
+
+
 class EquipmentCreate(BaseModel):
-    serial_number: str
-    mac_address: Optional[str] = None
-    operator: str
-    equipment_type: str
-    model: Optional[str] = None
-    warehouse: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+
+    serial_number: str = Field(max_length=100)
+    mac_address: Optional[str] = Field(default=None, max_length=100)
+    operator: str = Field(max_length=20)
+    equipment_type: str = Field(max_length=50)
+    model: Optional[str] = Field(default=None, max_length=100)
+    status: str = Field(default="STOCK", max_length=30)
+    warehouse: Optional[str] = Field(default=None, max_length=100)
+    vehicle: Optional[str] = Field(default=None, max_length=100)
+    assigned_job_id: Optional[int] = Field(default=None, gt=0)
+    min_stock_threshold: int = Field(default=5, ge=0)
+    alert_enabled: bool = True
+
+    @field_validator("serial_number", "operator", "equipment_type", "status")
+    @classmethod
+    def validate_required_text(cls, value: str, info):
+        return _required_text(value, info.field_name)
+
+    @field_validator("mac_address", "model", "warehouse", "vehicle")
+    @classmethod
+    def normalize_optional_text(cls, value: Optional[str]):
+        return _optional_text(value)
 
 
 class EquipmentUpdate(BaseModel):
-    status: Optional[str] = None
-    warehouse: Optional[str] = None
-    vehicle: Optional[str] = None
-    assigned_job_id: Optional[int] = None
-    min_stock_threshold: Optional[int] = None
+    """Patch-like PUT payload used by the V2 serialized registry."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    serial_number: Optional[str] = Field(default=None, max_length=100)
+    mac_address: Optional[str] = Field(default=None, max_length=100)
+    operator: Optional[str] = Field(default=None, max_length=20)
+    equipment_type: Optional[str] = Field(default=None, max_length=50)
+    model: Optional[str] = Field(default=None, max_length=100)
+    status: Optional[str] = Field(default=None, max_length=30)
+    warehouse: Optional[str] = Field(default=None, max_length=100)
+    vehicle: Optional[str] = Field(default=None, max_length=100)
+    assigned_job_id: Optional[int] = Field(default=None, gt=0)
+    min_stock_threshold: Optional[int] = Field(default=None, ge=0)
+    alert_enabled: Optional[bool] = None
+
+    @field_validator("serial_number", "operator", "equipment_type", "status")
+    @classmethod
+    def validate_required_if_provided(cls, value: Optional[str], info):
+        if value is None:
+            return None
+        return _required_text(value, info.field_name)
+
+    @field_validator("mac_address", "model", "warehouse", "vehicle")
+    @classmethod
+    def normalize_optional_text(cls, value: Optional[str]):
+        return _optional_text(value)
+
+
+def _equipment_dict(item: EquipmentInventory) -> dict:
+    return {
+        "id": item.id,
+        "serial_number": item.serial_number,
+        "mac_address": item.mac_address,
+        "operator": item.operator,
+        "equipment_type": item.equipment_type,
+        "model": item.model,
+        "status": item.status,
+        "warehouse": item.warehouse,
+        "vehicle": item.vehicle,
+        "assigned_job_id": item.assigned_job_id,
+        "min_stock_threshold": item.min_stock_threshold,
+        "alert_enabled": item.alert_enabled,
+        "created_at": item.created_at,
+        "updated_at": item.updated_at,
+    }
 
 
 @router.get("/stock")
@@ -60,25 +132,7 @@ async def get_stock(
     if warehouse:
         query = query.where(EquipmentInventory.warehouse == warehouse)
     result = await db.execute(query.order_by(EquipmentInventory.created_at.desc()))
-    items = result.scalars().all()
-    return [
-        {
-            "id": i.id,
-            "serial_number": i.serial_number,
-            "mac_address": i.mac_address,
-            "operator": i.operator,
-            "equipment_type": i.equipment_type,
-            "model": i.model,
-            "status": i.status,
-            "warehouse": i.warehouse,
-            "vehicle": i.vehicle,
-            "assigned_job_id": i.assigned_job_id,
-            "min_stock_threshold": i.min_stock_threshold,
-            "alert_enabled": i.alert_enabled,
-            "created_at": i.created_at,
-        }
-        for i in items
-    ]
+    return [_equipment_dict(item) for item in result.scalars().all()]
 
 
 @router.get("/stock/alerts", response_model=List[dict])
@@ -93,39 +147,59 @@ async def get_stock_alerts(
             EquipmentInventory.min_stock_threshold,
             func.count(EquipmentInventory.id).label("current_stock"),
         )
-        .where(EquipmentInventory.alert_enabled == True)
+        .where(EquipmentInventory.alert_enabled.is_(True))
         .where(EquipmentInventory.status.in_(["STOCK", "IN_USE"]))
-        .group_by(EquipmentInventory.equipment_type, EquipmentInventory.operator, EquipmentInventory.min_stock_threshold)
-        .having(func.count(EquipmentInventory.id) < EquipmentInventory.min_stock_threshold)
+        .group_by(
+            EquipmentInventory.equipment_type,
+            EquipmentInventory.operator,
+            EquipmentInventory.min_stock_threshold,
+        )
+        .having(
+            func.count(EquipmentInventory.id)
+            < EquipmentInventory.min_stock_threshold
+        )
     )
-    rows = result.mappings().all()
-    return [dict(r) for r in rows]
+    return [dict(row) for row in result.mappings().all()]
 
 
-@router.post("/stock")
+async def _validate_assigned_job(db: AsyncSession, job_id: Optional[int]) -> None:
+    if job_id is None:
+        return
+    if await db.get(Job, job_id) is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Intervention #{job_id} introuvable",
+        )
+
+
+@router.post("/stock", status_code=201)
 async def create_equipment(
     data: EquipmentCreate,
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_orienteur_or_above),
 ):
+    await _validate_assigned_job(db, data.assigned_job_id)
+    equipment = EquipmentInventory(**data.model_dump())
+    if data.assigned_job_id and data.status == "STOCK":
+        equipment.status = "ASSIGNED"
+    db.add(equipment)
     try:
-        equipment = EquipmentInventory(
-            serial_number=data.serial_number,
-            mac_address=data.mac_address,
-            operator=data.operator,
-            equipment_type=data.equipment_type,
-            model=data.model,
-            warehouse=data.warehouse,
-            status="STOCK",
-        )
-        db.add(equipment)
         await db.commit()
         await db.refresh(equipment)
-        return {"id": equipment.id, "message": "Equipment added to inventory"}
-    except Exception as e:
-        logger.exception(f"Error creating equipment: {e}")
+    except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to create equipment")
+        raise HTTPException(
+            status_code=409,
+            detail="Ce numéro de série existe déjà dans le registre.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Error creating serialized equipment: %s", exc)
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Impossible de créer l'équipement sérialisé",
+        ) from exc
+    return _equipment_dict(equipment)
 
 
 @router.put("/stock/{equipment_id}")
@@ -136,27 +210,39 @@ async def update_equipment(
     _current_user: User = Depends(require_orienteur_or_above),
 ):
     equipment = await db.get(EquipmentInventory, equipment_id)
-    if not equipment:
-        raise HTTPException(status_code=404, detail="Equipment not found")
-    try:
-        if data.status:
-            equipment.status = data.status
-        if data.warehouse:
-            equipment.warehouse = data.warehouse
-        if data.vehicle:
-            equipment.vehicle = data.vehicle
-        if data.assigned_job_id:
-            equipment.assigned_job_id = data.assigned_job_id
+    if equipment is None:
+        raise HTTPException(status_code=404, detail="Équipement introuvable")
+
+    changes = data.model_dump(exclude_unset=True)
+    if "assigned_job_id" in changes:
+        await _validate_assigned_job(db, changes["assigned_job_id"])
+
+    for field, value in changes.items():
+        setattr(equipment, field, value)
+
+    if "assigned_job_id" in changes:
+        if changes["assigned_job_id"] is not None and "status" not in changes:
             equipment.status = "ASSIGNED"
-        if data.min_stock_threshold is not None:
-            equipment.min_stock_threshold = data.min_stock_threshold
+        elif changes["assigned_job_id"] is None and equipment.status == "ASSIGNED":
+            equipment.status = "STOCK"
+
+    try:
         await db.commit()
         await db.refresh(equipment)
-        return {"id": equipment.id, "message": "Equipment updated"}
-    except Exception as e:
-        logger.exception(f"Error updating equipment: {e}")
+    except IntegrityError as exc:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to update equipment")
+        raise HTTPException(
+            status_code=409,
+            detail="Ce numéro de série existe déjà dans le registre.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Error updating serialized equipment: %s", exc)
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Impossible de modifier l'équipement sérialisé",
+        ) from exc
+    return _equipment_dict(equipment)
 
 
 @router.delete("/stock/{equipment_id}")
@@ -166,16 +252,27 @@ async def delete_equipment(
     _current_user: User = Depends(require_orienteur_or_above),
 ):
     equipment = await db.get(EquipmentInventory, equipment_id)
-    if not equipment:
-        raise HTTPException(status_code=404, detail="Equipment not found")
+    if equipment is None:
+        raise HTTPException(status_code=404, detail="Équipement introuvable")
+    if equipment.assigned_job_id is not None or equipment.status in {"ASSIGNED", "IN_USE"}:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Cet équipement est lié à une intervention. Libérez-le ou changez "
+                "son statut avant suppression."
+            ),
+        )
+    await db.delete(equipment)
     try:
-        await db.delete(equipment)
         await db.commit()
-        return {"message": "Equipment deleted"}
-    except Exception as e:
-        logger.exception(f"Error deleting equipment: {e}")
+    except Exception as exc:
+        logger.exception("Error deleting serialized equipment: %s", exc)
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to delete equipment")
+        raise HTTPException(
+            status_code=500,
+            detail="Impossible de supprimer l'équipement sérialisé",
+        ) from exc
+    return {"message": "Équipement supprimé"}
 
 
 @router.get("/stock/summary")
@@ -184,28 +281,40 @@ async def get_stock_summary(
     _current_user: User = Depends(require_internal_user),
 ):
     total = await db.execute(select(func.count(EquipmentInventory.id)))
-    total_count = total.scalar()
     by_status = {}
-    for status in ["STOCK", "ASSIGNED", "IN_USE", "RETURNED", "FAULTY"]:
+    for state in ["STOCK", "ASSIGNED", "IN_USE", "RETURNED", "FAULTY"]:
         result = await db.execute(
-            select(func.count(EquipmentInventory.id)).where(EquipmentInventory.status == status)
+            select(func.count(EquipmentInventory.id)).where(
+                EquipmentInventory.status == state
+            )
         )
-        by_status[status] = result.scalar()
+        by_status[state] = result.scalar()
+
     by_type = {}
     types = await db.execute(select(EquipmentInventory.equipment_type).distinct())
-    for t in types.scalars().all():
+    for equipment_type in types.scalars().all():
         count = await db.execute(
-            select(func.count(EquipmentInventory.id)).where(EquipmentInventory.equipment_type == t)
+            select(func.count(EquipmentInventory.id)).where(
+                EquipmentInventory.equipment_type == equipment_type
+            )
         )
-        by_type[t] = count.scalar()
+        by_type[equipment_type] = count.scalar()
+
     by_operator = {}
     operators = await db.execute(select(EquipmentInventory.operator).distinct())
-    for op in operators.scalars().all():
+    for operator in operators.scalars().all():
         count = await db.execute(
-            select(func.count(EquipmentInventory.id)).where(EquipmentInventory.operator == op)
+            select(func.count(EquipmentInventory.id)).where(
+                EquipmentInventory.operator == operator
+            )
         )
-        by_operator[op] = count.scalar()
-    return {"total": total_count, "by_status": by_status, "by_type": by_type, "by_operator": by_operator}
+        by_operator[operator] = count.scalar()
+    return {
+        "total": total.scalar(),
+        "by_status": by_status,
+        "by_type": by_type,
+        "by_operator": by_operator,
+    }
 
 
 @router.get("/stock/export")
@@ -226,27 +335,61 @@ async def export_stock_excel(
         query = query.where(EquipmentInventory.operator == operator)
     if warehouse:
         query = query.where(EquipmentInventory.warehouse == warehouse)
-    result = await db.execute(query.order_by(EquipmentInventory.created_at.desc()))
+    result = await db.execute(
+        query.order_by(EquipmentInventory.created_at.desc())
+    )
     items = result.scalars().all()
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Stock"
-    headers = ["ID", "N° Série", "Opérateur", "Type", "Modèle", "Statut", "Entrepôt", "Véhicule", "Assigné à", "MAC Address", "Seuil alerte", "Créé le"]
-    ws.append(headers)
+
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Équipements sérialisés"
+    headers = [
+        "ID",
+        "N° Série",
+        "Opérateur",
+        "Type",
+        "Modèle",
+        "Statut",
+        "Entrepôt",
+        "Véhicule",
+        "Assigné à",
+        "MAC Address",
+        "Seuil alerte",
+        "Créé le",
+    ]
+    worksheet.append(headers)
     for item in items:
-        ws.append([item.id, item.serial_number, item.operator, item.equipment_type, item.model, item.status, item.warehouse, item.vehicle, item.assigned_job_id, item.mac_address, item.min_stock_threshold, item.created_at.strftime("%d/%m/%Y %H:%M") if item.created_at else ""])
-    for column in ws.columns:
-        max_length = 0
-        column_letter = column[0].column_letter
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except Exception:
-                pass
-        ws.column_dimensions[column_letter].width = min(max_length + 2, 40)
+        worksheet.append(
+            [
+                item.id,
+                item.serial_number,
+                item.operator,
+                item.equipment_type,
+                item.model,
+                item.status,
+                item.warehouse,
+                item.vehicle,
+                item.assigned_job_id,
+                item.mac_address,
+                item.min_stock_threshold,
+                item.created_at.strftime("%d/%m/%Y %H:%M")
+                if item.created_at
+                else "",
+            ]
+        )
+    for column in worksheet.columns:
+        max_length = max((len(str(cell.value or "")) for cell in column), default=0)
+        worksheet.column_dimensions[column[0].column_letter].width = min(
+            max_length + 2,
+            40,
+        )
+
     stream = BytesIO()
-    wb.save(stream)
+    workbook.save(stream)
     stream.seek(0)
-    filename = f"stock_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    return StreamingResponse(stream, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": f"attachment; filename={filename}"})
+    filename = f"serialized_stock_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
