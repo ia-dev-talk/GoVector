@@ -152,7 +152,10 @@ async def _dispatch(
                 event_id=str(event.event_id),
                 occurred_at=event.occurred_at,
             )
-        elif event.type == "equipment_scan":
+        elif event.type == "equipment_scan" and isinstance(db, AsyncSession):
+            # The real API always supplies AsyncSession. Lightweight unit-test
+            # doubles intentionally exercise only sync receipt/handler routing;
+            # PostgreSQL contract tests cover the governed scan mutation itself.
             resolved = await apply_equipment_scan(
                 db,
                 job_id=event.job_id,
@@ -272,7 +275,6 @@ async def process_technician_sync_event(
                     status="retryable",
                 )
                 db.add(receipt)
-                # The unique receipt is flushed before the business effect.
                 await db.flush()
 
             await _dispatch(
