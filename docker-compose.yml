@@ -31,7 +31,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DEBUG: ${DEBUG:-false}
       SECRET_KEY: ${SECRET_KEY:-CHANGE_ME_SUPER_SECRET_KEY}
-    command: ["python", "-m", "alembic", "upgrade", "head"]
+    command: ["python", "-m", "backend.database.bootstrap_schema"]
     depends_on:
       postgres:
         condition: service_healthy
