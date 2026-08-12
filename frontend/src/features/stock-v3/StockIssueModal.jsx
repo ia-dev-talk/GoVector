@@ -16,8 +16,12 @@ import {
 
 function technicianLabel(technician) {
   const name = text(technician?.name, `Technicien #${technician?.id ?? '—'}`);
-  const team = text(technician?.team);
-  const sector = text(technician?.route_criteria ?? technician?.primary_sector_name);
+  const team = text(technician?.team ?? technician?.team_name);
+  const sector = text(
+    technician?.primary_sector_name ??
+      technician?.sector_name ??
+      technician?.route_criteria,
+  );
   return [name, team, sector].filter(Boolean).join(' · ');
 }
 
@@ -29,6 +33,27 @@ function availableForWarehouse(item, warehouseId) {
       (total, line) => total + numeric(line?.available_quantity),
       0,
     );
+}
+
+function isTechnicianCustodyWarehouse(warehouse) {
+  const type = text(warehouse?.type).toLocaleUpperCase('fr');
+  const code = text(warehouse?.code).toLocaleUpperCase('fr');
+  return (
+    type === 'TECHNICIEN' ||
+    type === 'TECHNICIAN' ||
+    code.startsWith('TECH-')
+  );
+}
+
+function money(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return '';
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency: 'MAD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 const StockIssueModal = memo(function StockIssueModal({
@@ -44,7 +69,10 @@ const StockIssueModal = memo(function StockIssueModal({
 }) {
   const warehouseOptions = useMemo(
     () => (Array.isArray(warehouses) ? warehouses : []).filter(
-      (warehouse) => warehouse?.is_active !== false,
+      (warehouse) => (
+        warehouse?.is_active !== false &&
+        !isTechnicianCustodyWarehouse(warehouse)
+      ),
     ),
     [warehouses],
   );
@@ -56,7 +84,12 @@ const StockIssueModal = memo(function StockIssueModal({
   );
 
   const [warehouseId, setWarehouseId] = useState(() => {
-    if (initialWarehouseId) return String(initialWarehouseId);
+    const requested = warehouseOptions.find(
+      (warehouse) => String(warehouse.id) === String(initialWarehouseId),
+    );
+    if (requested && availableForWarehouse(item, requested.id) > 0) {
+      return String(requested.id);
+    }
     const firstWithStock = warehouseOptions.find(
       (warehouse) => availableForWarehouse(item, warehouse?.id) > 0,
     );
@@ -70,25 +103,37 @@ const StockIssueModal = memo(function StockIssueModal({
   const [localError, setLocalError] = useState('');
 
   const available = availableForWarehouse(item, warehouseId);
+  const selectedWarehouse = warehouseOptions.find(
+    (warehouse) => String(warehouse.id) === String(warehouseId),
+  );
+  const selectedTechnician = technicianOptions.find(
+    (technician) => String(technician.id) === String(technicianId),
+  );
+  const parsedQuantity = Number(quantity);
+  const estimatedValue = (
+    Number.isFinite(parsedQuantity) && parsedQuantity > 0
+      ? parsedQuantity * numeric(item?.unit_price)
+      : 0
+  );
 
   const submit = () => {
     const parsedWarehouse = Number(warehouseId);
     const parsedTechnician = Number(technicianId);
-    const parsedQuantity = Number(quantity);
+    const nextQuantity = Number(quantity);
 
     if (!Number.isInteger(parsedWarehouse) || parsedWarehouse <= 0) {
-      setLocalError('Sélectionnez le dépôt source.');
+      setLocalError('Sélectionnez un dépôt source avec du stock disponible.');
       return;
     }
     if (!Number.isInteger(parsedTechnician) || parsedTechnician <= 0) {
-      setLocalError('Sélectionnez le technicien destinataire.');
+      setLocalError('Sélectionnez le technicien qui prendra le matériel en garde.');
       return;
     }
-    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
+    if (!Number.isInteger(nextQuantity) || nextQuantity <= 0) {
       setLocalError('La quantité doit être un entier supérieur à zéro.');
       return;
     }
-    if (parsedQuantity > available) {
+    if (nextQuantity > available) {
       setLocalError(`Stock disponible insuffisant dans ce dépôt (${available}).`);
       return;
     }
@@ -101,7 +146,7 @@ const StockIssueModal = memo(function StockIssueModal({
       items: [
         {
           item_id: Number(item.id),
-          quantity: parsedQuantity,
+          quantity: nextQuantity,
         },
       ],
     });
@@ -127,7 +172,7 @@ const StockIssueModal = memo(function StockIssueModal({
             <span>Dotation terrain</span>
             <strong id="st3-issue-title">Affecter du stock à un technicien</strong>
             <small>
-              {text(item?.reference)} · {text(item?.label, 'Article')}
+              {text(item?.reference, 'Référence sans code')} · {text(item?.label, 'Article')}
             </small>
           </div>
           <button
@@ -144,8 +189,8 @@ const StockIssueModal = memo(function StockIssueModal({
           <div className="st3-field-wide st3-form-note">
             <WarehouseIcon />
             <span>
-              La sortie crée un bon de dotation puis le valide. Le mouvement reste lié au technicien
-              dans le journal de stock BlueVector.
+              Une dotation validée transfère physiquement le matériel du dépôt vers le stock de garde du technicien.
+              Les deux côtés du mouvement restent tracés dans BlueVector.
             </span>
           </div>
 
@@ -153,7 +198,10 @@ const StockIssueModal = memo(function StockIssueModal({
             <span>Dépôt source</span>
             <select
               value={warehouseId}
-              onChange={(event) => setWarehouseId(event.target.value)}
+              onChange={(event) => {
+                setWarehouseId(event.target.value);
+                setLocalError('');
+              }}
             >
               <option value="">Choisir un dépôt</option>
               {warehouseOptions.map((warehouse) => {
@@ -175,7 +223,10 @@ const StockIssueModal = memo(function StockIssueModal({
             <span>Technicien destinataire</span>
             <select
               value={technicianId}
-              onChange={(event) => setTechnicianId(event.target.value)}
+              onChange={(event) => {
+                setTechnicianId(event.target.value);
+                setLocalError('');
+              }}
             >
               <option value="">Choisir un technicien</option>
               {technicianOptions.map((technician) => (
@@ -187,24 +238,38 @@ const StockIssueModal = memo(function StockIssueModal({
           </label>
 
           <label>
-            <span>Quantité</span>
+            <span>Quantité transférée</span>
             <input
               type="number"
               min="1"
               max={Math.max(1, available)}
               step="1"
+              inputMode="numeric"
               value={quantity}
-              onChange={(event) => setQuantity(event.target.value)}
+              onChange={(event) => {
+                setQuantity(event.target.value);
+                setLocalError('');
+              }}
             />
             <small>{available} unité{available > 1 ? 's' : ''} disponible{available > 1 ? 's' : ''}</small>
           </label>
 
+          <div className="st3-form-note">
+            <WarehouseIcon />
+            <span>
+              {selectedWarehouse && selectedTechnician
+                ? `${text(selectedWarehouse.name)} → Stock de garde · ${text(selectedTechnician.name)}`
+                : 'Choisissez le dépôt et le technicien pour prévisualiser le transfert.'}
+              {estimatedValue > 0 ? ` · Valeur indicative ${money(estimatedValue)}` : ''}
+            </span>
+          </div>
+
           <label className="st3-field-wide">
-            <span>Note de dotation</span>
+            <span>Motif / note de dotation</span>
             <textarea
               rows="3"
               value={notes}
-              placeholder="Ex. dotation véhicule, intervention prévue, remplacement…"
+              placeholder="Ex. dotation véhicule, intervention prévue, remplacement, kit de garde…"
               onChange={(event) => setNotes(event.target.value)}
             />
           </label>
@@ -229,9 +294,9 @@ const StockIssueModal = memo(function StockIssueModal({
             type="button"
             className="st3-primary-button"
             onClick={submit}
-            disabled={saving || available <= 0}
+            disabled={saving || available <= 0 || !technicianId}
           >
-            {saving ? 'Validation…' : 'Valider la dotation'}
+            {saving ? 'Transfert en cours…' : 'Valider la dotation'}
           </button>
         </footer>
       </section>
