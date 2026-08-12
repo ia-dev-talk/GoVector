@@ -49,15 +49,29 @@ async def sync_technician_events(
         service = DashboardService()
         try:
             for job_id, action_types in acknowledged_by_job.items():
-                await service.broadcast_job_event(
-                    "job:updated",
-                    {
-                        "job_id": job_id,
-                        "technician_id": current_user.technician_id,
-                        "source": "technician_sync",
-                        "field_actions": sorted(action_types),
-                    },
-                )
+                payload = {
+                    "job_id": job_id,
+                    "technician_id": current_user.technician_id,
+                    "source": "technician_sync",
+                    "field_actions": sorted(action_types),
+                }
+                await service.broadcast_job_event("job:updated", payload)
+                if "material_used" in action_types:
+                    await service.broadcast_job_event(
+                        "stock:updated",
+                        {
+                            **payload,
+                            "reason": "technician_consumption",
+                        },
+                    )
+                if "equipment_scan" in action_types:
+                    await service.broadcast_job_event(
+                        "equipment:updated",
+                        {
+                            **payload,
+                            "reason": "technician_scan",
+                        },
+                    )
             await service.broadcast_dashboard_update()
         except Exception as exc:
             logger.warning("Technician sync realtime broadcast failed: %s", exc)
