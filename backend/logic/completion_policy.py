@@ -114,6 +114,19 @@ class CompletionPolicy:
         if evidence["has_comment"]:
             missing.pop("comment", None)
 
+        legacy_photo_keys = {
+            str(value)
+            for value in (
+                getattr(job, "before_photo", None),
+                getattr(job, "after_photo", None),
+            )
+            if value
+        }
+        photo_keys = legacy_photo_keys | evidence["mobile_photo_keys"]
+        photo_count = len(photo_keys)
+        if photo_count > 0:
+            missing.pop("photos", None)
+
         if requirements.require_stock_consumption:
             result = await self.db.execute(
                 select(func.count(StockConsumption.id)).where(
@@ -143,7 +156,7 @@ class CompletionPolicy:
         blocking = []
         for key in sorted(required_keys):
             if key == "photos":
-                if evidence["photo_count"] < requirements.minimum_photos:
+                if photo_count < requirements.minimum_photos:
                     blocking.append(
                         f"{requirements.minimum_photos} photo(s) terrain requise(s)"
                     )
@@ -208,8 +221,6 @@ class CompletionPolicy:
             "has_comment": "intervention_comment" in action_types,
             "action_types": action_types,
             "observation_types": observation_types,
-            # Set to zero here; legacy photo paths are merged in evaluate below.
-            "photo_count": len(media_by_kind.get("photo", set())),
         }
 
     @staticmethod
