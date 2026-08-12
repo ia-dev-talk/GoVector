@@ -10,6 +10,7 @@ import ValidationPanel from '../../components/ValidationPanel';
 import { jobAllowsCommand } from '../../lib/workflow-capabilities';
 import InterventionDetailHeader from './InterventionDetailHeader';
 import InterventionEvidencePanel from './InterventionEvidencePanel';
+import InterventionFieldSummary from './InterventionFieldSummary';
 import InterventionGraphicalTools from './InterventionGraphicalTools';
 import InterventionMapCard from './InterventionMapCard';
 import InterventionOverview from './InterventionOverview';
@@ -291,6 +292,8 @@ export default function InterventionDetailPage({
           job={job}
           onSaved={() => refreshData({ manual: true })}
         />
+
+        <InterventionFieldSummary job={job} fieldRecord={fieldRecord} />
 
         <main className="intervention-detail-layout">
           <div className="intervention-detail-rail intervention-detail-timeline-rail">
