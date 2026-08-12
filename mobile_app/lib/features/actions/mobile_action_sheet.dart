@@ -14,6 +14,7 @@ import 'client_signature_screen.dart';
 import 'free_document_action_screen.dart';
 import 'free_measurement_action_screen.dart';
 import 'free_photo_action_screen.dart';
+import 'material_used_screen.dart';
 import 'mobile_sketch_screen.dart';
 
 Future<void> showMobileActionSheet({
@@ -435,11 +436,7 @@ Future<void> showMobileActionSheet({
           label: label('material_used', 'Matériel utilisé'),
           icon: Icons.inventory_2_outlined,
           color: BlueVectorColors.primaryBright,
-          onTap: () => promptTextAction(
-            title: 'Matériel utilisé',
-            action: 'material_used',
-            hint: 'Article, quantité et référence…',
-          ),
+          onTap: () => openScreen(MaterialUsedScreen(jobId: job.id)),
         ),
         _MobileAction(
           code: 'client_signature',
