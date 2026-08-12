@@ -34,6 +34,12 @@ export const stockV3Api = Object.freeze({
       },
     ),
 
+  getHistory: (params = {}) =>
+    apiClient.get(
+      '/stock-ftth/history-v2',
+      { params },
+    ),
+
   createItem: (document) =>
     apiClient.post(
       '/stock-ftth/items',
