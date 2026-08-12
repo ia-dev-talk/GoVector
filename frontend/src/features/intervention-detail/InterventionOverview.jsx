@@ -59,12 +59,28 @@ function SectionCard({
   );
 }
 
-export default function InterventionOverview({ job }) {
+export default function InterventionOverview({
+  job,
+  assignmentContext = null,
+}) {
   const coordinates = getCoordinates(job);
   const slot =
     job?.time_slot_start || job?.time_slot_end
       ? `${text(job?.time_slot_start, '—')} – ${text(job?.time_slot_end, '—')}`
       : '—';
+  const technicianName = text(
+    assignmentContext?.technician_name,
+    getAssignedTechnician(job),
+  );
+  const teamName = text(
+    assignmentContext?.team_name,
+    text(job?.team),
+  );
+  const orienteurName = text(
+    assignmentContext?.orienteur_name,
+    text(job?.orienteur_name),
+  );
+  const organization = [teamName, orienteurName].filter(Boolean).join(' · ');
 
   return (
     <div className="intervention-detail-overview-grid">
@@ -164,7 +180,7 @@ export default function InterventionOverview({ job }) {
       >
         <div className="intervention-detail-assignment">
           <div className="intervention-detail-assignment-avatar" aria-hidden="true">
-            {getAssignedTechnician(job)
+            {technicianName
               .split(/\s+/)
               .slice(0, 2)
               .map((part) => part[0])
@@ -173,11 +189,9 @@ export default function InterventionOverview({ job }) {
           </div>
 
           <div className="intervention-detail-assignment-copy">
-            <strong>{getAssignedTechnician(job)}</strong>
+            <strong>{technicianName}</strong>
             <span>
-              {text(job?.team, 'Équipe non renseignée')}
-              {' · '}
-              {text(job?.orienteur_name, 'Orienteur non renseigné')}
+              {organization || 'Organisation terrain non définie'}
             </span>
           </div>
         </div>
