@@ -10,6 +10,7 @@ import ValidationPanel from '../../components/ValidationPanel';
 import { jobAllowsCommand } from '../../lib/workflow-capabilities';
 import InterventionDetailHeader from './InterventionDetailHeader';
 import InterventionEvidencePanel from './InterventionEvidencePanel';
+import InterventionGraphicalTools from './InterventionGraphicalTools';
 import InterventionMapCard from './InterventionMapCard';
 import InterventionOverview from './InterventionOverview';
 import InterventionTimeline from './InterventionTimeline';
@@ -88,15 +89,14 @@ export default function InterventionDetailPage({
         stockResult,
         fieldRecordResult,
         workflowResult,
-      ] =
-        await Promise.allSettled([
-          api.getJob(jobId),
-          api.getJobTimeline(jobId),
-          api.getJobEquipment(jobId),
-          api.getJobStock(jobId),
-          api.getJobFieldRecord(jobId),
-          api.getJobWorkflowCapabilities(jobId),
-        ]);
+      ] = await Promise.allSettled([
+        api.getJob(jobId),
+        api.getJobTimeline(jobId),
+        api.getJobEquipment(jobId),
+        api.getJobStock(jobId),
+        api.getJobFieldRecord(jobId),
+        api.getJobWorkflowCapabilities(jobId),
+      ]);
 
       if (requestSequence !== requestSequenceRef.current) {
         return;
@@ -181,8 +181,6 @@ export default function InterventionDetailPage({
       ) {
         setWorkflowCapabilities(workflowResult.value.data);
       } else {
-        // Never invent an office command when the authoritative capability
-        // contract is missing or forbidden for the connected account.
         setWorkflowCapabilities(null);
       }
 
@@ -225,79 +223,84 @@ export default function InterventionDetailPage({
 
   return (
     <>
-    <div className="intervention-detail-page">
-      <InterventionDetailHeader
-        job={job}
-        refreshing={refreshing}
-        onBack={onBack}
-        onRefresh={() => refreshData({ manual: true })}
-        onEdit={onEdit}
-        onManageAssignment={onManageAssignment}
-        onValidate={canValidate ? () => setValidationOpen(true) : undefined}
-      />
+      <div className="intervention-detail-page">
+        <InterventionDetailHeader
+          job={job}
+          refreshing={refreshing}
+          onBack={onBack}
+          onRefresh={() => refreshData({ manual: true })}
+          onEdit={onEdit}
+          onManageAssignment={onManageAssignment}
+          onValidate={canValidate ? () => setValidationOpen(true) : undefined}
+        />
 
-      {jobError ? (
-        <div className="intervention-detail-page-notice" role="alert">
-          <div>
-            <strong>Données partiellement actualisées</strong>
-            <span>{jobError}</span>
+        {jobError ? (
+          <div className="intervention-detail-page-notice" role="alert">
+            <div>
+              <strong>Données partiellement actualisées</strong>
+              <span>{jobError}</span>
+            </div>
+
+            <button
+              type="button"
+              className="intervention-detail-text-button"
+              onClick={() => refreshData({ manual: true })}
+              disabled={refreshing}
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : null}
+
+        <InterventionGraphicalTools
+          job={job}
+          onSaved={() => refreshData({ manual: true })}
+        />
+
+        <main className="intervention-detail-layout">
+          <div className="intervention-detail-rail intervention-detail-timeline-rail">
+            <InterventionTimeline
+              job={job}
+              activities={timeline}
+              loading={initialLoading || refreshing}
+              error={timelineError}
+              onRetry={() => refreshData({ manual: true })}
+            />
           </div>
 
-          <button
-            type="button"
-            className="intervention-detail-text-button"
-            onClick={() => refreshData({ manual: true })}
-            disabled={refreshing}
-          >
-            Réessayer
-          </button>
-        </div>
+          <div className="intervention-detail-center">
+            <InterventionOverview job={job} />
+            <InterventionMapCard
+              job={job}
+              fieldReference={fieldRecord?.field_reference_location}
+            />
+          </div>
+
+          <div className="intervention-detail-rail intervention-detail-evidence-rail">
+            <InterventionEvidencePanel
+              job={job}
+              equipment={equipment}
+              stock={stock}
+              fieldRecord={fieldRecord}
+              equipmentError={equipmentError}
+              stockError={stockError}
+              fieldRecordError={fieldRecordError}
+              onRecordChanged={() => refreshData({ manual: true })}
+            />
+          </div>
+        </main>
+      </div>
+
+      {validationOpen ? (
+        <ValidationPanel
+          job={job}
+          onClose={() => setValidationOpen(false)}
+          onValidated={async () => {
+            setValidationOpen(false);
+            await refreshData({ manual: true });
+          }}
+        />
       ) : null}
-
-      <main className="intervention-detail-layout">
-        <div className="intervention-detail-rail intervention-detail-timeline-rail">
-          <InterventionTimeline
-            job={job}
-            activities={timeline}
-            loading={initialLoading || refreshing}
-            error={timelineError}
-            onRetry={() => refreshData({ manual: true })}
-          />
-        </div>
-
-        <div className="intervention-detail-center">
-          <InterventionOverview job={job} />
-          <InterventionMapCard
-            job={job}
-            fieldReference={fieldRecord?.field_reference_location}
-          />
-        </div>
-
-        <div className="intervention-detail-rail intervention-detail-evidence-rail">
-          <InterventionEvidencePanel
-            job={job}
-            equipment={equipment}
-            stock={stock}
-            fieldRecord={fieldRecord}
-            equipmentError={equipmentError}
-            stockError={stockError}
-            fieldRecordError={fieldRecordError}
-            onRecordChanged={() => refreshData({ manual: true })}
-          />
-        </div>
-      </main>
-    </div>
-
-    {validationOpen ? (
-      <ValidationPanel
-        job={job}
-        onClose={() => setValidationOpen(false)}
-        onValidated={async () => {
-          setValidationOpen(false);
-          await refreshData({ manual: true });
-        }}
-      />
-    ) : null}
     </>
   );
 }
