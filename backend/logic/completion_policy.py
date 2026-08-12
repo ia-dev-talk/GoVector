@@ -134,7 +134,9 @@ class CompletionPolicy:
                     StockConsumption.status == "VALIDE",
                 )
             )
-            if (result.scalar() or 0) == 0:
+            scalar = getattr(result, "scalar", None)
+            consumed_count = (scalar() if callable(scalar) else 0) or 0
+            if consumed_count == 0:
                 missing["stock_consumption"] = _FIELD_LABELS[
                     "stock_consumption"
                 ]
@@ -177,39 +179,56 @@ class CompletionPolicy:
             required_field_keys=tuple(sorted(required_keys)),
         )
 
+    @staticmethod
+    def _rows(result: Any) -> list[Any]:
+        """Return row tuples from SQLAlchemy or lightweight test result adapters."""
+        all_rows = getattr(result, "all", None)
+        if callable(all_rows):
+            return list(all_rows())
+        fetchall = getattr(result, "fetchall", None)
+        if callable(fetchall):
+            return list(fetchall())
+        return []
+
+    @staticmethod
+    def _scalar_rows(result: Any) -> list[Any]:
+        """Return scalar rows without forcing every test adapter to emulate SQLAlchemy."""
+        scalars = getattr(result, "scalars", None)
+        if not callable(scalars):
+            return []
+        scalar_result = scalars()
+        all_rows = getattr(scalar_result, "all", None)
+        if callable(all_rows):
+            return list(all_rows())
+        return []
+
     async def _normalized_evidence(self, job_id: int) -> dict[str, Any]:
-        media_rows = (
-            await self.db.execute(
-                select(
-                    TechnicianMedia.kind,
-                    TechnicianMedia.storage_key,
-                ).where(TechnicianMedia.job_id == job_id)
-            )
-        ).all()
+        media_result = await self.db.execute(
+            select(
+                TechnicianMedia.kind,
+                TechnicianMedia.storage_key,
+            ).where(TechnicianMedia.job_id == job_id)
+        )
+        media_rows = self._rows(media_result)
         media_by_kind: dict[str, set[str]] = {}
         for kind, storage_key in media_rows:
             media_by_kind.setdefault(str(kind), set()).add(
                 str(storage_key or "")
             )
 
-        action_types = set(
-            (
-                await self.db.execute(
-                    select(TechnicianFieldAction.action_type).where(
-                        TechnicianFieldAction.job_id == job_id
-                    )
-                )
-            ).scalars().all()
+        action_result = await self.db.execute(
+            select(TechnicianFieldAction.action_type).where(
+                TechnicianFieldAction.job_id == job_id
+            )
         )
-        observation_types = set(
-            (
-                await self.db.execute(
-                    select(JobSiteObservation.observation_type).where(
-                        JobSiteObservation.job_id == job_id
-                    )
-                )
-            ).scalars().all()
+        action_types = set(self._scalar_rows(action_result))
+
+        observation_result = await self.db.execute(
+            select(JobSiteObservation.observation_type).where(
+                JobSiteObservation.job_id == job_id
+            )
         )
+        observation_types = set(self._scalar_rows(observation_result))
 
         return {
             "has_signature": bool(media_by_kind.get("signature"))
@@ -260,3 +279,8 @@ class CompletionPolicy:
         ):
             missing["photos"] = _FIELD_LABELS["photos"]
         return missing
+
+    @staticmethod
+    def _missing_evidence(job: Job) -> dict[str, str]:
+        """Compatibility alias kept for older capability checks and integrations."""
+        return CompletionPolicy._missing_legacy_evidence(job)
