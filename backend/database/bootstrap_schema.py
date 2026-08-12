@@ -26,6 +26,10 @@ from backend.database.connection import engine
 from backend.database.models import Base
 from backend.database.bootstrap_metadata import register_bootstrap_metadata
 
+# Import extension models before ``Base.metadata.create_all`` so clean V0.1
+# installations contain the same territory registry as migrated databases.
+from backend.database import territory_models as _territory_models  # noqa: F401,E402
+
 
 # Register migration-era tables that are still consumed by current product
 # code but do not yet have first-class ORM models.
