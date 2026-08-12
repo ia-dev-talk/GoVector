@@ -1,9 +1,11 @@
 """Technician custody stock operations for the field application.
 
 The V2 allocation workflow moves physical units into a deterministic warehouse
-(`TECH-{technician_id}`). Field consumption must therefore debit AVAILABLE
-custody, not the historical reservation bucket. Functions in this module never
-commit: callers own the surrounding sync/savepoint transaction.
+(`TECH-{technician_id}`). Field consumption therefore debits AVAILABLE custody,
+not the historical reservation bucket. Scanner resolution is also centralized
+here so raw camera codes are interpreted against governed server data instead
+of mobile-side guesses. Functions in this module never commit: callers own the
+surrounding sync/savepoint transaction.
 """
 
 from __future__ import annotations
@@ -312,12 +314,16 @@ async def consume_technician_material(
     return consumption
 
 
-def _parse_scanned_code(raw_code: str) -> dict[str, str | None]:
+def _parse_scanned_code(raw_code: str) -> dict[str, Any]:
     raw = raw_code.strip()
-    parsed: dict[str, str | None] = {
+    parsed: dict[str, Any] = {
         "serial_number": None,
         "mac_address": None,
         "operator": None,
+        "reference": None,
+        "model": None,
+        "equipment_type": None,
+        "serial_explicit": False,
     }
     for token in re.split(r"[;|,\n\r]+", raw):
         if ":" in token:
@@ -332,13 +338,41 @@ def _parse_scanned_code(raw_code: str) -> dict[str, str | None]:
             continue
         if key in {"SN", "SERIAL", "SERIALNUMBER", "SNO"}:
             parsed["serial_number"] = value
+            parsed["serial_explicit"] = True
         elif key in {"MAC", "MACADDRESS", "MACADDR"}:
             parsed["mac_address"] = value
         elif key in {"OP", "OPERATOR", "OPERATEUR"}:
             parsed["operator"] = value
+        elif key in {"REF", "REFERENCE", "SKU", "PN", "PARTNUMBER"}:
+            parsed["reference"] = value
+        elif key in {"MODEL", "MODELE"}:
+            parsed["model"] = value
+        elif key in {"TYPE", "EQUIPMENTTYPE", "EQUIPEMENT"}:
+            parsed["equipment_type"] = value
     if parsed["serial_number"] is None:
         parsed["serial_number"] = raw
     return parsed
+
+
+def _inventory_custody_matches(
+    inventory: EquipmentInventory | None,
+    *,
+    technician_id: int,
+    warehouse: Warehouse | None,
+) -> bool:
+    if inventory is None:
+        return False
+    values = [inventory.warehouse, inventory.vehicle]
+    haystack = " ".join(str(value or "") for value in values).casefold()
+    markers = {
+        str(technician_id),
+        f"tech-{technician_id}".casefold(),
+        f"technicien {technician_id}".casefold(),
+    }
+    if warehouse is not None:
+        markers.add(str(warehouse.code or "").casefold())
+        markers.add(str(warehouse.name or "").casefold())
+    return any(marker and marker in haystack for marker in markers)
 
 
 async def resolve_equipment_scan(
@@ -347,6 +381,7 @@ async def resolve_equipment_scan(
     raw_code: str,
     job_id: int,
     current_user: User,
+    lock_inventory: bool = False,
 ) -> dict[str, Any]:
     technician_id = current_user.technician_id
     if technician_id is None:
@@ -367,21 +402,27 @@ async def resolve_equipment_scan(
     parsed = _parse_scanned_code(raw)
     serial = str(parsed.get("serial_number") or "").strip()
     mac = str(parsed.get("mac_address") or "").strip()
-    inventory = await db.scalar(
-        select(EquipmentInventory).where(
-            or_(
-                EquipmentInventory.serial_number == serial,
-                EquipmentInventory.mac_address == (mac or serial),
-            )
+    reference = str(parsed.get("reference") or "").strip()
+    parsed_model = str(parsed.get("model") or "").strip()
+
+    inventory_statement = select(EquipmentInventory).where(
+        or_(
+            EquipmentInventory.serial_number == serial,
+            EquipmentInventory.mac_address == (mac or serial),
         )
     )
+    if lock_inventory:
+        inventory_statement = inventory_statement.with_for_update()
+    inventory = await db.scalar(inventory_statement)
 
     catalogue = await db.scalar(
         select(StockItem).where(
             or_(
                 StockItem.reference == raw,
                 StockItem.reference == serial,
+                StockItem.reference == reference,
                 StockItem.model == raw,
+                StockItem.model == parsed_model,
             )
         )
     )
@@ -409,10 +450,12 @@ async def resolve_equipment_scan(
     equipment_type = (
         (inventory.equipment_type if inventory is not None else None)
         or (catalogue.equipment_type if catalogue is not None else None)
+        or parsed.get("equipment_type")
     )
     model = (
         (inventory.model if inventory is not None else None)
         or (catalogue.model if catalogue is not None else None)
+        or parsed.get("model")
     )
     source = (
         "inventory"
@@ -422,21 +465,110 @@ async def resolve_equipment_scan(
         else "raw"
     )
     operator_match = not bool(job.operator and operator and job.operator != operator)
+    serialized_custody = _inventory_custody_matches(
+        inventory,
+        technician_id=technician_id,
+        warehouse=warehouse,
+    )
+    custody_verified = serialized_custody or available > 0
 
     return {
         "raw_code": raw,
         "serial_number": inventory.serial_number if inventory is not None else serial,
+        "serial_explicit": bool(parsed.get("serial_explicit")),
         "mac_address": inventory.mac_address if inventory is not None else (mac or None),
         "operator": operator,
         "equipment_type": equipment_type,
         "model": model,
+        "inventory_id": inventory.id if inventory is not None else None,
+        "inventory_status": inventory.status if inventory is not None else None,
+        "inventory_assigned_job_id": (
+            inventory.assigned_job_id if inventory is not None else None
+        ),
         "item_id": catalogue.id if catalogue is not None else None,
-        "reference": catalogue.reference if catalogue is not None else None,
+        "reference": catalogue.reference if catalogue is not None else (reference or None),
         "label": catalogue.label if catalogue is not None else None,
         "available_quantity": available,
-        "in_technician_stock": available > 0,
+        "in_technician_stock": custody_verified,
         "job_operator": job.operator,
         "operator_match": operator_match,
         "source": source,
         "confidence": "verified" if source in {"inventory", "catalogue"} else "unverified",
     }
+
+
+def _serial_target(equipment_type: Any) -> str | None:
+    normalized = re.sub(r"[^A-Z0-9]", "", str(equipment_type or "").upper())
+    if any(token in normalized for token in ("ONT", "ONU")):
+        return "ont_serial"
+    if any(token in normalized for token in ("WIFI", "BOX")):
+        return "wifi_box_serial"
+    if any(token in normalized for token in ("ROUTER", "ROUTEUR")):
+        return "router_serial"
+    return None
+
+
+async def apply_equipment_scan(
+    db: AsyncSession,
+    *,
+    job_id: int,
+    payload: dict[str, Any],
+    current_user: User,
+) -> dict[str, Any]:
+    """Resolve a scan and bind only verified serialized inventory to the job.
+
+    Unknown codes remain useful field evidence and are not silently rejected.
+    A verified operator mismatch or an inventory item already attached to a
+    different job is a conflict and must be surfaced to the technician.
+    """
+
+    raw_code = str(payload.get("code") or payload.get("value") or payload.get("reference") or "").strip()
+    resolved = await resolve_equipment_scan(
+        db,
+        raw_code=raw_code,
+        job_id=job_id,
+        current_user=current_user,
+        lock_inventory=True,
+    )
+
+    if resolved["confidence"] == "verified" and not resolved["operator_match"]:
+        raise TechnicianJobMutationError(
+            "conflict",
+            "operator_mismatch",
+            (
+                f"Équipement {resolved.get('operator') or 'opérateur inconnu'} incompatible "
+                f"avec l'intervention {resolved.get('job_operator') or 'sans opérateur'}"
+            ),
+        )
+
+    inventory_id = resolved.get("inventory_id")
+    if inventory_id is not None:
+        inventory = await db.get(EquipmentInventory, int(inventory_id))
+        if inventory is not None:
+            if (
+                inventory.assigned_job_id is not None
+                and inventory.assigned_job_id != job_id
+            ):
+                raise TechnicianJobMutationError(
+                    "conflict",
+                    "equipment_already_assigned",
+                    (
+                        f"Le numéro de série {inventory.serial_number} est déjà lié à "
+                        f"l'intervention #{inventory.assigned_job_id}"
+                    ),
+                )
+            inventory.assigned_job_id = job_id
+            inventory.status = "IN_USE"
+
+            job = await db.get(Job, job_id)
+            if job is not None:
+                target = _serial_target(resolved.get("equipment_type"))
+                serial = str(resolved.get("serial_number") or "").strip()
+                if target and serial:
+                    setattr(job, target, serial)
+                mac_address = str(resolved.get("mac_address") or "").strip()
+                if mac_address:
+                    job.mac_address = mac_address
+
+    await db.flush()
+    return resolved
