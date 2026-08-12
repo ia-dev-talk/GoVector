@@ -32,6 +32,7 @@ function MovementRow({ row, onNavigate }) {
   const jobId = normalizeIdentifier(row?.job_id);
   const technicianId = normalizeIdentifier(row?.technician_id);
   const movementType = text(row?.movement_type).toUpperCase();
+  const canNavigate = typeof onNavigate === 'function';
 
   return (
     <article className="st3-history-row">
@@ -57,23 +58,37 @@ function MovementRow({ row, onNavigate }) {
 
       <div className="st3-history-context">
         {technicianId ? (
-          <button
-            type="button"
-            onClick={() => onNavigate?.('personnel', { technicianId, from: 'stocks-history' })}
-          >
-            {text(row?.technician_name, `Technicien #${technicianId}`)}
-            {row?.technician_employee_id ? <small>{row.technician_employee_id}</small> : null}
-          </button>
+          canNavigate ? (
+            <button
+              type="button"
+              onClick={() => onNavigate('personnel', { technicianId, from: 'stocks-history' })}
+            >
+              {text(row?.technician_name, `Technicien #${technicianId}`)}
+              {row?.technician_employee_id ? <small>{row.technician_employee_id}</small> : null}
+            </button>
+          ) : (
+            <span>
+              {text(row?.technician_name, `Technicien #${technicianId}`)}
+              {row?.technician_employee_id ? <small>{row.technician_employee_id}</small> : null}
+            </span>
+          )
         ) : <span className="st3-history-muted">Aucun technicien</span>}
 
         {jobId ? (
-          <button
-            type="button"
-            onClick={() => onNavigate?.('interventions', { id: Number(jobId) })}
-          >
-            Intervention {text(row?.job_number, `#${jobId}`)}
-            <small>{text(row?.customer_name, row?.service_address || 'Ouvrir la fiche')}</small>
-          </button>
+          canNavigate ? (
+            <button
+              type="button"
+              onClick={() => onNavigate('interventions', { id: Number(jobId) })}
+            >
+              Intervention {text(row?.job_number, `#${jobId}`)}
+              <small>{text(row?.customer_name, row?.service_address || 'Ouvrir la fiche')}</small>
+            </button>
+          ) : (
+            <span>
+              Intervention {text(row?.job_number, `#${jobId}`)}
+              <small>{text(row?.customer_name, row?.service_address || 'Intervention liée')}</small>
+            </span>
+          )
         ) : <span className="st3-history-muted">Hors intervention</span>}
       </div>
 
@@ -85,12 +100,14 @@ function MovementRow({ row, onNavigate }) {
 }
 
 const StockHistoryPanel = memo(function StockHistoryPanel({
-  warehouses,
-  technicians,
+  warehouses: providedWarehouses,
+  technicians: providedTechnicians,
   onNavigate,
   onClose,
 }) {
   const [rows, setRows] = useState([]);
+  const [referenceWarehouses, setReferenceWarehouses] = useState([]);
+  const [referenceTechnicians, setReferenceTechnicians] = useState([]);
   const [search, setSearch] = useState('');
   const [movementType, setMovementType] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
@@ -98,6 +115,13 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const requestRef = useRef(0);
+
+  const warehouses = Array.isArray(providedWarehouses) && providedWarehouses.length
+    ? providedWarehouses
+    : referenceWarehouses;
+  const technicians = Array.isArray(providedTechnicians) && providedTechnicians.length
+    ? providedTechnicians
+    : referenceTechnicians;
 
   const params = useMemo(() => ({
     ...(search.trim() ? { search: search.trim() } : {}),
@@ -122,6 +146,31 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
       if (requestId === requestRef.current) setLoading(false);
     }
   }, [params]);
+
+  useEffect(() => {
+    if (
+      Array.isArray(providedWarehouses) && providedWarehouses.length &&
+      Array.isArray(providedTechnicians) && providedTechnicians.length
+    ) return undefined;
+
+    let cancelled = false;
+    Promise.allSettled([
+      stockV3Api.getWarehouses(),
+      stockV3Api.getTechnicians(),
+    ]).then(([warehousesResult, techniciansResult]) => {
+      if (cancelled) return;
+      if (warehousesResult.status === 'fulfilled') {
+        setReferenceWarehouses(Array.isArray(warehousesResult.value?.data) ? warehousesResult.value.data : []);
+      }
+      if (techniciansResult.status === 'fulfilled') {
+        setReferenceTechnicians(Array.isArray(techniciansResult.value?.data) ? techniciansResult.value.data : []);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [providedTechnicians, providedWarehouses]);
 
   useEffect(() => {
     const timer = window.setTimeout(load, search ? 250 : 0);
