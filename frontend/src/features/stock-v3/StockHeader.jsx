@@ -9,6 +9,7 @@ import {
   SearchIcon,
 } from './StockIcons';
 import SerializedEquipmentRegistry from './SerializedEquipmentRegistry';
+import StockHistoryPanel from './StockHistoryPanel';
 
 
 const StockHeader = memo(function StockHeader({
@@ -22,12 +23,12 @@ const StockHeader = memo(function StockHeader({
   onExport,
   onCreate,
   onReceive,
-  onHistory,
   canManageCatalog,
   canMoveStock,
   hasWarehouses,
 }) {
   const [registryOpen, setRegistryOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   return (
     <>
@@ -98,7 +99,7 @@ const StockHeader = memo(function StockHeader({
           <button
             type="button"
             className="st3-secondary-button"
-            onClick={onHistory}
+            onClick={() => setHistoryOpen(true)}
             title="Ouvrir le journal complet des mouvements"
           >
             <HistoryIcon />
@@ -160,6 +161,10 @@ const StockHeader = memo(function StockHeader({
 
       {registryOpen ? (
         <SerializedEquipmentRegistry onClose={() => setRegistryOpen(false)} />
+      ) : null}
+
+      {historyOpen ? (
+        <StockHistoryPanel onClose={() => setHistoryOpen(false)} />
       ) : null}
     </>
   );
