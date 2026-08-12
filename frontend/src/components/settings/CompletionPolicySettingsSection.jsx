@@ -84,10 +84,6 @@ function normalizePolicy(document) {
   };
 }
 
-function stable(value) {
-  return JSON.stringify(value, Object.keys(value).sort());
-}
-
 function RuleEditor({ value, onChange, compact = false }) {
   const toggleAdvanced = (key) => {
     const set = new Set(value.required_field_keys);
