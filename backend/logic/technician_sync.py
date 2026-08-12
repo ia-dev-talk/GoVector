@@ -20,7 +20,10 @@ from backend.logic.technician_jobs import (
     TechnicianJobMutationError,
     terminate_technician_job,
 )
-from backend.logic.technician_stock import consume_technician_material
+from backend.logic.technician_stock import (
+    apply_equipment_scan,
+    consume_technician_material,
+)
 from backend.logic.job_communications import create_job_communication
 from backend.logic.job_access import require_job_collaboration_access
 
@@ -136,25 +139,35 @@ async def _dispatch(
         return
 
     if event.type in SUPPORTED_FIELD_ACTION_TYPES:
-        # Material usage is a business mutation, not a decorative field note.
-        # It is executed inside the same savepoint as the idempotency receipt,
-        # so replaying an acknowledged offline event can never consume twice.
+        # Business effects happen inside the same savepoint as the idempotency
+        # receipt. Replaying an acknowledged mobile event therefore cannot
+        # consume stock twice or rebind serialized equipment inconsistently.
+        field_payload = dict(event.payload)
         if event.type == "material_used":
             await consume_technician_material(
                 db,
                 job_id=event.job_id,
-                payload=event.payload,
+                payload=field_payload,
                 current_user=current_user,
                 event_id=str(event.event_id),
                 occurred_at=event.occurred_at,
             )
+        elif event.type == "equipment_scan":
+            resolved = await apply_equipment_scan(
+                db,
+                job_id=event.job_id,
+                payload=field_payload,
+                current_user=current_user,
+            )
+            field_payload.update(resolved)
+
         await record_technician_field_action(
             db,
             event_id=str(event.event_id),
             occurred_at=event.occurred_at,
             job_id=event.job_id,
             event_type=event.type,
-            payload=event.payload,
+            payload=field_payload,
             current_user=current_user,
         )
         return
