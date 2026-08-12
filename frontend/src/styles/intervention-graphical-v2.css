@@ -1,0 +1,107 @@
+.intervention-graphical-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin: 0 24px 14px;
+  padding: 11px 14px;
+  border: 1px solid rgba(75, 141, 255, 0.16);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(75, 141, 255, 0.075), rgba(15, 26, 42, 0.96) 44%);
+}
+
+.intervention-graphical-tools-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.intervention-graphical-tools-copy > span {
+  color: #7294c5;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.intervention-graphical-tools-copy > strong {
+  color: #eef4fc;
+  font-size: 11px;
+}
+
+.intervention-graphical-tools-copy > small {
+  max-width: 760px;
+  color: #8192aa;
+  font-size: 8.5px;
+  line-height: 1.45;
+}
+
+.intervention-graphical-tools-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intervention-graphical-tools-capability {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #8fa2bd;
+  font-size: 8.5px;
+  white-space: nowrap;
+}
+
+.intervention-graphical-tools-capability svg,
+.intervention-graphical-tools-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.intervention-graphical-tools-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.intervention-graphical-tools-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #ff8b98;
+  font-size: 9px;
+}
+
+.bv-annotation-toolbar label:has(input[type='checkbox']) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bv-annotation-toolbar input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  accent-color: #4b8dff;
+}
+
+@media (max-width: 920px) {
+  .intervention-graphical-tools {
+    grid-template-columns: 1fr;
+    margin-inline: 14px;
+  }
+
+  .intervention-graphical-tools-actions {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 560px) {
+  .intervention-graphical-tools-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .intervention-graphical-tools-capability {
+    white-space: normal;
+  }
+}
