@@ -66,7 +66,7 @@ class _MobileSketchScreenState extends State<MobileSketchScreen> {
     try {
       const width = 1600;
       const height = 1000;
-      const size = Size(width.toDouble(), height.toDouble());
+      final size = Size(width.toDouble(), height.toDouble());
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
 
