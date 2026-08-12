@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { finiteNumber, text } from './interventionDetailUtils';
 import '../../styles/intervention-field-summary.css';
 
@@ -64,14 +62,12 @@ function SummaryBlock({ eyebrow, title, children, tone = '' }) {
 }
 
 export default function InterventionFieldSummary({ job, fieldRecord }) {
-  const observations = useMemo(
-    () => (Array.isArray(fieldRecord?.site_observations) ? fieldRecord.site_observations : []),
-    [fieldRecord?.site_observations],
-  );
-  const actions = useMemo(
-    () => (Array.isArray(fieldRecord?.field_actions) ? fieldRecord.field_actions : []),
-    [fieldRecord?.field_actions],
-  );
+  const observations = Array.isArray(fieldRecord?.site_observations)
+    ? fieldRecord.site_observations
+    : [];
+  const actions = Array.isArray(fieldRecord?.field_actions)
+    ? fieldRecord.field_actions
+    : [];
 
   const cableEntry = newestObservation(observations, 'cable_entry');
   const cableExit = newestObservation(observations, 'cable_exit');
