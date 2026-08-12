@@ -68,20 +68,24 @@ export default function InterventionGraphicalTools({
 
       const uploaded = await api.uploadJobAttachment(job.id, data);
       const attachmentId = uploaded.data?.attachment_id;
+      if (!attachmentId) {
+        throw new Error('Le croquis a été téléversé sans référence exploitable.');
+      }
 
+      // The communication contract intentionally keeps generic immutable roles
+      // (attachment / annotation / reference). The precise business meaning
+      // "field_sketch" lives in the attachment metadata above.
       await api.addJobCommunication(job.id, {
         type: 'message',
         body: 'Nouveau croquis ajouté à la fiche intervention.',
         audience: 'field',
-        attachments: attachmentId
-          ? [
-              {
-                asset_type: 'office_attachment',
-                asset_id: attachmentId,
-                role: 'sketch',
-              },
-            ]
-          : [],
+        attachments: [
+          {
+            asset_type: 'office_attachment',
+            asset_id: attachmentId,
+            role: 'attachment',
+          },
+        ],
       });
 
       setSketchOpen(false);
