@@ -14,6 +14,7 @@ import 'client_signature_screen.dart';
 import 'free_document_action_screen.dart';
 import 'free_measurement_action_screen.dart';
 import 'free_photo_action_screen.dart';
+import 'mobile_sketch_screen.dart';
 
 Future<void> showMobileActionSheet({
   required BuildContext context,
@@ -57,6 +58,34 @@ Future<void> showMobileActionSheet({
     ).push(MaterialPageRoute<void>(builder: (_) => screen));
 
     await onDataChanged();
+  }
+
+  Future<void> createSketch() async {
+    final outputPath = await Navigator.of(pageContext).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => const MobileSketchScreen(),
+      ),
+    );
+
+    if (outputPath == null || outputPath.trim().isEmpty) {
+      return;
+    }
+
+    await OfflineService.addPendingMedia(
+      jobId: job.id,
+      sourcePath: outputPath,
+      kind: 'sketch',
+      eventType: 'intervention_sketch',
+      mimeType: 'image/png',
+      metadata: {
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'evidence_role': 'field_sketch',
+        'canvas': 'blank_grid',
+      },
+    );
+    unawaited(OfflineService.syncPendingActions());
+    await onDataChanged();
+    showMessage('Croquis enregistré pour synchronisation.');
   }
 
   Future<void> recordGps({
@@ -323,6 +352,14 @@ Future<void> showMobileActionSheet({
           onTap: () => openScreen(FreePhotoActionScreen(job: job)),
         ),
         _MobileAction(
+          code: 'intervention_sketch',
+          category: _ActionCategory.documenter,
+          label: label('intervention_sketch', 'Croquis terrain'),
+          icon: Icons.draw_outlined,
+          color: BlueVectorColors.cyan,
+          onTap: createSketch,
+        ),
+        _MobileAction(
           code: 'intervention_video',
           category: _ActionCategory.documenter,
           label: label('intervention_video', 'Vidéo'),
@@ -408,7 +445,7 @@ Future<void> showMobileActionSheet({
           code: 'client_signature',
           category: _ActionCategory.documenter,
           label: label('client_signature', 'Signature client'),
-          icon: Icons.draw_outlined,
+          icon: Icons.border_color_outlined,
           color: BlueVectorColors.success,
           onTap: () => openScreen(
             ClientSignatureScreen(
