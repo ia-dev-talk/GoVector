@@ -24,6 +24,12 @@ from sqlalchemy import inspect
 
 from backend.database.connection import engine
 from backend.database.models import Base
+from backend.database.bootstrap_metadata import register_bootstrap_metadata
+
+
+# Register migration-era tables that are still consumed by current product
+# code but do not yet have first-class ORM models.
+register_bootstrap_metadata()
 
 
 @dataclass(frozen=True)
