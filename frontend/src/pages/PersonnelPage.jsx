@@ -8,7 +8,6 @@ import {
 
 import { api } from '../api/client';
 import ContextMenu from '../components/ContextMenu';
-import AdminOrganizationSection from '../components/settings/AdminOrganizationSection';
 import TechGrid from '../components/TechGrid';
 import Toast from '../components/Toast';
 import PersonnelHeader from '../features/personnel/PersonnelHeader';
@@ -43,32 +42,21 @@ const EMPTY_FILTERS = Object.freeze({
 
 function apiErrorMessage(error, fallback) {
   const detail = error?.response?.data?.detail;
-
-  if (
-    typeof detail === 'string' &&
-    detail.trim()
-  ) {
+  if (typeof detail === 'string' && detail.trim()) {
     return detail.trim();
   }
-
   return text(error?.message, fallback);
 }
 
 function technicianMatchesJob(technicianId, job) {
   const expected = normalizeIdentifier(technicianId);
-
-  if (!expected) {
-    return false;
-  }
-
+  if (!expected) return false;
   return [
     job?.assigned_tech_id,
     job?.assigned_technician_id,
     job?.technician_id,
     job?.assignment?.technician_id,
-  ].some(
-    (value) => normalizeIdentifier(value) === expected,
-  );
+  ].some((value) => normalizeIdentifier(value) === expected);
 }
 
 function normalizeSectorAssignment(value) {
@@ -77,13 +65,9 @@ function normalizeSectorAssignment(value) {
         .map((item) => Number(item))
         .filter((item) => Number.isInteger(item) && item > 0)
     : [];
-
   const sectorNames = Array.isArray(value?.sector_names)
-    ? value.sector_names
-        .map((item) => text(item))
-        .filter(Boolean)
+    ? value.sector_names.map((item) => text(item)).filter(Boolean)
     : [];
-
   const primarySectorId = Number(value?.primary_sector_id);
 
   return {
@@ -144,7 +128,11 @@ function pickPersistedTechnicianFields(source) {
   );
 }
 
-export default function PersonnelPage({ userRole }) {
+export default function PersonnelPage({
+  userRole,
+  onNavigate,
+  navigationPayload,
+}) {
   const { settings } = useRuntimeSettings();
   const gpsStaleAfterMinutes =
     settings?.operational?.gps_stale_after_minutes ?? null;
@@ -171,41 +159,27 @@ export default function PersonnelPage({ userRole }) {
   const loadDataRef = useRef(null);
 
   const canEditGeneral =
-    userRole === 'ADMIN' ||
-    userRole === 'CHEF_ORIENTEUR';
+    userRole === 'ADMIN' || userRole === 'CHEF_ORIENTEUR';
 
   const toast = useCallback((message, type = 'info') => {
     const id = toastSequence.current + 1;
     toastSequence.current = id;
-
-    setToasts((current) => [
-      ...current,
-      { id, msg: message, type },
-    ]);
-
+    setToasts((current) => [...current, { id, msg: message, type }]);
     window.setTimeout(() => {
-      setToasts((current) =>
-        current.filter((item) => item.id !== id),
-      );
+      setToasts((current) => current.filter((item) => item.id !== id));
     }, 3500);
   }, []);
 
   const loadData = useCallback(
     async ({ manual = false, silent = false } = {}) => {
-      if (manual) {
-        setRefreshing(true);
-      } else if (!silent) {
-        setLoading(true);
-      }
-
+      if (manual) setRefreshing(true);
+      else if (!silent) setLoading(true);
       setDataError('');
 
       try {
         const results = await Promise.allSettled([
           api.getTechnicians(),
-          api.getJobs({
-            scheduled_date: getLocalDateKey(),
-          }),
+          api.getJobs({ scheduled_date: getLocalDateKey() }),
           api.getOrienteurs(),
           api.getSectors(),
           personnelSectorApi.getAssignments(),
@@ -223,11 +197,11 @@ export default function PersonnelPage({ userRole }) {
           throw technicianResult.reason;
         }
 
-        const loadedTechnicians =
-          Array.isArray(technicianResult.value?.data)
-            ? technicianResult.value.data
-            : [];
-
+        const loadedTechnicians = Array.isArray(
+          technicianResult.value?.data,
+        )
+          ? technicianResult.value.data
+          : [];
         const loadedAssignments =
           assignmentResult.status === 'fulfilled' &&
           Array.isArray(assignmentResult.value?.data)
@@ -241,47 +215,32 @@ export default function PersonnelPage({ userRole }) {
           ),
         );
 
-        if (jobResult.status === 'fulfilled') {
-          setJobs(
-            Array.isArray(jobResult.value?.data)
-              ? jobResult.value.data
-              : [],
-          );
-        } else {
-          setJobs([]);
-        }
-
-        if (orienteurResult.status === 'fulfilled') {
-          setOrienteurs(
-            Array.isArray(orienteurResult.value?.data)
-              ? orienteurResult.value.data
-              : [],
-          );
-        } else {
-          setOrienteurs([]);
-        }
-
-        if (sectorResult.status === 'fulfilled') {
-          setSectors(
-            Array.isArray(sectorResult.value?.data)
-              ? [...sectorResult.value.data].sort((left, right) =>
-                  text(left?.name).localeCompare(
-                    text(right?.name),
-                    'fr',
-                    { sensitivity: 'base' },
-                  ),
-                )
-              : [],
-          );
-        } else {
-          setSectors([]);
-        }
+        setJobs(
+          jobResult.status === 'fulfilled' &&
+          Array.isArray(jobResult.value?.data)
+            ? jobResult.value.data
+            : [],
+        );
+        setOrienteurs(
+          orienteurResult.status === 'fulfilled' &&
+          Array.isArray(orienteurResult.value?.data)
+            ? orienteurResult.value.data
+            : [],
+        );
+        setSectors(
+          sectorResult.status === 'fulfilled' &&
+          Array.isArray(sectorResult.value?.data)
+            ? [...sectorResult.value.data].sort((left, right) =>
+                text(left?.name).localeCompare(text(right?.name), 'fr', {
+                  sensitivity: 'base',
+                }),
+              )
+            : [],
+        );
 
         const partialFailures = results
           .slice(1)
-          .filter((result) => result.status === 'rejected')
-          .length;
-
+          .filter((result) => result.status === 'rejected').length;
         if (partialFailures > 0) {
           setDataError(
             'Les techniciens sont disponibles, mais certaines données complémentaires n’ont pas pu être chargées.',
@@ -303,10 +262,7 @@ export default function PersonnelPage({ userRole }) {
   );
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      loadData();
-    }, 0);
-
+    const timeoutId = window.setTimeout(() => loadData(), 0);
     return () => window.clearTimeout(timeoutId);
   }, [loadData]);
 
@@ -315,13 +271,9 @@ export default function PersonnelPage({ userRole }) {
   }, [loadData]);
 
   useEffect(() => {
-    const updateClock = () => {
-      setReferenceNow(Date.now());
-    };
-
+    const updateClock = () => setReferenceNow(Date.now());
     const timeoutId = window.setTimeout(updateClock, 0);
     const intervalId = window.setInterval(updateClock, 10000);
-
     return () => {
       window.clearTimeout(timeoutId);
       window.clearInterval(intervalId);
@@ -330,10 +282,7 @@ export default function PersonnelPage({ userRole }) {
 
   const handleTechEvent = useCallback((eventType) => {
     if (
-      [
-        'tech:status_changed',
-        'tech:location_updated',
-      ].includes(eventType)
+      ['tech:status_changed', 'tech:location_updated'].includes(eventType)
     ) {
       loadDataRef.current?.({ silent: true });
     }
@@ -346,15 +295,11 @@ export default function PersonnelPage({ userRole }) {
   useEffect(() => {
     const closeMenu = () => setContextMenu(null);
     document.addEventListener('click', closeMenu);
-
-    return () => {
-      document.removeEventListener('click', closeMenu);
-    };
+    return () => document.removeEventListener('click', closeMenu);
   }, []);
 
   const filteredTechnicians = useMemo(() => {
     const normalizedQuery = normalizeSearchText(query);
-
     return technicians.filter((tech) => {
       const status = normalizeStatus(tech.live_status);
 
@@ -362,113 +307,47 @@ export default function PersonnelPage({ userRole }) {
         filters.sector &&
         normalizeSearchText(tech.route_criteria) !==
           normalizeSearchText(filters.sector)
-      ) {
-        return false;
-      }
-
+      ) return false;
       if (
         filters.team &&
-        normalizeSearchText(tech.team) !==
-          normalizeSearchText(filters.team)
-      ) {
-        return false;
-      }
-
+        normalizeSearchText(tech.team) !== normalizeSearchText(filters.team)
+      ) return false;
       if (
         filters.operator &&
         normalizeSearchText(tech.operator) !==
           normalizeSearchText(filters.operator)
-      ) {
+      ) return false;
+      if (filters.status && status !== normalizeStatus(filters.status)) {
         return false;
       }
-
-      if (
-        filters.status &&
-        status !== normalizeStatus(filters.status)
-      ) {
-        return false;
-      }
-
       if (
         filters.skill &&
         !normalizeStringList(tech.skills).includes(
           normalizeSearchText(filters.skill),
         )
-      ) {
-        return false;
-      }
-
+      ) return false;
       if (
         filters.gps === 'active' &&
-        !isGpsActive(
-          tech,
-          referenceNow,
-          gpsStaleAfterMinutes,
-        )
-      ) {
-        return false;
-      }
-
+        !isGpsActive(tech, referenceNow, gpsStaleAfterMinutes)
+      ) return false;
       if (
         filters.gps === 'lost' &&
-        !shouldCheckGps(
-          tech,
-          referenceNow,
-          gpsStaleAfterMinutes,
-        )
-      ) {
-        return false;
-      }
-
+        !shouldCheckGps(tech, referenceNow, gpsStaleAfterMinutes)
+      ) return false;
+      if (kpiFilter === 'disponible' && status !== 'disponible') return false;
+      if (kpiFilter === 'en_route' && status !== 'en_route') return false;
       if (
-        kpiFilter === 'disponible' &&
-        status !== 'disponible'
-      ) {
-        return false;
-      }
-
+        kpiFilter === 'en_intervention' && status !== 'en_intervention'
+      ) return false;
+      if (kpiFilter === 'pause' && status !== 'pause') return false;
       if (
-        kpiFilter === 'en_route' &&
-        status !== 'en_route'
-      ) {
-        return false;
-      }
-
-      if (
-        kpiFilter === 'en_intervention' &&
-        status !== 'en_intervention'
-      ) {
-        return false;
-      }
-
-      if (
-        kpiFilter === 'pause' &&
-        status !== 'pause'
-      ) {
-        return false;
-      }
-
-      if (
-        kpiFilter === 'hors_service' &&
-        !OFFLINE_TECH_STATUSES.has(status)
-      ) {
-        return false;
-      }
-
+        kpiFilter === 'hors_service' && !OFFLINE_TECH_STATUSES.has(status)
+      ) return false;
       if (
         kpiFilter === 'gps_lost' &&
-        !shouldCheckGps(
-          tech,
-          referenceNow,
-          gpsStaleAfterMinutes,
-        )
-      ) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
+        !shouldCheckGps(tech, referenceNow, gpsStaleAfterMinutes)
+      ) return false;
+      if (!normalizedQuery) return true;
 
       const values = [
         tech.name,
@@ -510,90 +389,102 @@ export default function PersonnelPage({ userRole }) {
 
     technicians.forEach((tech) => {
       const status = normalizeStatus(tech.live_status);
-
       if (status === 'disponible') result.disponible += 1;
       if (status === 'en_route') result.en_route += 1;
       if (status === 'en_intervention') result.en_intervention += 1;
       if (status === 'pause') result.pause += 1;
       if (OFFLINE_TECH_STATUSES.has(status)) result.hors_service += 1;
-      if (
-        shouldCheckGps(
-          tech,
-          referenceNow,
-          gpsStaleAfterMinutes,
-        )
-      ) {
+      if (shouldCheckGps(tech, referenceNow, gpsStaleAfterMinutes)) {
         result.gps_lost += 1;
       }
     });
-
     return result;
-  }, [
-    gpsStaleAfterMinutes,
-    referenceNow,
-    technicians,
-  ]);
+  }, [gpsStaleAfterMinutes, referenceNow, technicians]);
 
   const detailTech = useMemo(() => {
     const expected = normalizeIdentifier(detailTechId);
-
-    if (!expected) {
-      return null;
-    }
-
+    if (!expected) return null;
     return technicians.find(
       (tech) => normalizeIdentifier(tech.id) === expected,
     ) ?? null;
   }, [detailTechId, technicians]);
 
+  useEffect(() => {
+    const target = normalizeIdentifier(
+      navigationPayload?.technicianId ??
+      navigationPayload?.technician_id ??
+      navigationPayload?.id,
+    );
+    if (!target || technicians.length === 0) return;
+    const match = technicians.find(
+      (tech) => normalizeIdentifier(tech.id) === target,
+    );
+    if (match) {
+      setDetailTechId(match.id);
+      setSelectedIds([match.id]);
+    }
+  }, [navigationPayload, technicians]);
+
   const detailTodayJobs = useMemo(
-    () =>
-      detailTech
-        ? jobs.filter((job) =>
-            technicianMatchesJob(detailTech.id, job),
-          )
-        : [],
+    () => detailTech
+      ? jobs.filter((job) => technicianMatchesJob(detailTech.id, job))
+      : [],
     [detailTech, jobs],
   );
 
-  const handleTechClick = useCallback(
-    (id, event, displayedIds) => {
-      setSelectedIds((current) => {
-        if (event.metaKey || event.ctrlKey) {
-          return current.includes(id)
-            ? current.filter((value) => value !== id)
-            : [...current, id];
-        }
+  const openIntervention = useCallback(
+    (job) => {
+      const id = Number(job?.id);
+      if (
+        !Number.isInteger(id) ||
+        id <= 0 ||
+        typeof onNavigate !== 'function'
+      ) return;
+      onNavigate('interventions', { id, from: 'personnel' });
+    },
+    [onNavigate],
+  );
 
-        if (
-          event.shiftKey &&
-          current.length > 0 &&
-          Array.isArray(displayedIds)
-        ) {
-          const firstIndex = displayedIds.indexOf(
-            current[current.length - 1],
-          );
-          const nextIndex = displayedIds.indexOf(id);
-
-          if (firstIndex >= 0 && nextIndex >= 0) {
-            const start = Math.min(firstIndex, nextIndex);
-            const end = Math.max(firstIndex, nextIndex);
-            return [
-              ...new Set([
-                ...current,
-                ...displayedIds.slice(start, end + 1),
-              ]),
-            ];
-          }
-        }
-
-        return current.length === 1 && current[0] === id
-          ? []
-          : [id];
+  const openTechnicianStock = useCallback(
+    (tech) => {
+      const technicianId = Number(tech?.id);
+      if (
+        !Number.isInteger(technicianId) ||
+        technicianId <= 0 ||
+        typeof onNavigate !== 'function'
+      ) return;
+      onNavigate('stocks', {
+        technicianId,
+        technicianName: text(tech?.name),
+        from: 'personnel',
       });
     },
-    [],
+    [onNavigate],
   );
+
+  const handleTechClick = useCallback((id, event, displayedIds) => {
+    setSelectedIds((current) => {
+      if (event.metaKey || event.ctrlKey) {
+        return current.includes(id)
+          ? current.filter((value) => value !== id)
+          : [...current, id];
+      }
+      if (
+        event.shiftKey && current.length > 0 && Array.isArray(displayedIds)
+      ) {
+        const firstIndex = displayedIds.indexOf(current[current.length - 1]);
+        const nextIndex = displayedIds.indexOf(id);
+        if (firstIndex >= 0 && nextIndex >= 0) {
+          const start = Math.min(firstIndex, nextIndex);
+          const end = Math.max(firstIndex, nextIndex);
+          return [
+            ...new Set([...current, ...displayedIds.slice(start, end + 1)]),
+          ];
+        }
+      }
+      return current.length === 1 && current[0] === id ? [] : [id];
+    });
+  }, []);
 
   const handleSaveTech = useCallback(
     async (tech, updates) => {
@@ -603,56 +494,33 @@ export default function PersonnelPage({ userRole }) {
         sector_ids: sectorIds,
         ...candidateGeneralUpdates
       } = updates;
-
-      const generalUpdates =
-        pickPersistedTechnicianFields(
-          candidateGeneralUpdates,
-        );
-
+      const generalUpdates = pickPersistedTechnicianFields(
+        candidateGeneralUpdates,
+      );
       const currentStatus = normalizeStatus(tech.live_status);
       const nextStatus = normalizeStatus(liveStatus);
       const statusChanged =
         EDITABLE_LIVE_STATUSES.includes(nextStatus) &&
         nextStatus !== currentStatus;
 
-      if (!canEditGeneral && !statusChanged) {
-        return;
-      }
-
+      if (!canEditGeneral && !statusChanged) return;
       setBusy(true);
-
       try {
         if (canEditGeneral) {
-          await api.updateTechnician(
-            tech.id,
-            generalUpdates,
-          );
-
-          await personnelSectorApi.updateAssignment(
-            tech.id,
-            {
-              primary_sector_id:
-                primarySectorId || null,
-              sector_ids:
-                Array.isArray(sectorIds)
-                  ? sectorIds
-                  : [],
-            },
-          );
+          await api.updateTechnician(tech.id, generalUpdates);
+          await personnelSectorApi.updateAssignment(tech.id, {
+            primary_sector_id: primarySectorId || null,
+            sector_ids: Array.isArray(sectorIds) ? sectorIds : [],
+          });
         }
-
         if (statusChanged) {
           await api.updateTechStatus(tech.id, nextStatus);
         }
-
         await loadData({ manual: true });
         toast('Technicien et secteurs enregistrés', 'success');
       } catch (error) {
         toast(
-          apiErrorMessage(
-            error,
-            'Impossible d’enregistrer le technicien.',
-          ),
+          apiErrorMessage(error, 'Impossible d’enregistrer le technicien.'),
           'error',
         );
       } finally {
@@ -666,28 +534,19 @@ export default function PersonnelPage({ userRole }) {
     async (technicianIds, status) => {
       const ids = [
         ...new Set(
-          technicianIds
-            .map(normalizeIdentifier)
-            .filter(Boolean),
+          technicianIds.map(normalizeIdentifier).filter(Boolean),
         ),
       ];
-
-      if (
-        ids.length === 0 ||
-        !EDITABLE_LIVE_STATUSES.includes(status)
-      ) {
+      if (ids.length === 0 || !EDITABLE_LIVE_STATUSES.includes(status)) {
         return;
       }
-
       setBusy(true);
-
       const results = await Promise.allSettled(
         ids.map((id) => api.updateTechStatus(id, status)),
       );
       const successCount = results.filter(
         (result) => result.status === 'fulfilled',
       ).length;
-
       if (successCount > 0) {
         toast(
           `${successCount} technicien${successCount > 1 ? 's' : ''} mis à jour`,
@@ -697,39 +556,30 @@ export default function PersonnelPage({ userRole }) {
       } else {
         toast('Échec de la mise à jour du statut', 'error');
       }
-
       setBusy(false);
     },
     [loadData, toast],
   );
 
   const handleBulkStatus = useCallback(
-    (status) => {
-      updateTechnicianStatuses(selectedIds, status);
-    },
+    (status) => updateTechnicianStatuses(selectedIds, status),
     [selectedIds, updateTechnicianStatuses],
   );
 
   const handleTechAction = useCallback(
     (action, tech) => {
       setContextMenu(null);
-
       const statusByAction = {
         set_available: 'disponible',
         set_on_break: 'pause',
         set_off_duty: 'hors_service',
       };
       const status = statusByAction[action];
-
-      if (!status) {
-        return;
-      }
-
+      if (!status) return;
       const ids =
         selectedIds.length > 1 && selectedIds.includes(tech.id)
           ? selectedIds
           : [tech.id];
-
       updateTechnicianStatuses(ids, status);
     },
     [selectedIds, updateTechnicianStatuses],
@@ -739,20 +589,13 @@ export default function PersonnelPage({ userRole }) {
     async (techId, orienteurId) => {
       setContextMenu(null);
       setBusy(true);
-
       try {
-        await api.assignTechnicianToOrienteur(
-          orienteurId,
-          techId,
-        );
+        await api.assignTechnicianToOrienteur(orienteurId, techId);
         await loadData({ manual: true });
         toast('Technicien affecté à l’orienteur', 'success');
       } catch (error) {
         toast(
-          apiErrorMessage(
-            error,
-            'Impossible d’affecter le technicien.',
-          ),
+          apiErrorMessage(error, 'Impossible d’affecter le technicien.'),
           'error',
         );
       } finally {
@@ -793,7 +636,6 @@ export default function PersonnelPage({ userRole }) {
             <strong>Données partielles</strong>
             <span>{dataError}</span>
           </div>
-
           <button
             type="button"
             onClick={() => loadData({ manual: true })}
@@ -818,12 +660,8 @@ export default function PersonnelPage({ userRole }) {
         <main
           className={[
             'personnel-v3-workspace',
-            detailTech
-              ? 'personnel-v3-workspace--inspector-open'
-              : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
+            detailTech ? 'personnel-v3-workspace--inspector-open' : '',
+          ].filter(Boolean).join(' ')}
         >
           <section className="personnel-v3-grid-panel">
             <header className="personnel-v3-panel-header">
@@ -831,11 +669,12 @@ export default function PersonnelPage({ userRole }) {
                 <span>Équipe terrain</span>
                 <h2>Techniciens</h2>
               </div>
-
               <div className="personnel-v3-panel-counts">
                 <span>{filteredTechnicians.length} affichés</span>
                 {selectedIds.length > 0 ? (
-                  <strong>{selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}</strong>
+                  <strong>
+                    {selectedIds.length} sélectionné{selectedIds.length > 1 ? 's' : ''}
+                  </strong>
                 ) : null}
               </div>
             </header>
@@ -846,10 +685,7 @@ export default function PersonnelPage({ userRole }) {
               filtersOpen={filtersOpen}
               onToggleFilters={() => setFiltersOpen((value) => !value)}
               onFilterChange={(key, value) =>
-                setFilters((current) => ({
-                  ...current,
-                  [key]: value,
-                }))
+                setFilters((current) => ({ ...current, [key]: value }))
               }
               onClearFilters={clearFilters}
               displayedCount={filteredTechnicians.length}
@@ -864,9 +700,7 @@ export default function PersonnelPage({ userRole }) {
                 technicians={filteredTechnicians}
                 selectedIds={selectedIds}
                 onRowClicked={handleTechClick}
-                onRowDoubleClicked={(tech) =>
-                  setDetailTechId(tech.id)
-                }
+                onRowDoubleClicked={(tech) => setDetailTechId(tech.id)}
                 onContextMenu={(event, tech) => {
                   event.preventDefault();
                   setContextMenu({
@@ -891,14 +725,10 @@ export default function PersonnelPage({ userRole }) {
             gpsStaleAfterMinutes={gpsStaleAfterMinutes}
             onClose={() => setDetailTechId(null)}
             onSave={handleSaveTech}
+            onOpenJob={openIntervention}
+            onOpenStock={openTechnicianStock}
           />
         </main>
-
-        {canEditGeneral ? (
-          <section className="personnel-v3-organization">
-            <AdminOrganizationSection toast={toast} userRole={userRole} />
-          </section>
-        ) : null}
       </div>
 
       {contextMenu ? (
@@ -916,11 +746,7 @@ export default function PersonnelPage({ userRole }) {
 
       <div className="toast-container">
         {toasts.map((item) => (
-          <Toast
-            key={item.id}
-            message={item.msg}
-            type={item.type}
-          />
+          <Toast key={item.id} message={item.msg} type={item.type} />
         ))}
       </div>
     </div>
