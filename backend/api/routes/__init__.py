@@ -33,6 +33,10 @@ from . import (
     tour,
 )
 
+# Hierarchical GIS endpoints extend the historical sector surface, keeping one
+# stable `/api/v1/sectors/...` namespace for frontend and QGIS integrations.
+sectors.router.include_router(territories.router)
+
 # Import after the base routers: these modules intentionally extend existing
 # routers with public-V2 connected workflows.
 from . import stock_v2_patch  # noqa: E402,F401
