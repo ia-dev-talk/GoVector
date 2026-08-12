@@ -32,6 +32,7 @@ from . import (
     tour,
 )
 
-# Import after stock_ftth: this module intentionally extends the existing
-# stock router with the public-V2 custody transfer endpoint.
+# Import after stock_ftth: these modules intentionally extend the existing
+# stock router with public-V2 custody transfer endpoints.
 from . import stock_v2_patch  # noqa: E402,F401
+from . import stock_v2_atomic  # noqa: E402,F401
