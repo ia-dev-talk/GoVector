@@ -20,7 +20,7 @@ from backend.services.media_storage import FileSystemMediaStorage, MediaStorageE
 
 router = APIRouter(tags=["Technician Media (Mobile)"])
 _SHA256 = re.compile(r"^[0-9a-fA-F]{64}$")
-_KINDS = {"photo", "video", "document", "signature"}
+_KINDS = {"photo", "video", "document", "signature", "sketch"}
 _DOCUMENT_MIME_TYPES = {
     "application/pdf",
     "text/plain",
@@ -34,6 +34,7 @@ def _maximum_bytes(kind: str) -> int:
     return {
         "photo": settings.TECHNICIAN_PHOTO_MAX_BYTES,
         "signature": settings.TECHNICIAN_PHOTO_MAX_BYTES,
+        "sketch": settings.TECHNICIAN_PHOTO_MAX_BYTES,
         "document": settings.TECHNICIAN_DOCUMENT_MAX_BYTES,
         "video": settings.TECHNICIAN_VIDEO_MAX_BYTES,
     }[kind]
@@ -41,7 +42,7 @@ def _maximum_bytes(kind: str) -> int:
 
 def _validate_mime(kind: str, mime_type: str) -> None:
     valid = (
-        (kind in {"photo", "signature"} and mime_type.startswith("image/"))
+        (kind in {"photo", "signature", "sketch"} and mime_type.startswith("image/"))
         or (kind == "video" and mime_type.startswith("video/"))
         or (kind == "document" and mime_type in _DOCUMENT_MIME_TYPES)
     )
