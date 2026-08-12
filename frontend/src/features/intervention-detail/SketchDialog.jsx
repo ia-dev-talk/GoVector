@@ -47,10 +47,16 @@ export default function SketchDialog({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (canvasRef.current) resetCanvas(canvasRef.current, withGrid);
+    if (canvasRef.current) resetCanvas(canvasRef.current, true);
+  }, []);
+
+  const toggleGrid = (event) => {
+    const nextWithGrid = event.target.checked;
+    setWithGrid(nextWithGrid);
+    if (canvasRef.current) resetCanvas(canvasRef.current, nextWithGrid);
     undoRef.current = [];
     setHasDrawing(false);
-  }, [withGrid]);
+  };
 
   const point = (event) => {
     const canvas = canvasRef.current;
@@ -163,7 +169,7 @@ export default function SketchDialog({
             <input
               type="checkbox"
               checked={withGrid}
-              onChange={(event) => setWithGrid(event.target.checked)}
+              onChange={toggleGrid}
             />
             Grille
           </label>
