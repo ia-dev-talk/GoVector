@@ -22,6 +22,7 @@ from . import (
     simulation,
     smart_map,
     stock,
+    stock_ftth,
     supervision,
     technicians,
     tech_auth,
@@ -30,3 +31,7 @@ from . import (
     tech_ocr,
     tour,
 )
+
+# Import after stock_ftth: this module intentionally extends the existing
+# stock router with the public-V2 custody transfer endpoint.
+from . import stock_v2_patch  # noqa: E402,F401
