@@ -20,6 +20,7 @@ from backend.logic.technician_jobs import (
     TechnicianJobMutationError,
     terminate_technician_job,
 )
+from backend.logic.technician_measurements import apply_measurement_projection
 from backend.logic.technician_stock import (
     apply_equipment_scan,
     consume_technician_material,
@@ -141,7 +142,8 @@ async def _dispatch(
     if event.type in SUPPORTED_FIELD_ACTION_TYPES:
         # Business effects happen inside the same savepoint as the idempotency
         # receipt. Replaying an acknowledged mobile event therefore cannot
-        # consume stock twice or rebind serialized equipment inconsistently.
+        # consume stock twice, rebind serialized equipment inconsistently, or
+        # project the same typed measurement twice with divergent values.
         field_payload = dict(event.payload)
         if event.type == "material_used":
             await consume_technician_material(
@@ -153,9 +155,6 @@ async def _dispatch(
                 occurred_at=event.occurred_at,
             )
         elif event.type == "equipment_scan" and isinstance(db, AsyncSession):
-            # The real API always supplies AsyncSession. Lightweight unit-test
-            # doubles intentionally exercise only sync receipt/handler routing;
-            # PostgreSQL contract tests cover the governed scan mutation itself.
             resolved = await apply_equipment_scan(
                 db,
                 job_id=event.job_id,
@@ -163,6 +162,15 @@ async def _dispatch(
                 current_user=current_user,
             )
             field_payload.update(resolved)
+        elif event.type in {"field_measurement", "otdr_measurement"} and isinstance(
+            db, AsyncSession
+        ):
+            await apply_measurement_projection(
+                db,
+                job_id=event.job_id,
+                payload=field_payload,
+                current_user=current_user,
+            )
 
         await record_technician_field_action(
             db,
