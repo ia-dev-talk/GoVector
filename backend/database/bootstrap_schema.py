@@ -58,20 +58,33 @@ async def _create_current_schema() -> None:
         await connection.run_sync(Base.metadata.create_all)
 
 
+async def _prepare_database() -> DatabaseState:
+    """Inspect and, when empty, create the schema on one asyncio event loop."""
+    try:
+        state = await _inspect_database()
+        if state.is_effectively_empty:
+            print(
+                "BlueVector schema bootstrap: empty database detected; "
+                "creating current SQLAlchemy schema."
+            )
+            await _create_current_schema()
+        return state
+    finally:
+        # The application engine is module-scoped. Dispose it before returning to
+        # synchronous Alembic commands so no pooled asyncpg connection remains
+        # attached to the event loop that asyncio.run() is about to close.
+        await engine.dispose()
+
+
 def _alembic_config() -> Config:
     return Config("alembic.ini")
 
 
 def main() -> None:
-    state = asyncio.run(_inspect_database())
+    state = asyncio.run(_prepare_database())
     config = _alembic_config()
 
     if state.is_effectively_empty:
-        print(
-            "BlueVector schema bootstrap: empty database detected; "
-            "creating current SQLAlchemy schema."
-        )
-        asyncio.run(_create_current_schema())
         command.stamp(config, "head")
         print("BlueVector schema bootstrap: schema created and stamped at Alembic head.")
         return
