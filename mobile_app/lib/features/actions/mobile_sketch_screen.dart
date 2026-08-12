@@ -36,6 +36,7 @@ class _MobileSketchScreenState extends State<MobileSketchScreen> {
   bool _gridEnabled = true;
 
   void _start(DragStartDetails details, Size size) {
+    if (_saving) return;
     setState(() {
       _strokes.add(
         _SketchStroke(
@@ -48,7 +49,7 @@ class _MobileSketchScreenState extends State<MobileSketchScreen> {
   }
 
   void _update(DragUpdateDetails details, Size size) {
-    if (_strokes.isEmpty) return;
+    if (_saving || _strokes.isEmpty) return;
     setState(() {
       _strokes.last.points.add(_normalize(details.localPosition, size));
     });
@@ -58,6 +59,32 @@ class _MobileSketchScreenState extends State<MobileSketchScreen> {
     (point.dx / size.width).clamp(0.0, 1.0).toDouble(),
     (point.dy / size.height).clamp(0.0, 1.0).toDouble(),
   );
+
+  Future<void> _confirmClear() async {
+    if (_strokes.isEmpty || _saving) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Effacer le croquis ?'),
+        content: const Text(
+          'Tous les traits de ce croquis seront supprimés. Cette action ne touche pas aux autres preuves de l’intervention.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Conserver'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Effacer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(_strokes.clear);
+    }
+  }
 
   Future<void> _save() async {
     if (_saving || _strokes.isEmpty) return;
@@ -105,29 +132,32 @@ class _MobileSketchScreenState extends State<MobileSketchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strokeCount = _strokes.length;
+    final widthLabel = (_width * 1000).round();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
           IconButton(
             tooltip: _gridEnabled ? 'Masquer la grille' : 'Afficher la grille',
-            onPressed: () => setState(() => _gridEnabled = !_gridEnabled),
+            onPressed: _saving
+                ? null
+                : () => setState(() => _gridEnabled = !_gridEnabled),
             icon: Icon(
               _gridEnabled ? Icons.grid_on_rounded : Icons.grid_off_rounded,
             ),
           ),
           IconButton(
             tooltip: 'Annuler le dernier trait',
-            onPressed: _strokes.isEmpty
+            onPressed: strokeCount == 0 || _saving
                 ? null
                 : () => setState(() => _strokes.removeLast()),
             icon: const Icon(Icons.undo_rounded),
           ),
           IconButton(
             tooltip: 'Effacer le croquis',
-            onPressed: _strokes.isEmpty
-                ? null
-                : () => setState(_strokes.clear),
+            onPressed: strokeCount == 0 || _saving ? null : _confirmClear,
             icon: const Icon(Icons.delete_outline_rounded),
           ),
         ],
@@ -142,23 +172,58 @@ class _MobileSketchScreenState extends State<MobileSketchScreen> {
                 BlueVectorSpacing.md,
                 0,
               ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.draw_outlined,
-                    size: 18,
-                    color: BlueVectorColors.primaryBright,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Dessinez le cheminement, un boîtier, un passage câble ou toute observation utile.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: BlueVectorColors.textMuted,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+                decoration: BoxDecoration(
+                  color: BlueVectorColors.surface,
+                  border: Border.all(color: BlueVectorColors.border),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.draw_outlined,
+                      size: 20,
+                      color: BlueVectorColors.primaryBright,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Preuve graphique terrain',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Dessinez le cheminement, un boîtier, un passage câble ou une observation utile.',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: BlueVectorColors.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: BlueVectorColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '$strokeCount trait${strokeCount > 1 ? 's' : ''}',
+                        style: const TextStyle(
+                          color: BlueVectorColors.primaryBright,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Expanded(
@@ -175,15 +240,22 @@ class _MobileSketchScreenState extends State<MobileSketchScreen> {
                         );
                         return ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: GestureDetector(
-                            onPanStart: (details) => _start(details, size),
-                            onPanUpdate: (details) => _update(details, size),
-                            child: CustomPaint(
-                              painter: _SketchPainter(
-                                strokes: _strokes,
-                                gridEnabled: _gridEnabled,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: BlueVectorColors.border),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onPanStart: (details) => _start(details, size),
+                              onPanUpdate: (details) => _update(details, size),
+                              child: CustomPaint(
+                                painter: _SketchPainter(
+                                  strokes: _strokes,
+                                  gridEnabled: _gridEnabled,
+                                ),
+                                child: const SizedBox.expand(),
                               ),
-                              child: const SizedBox.expand(),
                             ),
                           ),
                         );
@@ -203,35 +275,63 @@ class _MobileSketchScreenState extends State<MobileSketchScreen> {
                 children: [
                   Row(
                     children: [
-                      for (final color in _colors)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: InkWell(
-                            onTap: () => setState(() => _color = color),
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              width: 30,
-                              height: 30,
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: _color == color
-                                      ? BlueVectorColors.primaryBright
-                                      : BlueVectorColors.border,
-                                  width: _color == color ? 3 : 1,
+                      Expanded(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final color in _colors)
+                              Semantics(
+                                label: 'Couleur de trait',
+                                selected: _color == color,
+                                button: true,
+                                child: InkWell(
+                                  onTap: _saving
+                                      ? null
+                                      : () => setState(() => _color = color),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: _color == color
+                                            ? BlueVectorColors.primaryBright
+                                            : BlueVectorColors.border,
+                                        width: _color == color ? 3 : 1,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
+                          ],
                         ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Slider(
-                          min: 0.003,
-                          max: 0.025,
-                          value: _width,
-                          onChanged: (value) => setState(() => _width = value),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 170,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Épaisseur · $widthLabel',
+                              style: const TextStyle(
+                                color: BlueVectorColors.textMuted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Slider(
+                              min: 0.003,
+                              max: 0.025,
+                              value: _width,
+                              onChanged: _saving
+                                  ? null
+                                  : (value) => setState(() => _width = value),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -240,18 +340,26 @@ class _MobileSketchScreenState extends State<MobileSketchScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: _strokes.isEmpty || _saving ? null : _save,
-                      icon: const Icon(Icons.save_outlined),
+                      onPressed: strokeCount == 0 || _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
                       label: Text(
-                        _saving ? 'Préparation…' : 'Enregistrer le croquis',
+                        _saving ? 'Préparation du fichier…' : 'Enregistrer le croquis',
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Le croquis sera synchronisé comme une preuve graphique de l’intervention.',
+                  const SizedBox(height: 5),
+                  Text(
+                    _gridEnabled
+                        ? 'Grille activée · le croquis sera synchronisé comme preuve graphique de l’intervention.'
+                        : 'Canevas libre · le croquis sera synchronisé comme preuve graphique de l’intervention.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: BlueVectorColors.textMuted,
                       fontSize: 11,
                     ),
