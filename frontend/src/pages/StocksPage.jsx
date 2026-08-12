@@ -33,6 +33,7 @@ import {
   stockSummary,
   text,
 } from '../features/stock-v3/stockUtils';
+import { useWebSocket } from '../hooks/useWebSocket';
 import '../styles/stocks-v3.css';
 
 function sortedUnique(values) {
@@ -137,6 +138,7 @@ export default function StocksPage({
 
   const requestRef = useRef(0);
   const toastIdRef = useRef(0);
+  const realtimeRefreshTimerRef = useRef(null);
 
   const role = text(userRole).toUpperCase();
   const canManageCatalog = [
@@ -244,6 +246,38 @@ export default function StocksPage({
       requestRef.current += 1;
     };
   }, [loadData]);
+
+  const scheduleRealtimeRefresh = useCallback(() => {
+    if (realtimeRefreshTimerRef.current !== null) {
+      window.clearTimeout(realtimeRefreshTimerRef.current);
+    }
+    realtimeRefreshTimerRef.current = window.setTimeout(() => {
+      realtimeRefreshTimerRef.current = null;
+      loadData();
+    }, 250);
+  }, [loadData]);
+
+  const handleRealtimeEvent = useCallback(
+    (eventType) => {
+      if (eventType === 'stock:updated') {
+        scheduleRealtimeRefresh();
+      }
+    },
+    [scheduleRealtimeRefresh],
+  );
+
+  useWebSocket(null, {
+    onEvent: handleRealtimeEvent,
+  });
+
+  useEffect(
+    () => () => {
+      if (realtimeRefreshTimerRef.current !== null) {
+        window.clearTimeout(realtimeRefreshTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const aggregatedItems = useMemo(
     () => aggregateItems({ items, lines, warehouses }),
@@ -458,12 +492,7 @@ export default function StocksPage({
       setSaving(true);
       setFormError('');
       try {
-        const created = await stockV3Api.createIssue(document);
-        const issueId = Number(created?.data?.id);
-        if (!Number.isInteger(issueId) || issueId <= 0) {
-          throw new Error('Le bon de dotation créé ne possède pas d’identifiant valide.');
-        }
-        await stockV3Api.validateIssue(issueId);
+        await stockV3Api.createIssue(document);
         setIssueOpen(false);
         setIssueItem(null);
         toast('Stock affecté au technicien et mouvement journalisé.', 'success');
