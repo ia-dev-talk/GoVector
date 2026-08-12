@@ -25,6 +25,7 @@ export default function AdminOrganizationSection({
     { code: 'junior', label: 'Technicien débutant' },
     { code: 'senior', label: 'Technicien senior' },
   ]);
+  const [teamDrafts, setTeamDrafts] = useState({});
   const [loading, setLoading] = useState(enabled);
   const [loadWarnings, setLoadWarnings] = useState([]);
 
@@ -168,6 +169,32 @@ export default function AdminOrganizationSection({
     } catch (error) { toast?.(message(error), 'error'); }
   };
 
+  const updateTeamDraft = (teamId, patch) => {
+    setTeamDrafts((current) => ({
+      ...current,
+      [teamId]: {
+        technicianId: current[teamId]?.technicianId || '',
+        grade: current[teamId]?.grade || grades[0]?.code || 'junior',
+        ...patch,
+      },
+    }));
+  };
+
+  const submitTeamDraft = async (teamId) => {
+    const draft = teamDrafts[teamId] || {};
+    const technicianId = Number(draft.technicianId);
+    if (!Number.isInteger(technicianId) || technicianId <= 0) {
+      toast?.('Choisissez d’abord un technicien.', 'error');
+      return;
+    }
+    const grade = draft.grade || grades[0]?.code || 'junior';
+    await assignTechnician(teamId, technicianId, grade);
+    setTeamDrafts((current) => ({
+      ...current,
+      [teamId]: { technicianId: '', grade },
+    }));
+  };
+
   const updateTeamConfiguration = async (event, teamId) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -203,6 +230,10 @@ export default function AdminOrganizationSection({
       await load(); toast?.('Équipe mise à jour.', 'success');
     } catch (error) { toast?.(message(error), 'error'); }
   };
+
+  const gradeLabel = (code) => (
+    grades.find((grade) => grade.code === code)?.label || code || 'Grade non défini'
+  );
 
   if (!enabled) return null;
   if (loading) return <div className="v1-admin-loading">Chargement de l’organisation réelle…</div>;
@@ -277,6 +308,9 @@ export default function AdminOrganizationSection({
 
       <section className="v1-admin-card v1-admin-card--wide">
         <header><span>Organisation terrain</span><h2>Équipes, orienteurs et secteurs</h2></header>
+        <p className="v1-admin-help">
+          Une ligne représente un technicien. Le grade se choisit séparément afin d’éviter les doublons et les déplacements ambigus.
+        </p>
         <form onSubmit={createTeam} className="v1-admin-form v1-admin-form--team">
           <input name="name" required placeholder="Nom de l’équipe" />
           <input name="code" placeholder="Code (optionnel)" />
@@ -287,29 +321,67 @@ export default function AdminOrganizationSection({
           <button type="submit">Créer l’équipe</button>
         </form>
         <div className="v1-admin-team-grid">
-          {teams.map((team) => (
-            <article key={team.id}>
-              <h3>{team.name}</h3><p>{team.orienteur_name} · {team.sector_names.join(', ')}</p>
-              <details className="v1-admin-inline-editor">
-                <summary>Modifier l’équipe</summary>
-                <form onSubmit={(event) => updateTeamConfiguration(event, team.id)} className="v1-admin-form v1-admin-form--team-edit">
-                  <input name="name" required defaultValue={team.name} aria-label="Nom de l’équipe" />
-                  <input name="code" defaultValue={team.code || ''} placeholder="Code (optionnel)" aria-label="Code de l’équipe" />
-                  <select name="orienteur_id" required defaultValue={String(team.orienteur_id)} aria-label="Orienteur de l’équipe">{orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-                  <fieldset><legend>Secteurs de l’équipe</legend>{sectors.map((sector) => <label key={`${team.id}-${sector.id}`}><input type="checkbox" name="sector_ids" value={sector.id} defaultChecked={team.sector_ids.includes(sector.id)} />{sector.name}</label>)}</fieldset>
-                  <button type="submit">Enregistrer l’équipe</button>
-                </form>
-              </details>
-              <div className="v1-admin-chip-row">{team.technicians.map((tech) => <span key={tech.id}>{tech.name} · {tech.grade}<button type="button" aria-label={`Retirer ${tech.name}`} onClick={() => removeTechnician(team.id, tech.id)}>×</button></span>)}</div>
-              <div className="v1-admin-team-add">
-                <select disabled={!team.is_active} defaultValue="" onChange={(event) => { const [id, grade] = event.target.value.split(':'); if (id) assignTechnician(team.id, Number(id), grade); event.target.value = ''; }}>
-                  <option value="">Déplacer/ajouter un technicien…</option>
-                  {technicians.flatMap((tech) => grades.map((grade) => <option key={`${team.id}-${tech.id}-${grade.code}`} value={`${tech.id}:${grade.code}`}>{tech.name} · {grade.label}</option>))}
-                </select>
-                <button type="button" className="v1-admin-quiet-button" onClick={() => toggleTeam(team)}>{team.is_active ? 'Archiver l’équipe' : 'Réactiver l’équipe'}</button>
-              </div>
-            </article>
-          ))}
+          {teams.map((team) => {
+            const draft = teamDrafts[team.id] || {};
+            const availableTechnicians = technicians.filter((tech) => tech.team_id !== team.id);
+            return (
+              <article key={team.id}>
+                <h3>{team.name}</h3><p>{team.orienteur_name} · {team.sector_names.join(', ') || 'aucun secteur'}</p>
+                <details className="v1-admin-inline-editor">
+                  <summary>Modifier l’équipe</summary>
+                  <form onSubmit={(event) => updateTeamConfiguration(event, team.id)} className="v1-admin-form v1-admin-form--team-edit">
+                    <input name="name" required defaultValue={team.name} aria-label="Nom de l’équipe" />
+                    <input name="code" defaultValue={team.code || ''} placeholder="Code (optionnel)" aria-label="Code de l’équipe" />
+                    <select name="orienteur_id" required defaultValue={String(team.orienteur_id)} aria-label="Orienteur de l’équipe">{orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+                    <fieldset><legend>Secteurs de l’équipe</legend>{sectors.map((sector) => <label key={`${team.id}-${sector.id}`}><input type="checkbox" name="sector_ids" value={sector.id} defaultChecked={team.sector_ids.includes(sector.id)} />{sector.name}</label>)}</fieldset>
+                    <button type="submit">Enregistrer l’équipe</button>
+                  </form>
+                </details>
+                <div className="v1-admin-chip-row">
+                  {team.technicians.length ? team.technicians.map((tech) => (
+                    <span key={tech.id}>
+                      {tech.name} · {gradeLabel(tech.grade)}
+                      <button type="button" aria-label={`Retirer ${tech.name}`} onClick={() => removeTechnician(team.id, tech.id)}>×</button>
+                    </span>
+                  )) : <small>Aucun technicien dans cette équipe.</small>}
+                </div>
+                <div className="v1-admin-team-add v1-admin-team-add--explicit">
+                  <select
+                    disabled={!team.is_active}
+                    value={draft.technicianId || ''}
+                    aria-label={`Technicien à ajouter à ${team.name}`}
+                    onChange={(event) => updateTeamDraft(team.id, { technicianId: event.target.value })}
+                  >
+                    <option value="">Choisir un technicien…</option>
+                    {availableTechnicians.map((tech) => {
+                      const currentTeam = teams.find((candidate) => candidate.id === tech.team_id);
+                      return (
+                        <option key={`${team.id}-${tech.id}`} value={tech.id}>
+                          {tech.name}{currentTeam ? ` · actuellement ${currentTeam.name}` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <select
+                    disabled={!team.is_active}
+                    value={draft.grade || grades[0]?.code || 'junior'}
+                    aria-label={`Grade dans ${team.name}`}
+                    onChange={(event) => updateTeamDraft(team.id, { grade: event.target.value })}
+                  >
+                    {grades.map((grade) => <option key={`${team.id}-grade-${grade.code}`} value={grade.code}>{grade.label}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!team.is_active || !draft.technicianId}
+                    onClick={() => submitTeamDraft(team.id)}
+                  >
+                    Affecter à l’équipe
+                  </button>
+                  <button type="button" className="v1-admin-quiet-button" onClick={() => toggleTeam(team)}>{team.is_active ? 'Archiver l’équipe' : 'Réactiver l’équipe'}</button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
     </div>
