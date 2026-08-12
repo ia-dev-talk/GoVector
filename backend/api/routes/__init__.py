@@ -37,3 +37,4 @@ from . import (
 from . import stock_v2_patch  # noqa: E402,F401
 from . import stock_v2_atomic  # noqa: E402,F401
 from . import tech_stock_v2  # noqa: E402,F401
+from . import job_stock_v2  # noqa: E402,F401
