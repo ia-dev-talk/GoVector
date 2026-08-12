@@ -1,0 +1,209 @@
+.intervention-field-summary{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:14px;
+  padding:16px;
+  border:1px solid #26384e;
+  border-radius:16px;
+  background:#0d1928;
+}
+
+.intervention-field-summary-heading{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.intervention-field-summary-heading>div{
+  min-width:0;
+}
+
+.intervention-field-summary-heading span,
+.intervention-field-summary-block header span{
+  color:#6f8db5;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+
+.intervention-field-summary-heading h2{
+  margin:4px 0 0;
+  color:#f4f8fc;
+  font-size:16px;
+  letter-spacing:-.02em;
+}
+
+.intervention-field-summary-heading small{
+  max-width:330px;
+  color:#6f819a;
+  font-size:10px;
+  text-align:right;
+}
+
+.intervention-field-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+
+.intervention-field-summary-block{
+  min-width:0;
+  padding:13px;
+  border:1px solid #22354b;
+  border-radius:13px;
+  background:#0a1522;
+}
+
+.intervention-field-summary-block--gps{border-color:rgba(67,184,255,.2)}
+.intervention-field-summary-block--measure{border-color:rgba(39,209,127,.18)}
+.intervention-field-summary-block--stock{border-color:rgba(45,123,255,.22)}
+
+.intervention-field-summary-block header{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  margin-bottom:11px;
+}
+
+.intervention-field-summary-block header strong{
+  color:#eaf1fa;
+  font-size:13px;
+}
+
+.intervention-field-gps-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+}
+
+.intervention-field-gps-grid>div,
+.intervention-field-list>div,
+.intervention-field-scans>div{
+  display:flex;
+  min-width:0;
+  flex-direction:column;
+  gap:3px;
+  padding:9px;
+  border:1px solid rgba(93,122,160,.15);
+  border-radius:9px;
+  background:rgba(255,255,255,.018);
+}
+
+.intervention-field-gps-grid span,
+.intervention-field-distance span,
+.intervention-field-highlight span,
+.intervention-field-list span,
+.intervention-field-scans span{
+  color:#7086a3;
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+
+.intervention-field-gps-grid strong,
+.intervention-field-list strong,
+.intervention-field-scans strong{
+  overflow:hidden;
+  color:#e7eef8;
+  font-family:var(--font-mono);
+  font-size:10px;
+  text-overflow:ellipsis;
+}
+
+.intervention-field-gps-grid small,
+.intervention-field-list small,
+.intervention-field-scans small{
+  color:#697d97;
+  font-size:8px;
+  line-height:1.4;
+}
+
+.intervention-field-distance,
+.intervention-field-highlight{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:4px 10px;
+  margin-top:8px;
+  padding:10px;
+  border-radius:9px;
+  background:rgba(67,184,255,.065);
+}
+
+.intervention-field-highlight{
+  margin:0 0 8px;
+  background:rgba(39,209,127,.055);
+}
+
+.intervention-field-distance strong,
+.intervention-field-highlight strong{
+  color:#f5f9ff;
+  font-family:var(--font-mono);
+  font-size:14px;
+}
+
+.intervention-field-distance small{
+  grid-column:1/-1;
+  color:#72849d;
+  font-size:8px;
+  line-height:1.45;
+}
+
+.intervention-field-list,
+.intervention-field-materials,
+.intervention-field-scans{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.intervention-field-materials>div{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:4px 8px;
+  align-items:center;
+  padding:8px 9px;
+  border-radius:9px;
+  background:rgba(45,123,255,.055);
+}
+
+.intervention-field-materials strong{
+  min-width:0;
+  overflow:hidden;
+  color:#dfeaff;
+  font-size:10px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.intervention-field-materials span{
+  color:#7289aa;
+  font-size:8px;
+  text-align:right;
+}
+
+.intervention-field-scans{
+  margin-top:8px;
+}
+
+.intervention-field-empty{
+  margin:0;
+  padding:10px;
+  color:#6f819a;
+  font-size:9px;
+  text-align:center;
+}
+
+@media(max-width:1180px){
+  .intervention-field-summary-grid{grid-template-columns:1fr}
+  .intervention-field-summary-heading{align-items:flex-start;flex-direction:column}
+  .intervention-field-summary-heading small{text-align:left}
+}
+
+@media(max-width:650px){
+  .intervention-field-gps-grid{grid-template-columns:1fr}
+}
