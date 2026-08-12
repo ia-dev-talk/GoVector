@@ -31,6 +31,18 @@ function LoadingScreen() {
   );
 }
 
+function friendlyApiError(error, fallback) {
+  const resolved = getApiErrorMessage(error, fallback);
+  if (
+    /^request failed with status code\s+\d+/i.test(resolved) ||
+    /^network error$/i.test(resolved) ||
+    /^failed to fetch$/i.test(resolved)
+  ) {
+    return fallback;
+  }
+  return resolved || fallback;
+}
+
 export default function InterventionDetailPage({
   initialJob,
   refreshRevision = 0,
@@ -114,7 +126,7 @@ export default function InterventionDetailPage({
         }
       } else {
         setJobError(
-          getApiErrorMessage(
+          friendlyApiError(
             jobResult.status === 'rejected' ? jobResult.reason : null,
             'Impossible de charger les dernières données de l’intervention.',
           ),
@@ -128,11 +140,11 @@ export default function InterventionDetailPage({
         setTimeline(timelineResult.value.data);
       } else {
         setTimelineError(
-          getApiErrorMessage(
+          friendlyApiError(
             timelineResult.status === 'rejected'
               ? timelineResult.reason
               : null,
-            'Impossible de charger la timeline de l’intervention.',
+            'Historique serveur temporairement indisponible.',
           ),
         );
       }
@@ -141,9 +153,9 @@ export default function InterventionDetailPage({
         setEquipment(equipmentResult.value?.data ?? null);
       } else {
         setEquipmentError(
-          getApiErrorMessage(
+          friendlyApiError(
             equipmentResult.reason,
-            'Impossible de charger les équipements associés.',
+            'Équipements associés temporairement indisponibles.',
           ),
         );
       }
@@ -152,9 +164,9 @@ export default function InterventionDetailPage({
         setStock(stockResult.value?.data ?? null);
       } else {
         setStockError(
-          getApiErrorMessage(
+          friendlyApiError(
             stockResult.reason,
-            'Impossible de charger le stock associé.',
+            'Stock du technicien temporairement indisponible.',
           ),
         );
       }
@@ -166,11 +178,11 @@ export default function InterventionDetailPage({
         setFieldRecord(fieldRecordResult.value.data);
       } else {
         setFieldRecordError(
-          getApiErrorMessage(
+          friendlyApiError(
             fieldRecordResult.status === 'rejected'
               ? fieldRecordResult.reason
               : null,
-            'Impossible de charger les actions et médias terrain.',
+            'Actions et médias terrain temporairement indisponibles.',
           ),
         );
       }
@@ -220,6 +232,12 @@ export default function InterventionDetailPage({
   }
 
   const canValidate = jobAllowsCommand(workflowCapabilities, 'validate');
+  const relatedErrors = [
+    timelineError,
+    equipmentError,
+    stockError,
+    fieldRecordError,
+  ].filter(Boolean);
 
   return (
     <>
@@ -237,7 +255,7 @@ export default function InterventionDetailPage({
         {jobError ? (
           <div className="intervention-detail-page-notice" role="alert">
             <div>
-              <strong>Données partiellement actualisées</strong>
+              <strong>Données principales partiellement actualisées</strong>
               <span>{jobError}</span>
             </div>
 
@@ -248,6 +266,23 @@ export default function InterventionDetailPage({
               disabled={refreshing}
             >
               Réessayer
+            </button>
+          </div>
+        ) : relatedErrors.length > 0 ? (
+          <div className="intervention-detail-page-notice" role="status">
+            <div>
+              <strong>Fiche utilisable · {relatedErrors.length} source{relatedErrors.length > 1 ? 's' : ''} liée{relatedErrors.length > 1 ? 's' : ''} à actualiser</strong>
+              <span>
+                Les données disponibles restent affichées. Relancez l’actualisation pour récupérer les blocs manquants.
+              </span>
+            </div>
+            <button
+              type="button"
+              className="intervention-detail-text-button"
+              onClick={() => refreshData({ manual: true })}
+              disabled={refreshing}
+            >
+              {refreshing ? 'Actualisation…' : 'Réessayer'}
             </button>
           </div>
         ) : null}
