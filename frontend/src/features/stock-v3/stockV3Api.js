@@ -60,10 +60,12 @@ export const stockV3Api = Object.freeze({
       document,
     ),
 
+  // Public V2: validation is a physical depot -> technician custody transfer,
+  // not a reservation masquerading as an allocation.
   validateIssue: (issueId) =>
     apiClient.post(
       `/stock-ftth/issues/${encodeURIComponent(
         issueId,
-      )}/validate`,
+      )}/validate-v2`,
     ),
 });
