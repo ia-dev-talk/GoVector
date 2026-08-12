@@ -29,18 +29,52 @@ class JobStatusCapability {
   }
 }
 
+class CompletionAssessmentCapability {
+  const CompletionAssessmentCapability({
+    required this.canComplete,
+    required this.blockingRequirements,
+    required this.warnings,
+    required this.requiredFieldKeys,
+  });
+
+  final bool canComplete;
+  final List<String> blockingRequirements;
+  final List<String> warnings;
+  final List<String> requiredFieldKeys;
+
+  int get missingCount => blockingRequirements.length;
+
+  factory CompletionAssessmentCapability.fromJson(Map<String, dynamic> json) {
+    List<String> strings(String key) =>
+        (json[key] as List<dynamic>? ?? const [])
+            .map((value) => value.toString().trim())
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false);
+
+    return CompletionAssessmentCapability(
+      canComplete: json['can_complete'] == true,
+      blockingRequirements: strings('blocking_requirements'),
+      warnings: strings('warnings'),
+      requiredFieldKeys: strings('required_field_keys'),
+    );
+  }
+}
+
 class JobWorkflowCapabilities {
   const JobWorkflowCapabilities({
     required this.jobId,
     required this.status,
     required this.allowedCommands,
+    this.completionAssessment,
   });
 
   final int jobId;
   final JobStatusCapability status;
   final Set<String> allowedCommands;
+  final CompletionAssessmentCapability? completionAssessment;
 
   factory JobWorkflowCapabilities.fromJson(Map<String, dynamic> json) {
+    final assessment = json['completion_assessment'];
     return JobWorkflowCapabilities(
       jobId: json['job_id'] as int,
       status: JobStatusCapability.fromJson(
@@ -49,6 +83,9 @@ class JobWorkflowCapabilities {
       allowedCommands: (json['allowed_commands'] as List<dynamic>? ?? const [])
           .map((value) => value.toString())
           .toSet(),
+      completionAssessment: assessment is Map<String, dynamic>
+          ? CompletionAssessmentCapability.fromJson(assessment)
+          : null,
     );
   }
 }
@@ -79,13 +116,22 @@ abstract final class TechnicianWorkflowCommandResolver {
   }) {
     if (capabilities != null) {
       for (final code in _labels.keys) {
-        if (capabilities.allowedCommands.contains(code)) {
-          return TechnicianWorkflowCommand(
-            code: code,
-            label: _labels[code]!,
-            fromCompatibilityFallback: false,
-          );
+        if (!capabilities.allowedCommands.contains(code)) continue;
+        var label = _labels[code]!;
+        if (code == 'close_field_visit') {
+          final readiness = capabilities.completionAssessment;
+          if (readiness != null && !readiness.canComplete) {
+            final count = readiness.missingCount;
+            label = count > 0
+                ? 'Clôture · $count élément${count > 1 ? 's' : ''} manquant${count > 1 ? 's' : ''}'
+                : 'Vérifier avant clôture';
+          }
         }
+        return TechnicianWorkflowCommand(
+          code: code,
+          label: label,
+          fromCompatibilityFallback: false,
+        );
       }
       return null;
     }
