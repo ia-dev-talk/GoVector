@@ -1,4 +1,4 @@
-"""Real PostgreSQL contracts for connected technician field stock workflows."""
+"""Real PostgreSQL contracts for connected technician field workflows."""
 
 import asyncio
 import os
@@ -274,6 +274,53 @@ async def _exercise(database_url: str) -> dict:
                 )
             )
 
+            optical_event = TechnicianSyncEventRequest(
+                event_id=uuid4(),
+                schema_version=1,
+                job_id=job.id,
+                type="field_measurement",
+                occurred_at=datetime.now(timezone.utc),
+                payload={
+                    "measurement_type": "optical_power",
+                    "value": "-18.75",
+                },
+            )
+            optical_result = await process_technician_sync_event(
+                db,
+                event=optical_event,
+                current_user=user,
+            )
+            await db.commit()
+
+            cable_event = TechnicianSyncEventRequest(
+                event_id=uuid4(),
+                schema_version=1,
+                job_id=job.id,
+                type="field_measurement",
+                occurred_at=datetime.now(timezone.utc),
+                payload={
+                    "measurement_type": "cable_length",
+                    "value": "42.4",
+                },
+            )
+            cable_result = await process_technician_sync_event(
+                db,
+                event=cable_event,
+                current_user=user,
+            )
+            await db.commit()
+            measured_job = await db.get(Job, job.id)
+            optical_action = await db.scalar(
+                select(TechnicianFieldAction).where(
+                    TechnicianFieldAction.event_id == str(optical_event.event_id)
+                )
+            )
+            cable_action = await db.scalar(
+                select(TechnicianFieldAction).where(
+                    TechnicianFieldAction.event_id == str(cable_event.event_id)
+                )
+            )
+
             return {
                 "material_first": first.status,
                 "material_replay": replay.status,
@@ -294,12 +341,18 @@ async def _exercise(database_url: str) -> dict:
                 "mismatch_job": refreshed_mismatch.assigned_job_id,
                 "unknown_status": unknown_result.status,
                 "unknown_confidence": (unknown_action.payload or {}).get("confidence"),
+                "optical_status": optical_result.status,
+                "cable_status": cable_result.status,
+                "optical_power_dbm": measured_job.optical_power_dbm,
+                "cable_length_m": measured_job.cable_length_m,
+                "optical_unit": (optical_action.payload or {}).get("unit"),
+                "cable_unit": (cable_action.payload or {}).get("unit"),
             }
     finally:
         await engine.dispose()
 
 
-def test_mobile_material_and_scan_workflows_are_atomic_and_idempotent():
+def test_mobile_field_workflows_are_atomic_connected_and_idempotent():
     admin_url = _admin_url()
     database_name = f"bluevector_field_stock_{uuid4().hex}"
     asyncio.run(_create_database(admin_url, database_name))
@@ -331,3 +384,10 @@ def test_mobile_material_and_scan_workflows_are_atomic_and_idempotent():
 
     assert result["unknown_status"] == "acknowledged"
     assert result["unknown_confidence"] == "unverified"
+
+    assert result["optical_status"] == "acknowledged"
+    assert result["cable_status"] == "acknowledged"
+    assert result["optical_power_dbm"] == pytest.approx(-18.75)
+    assert result["cable_length_m"] == 42
+    assert result["optical_unit"] == "dBm"
+    assert result["cable_unit"] == "m"
