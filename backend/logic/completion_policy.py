@@ -2,6 +2,10 @@
 
 Workflow state, authentication, assignment and permissions are enforced by the
 technician command service. This component only evaluates field evidence.
+Public V2 treats normalized technician evidence (media, field actions and site
+observations) as first-class truth while preserving legacy Job fields for
+backward compatibility. A technician must never enter the same proof twice just
+because an older screen expected a denormalized column.
 """
 
 from __future__ import annotations
@@ -17,7 +21,14 @@ from backend.api.schemas.settings import (
     CompletionRequirementsValues,
     OperationalSettingsValues,
 )
-from backend.database.models import ApplicationSetting, Job, StockConsumption
+from backend.database.models import (
+    ApplicationSetting,
+    Job,
+    JobSiteObservation,
+    StockConsumption,
+    TechnicianFieldAction,
+    TechnicianMedia,
+)
 
 
 _OPERATIONAL_NAMESPACE = "operational"
@@ -92,7 +103,16 @@ class CompletionPolicy:
 
     async def evaluate(self, job: Job) -> CompletionAssessment:
         requirements = await self.resolve(job)
-        missing = self._missing_evidence(job)
+        missing = self._missing_legacy_evidence(job)
+        evidence = await self._normalized_evidence(job.id)
+
+        # V2 normalized facts satisfy their matching legacy evidence key.
+        if evidence["has_signature"]:
+            missing.pop("client_signature", None)
+        if evidence["has_site_gps"]:
+            missing.pop("gps", None)
+        if evidence["has_comment"]:
+            missing.pop("comment", None)
 
         if requirements.require_stock_consumption:
             result = await self.db.execute(
@@ -123,11 +143,7 @@ class CompletionPolicy:
         blocking = []
         for key in sorted(required_keys):
             if key == "photos":
-                photo_count = sum(
-                    bool(getattr(job, name, None))
-                    for name in ("before_photo", "after_photo")
-                )
-                if photo_count < requirements.minimum_photos:
+                if evidence["photo_count"] < requirements.minimum_photos:
                     blocking.append(
                         f"{requirements.minimum_photos} photo(s) terrain requise(s)"
                     )
@@ -148,8 +164,56 @@ class CompletionPolicy:
             required_field_keys=tuple(sorted(required_keys)),
         )
 
+    async def _normalized_evidence(self, job_id: int) -> dict[str, Any]:
+        media_rows = (
+            await self.db.execute(
+                select(
+                    TechnicianMedia.kind,
+                    TechnicianMedia.storage_key,
+                ).where(TechnicianMedia.job_id == job_id)
+            )
+        ).all()
+        media_by_kind: dict[str, set[str]] = {}
+        for kind, storage_key in media_rows:
+            media_by_kind.setdefault(str(kind), set()).add(
+                str(storage_key or "")
+            )
+
+        action_types = set(
+            (
+                await self.db.execute(
+                    select(TechnicianFieldAction.action_type).where(
+                        TechnicianFieldAction.job_id == job_id
+                    )
+                )
+            ).scalars().all()
+        )
+        observation_types = set(
+            (
+                await self.db.execute(
+                    select(JobSiteObservation.observation_type).where(
+                        JobSiteObservation.job_id == job_id
+                    )
+                )
+            ).scalars().all()
+        )
+
+        return {
+            "has_signature": bool(media_by_kind.get("signature"))
+            or "client_signature" in action_types,
+            "mobile_photo_keys": media_by_kind.get("photo", set()),
+            "has_site_gps": bool(
+                {"site_location", "gps_position"} & (action_types | observation_types)
+            ),
+            "has_comment": "intervention_comment" in action_types,
+            "action_types": action_types,
+            "observation_types": observation_types,
+            # Set to zero here; legacy photo paths are merged in evaluate below.
+            "photo_count": len(media_by_kind.get("photo", set())),
+        }
+
     @staticmethod
-    def _missing_evidence(job: Job) -> dict[str, str]:
+    def _missing_legacy_evidence(job: Job) -> dict[str, str]:
         missing: dict[str, str] = {}
         direct_fields = (
             "client_signature",
