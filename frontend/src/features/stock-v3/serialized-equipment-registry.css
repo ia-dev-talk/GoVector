@@ -1,0 +1,129 @@
+.ser-reg-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:1500;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:rgba(3,8,15,.78);
+  backdrop-filter:blur(8px);
+}
+.ser-reg-modal{
+  display:flex;
+  width:min(1220px,calc(100vw - 48px));
+  max-height:min(820px,calc(100vh - 48px));
+  flex-direction:column;
+  overflow:hidden;
+  border:1px solid #2a3d57;
+  border-radius:18px;
+  background:#0d1827;
+  box-shadow:0 28px 80px rgba(0,0,0,.5);
+}
+.ser-reg-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:17px 18px;
+  border-bottom:1px solid #26384f;
+  background:linear-gradient(135deg,rgba(75,141,255,.07),transparent 45%);
+}
+.ser-reg-header>div:first-child{min-width:0}
+.ser-reg-header span,.ser-reg-editor-title span{
+  color:#7290ba;
+  font-size:9px;
+  font-weight:850;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+}
+.ser-reg-header h2{margin:3px 0 2px;color:#f5f8fc;font-size:21px;letter-spacing:-.025em}
+.ser-reg-header p{margin:0;color:#8091aa;font-size:10px}
+.ser-reg-header-actions{display:flex;align-items:center;gap:7px;flex:none}
+.ser-reg-header-actions button,.ser-reg-footer button{
+  min-height:34px;
+  padding:0 11px;
+  color:#c8d5e8;
+  border:1px solid #2b405d;
+  border-radius:9px;
+  background:#121f30;
+  font:inherit;
+  font-size:9px;
+  font-weight:750;
+  cursor:pointer;
+}
+.ser-reg-header-actions button:first-child{color:#dbe8ff;border-color:rgba(75,141,255,.38);background:rgba(75,141,255,.14)}
+.ser-reg-header-actions .ser-reg-close{width:34px;padding:0;font-size:20px;font-weight:400}
+.ser-reg-error{padding:10px 16px;color:#ff9ba7;border-bottom:1px solid rgba(255,104,119,.2);background:rgba(255,104,119,.07);font-size:9px}
+.ser-reg-layout{display:grid;grid-template-columns:minmax(330px,.62fr) minmax(0,1.38fr);min-height:0;flex:1}
+.ser-reg-list-panel{display:flex;min-height:0;flex-direction:column;border-right:1px solid #25364c;background:#0a1421}
+.ser-reg-search{display:flex;flex-direction:column;gap:5px;padding:12px 12px 7px}
+.ser-reg-search span,.ser-reg-field>span{color:#6f84a1;font-size:8px;font-weight:820;letter-spacing:.06em;text-transform:uppercase}
+.ser-reg-search input,.ser-reg-field input,.ser-reg-field select{
+  width:100%;
+  min-height:36px;
+  box-sizing:border-box;
+  padding:7px 9px;
+  color:#e6edf7;
+  border:1px solid #2a3b52;
+  border-radius:8px;
+  outline:none;
+  background:#0b1624;
+  font:inherit;
+  font-size:10px;
+}
+.ser-reg-search input:focus,.ser-reg-field input:focus,.ser-reg-field select:focus{border-color:#4b8dff;box-shadow:0 0 0 2px rgba(75,141,255,.1)}
+.ser-reg-count{display:flex;align-items:baseline;gap:5px;padding:0 12px 9px;color:#7287a4;font-size:8px}
+.ser-reg-count strong{color:#e6eef9;font-family:var(--font-mono);font-size:11px}
+.ser-reg-list{display:flex;min-height:0;flex:1;flex-direction:column;gap:5px;padding:0 8px 10px;overflow:auto}
+.ser-reg-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:4px 8px;
+  padding:9px 10px;
+  color:inherit;
+  text-align:left;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:#101c2b;
+  font:inherit;
+  cursor:pointer;
+}
+.ser-reg-row:hover,.ser-reg-row:focus-visible{border-color:rgba(75,141,255,.32);outline:none;background:#132238}
+.ser-reg-row.is-active{border-color:rgba(75,141,255,.48);background:rgba(75,141,255,.1);box-shadow:inset 3px 0 #4b8dff}
+.ser-reg-row-main{display:flex;min-width:0;flex-direction:column;gap:3px}
+.ser-reg-row-main strong{overflow:hidden;color:#e8eff9;font-family:var(--font-mono);font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.ser-reg-row-main small{overflow:hidden;color:#7589a5;font-size:8px;text-overflow:ellipsis;white-space:nowrap}
+.ser-reg-row-location{grid-column:1/-1;overflow:hidden;color:#6b819f;font-size:8px;text-overflow:ellipsis;white-space:nowrap}
+.ser-reg-status{align-self:start;padding:3px 6px;color:#99b1d1;border-radius:999px;background:#182638;font-size:7px;font-weight:850;letter-spacing:.04em}
+.ser-reg-status--in_use{color:#7ee2ae;background:rgba(57,217,138,.1)}
+.ser-reg-status--assigned{color:#91b8ff;background:rgba(75,141,255,.11)}
+.ser-reg-status--faulty{color:#ff9ba7;background:rgba(255,104,119,.1)}
+.ser-reg-status--returned{color:#f4c56e;background:rgba(246,184,75,.1)}
+.ser-reg-empty{padding:24px 12px;color:#71839c;font-size:9px;text-align:center}
+.ser-reg-editor{display:flex;min-width:0;min-height:0;flex-direction:column;overflow:auto}
+.ser-reg-editor-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(95,121,156,.12)}
+.ser-reg-editor-title>div{display:flex;min-width:0;flex-direction:column;gap:3px}
+.ser-reg-editor-title strong{overflow:hidden;color:#edf3fb;font-size:13px;text-overflow:ellipsis;white-space:nowrap}
+.ser-reg-job-link{padding:5px 7px;color:#9ec1ff;border:1px solid rgba(75,141,255,.2);border-radius:7px;background:rgba(75,141,255,.06);font-size:8px!important;letter-spacing:0!important;text-transform:none!important}
+.ser-reg-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:15px 16px;flex:1}
+.ser-reg-field{display:flex;min-width:0;flex-direction:column;gap:5px}
+.ser-reg-field--wide{grid-column:1/-1}
+.ser-reg-field small{color:#6e829e;font-size:8px;line-height:1.4}
+.ser-reg-checkbox{display:flex;min-height:36px;align-items:center;gap:8px;padding:0 9px;border:1px solid #2a3b52;border-radius:8px;background:#0b1624}
+.ser-reg-checkbox input{width:auto;min-height:0;margin:0;box-shadow:none}
+.ser-reg-checkbox span{color:#cdd9e9;font-size:9px}
+.ser-reg-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid #25364c;background:#0b1624}
+.ser-reg-footer>div{display:flex;gap:7px}
+.ser-reg-footer .ser-reg-save{color:#fff;border-color:#4b8dff;background:#2f78ef}
+.ser-reg-footer .ser-reg-danger{color:#ff9da8;border-color:rgba(255,104,119,.25);background:rgba(255,104,119,.06)}
+.ser-reg-footer button:disabled,.ser-reg-header-actions button:disabled{opacity:.5;cursor:default}
+@media(max-width:850px){
+  .ser-reg-backdrop{padding:0}
+  .ser-reg-modal{width:100vw;max-height:100vh;height:100vh;border:0;border-radius:0}
+  .ser-reg-header{align-items:flex-start;flex-direction:column}
+  .ser-reg-header-actions{width:100%;flex-wrap:wrap}
+  .ser-reg-layout{grid-template-columns:1fr;grid-template-rows:minmax(220px,.65fr) minmax(0,1.35fr)}
+  .ser-reg-list-panel{border-right:0;border-bottom:1px solid #25364c}
+  .ser-reg-form{grid-template-columns:1fr}
+  .ser-reg-field--wide{grid-column:auto}
+}
