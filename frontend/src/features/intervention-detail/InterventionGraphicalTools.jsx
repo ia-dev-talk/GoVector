@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { api } from '../../api/client';
 import SketchDialog from './SketchDialog';
+import '../../styles/intervention-graphical-v2.css';
 
 function DrawIcon() {
   return (
