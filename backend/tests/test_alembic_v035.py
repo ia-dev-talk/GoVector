@@ -1,4 +1,4 @@
-"""PostgreSQL contract for the v034/v035 operational governance chain."""
+"""PostgreSQL contract for operational governance through current head."""
 
 import asyncio
 import os
@@ -18,7 +18,7 @@ from backend.database.models import Base
 ROOT = Path(__file__).resolve().parents[2]
 ADMIN_URL_ENV = "BLUEVECTOR_POSTGRES_CONTRACT_ADMIN_URL"
 PREVIOUS_REVISION = "xk1f2a3b4c5d"
-HEAD_REVISION = "zm3h4c5d6e7f"
+HEAD_REVISION = "an4i5d6e7f8g"
 
 
 def _admin_url() -> str:
@@ -102,8 +102,22 @@ async def _inspect(database_url: str) -> dict:
                 """
             )
         }
+        technician_sector_columns = {
+            row["column_name"]
+            for row in await connection.fetch(
+                """
+                SELECT column_name FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'technician_sectors'
+                """
+            )
+        }
         revision = await connection.fetchval("SELECT version_num FROM alembic_version")
-        return {"tables": tables, "site_columns": site_columns, "revision": revision}
+        return {
+            "tables": tables,
+            "site_columns": site_columns,
+            "technician_sector_columns": technician_sector_columns,
+            "revision": revision,
+        }
     finally:
         await connection.close()
 
@@ -125,6 +139,13 @@ def test_v034_v035_upgrade_from_v033_to_current_head():
     assert result["revision"] == HEAD_REVISION
     assert "site_merge_records" in result["tables"]
     assert "operational_audit_events" in result["tables"]
+    assert "technician_sectors" in result["tables"]
+    assert {
+        "technician_id",
+        "sector_id",
+        "is_primary",
+        "created_at",
+    }.issubset(result["technician_sector_columns"])
     assert {
         "merged_into_site_id",
         "merged_at",
