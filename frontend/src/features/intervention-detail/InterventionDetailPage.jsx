@@ -307,7 +307,10 @@ export default function InterventionDetailPage({
           </div>
 
           <div className="intervention-detail-center">
-            <InterventionOverview job={job} />
+            <InterventionOverview
+              job={job}
+              assignmentContext={stock}
+            />
             <InterventionMapCard
               job={job}
               fieldReference={fieldRecord?.field_reference_location}
