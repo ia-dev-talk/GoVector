@@ -54,14 +54,16 @@ export const stockV3Api = Object.freeze({
   receive: (params) =>
     api.addReception(params),
 
+  // The public-V2 modal is a direct allocation workflow, so creation and
+  // physical transfer are committed atomically by the server.
   createIssue: (document) =>
     apiClient.post(
-      '/stock-ftth/issues',
+      '/stock-ftth/technician-allocations',
       document,
     ),
 
-  // Public V2: validation is a physical depot -> technician custody transfer,
-  // not a reservation masquerading as an allocation.
+  // Kept as an idempotent compatibility check for the existing page workflow.
+  // An allocation created above is already VALIDE, so this call is a no-op.
   validateIssue: (issueId) =>
     apiClient.post(
       `/stock-ftth/issues/${encodeURIComponent(
