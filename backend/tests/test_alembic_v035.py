@@ -18,7 +18,6 @@ from backend.database.models import Base
 ROOT = Path(__file__).resolve().parents[2]
 ADMIN_URL_ENV = "BLUEVECTOR_POSTGRES_CONTRACT_ADMIN_URL"
 PREVIOUS_REVISION = "xk1f2a3b4c5d"
-HEAD_REVISION = "an4i5d6e7f8g"
 
 
 def _admin_url() -> str:
@@ -47,6 +46,23 @@ def _run_alembic(database_url: str, *arguments: str) -> None:
         text=True,
         check=True,
     )
+
+
+def _current_head_revision() -> str:
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "heads"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    heads = [
+        line.split()[0]
+        for line in result.stdout.splitlines()
+        if line.strip().endswith("(head)")
+    ]
+    assert len(heads) == 1, f"Expected one Alembic head, got: {heads}"
+    return heads[0]
 
 
 async def _create_database(admin_url: str, database_name: str) -> None:
@@ -136,7 +152,7 @@ def test_v034_v035_upgrade_from_v033_to_current_head():
     finally:
         asyncio.run(_drop_database(admin_url, database_name))
 
-    assert result["revision"] == HEAD_REVISION
+    assert result["revision"] == _current_head_revision()
     assert "site_merge_records" in result["tables"]
     assert "operational_audit_events" in result["tables"]
     assert "technician_sectors" in result["tables"]
