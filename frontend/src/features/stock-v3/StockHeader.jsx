@@ -2,6 +2,7 @@ import { memo, useState } from 'react';
 import {
   BoxIcon,
   ExportIcon,
+  HistoryIcon,
   PlusIcon,
   ReceptionIcon,
   RefreshIcon,
@@ -21,6 +22,7 @@ const StockHeader = memo(function StockHeader({
   onExport,
   onCreate,
   onReceive,
+  onHistory,
   canManageCatalog,
   canMoveStock,
   hasWarehouses,
@@ -91,6 +93,16 @@ const StockHeader = memo(function StockHeader({
             aria-label="Actualiser le stock"
           >
             <RefreshIcon spinning={refreshing} />
+          </button>
+
+          <button
+            type="button"
+            className="st3-secondary-button"
+            onClick={onHistory}
+            title="Ouvrir le journal complet des mouvements"
+          >
+            <HistoryIcon />
+            Historique
           </button>
 
           <button
