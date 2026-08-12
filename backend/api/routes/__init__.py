@@ -29,6 +29,7 @@ from . import (
     tech_jobs,
     tech_history,
     tech_ocr,
+    territories,
     tour,
 )
 
