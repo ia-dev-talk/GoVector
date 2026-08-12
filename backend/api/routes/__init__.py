@@ -7,6 +7,7 @@ from . import (
     dashboard,
     dispatch,
     export_center,
+    feedback,
     ftth_network,
     import_confirm,
     import_excel,
@@ -36,6 +37,10 @@ from . import (
 # Hierarchical GIS endpoints extend the historical sector surface, keeping one
 # stable `/api/v1/sectors/...` namespace for frontend and QGIS integrations.
 sectors.router.include_router(territories.router)
+
+# Product feedback lives next to audit/security under the already-mounted
+# `/api/v1` namespace; all internal users can create tickets, admins govern them.
+audit.router.include_router(feedback.router)
 
 # Import after the base routers: these modules intentionally extend existing
 # routers with public-V2 connected workflows.
