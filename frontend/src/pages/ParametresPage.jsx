@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import Toast from '../components/Toast';
+import FeedbackCenter from '../components/FeedbackCenter';
 import OperationalSettingsSection from '../components/settings/OperationalSettingsSection';
 import AdminOrganizationSection from '../components/settings/AdminOrganizationSection';
 import BusinessCatalogSection from '../components/settings/BusinessCatalogSection';
@@ -29,360 +30,154 @@ import {
 
 import '../styles/settings-v3.css';
 
-
 function errorMessage(error) {
-  const detail =
-    error?.response?.data?.detail;
-
-  if (
-    typeof detail === 'string' &&
-    detail.trim()
-  ) {
-    return detail.trim();
-  }
-
-  return (
-    error?.message ||
-    'Impossible d’actualiser les paramètres runtime.'
-  );
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === 'string' && detail.trim()) return detail.trim();
+  return error?.message || 'Impossible d’actualiser les paramètres runtime.';
 }
 
-
-export default function ParametresPage({
-  userRole,
-  onNavigate,
-}) {
+export default function ParametresPage({ userRole, onNavigate }) {
   const {
     settings,
     loading: runtimeLoading,
     error: runtimeError,
     reload: reloadRuntimeSettings,
   } = useRuntimeSettings();
-
-  const [activeSection, setActiveSection] =
-    useState('overview');
-
-  const [query, setQuery] =
-    useState('');
-
-  const [refreshing, setRefreshing] =
-    useState(false);
-
-  const [refreshRevision, setRefreshRevision] =
-    useState(0);
-
-  const [settingsDirty, setSettingsDirty] =
-    useState(false);
-
-  const [toasts, setToasts] =
-    useState([]);
-
-  const nextToastIdRef =
-    useRef(0);
-
-  const toastTimeoutsRef =
-    useRef(new Set());
+  const [activeSection, setActiveSection] = useState('overview');
+  const [query, setQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshRevision, setRefreshRevision] = useState(0);
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const nextToastIdRef = useRef(0);
+  const toastTimeoutsRef = useRef(new Set());
 
   useEffect(() => {
-    const timeouts =
-      toastTimeoutsRef.current;
-
+    const timeouts = toastTimeoutsRef.current;
     return () => {
-      timeouts.forEach((timeoutId) => {
-        window.clearTimeout(timeoutId);
-      });
-
+      timeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
       timeouts.clear();
     };
   }, []);
 
-  const toast = useCallback(
-    (message, type = 'info') => {
-      const id =
-        nextToastIdRef.current + 1;
+  const toast = useCallback((message, type = 'info') => {
+    const id = nextToastIdRef.current + 1;
+    nextToastIdRef.current = id;
+    setToasts((current) => [...current, { id, message, type }]);
+    const timeoutId = window.setTimeout(() => {
+      setToasts((current) => current.filter((item) => item.id !== id));
+      toastTimeoutsRef.current.delete(timeoutId);
+    }, 3200);
+    toastTimeoutsRef.current.add(timeoutId);
+  }, []);
 
-      nextToastIdRef.current = id;
+  const environment = import.meta.env.MODE === 'production' ? 'Production' : 'Développement';
+  const navigationItems = useMemo(() => flattenNavigation(), []);
 
-      setToasts((current) => [
-        ...current,
-        {
-          id,
-          message,
-          type,
-        },
-      ]);
-
-      const timeoutId =
-        window.setTimeout(() => {
-          setToasts((current) =>
-            current.filter(
-              (item) => item.id !== id,
-            ),
-          );
-
-          toastTimeoutsRef.current.delete(
-            timeoutId,
-          );
-        }, 3200);
-
-      toastTimeoutsRef.current.add(
-        timeoutId,
-      );
-    },
-    [],
-  );
-
-  const environment =
-    import.meta.env.MODE === 'production'
-      ? 'Production'
-      : 'Développement';
-
-  const navigationItems =
-    useMemo(
-      () => flattenNavigation(),
-      [],
+  const confirmSettingsDiscard = useCallback(() => {
+    if (!settingsDirty) return true;
+    const confirmed = window.confirm(
+      'Cette section contient des modifications non enregistrées. Les abandonner ?',
     );
+    if (!confirmed) {
+      toast('Navigation annulée : enregistrez ou annulez les modifications de la section.', 'warning');
+    }
+    return confirmed;
+  }, [settingsDirty, toast]);
 
-  const confirmSettingsDiscard =
-    useCallback(() => {
-      if (!settingsDirty) {
-        return true;
-      }
+  const selectSection = useCallback((sectionId) => {
+    if (sectionId === activeSection) return true;
+    if (!confirmSettingsDiscard()) return false;
+    setSettingsDirty(false);
+    setActiveSection(sectionId);
+    return true;
+  }, [activeSection, confirmSettingsDiscard]);
 
-      const confirmed = window.confirm(
-        'Cette section contient des modifications non enregistrées. Les abandonner ?',
-      );
+  const handleRefresh = useCallback(async () => {
+    if (!confirmSettingsDiscard()) return;
+    setSettingsDirty(false);
+    setRefreshing(true);
+    try {
+      await reloadRuntimeSettings();
+      setRefreshRevision((current) => current + 1);
+      toast('Configuration runtime actualisée.', 'success');
+    } catch (error) {
+      toast(errorMessage(error), 'error');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [reloadRuntimeSettings, confirmSettingsDiscard, toast]);
 
-      if (!confirmed) {
-        toast(
-          'Navigation annulée : enregistrez ou annulez les modifications de la section.',
-          'warning',
+  const handleSearch = useCallback(() => {
+    const normalized = query.trim().toLocaleLowerCase('fr');
+    if (!normalized) return;
+    const match = navigationItems.find((item) => {
+      const searchText = [item.label, item.description, ...(item.keywords || [])]
+        .join(' ')
+        .toLocaleLowerCase('fr');
+      return searchText.includes(normalized);
+    });
+    if (match) {
+      if (!selectSection(match.id)) return;
+      toast(`Section ouverte : ${match.label}.`, 'info');
+      return;
+    }
+    toast('Aucun paramètre correspondant.', 'warning');
+  }, [navigationItems, query, selectSection, toast]);
+
+  const navigateToModule = useCallback((page) => {
+    const navigated = typeof onNavigate === 'function' ? onNavigate(page) : false;
+    if (!navigated) toast('Navigation indisponible pour ce module.', 'error');
+  }, [onNavigate, toast]);
+
+  const sectionContent = useMemo(() => {
+    switch (activeSection) {
+      case 'organization-admin':
+        return <AdminOrganizationSection toast={toast} userRole={userRole} refreshRevision={refreshRevision} surface="settings" />;
+      case 'business-catalog':
+        return <BusinessCatalogSection toast={toast} userRole={userRole} refreshRevision={refreshRevision} onDirtyChange={setSettingsDirty} />;
+      case 'operational':
+        return (
+          <div className="sv3-operational-frame">
+            <OperationalSettingsSection toast={toast} refreshRevision={refreshRevision} onDirtyChange={setSettingsDirty} />
+          </div>
         );
-      }
-
-      return confirmed;
-    }, [settingsDirty, toast]);
-
-  const selectSection =
-    useCallback((sectionId) => {
-      if (sectionId === activeSection) {
-        return true;
-      }
-
-      if (!confirmSettingsDiscard()) {
-        return false;
-      }
-
-      setSettingsDirty(false);
-      setActiveSection(sectionId);
-      return true;
-    }, [activeSection, confirmSettingsDiscard]);
-
-  const handleRefresh =
-    useCallback(async () => {
-      if (!confirmSettingsDiscard()) {
-        return;
-      }
-
-      setSettingsDirty(false);
-      setRefreshing(true);
-
-      try {
-        await reloadRuntimeSettings();
-
-        setRefreshRevision(
-          (current) => current + 1,
+      case 'operational-audit':
+        return <OperationalAuditSection userRole={userRole} refreshRevision={refreshRevision} />;
+      case 'feedback':
+        return <FeedbackCenter userRole={userRole} />;
+      case 'modules':
+        return <SettingsModules modules={MODULE_SHORTCUTS} onNavigate={navigateToModule} />;
+      case 'integrations':
+        return <SettingsIntegrations capabilities={INTEGRATION_CAPABILITIES} />;
+      case 'roadmap':
+        return <SettingsRoadmap capabilities={ROADMAP_CAPABILITIES} />;
+      case 'about':
+        return <SettingsAbout version={__APP_VERSION__} environment={environment} />;
+      case 'overview':
+      default:
+        return (
+          <SettingsOverview
+            settings={settings}
+            loading={runtimeLoading}
+            error={runtimeError}
+            userRole={userRole}
+            onOpenOperational={() => selectSection('operational')}
+          />
         );
-
-        toast(
-          'Configuration runtime actualisée.',
-          'success',
-        );
-      } catch (error) {
-        toast(
-          errorMessage(error),
-          'error',
-        );
-      } finally {
-        setRefreshing(false);
-      }
-    }, [
-      reloadRuntimeSettings,
-      confirmSettingsDiscard,
-      toast,
-    ]);
-
-  const handleSearch =
-    useCallback(() => {
-      const normalized =
-        query.trim().toLocaleLowerCase('fr');
-
-      if (!normalized) {
-        return;
-      }
-
-      const match =
-        navigationItems.find((item) => {
-          const searchText = [
-            item.label,
-            item.description,
-            ...(item.keywords || []),
-          ]
-            .join(' ')
-            .toLocaleLowerCase('fr');
-
-          return searchText.includes(
-            normalized,
-          );
-        });
-
-      if (match) {
-        if (!selectSection(match.id)) {
-          return;
-        }
-
-        toast(
-          `Section ouverte : ${match.label}.`,
-          'info',
-        );
-
-        return;
-      }
-
-      toast(
-        'Aucun paramètre correspondant.',
-        'warning',
-      );
-    }, [
-      navigationItems,
-      query,
-      selectSection,
-      toast,
-    ]);
-
-  const navigateToModule =
-    useCallback(
-      (page) => {
-        const navigated =
-          typeof onNavigate === 'function'
-            ? onNavigate(page)
-            : false;
-
-        if (!navigated) {
-          toast(
-            'Navigation indisponible pour ce module.',
-            'error',
-          );
-        }
-      },
-      [
-        onNavigate,
-        toast,
-      ],
-    );
-
-  const sectionContent =
-    useMemo(() => {
-      switch (activeSection) {
-        case 'organization-admin':
-          return (
-            <AdminOrganizationSection
-              toast={toast}
-              userRole={userRole}
-              refreshRevision={refreshRevision}
-              surface="settings"
-            />
-          );
-
-        case 'business-catalog':
-          return (
-            <BusinessCatalogSection
-              toast={toast}
-              userRole={userRole}
-              refreshRevision={refreshRevision}
-              onDirtyChange={setSettingsDirty}
-            />
-          );
-
-        case 'operational':
-          return (
-            <div className="sv3-operational-frame">
-              <OperationalSettingsSection
-                toast={toast}
-                refreshRevision={refreshRevision}
-                onDirtyChange={setSettingsDirty}
-              />
-            </div>
-          );
-
-        case 'operational-audit':
-          return (
-            <OperationalAuditSection
-              userRole={userRole}
-              refreshRevision={refreshRevision}
-            />
-          );
-
-        case 'modules':
-          return (
-            <SettingsModules
-              modules={MODULE_SHORTCUTS}
-              onNavigate={navigateToModule}
-            />
-          );
-
-        case 'integrations':
-          return (
-            <SettingsIntegrations
-              capabilities={
-                INTEGRATION_CAPABILITIES
-              }
-            />
-          );
-
-        case 'roadmap':
-          return (
-            <SettingsRoadmap
-              capabilities={
-                ROADMAP_CAPABILITIES
-              }
-            />
-          );
-
-        case 'about':
-          return (
-            <SettingsAbout
-              version={__APP_VERSION__}
-              environment={environment}
-            />
-          );
-
-        case 'overview':
-        default:
-          return (
-            <SettingsOverview
-              settings={settings}
-              loading={runtimeLoading}
-              error={runtimeError}
-              userRole={userRole}
-              onOpenOperational={() =>
-                selectSection('operational')
-              }
-            />
-          );
-      }
-    }, [
-      activeSection,
-      environment,
-      navigateToModule,
-      refreshRevision,
-      runtimeError,
-      runtimeLoading,
-      settings,
-      selectSection,
-      toast,
-      userRole,
-    ]);
+    }
+  }, [
+    activeSection,
+    environment,
+    navigateToModule,
+    refreshRevision,
+    runtimeError,
+    runtimeLoading,
+    settings,
+    selectSection,
+    toast,
+    userRole,
+  ]);
 
   return (
     <div className="sv3-page">
@@ -398,27 +193,12 @@ export default function ParametresPage({
         onSearch={handleSearch}
         onRefresh={handleRefresh}
       />
-
       <div className="sv3-layout">
-        <SettingsNavigation
-          groups={SETTINGS_NAV_GROUPS}
-          activeSection={activeSection}
-          onSelect={selectSection}
-        />
-
-        <main className="sv3-content">
-          {sectionContent}
-        </main>
+        <SettingsNavigation groups={SETTINGS_NAV_GROUPS} activeSection={activeSection} onSelect={selectSection} />
+        <main className="sv3-content">{sectionContent}</main>
       </div>
-
       <div className="toast-container">
-        {toasts.map((item) => (
-          <Toast
-            key={item.id}
-            message={item.message}
-            type={item.type}
-          />
-        ))}
+        {toasts.map((item) => <Toast key={item.id} message={item.message} type={item.type} />)}
       </div>
     </div>
   );
