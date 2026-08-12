@@ -15,6 +15,7 @@ import AppLayout from './components/layout/AppLayout';
 import { RuntimeSettingsProvider } from './contexts/RuntimeSettingsContext';
 
 import './styles/index.css';
+import './styles/public-v2.css';
 
 const SESSION_EXPIRED_EVENT =
   'bluevector:session-expired';
