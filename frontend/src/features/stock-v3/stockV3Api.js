@@ -11,15 +11,19 @@ export const stockV3Api = Object.freeze({
   getWarehouses: () =>
     api.getWarehouses(),
 
+  getTechnicians: () =>
+    api.getTechnicians(),
+
   createWarehouse: (document) =>
     apiClient.post(
       '/stock-ftth/warehouses',
       document,
     ),
 
-  getLines: () =>
+  getLines: (params = {}) =>
     apiClient.get(
       '/stock-ftth/lines',
+      { params },
     ),
 
   getMovements: (params = {}) =>
@@ -49,4 +53,17 @@ export const stockV3Api = Object.freeze({
 
   receive: (params) =>
     api.addReception(params),
+
+  createIssue: (document) =>
+    apiClient.post(
+      '/stock-ftth/issues',
+      document,
+    ),
+
+  validateIssue: (issueId) =>
+    apiClient.post(
+      `/stock-ftth/issues/${encodeURIComponent(
+        issueId,
+      )}/validate`,
+    ),
 });
