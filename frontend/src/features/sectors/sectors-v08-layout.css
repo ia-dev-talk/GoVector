@@ -15,27 +15,182 @@
 
 .sv3-page > .territory-workspace {
   flex: 0 0 auto;
-  margin: 12px 12px 0;
+  margin: 14px 14px 0;
 }
 
 .sv3-content {
   flex: 0 0 auto;
-  min-height: 650px;
+  min-height: 680px;
+  padding: 14px;
+  gap: 12px;
   overflow: visible;
 }
 
 .sv3-workspace {
-  min-height: 560px;
-  height: 560px;
+  min-height: 580px;
+  height: 580px;
   flex: 0 0 auto;
+  gap: 12px;
 }
 
 .territory-workspace__body {
-  min-height: 360px;
+  min-height: 390px;
 }
 
 .territory-tree {
-  max-height: 520px;
+  max-height: 560px;
+}
+
+/* Operational sector registry: remove the 7–8 px microcopy. */
+.sv3-kpi {
+  min-height: 68px;
+  padding: 10px 12px;
+}
+
+.sv3-kpi-value {
+  font-size: 21px;
+}
+
+.sv3-kpi-label {
+  font-size: 10px;
+}
+
+.sv3-kpi-note {
+  font-size: 8px;
+}
+
+.sv3-panel-header {
+  min-height: 62px;
+  padding: 0 15px;
+}
+
+.sv3-panel-header span {
+  font-size: 9px;
+}
+
+.sv3-panel-header strong {
+  font-size: 14px;
+}
+
+.sv3-registry-toolbar {
+  min-height: 54px;
+  padding: 8px 12px;
+  gap: 9px;
+}
+
+.sv3-registry-toolbar select {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 10px;
+}
+
+.sv3-registry-head {
+  min-height: 40px;
+  font-size: 9px;
+}
+
+.sv3-sector-row {
+  min-height: 68px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.sv3-sector-row strong {
+  font-size: 10.5px;
+}
+
+.sv3-sector-row small {
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+
+/* GIS hierarchy itself: comfortable text and controls at 100% zoom. */
+.territory-workspace__header {
+  padding: 22px 24px;
+}
+
+.territory-workspace__header h2 {
+  font-size: 22px;
+}
+
+.territory-workspace__header p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.territory-workspace button {
+  min-height: 40px;
+  padding: 9px 13px;
+  font-size: 11px;
+}
+
+.territory-workspace__summary span {
+  padding: 13px 17px;
+  font-size: 10.5px;
+}
+
+.territory-workspace__summary strong {
+  font-size: 16px;
+}
+
+.territory-workspace__filters {
+  padding: 14px;
+  gap: 14px;
+}
+
+.territory-workspace__filters > input {
+  min-height: 42px;
+  padding: 10px 13px;
+  font-size: 12px;
+}
+
+.territory-workspace__filters label {
+  font-size: 11px;
+}
+
+.territory-row {
+  min-height: 54px;
+  padding-top: 11px !important;
+  padding-bottom: 11px !important;
+}
+
+.territory-row strong {
+  font-size: 11.5px;
+}
+
+.territory-row small {
+  font-size: 9px;
+}
+
+.territory-row em {
+  font-size: 10px;
+}
+
+.territory-inspector {
+  padding: 24px;
+}
+
+.territory-inspector h3 {
+  font-size: 20px;
+}
+
+.territory-inspector label {
+  font-size: 10px;
+}
+
+.territory-inspector input,
+.territory-inspector select {
+  min-height: 42px;
+  padding: 10px 12px;
+  font-size: 11px;
+}
+
+.territory-inspector dt {
+  font-size: 9px;
+}
+
+.territory-inspector dd {
+  font-size: 11px;
 }
 
 @media (max-width: 1100px) {
@@ -44,11 +199,11 @@
   }
 
   .sv3-content {
-    min-height: 760px;
+    min-height: 780px;
   }
 
   .sv3-workspace {
-    height: 680px;
-    min-height: 680px;
+    height: 700px;
+    min-height: 700px;
   }
 }
