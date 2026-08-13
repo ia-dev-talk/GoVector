@@ -63,38 +63,76 @@ function WarehouseLines({ lines }) {
   );
 }
 
+function movementDirection(movement) {
+  const quantity = numeric(movement?.quantity);
+  if (quantity < 0) return 'Sortie';
+  if (quantity > 0) return 'Entrée';
+  return 'Ajustement';
+}
+
 function MovementList({ movements }) {
   if (movements.length === 0) {
     return (
       <div className="st3-inspector-empty">
-        Aucun mouvement enregistré pour cet article.
+        Aucun mouvement enregistré pour cet article et ce périmètre.
       </div>
     );
   }
 
   return (
-    <div className="st3-movement-list">
-      {movements.map((movement) => (
-        <div key={movement.id}>
-          <span
-            className={`st3-movement-type st3-movement-type--${String(
-              movement?.movement_type,
-            ).toLocaleLowerCase('fr')}`}
-          >
-            {movementLabel(movement?.movement_type)}
-          </span>
-          <span>
-            <strong>{numeric(movement?.quantity)}</strong>
-            <small>{formatDateTime(movement?.created_at)}</small>
-          </span>
-          <span>
-            {text(movement?.notes, 'Aucune note')}
-            {movement?.technician_id ? (
-              <small> · Technicien #{movement.technician_id}</small>
-            ) : null}
-          </span>
-        </div>
-      ))}
+    <div className="st3-movement-list st3-movement-list--readable">
+      {movements.map((movement) => {
+        const quantity = numeric(movement?.quantity);
+        const direction = movementDirection(movement);
+        const technician = text(movement?.technician_name);
+        const employeeId = text(movement?.technician_employee_id);
+        const warehouse = text(
+          movement?.warehouse_name,
+          text(movement?.warehouse_code, 'Emplacement non renseigné'),
+        );
+        const jobId = movement?.job_id ? `Intervention #${movement.job_id}` : '';
+
+        return (
+          <article key={movement.id} className="st3-movement-card">
+            <div className="st3-movement-card__topline">
+              <span
+                className={`st3-movement-type st3-movement-type--${String(
+                  movement?.movement_type,
+                ).toLocaleLowerCase('fr')}`}
+              >
+                {movementLabel(movement?.movement_type)}
+              </span>
+              <time>{formatDateTime(movement?.created_at)}</time>
+            </div>
+
+            <div className="st3-movement-card__amount">
+              <strong>{Math.abs(quantity)}</strong>
+              <span>{Math.abs(quantity) > 1 ? 'unités' : 'unité'} · {direction}</span>
+              <small>
+                Solde {numeric(movement?.quantity_before)} → {numeric(movement?.quantity_after)}
+              </small>
+            </div>
+
+            <div className="st3-movement-card__context">
+              <span>Emplacement</span>
+              <strong>{warehouse}</strong>
+              {movement?.warehouse_code ? <small>{movement.warehouse_code}</small> : null}
+            </div>
+
+            <div className="st3-movement-card__context">
+              <span>Technicien</span>
+              <strong>{technician || 'Aucun technicien lié'}</strong>
+              {employeeId ? <small>{employeeId}</small> : null}
+            </div>
+
+            <div className="st3-movement-card__note">
+              <span>Contexte</span>
+              <strong>{jobId || text(movement?.notes, 'Mouvement hors intervention')}</strong>
+              {jobId && movement?.notes ? <small>{movement.notes}</small> : null}
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }
@@ -203,7 +241,7 @@ const StockInspector = memo(function StockInspector({
             </section>
 
             <section>
-              <div className="st3-section-title">Situation consolidée</div>
+              <div className="st3-section-title">Situation du périmètre</div>
               <div className="st3-metrics-grid">
                 <Metric label="Stock physique" value={item.totals.quantity} />
                 <Metric
@@ -216,7 +254,7 @@ const StockInspector = memo(function StockInspector({
                   value={item.totals.reserved}
                   tone="info"
                 />
-                <Metric label="Dépôts" value={item.warehouseCount} />
+                <Metric label="Emplacements" value={item.warehouseCount} />
                 <Metric
                   label="Seuil minimum"
                   value={item.threshold}
@@ -246,13 +284,13 @@ const StockInspector = memo(function StockInspector({
 
         {tab === 'warehouses' ? (
           <section>
-            <div className="st3-section-title">Répartition par dépôt</div>
+            <div className="st3-section-title">Répartition par emplacement</div>
             <WarehouseLines lines={item.lines} />
           </section>
         ) : null}
 
         {tab === 'history' ? (
-          <section>
+          <section className="st3-history-section">
             <div className="st3-section-title">
               <HistoryIcon />
               Mouvements récents
