@@ -26,6 +26,9 @@ const StockHeader = memo(function StockHeader({
   canManageCatalog,
   canMoveStock,
   hasWarehouses,
+  warehouses,
+  technicians,
+  onNavigate,
 }) {
   const [registryOpen, setRegistryOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -90,7 +93,14 @@ const StockHeader = memo(function StockHeader({
       </header>
 
       {registryOpen ? <SerializedEquipmentRegistry onClose={() => setRegistryOpen(false)} /> : null}
-      {historyOpen ? <StockHistoryPanel onClose={() => setHistoryOpen(false)} /> : null}
+      {historyOpen ? (
+        <StockHistoryPanel
+          warehouses={warehouses}
+          technicians={technicians}
+          onNavigate={onNavigate}
+          onClose={() => setHistoryOpen(false)}
+        />
+      ) : null}
     </>
   );
 });
