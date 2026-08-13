@@ -29,6 +29,7 @@ import {
 } from '../features/settings-v3/settingsCatalog';
 
 import '../styles/settings-v3.css';
+import '../styles/settings-v08.css';
 
 function errorMessage(error) {
   const detail = error?.response?.data?.detail;
