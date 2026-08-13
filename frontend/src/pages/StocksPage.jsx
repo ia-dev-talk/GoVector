@@ -115,7 +115,8 @@ function technicianWarehouse(technician, warehouses) {
   ) || null;
 }
 
-function scopeItems(items, selectedWarehouseId) {
+function scopeItems(items, selectedWarehouseId, forceEmpty = false) {
+  if (forceEmpty) return [];
   if (selectedWarehouseId === null) return items;
 
   return items.flatMap((item) => {
@@ -159,6 +160,7 @@ function StockScopeBar({
   warehouses,
   technicians,
   selectedWarehouseId,
+  selectedTechnicianId,
   onSelect,
   summary,
 }) {
@@ -170,17 +172,33 @@ function StockScopeBar({
       technician,
       warehouse: technicianWarehouse(technician, warehouses),
     }))
-    .filter(({ warehouse }) => warehouse);
+    .sort((first, second) =>
+      text(first.technician?.name).localeCompare(
+        text(second.technician?.name),
+        'fr',
+        { sensitivity: 'base' },
+      ),
+    );
 
-  const selectedWarehouse = warehouses.find(
-    (warehouse) => normalizeIdentifier(warehouse?.id) === selectedWarehouseId,
-  ) || null;
-  const selectedTechnician = selectedWarehouse
-    ? technicianOptions.find(
-        ({ warehouse }) =>
-          normalizeIdentifier(warehouse?.id) === selectedWarehouseId,
-      )?.technician || null
+  const selectedWarehouse = selectedTechnicianId === null
+    ? warehouses.find(
+        (warehouse) => normalizeIdentifier(warehouse?.id) === selectedWarehouseId,
+      ) || null
     : null;
+  const selectedTechnician = selectedTechnicianId !== null
+    ? technicians.find(
+        (technician) => normalizeIdentifier(technician?.id) === selectedTechnicianId,
+      ) || null
+    : null;
+  const selectedTechnicianWarehouse = selectedTechnician
+    ? technicianWarehouse(selectedTechnician, warehouses)
+    : null;
+
+  const value = selectedTechnicianId !== null
+    ? `technician:${selectedTechnicianId}`
+    : selectedWarehouseId !== null
+      ? `warehouse:${selectedWarehouseId}`
+      : 'all';
 
   const title = selectedTechnician
     ? text(selectedTechnician?.name, 'Technicien')
@@ -189,10 +207,43 @@ function StockScopeBar({
       : 'Stock général';
 
   const subtitle = selectedTechnician
-    ? `Dotation terrain · ${text(selectedTechnician?.employee_id, `ID ${selectedTechnician?.id}`)}`
+    ? selectedTechnicianWarehouse
+      ? `Dotation terrain · ${text(selectedTechnician?.employee_id, `ID ${selectedTechnician?.id}`)}`
+      : `Aucune dotation en stock · ${text(selectedTechnician?.employee_id, `ID ${selectedTechnician?.id}`)}`
     : selectedWarehouse
       ? `${text(selectedWarehouse?.city, 'Localisation non renseignée')} · ${warehouseType(selectedWarehouse) || 'DÉPÔT'}`
       : 'Tous les dépôts et toutes les dotations techniciens';
+
+  const handleChange = (event) => {
+    const nextValue = event.target.value;
+    if (nextValue === 'all') {
+      onSelect({ kind: 'all', warehouseId: null, technicianId: null });
+      return;
+    }
+
+    const [kind, rawIdentifier] = nextValue.split(':');
+    const parsedIdentifier = Number(rawIdentifier);
+    if (!Number.isInteger(parsedIdentifier) || parsedIdentifier <= 0) return;
+
+    if (kind === 'technician') {
+      const technician = technicians.find(
+        (candidate) => normalizeIdentifier(candidate?.id) === parsedIdentifier,
+      );
+      const warehouse = technicianWarehouse(technician, warehouses);
+      onSelect({
+        kind,
+        technicianId: parsedIdentifier,
+        warehouseId: normalizeIdentifier(warehouse?.id),
+      });
+      return;
+    }
+
+    onSelect({
+      kind: 'warehouse',
+      technicianId: null,
+      warehouseId: parsedIdentifier,
+    });
+  };
 
   return (
     <section className="st3-scopebar" aria-label="Périmètre du stock">
@@ -204,17 +255,12 @@ function StockScopeBar({
 
       <label className="st3-scopebar__selector">
         <span>Filtrer par détenteur</span>
-        <select
-          value={selectedWarehouseId ?? ''}
-          onChange={(event) =>
-            onSelect(event.target.value ? Number(event.target.value) : null)
-          }
-        >
-          <option value="">Stock général — vue consolidée</option>
+        <select value={value} onChange={handleChange}>
+          <option value="all">Stock général — vue consolidée</option>
           {physicalWarehouses.length ? (
             <optgroup label="Dépôts">
               {physicalWarehouses.map((warehouse) => (
-                <option key={warehouse.id} value={warehouse.id}>
+                <option key={warehouse.id} value={`warehouse:${warehouse.id}`}>
                   {text(warehouse.name, `Dépôt #${warehouse.id}`)}
                   {warehouse.code ? ` · ${warehouse.code}` : ''}
                 </option>
@@ -224,9 +270,10 @@ function StockScopeBar({
           {technicianOptions.length ? (
             <optgroup label="Techniciens">
               {technicianOptions.map(({ technician, warehouse }) => (
-                <option key={warehouse.id} value={warehouse.id}>
+                <option key={technician.id} value={`technician:${technician.id}`}>
                   {text(technician.name, `Technicien #${technician.id}`)}
                   {technician.employee_id ? ` · ${technician.employee_id}` : ''}
+                  {!warehouse ? ' · aucun stock' : ''}
                 </option>
               ))}
             </optgroup>
@@ -259,6 +306,7 @@ export default function StocksPage({
   const [operator, setOperator] = useState('');
   const [kpiFilter, setKpiFilter] = useState('all');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState(null);
+  const [selectedTechnicianScopeId, setSelectedTechnicianScopeId] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [railCollapsed, setRailCollapsed] = useState(false);
 
@@ -409,15 +457,17 @@ export default function StocksPage({
   }, [loadData]);
 
   useEffect(() => {
-    if (!requestedTechnicianId || warehouses.length === 0) return;
-    const warehouse = warehouses.find(
-      (candidate) =>
-        text(candidate?.code).toUpperCase() === `TECH-${requestedTechnicianId}`,
+    if (!requestedTechnicianId || warehouses.length === 0 || technicians.length === 0) return;
+    const technician = technicians.find(
+      (candidate) => normalizeIdentifier(candidate?.id) === requestedTechnicianId,
     );
-    if (warehouse) {
-      setSelectedWarehouseId(normalizeIdentifier(warehouse.id));
-    }
-  }, [requestedTechnicianId, warehouses]);
+    if (!technician) return;
+
+    const warehouse = technicianWarehouse(technician, warehouses);
+    setSelectedTechnicianScopeId(requestedTechnicianId);
+    setSelectedWarehouseId(normalizeIdentifier(warehouse?.id));
+    setSelectedItemId(null);
+  }, [requestedTechnicianId, technicians, warehouses]);
 
   const scheduleRealtimeRefresh = useCallback(() => {
     if (realtimeRefreshTimerRef.current !== null) {
@@ -456,9 +506,26 @@ export default function StocksPage({
     [items, lines, warehouses],
   );
 
+  const globalSummary = useMemo(
+    () => stockSummary(aggregatedItems),
+    [aggregatedItems],
+  );
+
+  const selectedTechnicianHasNoWarehouse = useMemo(() => {
+    if (selectedTechnicianScopeId === null) return false;
+    const technician = technicians.find(
+      (candidate) => normalizeIdentifier(candidate?.id) === selectedTechnicianScopeId,
+    );
+    return !technicianWarehouse(technician, warehouses);
+  }, [selectedTechnicianScopeId, technicians, warehouses]);
+
   const scopedItems = useMemo(
-    () => scopeItems(aggregatedItems, selectedWarehouseId),
-    [aggregatedItems, selectedWarehouseId],
+    () => scopeItems(
+      aggregatedItems,
+      selectedWarehouseId,
+      selectedTechnicianHasNoWarehouse,
+    ),
+    [aggregatedItems, selectedTechnicianHasNoWarehouse, selectedWarehouseId],
   );
 
   const summary = useMemo(
@@ -516,8 +583,8 @@ export default function StocksPage({
         ) return false;
         if (
           selectedWarehouseId === null &&
-          requestedTechnicianId &&
-          normalizeIdentifier(movement?.technician_id) !== requestedTechnicianId
+          selectedTechnicianScopeId !== null &&
+          normalizeIdentifier(movement?.technician_id) !== selectedTechnicianScopeId
         ) return false;
         return true;
       })
@@ -540,8 +607,8 @@ export default function StocksPage({
       .slice(0, 50),
     [
       movements,
-      requestedTechnicianId,
       selectedItemId,
+      selectedTechnicianScopeId,
       selectedWarehouseId,
       technicianById,
       warehouseById,
@@ -658,7 +725,10 @@ export default function StocksPage({
       try {
         const response = await stockV3Api.createWarehouse(document);
         const warehouseId = normalizeIdentifier(response?.data?.id);
-        if (warehouseId) setSelectedWarehouseId(warehouseId);
+        if (warehouseId) {
+          setSelectedTechnicianScopeId(null);
+          setSelectedWarehouseId(warehouseId);
+        }
         setWarehouseEditorOpen(false);
         toast('Dépôt créé.', 'success');
         await loadData({ manual: true });
@@ -716,9 +786,9 @@ export default function StocksPage({
   return (
     <div className="st3-page">
       <StockHeader
-        catalogCount={summary.catalog}
+        catalogCount={globalSummary.catalog}
         warehouseCount={physicalWarehouses.length}
-        availableUnits={summary.available}
+        availableUnits={globalSummary.available}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onRefresh={() => loadData({ manual: true })}
@@ -729,6 +799,9 @@ export default function StocksPage({
         canManageCatalog={canManageCatalog}
         canMoveStock={canMoveStock}
         hasWarehouses={physicalWarehouses.length > 0}
+        warehouses={warehouses}
+        technicians={technicians}
+        onNavigate={onNavigate}
       />
 
       {technicianContext ? (
@@ -780,8 +853,10 @@ export default function StocksPage({
           warehouses={warehouses}
           technicians={technicians}
           selectedWarehouseId={selectedWarehouseId}
-          onSelect={(warehouseId) => {
-            setSelectedWarehouseId(warehouseId);
+          selectedTechnicianId={selectedTechnicianScopeId}
+          onSelect={(scope) => {
+            setSelectedTechnicianScopeId(scope.technicianId ?? null);
+            setSelectedWarehouseId(scope.warehouseId ?? null);
             setSelectedItemId(null);
           }}
           summary={summary}
@@ -800,6 +875,7 @@ export default function StocksPage({
             lines={lines}
             selectedWarehouseId={selectedWarehouseId}
             onSelect={(warehouseId) => {
+              setSelectedTechnicianScopeId(null);
               setSelectedWarehouseId(warehouseId);
               setSelectedItemId(null);
             }}
@@ -886,7 +962,9 @@ export default function StocksPage({
               ? selectedWarehouseId
               : null
           }
-          initialTechnicianId={technicianContext?.id ?? null}
+          initialTechnicianId={
+            selectedTechnicianScopeId ?? technicianContext?.id ?? null
+          }
           saving={saving}
           error={formError}
           onClose={closeForms}
