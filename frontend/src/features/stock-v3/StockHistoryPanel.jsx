@@ -28,6 +28,11 @@ const MOVEMENT_TYPES = [
   'MISE_AU_REBUT',
 ];
 
+function csvCell(value) {
+  const normalized = value == null ? '' : String(value);
+  return `"${normalized.replaceAll('"', '""')}"`;
+}
+
 function MovementRow({ row, onNavigate }) {
   const jobId = normalizeIdentifier(row?.job_id);
   const technicianId = normalizeIdentifier(row?.technician_id);
@@ -46,7 +51,10 @@ function MovementRow({ row, onNavigate }) {
           {movementLabel(movementType)}
         </span>
         <strong>{text(row?.item_label, 'Article')}</strong>
-        <small>{text(row?.item_reference, `Article #${row?.item_id ?? '—'}`)}</small>
+        <small>
+          {text(row?.item_reference, `Article #${row?.item_id ?? '—'}`)}
+          {row?.operator ? ` · ${row.operator}` : ''}
+        </small>
       </div>
 
       <div className="st3-history-quantity">
@@ -112,6 +120,9 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
   const [movementType, setMovementType] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
   const [technicianId, setTechnicianId] = useState('');
+  const [operator, setOperator] = useState('');
+  const [createdFrom, setCreatedFrom] = useState('');
+  const [createdTo, setCreatedTo] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const requestRef = useRef(0);
@@ -128,8 +139,11 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
     ...(movementType ? { movement_type: movementType } : {}),
     ...(warehouseId ? { warehouse_id: Number(warehouseId) } : {}),
     ...(technicianId ? { technician_id: Number(technicianId) } : {}),
+    ...(operator.trim() ? { operator: operator.trim() } : {}),
+    ...(createdFrom ? { created_from: `${createdFrom}T00:00:00` } : {}),
+    ...(createdTo ? { created_to: `${createdTo}T23:59:59` } : {}),
     limit: 500,
-  }), [movementType, search, technicianId, warehouseId]);
+  }), [createdFrom, createdTo, movementType, operator, search, technicianId, warehouseId]);
 
   const load = useCallback(async () => {
     const requestId = ++requestRef.current;
@@ -146,6 +160,40 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
       if (requestId === requestRef.current) setLoading(false);
     }
   }, [params]);
+
+  const exportCsv = useCallback(() => {
+    if (!rows.length) return;
+    const columns = [
+      ['Date', (row) => row?.created_at],
+      ['Mouvement', (row) => movementLabel(row?.movement_type)],
+      ['Article', (row) => row?.item_label],
+      ['Référence', (row) => row?.item_reference],
+      ['Opérateur', (row) => row?.operator],
+      ['Dépôt', (row) => row?.warehouse_name || row?.warehouse_code],
+      ['Technicien', (row) => row?.technician_name],
+      ['Matricule', (row) => row?.technician_employee_id],
+      ['Intervention', (row) => row?.job_number || row?.job_id],
+      ['Client', (row) => row?.customer_name],
+      ['Adresse', (row) => row?.service_address],
+      ['Quantité', (row) => row?.quantity],
+      ['Avant', (row) => row?.quantity_before],
+      ['Après', (row) => row?.quantity_after],
+      ['Note', (row) => row?.notes],
+    ];
+    const body = [
+      columns.map(([label]) => csvCell(label)).join(';'),
+      ...rows.map((row) => columns.map(([, read]) => csvCell(read(row))).join(';')),
+    ].join('\r\n');
+    const blob = new Blob([`\uFEFF${body}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `bluevector-stock-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, [rows]);
 
   useEffect(() => {
     if (
@@ -202,7 +250,7 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Article, technicien, client, intervention, note…"
+              placeholder="Article, technicien, client, opérateur, intervention, note…"
             />
           </label>
           <label>
@@ -230,15 +278,32 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
               ))}
             </select>
           </label>
-          <button type="button" className="st3-secondary-button" onClick={load} disabled={loading}>
-            {loading ? 'Actualisation…' : 'Actualiser'}
-          </button>
+          <label>
+            <span>Opérateur</span>
+            <input value={operator} onChange={(event) => setOperator(event.target.value)} placeholder="Orange, IAM, INWI…" />
+          </label>
+          <label>
+            <span>Du</span>
+            <input type="date" value={createdFrom} onChange={(event) => setCreatedFrom(event.target.value)} />
+          </label>
+          <label>
+            <span>Au</span>
+            <input type="date" value={createdTo} min={createdFrom || undefined} onChange={(event) => setCreatedTo(event.target.value)} />
+          </label>
+          <div className="st3-history-actions">
+            <button type="button" className="st3-secondary-button" onClick={load} disabled={loading}>
+              {loading ? 'Actualisation…' : 'Actualiser'}
+            </button>
+            <button type="button" className="st3-secondary-button" onClick={exportCsv} disabled={!rows.length || loading}>
+              Export CSV
+            </button>
+          </div>
         </div>
 
         <div className="st3-history-summary">
           <strong>{rows.length}</strong>
           <span>mouvement{rows.length !== 1 ? 's' : ''} affiché{rows.length !== 1 ? 's' : ''}</span>
-          <small>Journal serveur immuable · jusqu’à 500 lignes</small>
+          <small>Journal serveur immuable · jusqu’à 500 lignes · export de la vue filtrée</small>
         </div>
 
         {error ? <div className="st3-notice" role="alert"><span>{error}</span><button type="button" onClick={load}>Réessayer</button></div> : null}
