@@ -1,0 +1,41 @@
+/* BlueVector V0.8 — reclaim horizontal workspace on desktop. */
+
+@media (min-width: 769px) {
+  .app-layout.sidebar-open > .app-sidebar {
+    width: 190px !important;
+  }
+
+  .app-layout.sidebar-closed > .app-sidebar {
+    width: 52px !important;
+  }
+
+  .app-layout.sidebar-open .sidebar-header {
+    padding-left: 13px;
+    padding-right: 10px;
+  }
+
+  .app-layout.sidebar-open .sidebar-brand strong {
+    font-size: 15px;
+  }
+
+  .app-layout.sidebar-open .sidebar-user {
+    margin-left: 8px;
+    margin-right: 8px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .app-layout.sidebar-open .sidebar-nav {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+
+  .app-layout.sidebar-open .sidebar-nav-item {
+    padding-left: 10px;
+    padding-right: 9px;
+  }
+
+  .app-layout.sidebar-open .sidebar-nav-label {
+    font-size: 11px;
+  }
+}
