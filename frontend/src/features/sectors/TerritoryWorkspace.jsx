@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { api } from '../../api/client';
 import territoryApi from './territoryApi';
 import './territory-workspace.css';
 
@@ -58,12 +59,14 @@ function descendantIds(nodes, nodeId) {
   return result;
 }
 
-export default function TerritoryWorkspace({ canManage, legacySectors = [], toast }) {
+export default function TerritoryWorkspace({ canManage, legacySectors = null, toast }) {
   const [nodes, setNodes] = useState([]);
+  const [catalogSectors, setCatalogSectors] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -78,31 +81,44 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
   });
   const fileRef = useRef(null);
 
+  const notify = useCallback((text, type = 'info') => {
+    setNotice(text);
+    toast?.(text, type);
+  }, [toast]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
-    try {
-      const response = await territoryApi.list({ includeInactive: true });
-      setNodes(Array.isArray(response?.data) ? response.data : []);
-    } catch (loadError) {
-      setError(message(loadError, 'Impossible de charger la géographie BlueVector.'));
-    } finally {
-      setLoading(false);
+    const results = await Promise.allSettled([
+      territoryApi.list({ includeInactive: true }),
+      legacySectors === null ? api.getSectors({ limit: 500 }) : Promise.resolve(null),
+    ]);
+    const [territoryResult, sectorResult] = results;
+    if (territoryResult.status === 'fulfilled') {
+      setNodes(Array.isArray(territoryResult.value?.data) ? territoryResult.value.data : []);
+    } else {
+      setError(message(territoryResult.reason, 'Impossible de charger la géographie BlueVector.'));
     }
-  }, []);
+    if (legacySectors === null && sectorResult.status === 'fulfilled') {
+      const data = sectorResult.value?.data;
+      setCatalogSectors(Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []);
+    }
+    setLoading(false);
+  }, [legacySectors]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const availableLegacySectors = legacySectors ?? catalogSectors;
   const rows = useMemo(() => buildRows(nodes), [nodes]);
   const selected = useMemo(
     () => nodes.find((node) => node.id === selectedId) || null,
     [nodes, selectedId],
   );
   const selectedLegacySector = useMemo(
-    () => legacySectors.find((sector) => Number(sector.id) === Number(selected?.legacy_sector_id)) || null,
-    [legacySectors, selected?.legacy_sector_id],
+    () => availableLegacySectors.find((sector) => Number(sector.id) === Number(selected?.legacy_sector_id)) || null,
+    [availableLegacySectors, selected?.legacy_sector_id],
   );
   const blockedParents = useMemo(
     () => (editingId ? descendantIds(nodes, editingId) : new Set()),
@@ -176,9 +192,9 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
       setEditorOpen(false);
       setEditingId(null);
       await load();
-      toast?.('Géographie territoriale enregistrée.', 'success');
+      notify('Géographie territoriale enregistrée.', 'success');
     } catch (saveError) {
-      toast?.(message(saveError, 'Impossible d’enregistrer le territoire.'), 'error');
+      notify(message(saveError, 'Impossible d’enregistrer le territoire.'), 'error');
     } finally {
       setSaving(false);
     }
@@ -193,9 +209,9 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
     try {
       await territoryApi.deactivate(selected.id);
       await load();
-      toast?.('Territoire désactivé.', 'success');
+      notify('Territoire désactivé.', 'success');
     } catch (actionError) {
-      toast?.(message(actionError, 'Impossible de désactiver ce territoire.'), 'error');
+      notify(message(actionError, 'Impossible de désactiver ce territoire.'), 'error');
     }
   };
 
@@ -204,9 +220,9 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
     try {
       await territoryApi.update(selected.id, { is_active: true });
       await load();
-      toast?.('Territoire réactivé.', 'success');
+      notify('Territoire réactivé.', 'success');
     } catch (actionError) {
-      toast?.(message(actionError, 'Impossible de réactiver ce territoire.'), 'error');
+      notify(message(actionError, 'Impossible de réactiver ce territoire.'), 'error');
     }
   };
 
@@ -222,8 +238,9 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
       anchor.download = 'bluevector-territories.geojson';
       anchor.click();
       URL.revokeObjectURL(url);
+      notify('Export GeoJSON préparé.', 'success');
     } catch (exportError) {
-      toast?.(message(exportError, 'Export GeoJSON impossible.'), 'error');
+      notify(message(exportError, 'Export GeoJSON impossible.'), 'error');
     }
   };
 
@@ -235,12 +252,12 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
       const collection = JSON.parse(await file.text());
       const response = await territoryApi.importGeoJson(collection);
       await load();
-      toast?.(
+      notify(
         `Import QGIS terminé · ${response?.data?.created || 0} créé(s), ${response?.data?.updated || 0} mis à jour.`,
         'success',
       );
     } catch (importError) {
-      toast?.(message(importError, 'GeoJSON invalide ou import impossible.'), 'error');
+      notify(message(importError, 'GeoJSON invalide ou import impossible.'), 'error');
     }
   };
 
@@ -295,6 +312,7 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
         </label>
       </div>
 
+      {notice && <div className="territory-workspace__notice" role="status">{notice}</div>}
       {error && (
         <div className="territory-workspace__error">
           {error} <button type="button" onClick={load}>Réessayer</button>
@@ -386,7 +404,7 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
                   onChange={(event) => setDraft((value) => ({ ...value, legacy_sector_id: event.target.value }))}
                 >
                   <option value="">Aucun</option>
-                  {legacySectors.map((sector) => (
+                  {availableLegacySectors.map((sector) => (
                     <option key={sector.id} value={sector.id}>{sector.name}</option>
                   ))}
                 </select>
