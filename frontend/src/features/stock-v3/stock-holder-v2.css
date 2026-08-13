@@ -1,0 +1,26 @@
+.st3-warehouse-group-title {
+  padding: 10px 10px 5px;
+  color: #6f83a1;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.st3-warehouse-group-title + .st3-warehouse-row {
+  margin-top: 0;
+}
+
+.st3-warehouse-row strong[title] {
+  cursor: default;
+}
+
+.st3-warehouse-row--technician .st3-warehouse-icon {
+  color: #77a8ff;
+  border-color: rgba(75, 141, 255, .22);
+  background: rgba(75, 141, 255, .08);
+}
+
+.st3-warehouse-row--technician > span:nth-child(2) small {
+  color: #7894bb;
+}
