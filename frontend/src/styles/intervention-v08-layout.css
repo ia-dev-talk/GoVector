@@ -1,0 +1,117 @@
+/* BlueVector V0.8 — intervention detail as an operational record, not three narrow columns. */
+
+@media (min-width: 1181px) {
+  .intervention-detail-layout {
+    grid-template-columns: minmax(0, 1.65fr) minmax(340px, .72fr);
+    grid-template-areas:
+      "center timeline"
+      "center evidence";
+    gap: 16px;
+    align-items: start;
+  }
+
+  .intervention-detail-center {
+    grid-area: center;
+    min-width: 0;
+  }
+
+  .intervention-detail-timeline-rail {
+    grid-area: timeline;
+    min-width: 0;
+  }
+
+  .intervention-detail-evidence-rail {
+    grid-area: evidence;
+    min-width: 0;
+  }
+
+  .intervention-detail-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .intervention-detail-map-body {
+    height: clamp(330px, 36vh, 470px);
+  }
+}
+
+@media (min-width: 1500px) {
+  .intervention-detail-page {
+    padding-inline: 24px;
+  }
+
+  .intervention-detail-layout {
+    grid-template-columns: minmax(0, 1.8fr) minmax(360px, .62fr);
+    gap: 18px;
+  }
+
+  .intervention-detail-center {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 14px;
+  }
+
+  .intervention-detail-center > .intervention-detail-card:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .intervention-detail-center > .intervention-detail-card:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 781px) and (max-width: 1180px) {
+  .intervention-detail-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .intervention-detail-center,
+  .intervention-detail-timeline-rail,
+  .intervention-detail-evidence-rail {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .intervention-detail-center {
+    order: 1;
+  }
+
+  .intervention-detail-timeline-rail {
+    order: 2;
+  }
+
+  .intervention-detail-evidence-rail {
+    order: 3;
+  }
+
+  .intervention-detail-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .intervention-detail-evidence-body {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .intervention-detail-evidence-body > .intervention-detail-evidence-section {
+    min-width: 0;
+  }
+
+  .intervention-detail-map-body {
+    height: clamp(300px, 42vh, 430px);
+  }
+}
+
+@media (max-width: 780px) {
+  .intervention-detail-layout {
+    gap: 12px;
+  }
+
+  .intervention-detail-card-header,
+  .intervention-detail-card-body {
+    padding-inline: 12px;
+  }
+}
