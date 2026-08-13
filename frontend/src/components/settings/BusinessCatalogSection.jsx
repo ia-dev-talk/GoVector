@@ -10,11 +10,11 @@ import '../../styles/settings-business-catalog.css';
 import '../../styles/settings-business-catalog-actions.css';
 
 const SECTIONS = [
-  { key: 'technician_grades', title: 'Grades techniciens', copy: 'Ajoutables et archivables. Un grade utilisé reste protégé.', extensible: true },
-  { key: 'job_types', title: 'Types d’intervention', copy: 'Présentation modifiable ; identifiants techniques protégés.' },
-  { key: 'priorities', title: 'Priorités', copy: 'Libellés, couleurs, ordre et disponibilité.' },
-  { key: 'status_presentations', title: 'Statuts du workflow', copy: 'Libellés et couleurs modifiables ; transitions et identifiants protégés.', alwaysActive: true },
-  { key: 'field_actions', title: 'Actions terrain', copy: 'Types proposés au technicien dans la capture libre.' },
+  { key: 'technician_grades', title: 'Grades techniciens', shortTitle: 'Grades', copy: 'Ajoutables et archivables. Un grade utilisé reste protégé.', extensible: true },
+  { key: 'job_types', title: 'Types d’intervention', shortTitle: 'Types', copy: 'Présentation modifiable ; identifiants techniques protégés.' },
+  { key: 'priorities', title: 'Priorités', shortTitle: 'Priorités', copy: 'Libellés, couleurs, ordre et disponibilité.' },
+  { key: 'status_presentations', title: 'Statuts du workflow', shortTitle: 'Statuts', copy: 'Libellés et couleurs modifiables ; transitions et identifiants protégés.', alwaysActive: true },
+  { key: 'field_actions', title: 'Actions terrain', shortTitle: 'Actions terrain', copy: 'Types proposés au technicien dans la capture libre.' },
 ];
 
 function errorMessage(error) {
@@ -51,6 +51,7 @@ export default function BusinessCatalogSection({
   const editable = userRole === 'ADMIN';
   const [document, setDocument] = useState(null);
   const [values, setValues] = useState(null);
+  const [activeSectionKey, setActiveSectionKey] = useState(SECTIONS[0].key);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -100,6 +101,11 @@ export default function BusinessCatalogSection({
     if (!values) return 0;
     return Object.values(values).flat().filter((item) => item.active).length;
   }, [values]);
+
+  const activeSection = useMemo(
+    () => SECTIONS.find((section) => section.key === activeSectionKey) || SECTIONS[0],
+    [activeSectionKey],
+  );
 
   const updateItem = (section, index, field, nextValue) => {
     setValues((current) => ({
@@ -153,6 +159,9 @@ export default function BusinessCatalogSection({
   if (error) return <div className="catalog-state catalog-state--error"><strong>Connexion impossible</strong><span>{error}</span><button type="button" onClick={load}>Réessayer</button></div>;
   if (!values) return null;
 
+  const activeItems = values[activeSection.key] || [];
+  const activeItemsCount = activeItems.filter((item) => item.active).length;
+
   return (
     <section className="business-catalog">
       <header className="business-catalog__hero">
@@ -172,29 +181,62 @@ export default function BusinessCatalogSection({
         <span>Les grades sont extensibles. Les codes de workflow sont protégés ; leur affichage reste personnalisable.</span>
       </div>
 
-      <div className="business-catalog__sections">
-        {SECTIONS.map((section) => (
-          <article key={section.key} className="catalog-card">
-            <header>
-              <div><h3>{section.title}</h3><p>{section.copy}</p></div>
-              {editable && section.extensible ? <button type="button" onClick={addGrade}>+ Ajouter</button> : null}
-            </header>
-            <div className="catalog-table" role="table" aria-label={section.title}>
-              <div className="catalog-table__head" role="row"><span>Identifiant</span><span>Libellé</span><span>Couleur</span><span>Ordre</span><span>Actif</span></div>
-              {values[section.key].map((item, index) => (
-                <div className="catalog-table__row" role="row" key={catalogRowKey(section.key, index)}>
-                  {section.extensible && editable ? (
-                    <input aria-label={`Code ${item.label}`} value={item.code} onChange={(event) => updateItem(section.key, index, 'code', normalizeCatalogCode(event.target.value))} />
-                  ) : <code>{item.code}</code>}
-                  <input disabled={!editable} aria-label={`Libellé ${item.code}`} value={item.label} onChange={(event) => updateItem(section.key, index, 'label', event.target.value)} />
-                  <input disabled={!editable} type="color" aria-label={`Couleur ${item.code}`} value={item.color || '#4B8DFF'} onInput={(event) => updateItem(section.key, index, 'color', event.currentTarget.value)} />
-                  <input disabled={!editable} type="number" min="0" max="10000" aria-label={`Ordre ${item.code}`} value={item.sort_order} onChange={(event) => updateItem(section.key, index, 'sort_order', Number(event.target.value))} />
-                  <label className="catalog-switch"><input disabled={!editable || section.alwaysActive} type="checkbox" checked={item.active} onChange={(event) => updateItem(section.key, index, 'active', event.target.checked)} /><span>{item.active ? 'Oui' : 'Archivé'}</span></label>
-                </div>
-              ))}
-            </div>
-          </article>
-        ))}
+      <nav className="business-catalog__section-nav" aria-label="Catégories du référentiel métier">
+        {SECTIONS.map((section) => {
+          const sectionItems = values[section.key] || [];
+          const enabled = sectionItems.filter((item) => item.active).length;
+          return (
+            <button
+              type="button"
+              key={section.key}
+              className={section.key === activeSection.key ? 'is-active' : ''}
+              onClick={() => setActiveSectionKey(section.key)}
+            >
+              <span>{section.shortTitle}</span>
+              <strong>{sectionItems.length}</strong>
+              <small>{enabled} actifs</small>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="business-catalog__focus-summary">
+        <div>
+          <span>Section active</span>
+          <strong>{activeSection.title}</strong>
+          <small>{activeSection.copy}</small>
+        </div>
+        <div>
+          <strong>{activeItems.length}</strong>
+          <span>éléments</span>
+        </div>
+        <div>
+          <strong>{activeItemsCount}</strong>
+          <span>actifs</span>
+        </div>
+      </div>
+
+      <div className="business-catalog__sections business-catalog__sections--focused">
+        <article className="catalog-card">
+          <header>
+            <div><h3>{activeSection.title}</h3><p>{activeSection.copy}</p></div>
+            {editable && activeSection.extensible ? <button type="button" onClick={addGrade}>+ Ajouter</button> : null}
+          </header>
+          <div className="catalog-table" role="table" aria-label={activeSection.title}>
+            <div className="catalog-table__head" role="row"><span>Identifiant</span><span>Libellé</span><span>Couleur</span><span>Ordre</span><span>Actif</span></div>
+            {activeItems.map((item, index) => (
+              <div className="catalog-table__row" role="row" key={catalogRowKey(activeSection.key, index)}>
+                {activeSection.extensible && editable ? (
+                  <input aria-label={`Code ${item.label}`} value={item.code} onChange={(event) => updateItem(activeSection.key, index, 'code', normalizeCatalogCode(event.target.value))} />
+                ) : <code>{item.code}</code>}
+                <input disabled={!editable} aria-label={`Libellé ${item.code}`} value={item.label} onChange={(event) => updateItem(activeSection.key, index, 'label', event.target.value)} />
+                <input disabled={!editable} type="color" aria-label={`Couleur ${item.code}`} value={item.color || '#4B8DFF'} onInput={(event) => updateItem(activeSection.key, index, 'color', event.currentTarget.value)} />
+                <input disabled={!editable} type="number" min="0" max="10000" aria-label={`Ordre ${item.code}`} value={item.sort_order} onChange={(event) => updateItem(activeSection.key, index, 'sort_order', Number(event.target.value))} />
+                <label className="catalog-switch"><input disabled={!editable || activeSection.alwaysActive} type="checkbox" checked={item.active} onChange={(event) => updateItem(activeSection.key, index, 'active', event.target.checked)} /><span>{item.active ? 'Oui' : 'Archivé'}</span></label>
+              </div>
+            ))}
+          </div>
+        </article>
       </div>
 
       <footer className="business-catalog__footer">
