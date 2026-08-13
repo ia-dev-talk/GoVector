@@ -33,17 +33,24 @@ function csvCell(value) {
   return `"${normalized.replaceAll('"', '""')}"`;
 }
 
+function directionLabel(quantity) {
+  if (quantity < 0) return 'Sortie';
+  if (quantity > 0) return 'Entrée';
+  return 'Ajustement';
+}
+
 function MovementRow({ row, onNavigate }) {
   const jobId = normalizeIdentifier(row?.job_id);
   const technicianId = normalizeIdentifier(row?.technician_id);
   const movementType = text(row?.movement_type).toUpperCase();
+  const quantity = numeric(row?.quantity);
   const canNavigate = typeof onNavigate === 'function';
 
   return (
     <article className="st3-history-row">
       <div className="st3-history-time">
         <strong>{formatDateTime(row?.created_at)}</strong>
-        <span>{text(row?.warehouse_name, row?.warehouse_code || 'Dépôt inconnu')}</span>
+        <span>{text(row?.warehouse_name, row?.warehouse_code || 'Emplacement inconnu')}</span>
       </div>
 
       <div className="st3-history-event">
@@ -58,9 +65,10 @@ function MovementRow({ row, onNavigate }) {
       </div>
 
       <div className="st3-history-quantity">
-        <strong>{numeric(row?.quantity)}</strong>
+        <strong>{Math.abs(quantity)}</strong>
+        <b>{Math.abs(quantity) > 1 ? 'unités' : 'unité'} · {directionLabel(quantity)}</b>
         <span>
-          {numeric(row?.quantity_before)} → {numeric(row?.quantity_after)}
+          Solde {numeric(row?.quantity_before)} → {numeric(row?.quantity_after)}
         </span>
       </div>
 
@@ -76,11 +84,11 @@ function MovementRow({ row, onNavigate }) {
             </button>
           ) : (
             <span>
-              {text(row?.technician_name, `Technicien #${technicianId}`)}
+              <strong>{text(row?.technician_name, `Technicien #${technicianId}`)}</strong>
               {row?.technician_employee_id ? <small>{row.technician_employee_id}</small> : null}
             </span>
           )
-        ) : <span className="st3-history-muted">Aucun technicien</span>}
+        ) : <span className="st3-history-muted">Aucun technicien lié</span>}
 
         {jobId ? (
           canNavigate ? (
@@ -93,7 +101,7 @@ function MovementRow({ row, onNavigate }) {
             </button>
           ) : (
             <span>
-              Intervention {text(row?.job_number, `#${jobId}`)}
+              <strong>Intervention {text(row?.job_number, `#${jobId}`)}</strong>
               <small>{text(row?.customer_name, row?.service_address || 'Intervention liée')}</small>
             </span>
           )
@@ -101,7 +109,7 @@ function MovementRow({ row, onNavigate }) {
       </div>
 
       <div className="st3-history-note">
-        {text(row?.notes, 'Aucune note')}
+        {text(row?.notes, 'Aucune note métier')}
       </div>
     </article>
   );
@@ -166,16 +174,17 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
     const columns = [
       ['Date', (row) => row?.created_at],
       ['Mouvement', (row) => movementLabel(row?.movement_type)],
+      ['Sens', (row) => directionLabel(numeric(row?.quantity))],
       ['Article', (row) => row?.item_label],
       ['Référence', (row) => row?.item_reference],
       ['Opérateur', (row) => row?.operator],
-      ['Dépôt', (row) => row?.warehouse_name || row?.warehouse_code],
+      ['Dépôt / garde', (row) => row?.warehouse_name || row?.warehouse_code],
       ['Technicien', (row) => row?.technician_name],
       ['Matricule', (row) => row?.technician_employee_id],
       ['Intervention', (row) => row?.job_number || row?.job_id],
       ['Client', (row) => row?.customer_name],
       ['Adresse', (row) => row?.service_address],
-      ['Quantité', (row) => row?.quantity],
+      ['Quantité absolue', (row) => Math.abs(numeric(row?.quantity))],
       ['Avant', (row) => row?.quantity_before],
       ['Après', (row) => row?.quantity_after],
       ['Note', (row) => row?.notes],
@@ -238,7 +247,7 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
           <div>
             <span>Traçabilité logistique</span>
             <h2>Historique du stock</h2>
-            <p>Chaque réception, dotation, consommation, retour et ajustement avec son contexte métier.</p>
+            <p>Chaque réception, dotation, consommation, retour et ajustement avec le détenteur et le contexte métier.</p>
           </div>
           <button type="button" className="st3-icon-button" onClick={onClose} aria-label="Fermer">×</button>
         </header>
