@@ -1,0 +1,22 @@
+/* Secteurs — the territory form should participate in the page flow. */
+.sv3-page:has(> .territory-workspace) .territory-inspector {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.sv3-page:has(> .territory-workspace) .territory-inspector h3 {
+  position: static !important;
+  padding: 0;
+  background: transparent;
+}
+
+.sv3-page:has(> .territory-workspace) .territory-workspace__body {
+  min-height: 360px;
+  align-items: start;
+}
+
+.sv3-page:has(> .territory-workspace) .territory-tree {
+  max-height: 520px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
