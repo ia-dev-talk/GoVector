@@ -7,6 +7,17 @@ const KNOWN_BUCKETS = Object.freeze([
   'other',
 ]);
 
+const LEGACY_MEDIA_FIELDS = Object.freeze([
+  ['before_photo', 'photos', 'Photo avant'],
+  ['during_photo', 'photos', 'Photo pendant'],
+  ['after_photo', 'photos', 'Photo après'],
+  ['client_signature', 'signatures', 'Signature client'],
+  ['report_document', 'documents', 'Compte rendu'],
+  ['report_pdf', 'documents', 'Rapport PDF'],
+  ['work_report', 'documents', 'Rapport terrain'],
+  ['attachment', 'documents', 'Pièce jointe'],
+]);
+
 function normalized(value) {
   return value == null
     ? ''
@@ -26,20 +37,13 @@ function normalizedMime(media) {
   return normalized(media?.mime_type ?? media?.mimeType);
 }
 
+function emptyBuckets() {
+  return Object.fromEntries(KNOWN_BUCKETS.map((key) => [key, []]));
+}
+
 export function technicianMediaBucket(media) {
   const kind = normalizedKind(media);
   const mime = normalizedMime(media);
-
-  if (
-    ['photo', 'image', 'intervention_photo'].includes(kind) ||
-    mime.startsWith('image/') && !['signature', 'sketch', 'intervention_sketch'].includes(kind)
-  ) {
-    return 'photos';
-  }
-
-  if (['video', 'intervention_video'].includes(kind) || mime.startsWith('video/')) {
-    return 'videos';
-  }
 
   if (['signature', 'client_signature'].includes(kind)) {
     return 'signatures';
@@ -47,6 +51,17 @@ export function technicianMediaBucket(media) {
 
   if (['sketch', 'intervention_sketch', 'croquis'].includes(kind)) {
     return 'sketches';
+  }
+
+  if (
+    ['photo', 'image', 'intervention_photo'].includes(kind) ||
+    mime.startsWith('image/')
+  ) {
+    return 'photos';
+  }
+
+  if (['video', 'intervention_video'].includes(kind) || mime.startsWith('video/')) {
+    return 'videos';
   }
 
   if (
@@ -63,11 +78,43 @@ export function technicianMediaBucket(media) {
 }
 
 export function classifyTechnicianMedia(media) {
-  const buckets = Object.fromEntries(KNOWN_BUCKETS.map((key) => [key, []]));
+  const buckets = emptyBuckets();
 
   for (const item of Array.isArray(media) ? media : []) {
     if (!item || typeof item !== 'object') continue;
     buckets[technicianMediaBucket(item)].push(item);
+  }
+
+  return buckets;
+}
+
+export function buildInterventionEvidenceBuckets({
+  job = null,
+  technicianMedia = [],
+} = {}) {
+  const buckets = emptyBuckets();
+
+  for (const [field, bucket, label] of LEGACY_MEDIA_FIELDS) {
+    const value = job?.[field];
+    if (value == null || String(value).trim() === '') continue;
+
+    buckets[bucket].push({
+      source: 'legacy_job',
+      source_field: field,
+      bucket,
+      label,
+      value,
+    });
+  }
+
+  for (const item of Array.isArray(technicianMedia) ? technicianMedia : []) {
+    if (!item || typeof item !== 'object') continue;
+    const bucket = technicianMediaBucket(item);
+    buckets[bucket].push({
+      ...item,
+      source: 'technician_media',
+      bucket,
+    });
   }
 
   return buckets;
@@ -80,4 +127,12 @@ export function countTechnicianMedia(media) {
   );
 }
 
+export function countInterventionEvidenceMedia(input) {
+  const buckets = buildInterventionEvidenceBuckets(input);
+  return Object.fromEntries(
+    KNOWN_BUCKETS.map((key) => [key, buckets[key].length]),
+  );
+}
+
 export const TECHNICIAN_MEDIA_BUCKETS = KNOWN_BUCKETS;
+export const INTERVENTION_LEGACY_MEDIA_FIELDS = LEGACY_MEDIA_FIELDS;
