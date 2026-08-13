@@ -3,25 +3,59 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import territoryApi from './territoryApi';
 import './territory-workspace.css';
 
-const KIND_LABELS = { REGION: 'Région', ZONE: 'Zone', SECTOR: 'Secteur', SUBSECTOR: 'Sous-secteur', MICROZONE: 'Micro-zone' };
+const KIND_LABELS = {
+  REGION: 'Région',
+  ZONE: 'Zone',
+  SECTOR: 'Secteur',
+  SUBSECTOR: 'Sous-secteur',
+  MICROZONE: 'Micro-zone',
+};
 
 function message(error, fallback) {
   const detail = error?.response?.data?.detail;
-  return typeof detail === 'string' && detail.trim() ? detail : error?.message || fallback;
+  return typeof detail === 'string' && detail.trim()
+    ? detail
+    : error?.message || fallback;
 }
 
 function buildRows(nodes) {
   const byParent = new Map();
-  nodes.forEach((node) => { const key = node.parent_id ?? null; byParent.set(key, [...(byParent.get(key) || []), node]); });
-  const rows = [];
-  const visit = (parentId, depth, visited) => (byParent.get(parentId) || []).forEach((node) => {
-    if (visited.has(node.id)) return;
-    rows.push({ ...node, depth });
-    const next = new Set(visited); next.add(node.id); visit(node.id, depth + 1, next);
+  nodes.forEach((node) => {
+    const key = node.parent_id ?? null;
+    byParent.set(key, [...(byParent.get(key) || []), node]);
   });
+  const rows = [];
+  const visit = (parentId, depth, visited) => {
+    (byParent.get(parentId) || []).forEach((node) => {
+      if (visited.has(node.id)) return;
+      rows.push({ ...node, depth });
+      const next = new Set(visited);
+      next.add(node.id);
+      visit(node.id, depth + 1, next);
+    });
+  };
   visit(null, 0, new Set());
-  nodes.filter((node) => !rows.some((row) => row.id === node.id)).forEach((node) => rows.push({ ...node, depth: 0 }));
+  nodes
+    .filter((node) => !rows.some((row) => row.id === node.id))
+    .forEach((node) => rows.push({ ...node, depth: 0 }));
   return rows;
+}
+
+function descendantIds(nodes, nodeId) {
+  const children = new Map();
+  nodes.forEach((node) => {
+    const key = node.parent_id ?? null;
+    children.set(key, [...(children.get(key) || []), node.id]);
+  });
+  const result = new Set([nodeId]);
+  const queue = [...(children.get(nodeId) || [])];
+  while (queue.length) {
+    const id = queue.shift();
+    if (result.has(id)) continue;
+    result.add(id);
+    queue.push(...(children.get(id) || []));
+  }
+  return result;
 }
 
 export default function TerritoryWorkspace({ canManage, legacySectors = [], toast }) {
@@ -32,27 +66,92 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [draft, setDraft] = useState({ name: '', code: '', kind: 'SECTOR', parent_id: '', legacy_sector_id: '', color: '#4f8cff' });
+  const [search, setSearch] = useState('');
+  const [showInactive, setShowInactive] = useState(true);
+  const [draft, setDraft] = useState({
+    name: '',
+    code: '',
+    kind: 'SECTOR',
+    parent_id: '',
+    legacy_sector_id: '',
+    color: '#4f8cff',
+  });
   const fileRef = useRef(null);
 
   const load = useCallback(async () => {
-    setLoading(true); setError('');
-    try { const response = await territoryApi.list({ includeInactive: true }); setNodes(Array.isArray(response?.data) ? response.data : []); }
-    catch (loadError) { setError(message(loadError, 'Impossible de charger la géographie BlueVector.')); }
-    finally { setLoading(false); }
+    setLoading(true);
+    setError('');
+    try {
+      const response = await territoryApi.list({ includeInactive: true });
+      setNodes(Array.isArray(response?.data) ? response.data : []);
+    } catch (loadError) {
+      setError(message(loadError, 'Impossible de charger la géographie BlueVector.'));
+    } finally {
+      setLoading(false);
+    }
   }, []);
-  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const rows = useMemo(() => buildRows(nodes), [nodes]);
-  const selected = useMemo(() => nodes.find((node) => node.id === selectedId) || null, [nodes, selectedId]);
+  const selected = useMemo(
+    () => nodes.find((node) => node.id === selectedId) || null,
+    [nodes, selectedId],
+  );
+  const selectedLegacySector = useMemo(
+    () => legacySectors.find((sector) => Number(sector.id) === Number(selected?.legacy_sector_id)) || null,
+    [legacySectors, selected?.legacy_sector_id],
+  );
+  const blockedParents = useMemo(
+    () => (editingId ? descendantIds(nodes, editingId) : new Set()),
+    [editingId, nodes],
+  );
+  const filteredRows = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase('fr');
+    return rows.filter((node) => {
+      if (!showInactive && node.is_active === false) return false;
+      if (!query) return true;
+      return [node.name, node.code, KIND_LABELS[node.kind], node.source]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase('fr').includes(query));
+    });
+  }, [rows, search, showInactive]);
+  const summary = useMemo(
+    () => ({
+      total: nodes.length,
+      geocoded: nodes.filter((node) => node.geometry_geojson).length,
+      linked: nodes.filter((node) => node.legacy_sector_id).length,
+      inactive: nodes.filter((node) => node.is_active === false).length,
+    }),
+    [nodes],
+  );
 
   const beginCreate = (parent = null) => {
-    setEditingId(null); setDraft({ name: '', code: '', kind: parent ? 'SUBSECTOR' : 'SECTOR', parent_id: parent?.id || '', legacy_sector_id: '', color: parent?.color || '#4f8cff' }); setEditorOpen(true);
+    setEditingId(null);
+    setDraft({
+      name: '',
+      code: '',
+      kind: parent ? 'SUBSECTOR' : 'SECTOR',
+      parent_id: parent?.id || '',
+      legacy_sector_id: '',
+      color: parent?.color || '#4f8cff',
+    });
+    setEditorOpen(true);
   };
+
   const beginEdit = () => {
     if (!selected) return;
     setEditingId(selected.id);
-    setDraft({ name: selected.name || '', code: selected.code || '', kind: selected.kind || 'SECTOR', parent_id: selected.parent_id || '', legacy_sector_id: selected.legacy_sector_id || '', color: selected.color || '#4f8cff' });
+    setDraft({
+      name: selected.name || '',
+      code: selected.code || '',
+      kind: selected.kind || 'SECTOR',
+      parent_id: selected.parent_id || '',
+      legacy_sector_id: selected.legacy_sector_id || '',
+      color: selected.color || '#4f8cff',
+    });
     setEditorOpen(true);
   };
 
@@ -60,37 +159,290 @@ export default function TerritoryWorkspace({ canManage, legacySectors = [], toas
     if (!draft.name.trim()) return;
     setSaving(true);
     try {
-      const payload = { name: draft.name.trim(), code: draft.code.trim() || null, kind: draft.kind, parent_id: draft.parent_id ? Number(draft.parent_id) : null, legacy_sector_id: draft.legacy_sector_id ? Number(draft.legacy_sector_id) : null, color: draft.color || null };
-      if (editingId) await territoryApi.update(editingId, payload);
-      else { const response = await territoryApi.create(payload); setSelectedId(response?.data?.id || null); }
-      setEditorOpen(false); setEditingId(null); await load(); toast?.('Géographie territoriale enregistrée.', 'success');
-    } catch (saveError) { toast?.(message(saveError, 'Impossible d’enregistrer le territoire.'), 'error'); }
-    finally { setSaving(false); }
+      const payload = {
+        name: draft.name.trim(),
+        code: draft.code.trim() || null,
+        kind: draft.kind,
+        parent_id: draft.parent_id ? Number(draft.parent_id) : null,
+        legacy_sector_id: draft.legacy_sector_id ? Number(draft.legacy_sector_id) : null,
+        color: draft.color || null,
+      };
+      if (editingId) {
+        await territoryApi.update(editingId, payload);
+      } else {
+        const response = await territoryApi.create(payload);
+        setSelectedId(response?.data?.id || null);
+      }
+      setEditorOpen(false);
+      setEditingId(null);
+      await load();
+      toast?.('Géographie territoriale enregistrée.', 'success');
+    } catch (saveError) {
+      toast?.(message(saveError, 'Impossible d’enregistrer le territoire.'), 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deactivate = async () => {
     if (!selected) return;
-    try { await territoryApi.deactivate(selected.id); await load(); toast?.('Territoire désactivé.', 'success'); }
-    catch (actionError) { toast?.(message(actionError, 'Impossible de désactiver ce territoire.'), 'error'); }
+    const confirmed = window.confirm(
+      `Désactiver « ${selected.name} » ? Les sous-territoires actifs doivent être déplacés ou désactivés avant cette action.`,
+    );
+    if (!confirmed) return;
+    try {
+      await territoryApi.deactivate(selected.id);
+      await load();
+      toast?.('Territoire désactivé.', 'success');
+    } catch (actionError) {
+      toast?.(message(actionError, 'Impossible de désactiver ce territoire.'), 'error');
+    }
+  };
+
+  const reactivate = async () => {
+    if (!selected) return;
+    try {
+      await territoryApi.update(selected.id, { is_active: true });
+      await load();
+      toast?.('Territoire réactivé.', 'success');
+    } catch (actionError) {
+      toast?.(message(actionError, 'Impossible de réactiver ce territoire.'), 'error');
+    }
   };
 
   const exportGeoJson = async () => {
     try {
-      const response = await territoryApi.exportGeoJson(); const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/geo+json' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'bluevector-territories.geojson'; anchor.click(); URL.revokeObjectURL(url);
-    } catch (exportError) { toast?.(message(exportError, 'Export GeoJSON impossible.'), 'error'); }
+      const response = await territoryApi.exportGeoJson({ includeInactive: false });
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], {
+        type: 'application/geo+json',
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'bluevector-territories.geojson';
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (exportError) {
+      toast?.(message(exportError, 'Export GeoJSON impossible.'), 'error');
+    }
   };
 
   const importGeoJson = async (event) => {
-    const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
-    try { const collection = JSON.parse(await file.text()); const response = await territoryApi.importGeoJson(collection); await load(); toast?.(`Import QGIS terminé · ${response?.data?.created || 0} créé(s), ${response?.data?.updated || 0} mis à jour.`, 'success'); }
-    catch (importError) { toast?.(message(importError, 'GeoJSON invalide ou import impossible.'), 'error'); }
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const collection = JSON.parse(await file.text());
+      const response = await territoryApi.importGeoJson(collection);
+      await load();
+      toast?.(
+        `Import QGIS terminé · ${response?.data?.created || 0} créé(s), ${response?.data?.updated || 0} mis à jour.`,
+        'success',
+      );
+    } catch (importError) {
+      toast?.(message(importError, 'GeoJSON invalide ou import impossible.'), 'error');
+    }
   };
 
-  return <section className="territory-workspace">
-    <header className="territory-workspace__header"><div><span className="territory-workspace__eyebrow">Géographie & QGIS/QField</span><h2>Hiérarchie territoriale</h2><p>Structurez région, zones, secteurs et sous-secteurs sans casser les secteurs opérationnels existants.</p></div><div className="territory-workspace__actions"><button type="button" onClick={exportGeoJson}>Exporter GeoJSON</button>{canManage && <><input ref={fileRef} hidden type="file" accept=".geojson,.json,application/geo+json,application/json" onChange={importGeoJson} /><button type="button" onClick={() => fileRef.current?.click()}>Importer QGIS</button><button type="button" className="is-primary" onClick={() => beginCreate(null)}>+ Territoire</button></>}</div></header>
-    {error && <div className="territory-workspace__error">{error} <button type="button" onClick={load}>Réessayer</button></div>}
-    <div className="territory-workspace__body"><div className="territory-tree" aria-busy={loading}>{loading ? <p>Chargement…</p> : rows.length === 0 ? <p className="territory-empty">Aucune géographie. Créez Casablanca, puis Est/Ouest et leurs sous-secteurs.</p> : rows.map((node) => <button key={node.id} type="button" className={selectedId === node.id ? 'territory-row is-selected' : 'territory-row'} style={{ '--territory-depth': node.depth }} onClick={() => { setSelectedId(node.id); setEditorOpen(false); }}><span className="territory-row__dot" style={{ background: node.color || '#60728a' }} /><span><strong>{node.name}</strong><small>{KIND_LABELS[node.kind] || node.kind}{node.code ? ` · ${node.code}` : ''}</small></span><em>{node.child_count || 0}</em></button>)}</div>
-      <aside className="territory-inspector">{editorOpen ? <><h3>{editingId ? 'Modifier le territoire' : 'Nouveau territoire'}</h3><label>Nom<input value={draft.name} onChange={(e) => setDraft((v) => ({ ...v, name: e.target.value }))} placeholder="Sidi Maarouf" /></label><div className="territory-form-grid"><label>Code<input value={draft.code} onChange={(e) => setDraft((v) => ({ ...v, code: e.target.value }))} placeholder="CASA-SM" /></label><label>Type<select value={draft.kind} onChange={(e) => setDraft((v) => ({ ...v, kind: e.target.value }))}>{Object.entries(KIND_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div><label>Parent<select value={draft.parent_id} onChange={(e) => setDraft((v) => ({ ...v, parent_id: e.target.value }))}><option value="">Racine</option>{nodes.filter((node) => node.id !== editingId).map((node) => <option key={node.id} value={node.id}>{node.name}</option>)}</select></label><label>Secteur opérationnel lié<select value={draft.legacy_sector_id} onChange={(e) => setDraft((v) => ({ ...v, legacy_sector_id: e.target.value }))}><option value="">Aucun</option>{legacySectors.map((sector) => <option key={sector.id} value={sector.id}>{sector.name}</option>)}</select></label><div className="territory-form-actions"><button type="button" onClick={() => setEditorOpen(false)}>Annuler</button><button type="button" className="is-primary" disabled={saving || !draft.name.trim()} onClick={save}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button></div></> : selected ? <><span className="territory-workspace__eyebrow">{KIND_LABELS[selected.kind] || selected.kind}</span><h3>{selected.name}</h3><p>{selected.code || 'Sans code'} · source {selected.source || 'manual'}</p><dl><div><dt>Sous-territoires</dt><dd>{selected.child_count || 0}</dd></div><div><dt>Géométrie</dt><dd>{selected.geometry_geojson ? selected.geometry_geojson.type : 'À définir'}</dd></div><div><dt>Secteur métier</dt><dd>{selected.legacy_sector_id || 'Non lié'}</dd></div><div><dt>État</dt><dd>{selected.is_active === false ? 'Inactif' : 'Actif'}</dd></div></dl>{canManage && <div className="territory-form-actions"><button type="button" onClick={() => beginCreate(selected)}>+ Sous-zone</button><button type="button" onClick={beginEdit}>Modifier</button>{selected.is_active !== false && <button type="button" className="is-danger" onClick={deactivate}>Désactiver</button>}</div>}</> : <div className="territory-empty">Sélectionnez un territoire pour voir sa géométrie, son rattachement et ses sous-zones.</div>}</aside>
-    </div>
-  </section>;
+  return (
+    <section className="territory-workspace">
+      <header className="territory-workspace__header">
+        <div>
+          <span className="territory-workspace__eyebrow">Géographie & QGIS/QField</span>
+          <h2>Hiérarchie territoriale</h2>
+          <p>Structurez région, zones, secteurs et sous-secteurs sans casser les secteurs opérationnels existants.</p>
+        </div>
+        <div className="territory-workspace__actions">
+          <button type="button" onClick={exportGeoJson}>Exporter GeoJSON</button>
+          {canManage && (
+            <>
+              <input
+                ref={fileRef}
+                hidden
+                type="file"
+                accept=".geojson,.json,application/geo+json,application/json"
+                onChange={importGeoJson}
+              />
+              <button type="button" onClick={() => fileRef.current?.click()}>Importer QGIS</button>
+              <button type="button" className="is-primary" onClick={() => beginCreate(null)}>+ Territoire</button>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className="territory-workspace__summary" aria-label="Résumé géographique">
+        <span><strong>{summary.total}</strong> territoires</span>
+        <span><strong>{summary.geocoded}</strong> géométries</span>
+        <span><strong>{summary.linked}</strong> liés au métier</span>
+        <span><strong>{summary.inactive}</strong> inactifs</span>
+      </div>
+
+      <div className="territory-workspace__filters">
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Rechercher Casablanca, Sidi Maarouf, code…"
+          aria-label="Rechercher dans la hiérarchie territoriale"
+        />
+        <label>
+          <input
+            type="checkbox"
+            checked={showInactive}
+            onChange={(event) => setShowInactive(event.target.checked)}
+          />
+          Afficher les inactifs
+        </label>
+      </div>
+
+      {error && (
+        <div className="territory-workspace__error">
+          {error} <button type="button" onClick={load}>Réessayer</button>
+        </div>
+      )}
+
+      <div className="territory-workspace__body">
+        <div className="territory-tree" aria-busy={loading}>
+          {loading ? (
+            <p>Chargement…</p>
+          ) : filteredRows.length === 0 ? (
+            <p className="territory-empty">
+              {nodes.length === 0
+                ? 'Aucune géographie. Créez Casablanca, puis Est/Ouest et leurs sous-secteurs.'
+                : 'Aucun territoire ne correspond aux filtres.'}
+            </p>
+          ) : (
+            filteredRows.map((node) => (
+              <button
+                key={node.id}
+                type="button"
+                className={`${selectedId === node.id ? 'territory-row is-selected' : 'territory-row'}${node.is_active === false ? ' is-inactive' : ''}`}
+                style={{ '--territory-depth': node.depth }}
+                onClick={() => {
+                  setSelectedId(node.id);
+                  setEditorOpen(false);
+                }}
+              >
+                <span className="territory-row__dot" style={{ background: node.color || '#60728a' }} />
+                <span>
+                  <strong>{node.name}</strong>
+                  <small>{KIND_LABELS[node.kind] || node.kind}{node.code ? ` · ${node.code}` : ''}</small>
+                </span>
+                <em>{node.child_count || 0}</em>
+              </button>
+            ))
+          )}
+        </div>
+
+        <aside className="territory-inspector">
+          {editorOpen ? (
+            <>
+              <h3>{editingId ? 'Modifier le territoire' : 'Nouveau territoire'}</h3>
+              <label>
+                Nom
+                <input
+                  value={draft.name}
+                  onChange={(event) => setDraft((value) => ({ ...value, name: event.target.value }))}
+                  placeholder="Sidi Maarouf"
+                />
+              </label>
+              <div className="territory-form-grid">
+                <label>
+                  Code
+                  <input
+                    value={draft.code}
+                    onChange={(event) => setDraft((value) => ({ ...value, code: event.target.value }))}
+                    placeholder="CASA-SM"
+                  />
+                </label>
+                <label>
+                  Type
+                  <select
+                    value={draft.kind}
+                    onChange={(event) => setDraft((value) => ({ ...value, kind: event.target.value }))}
+                  >
+                    {Object.entries(KIND_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label>
+                Parent
+                <select
+                  value={draft.parent_id}
+                  onChange={(event) => setDraft((value) => ({ ...value, parent_id: event.target.value }))}
+                >
+                  <option value="">Racine</option>
+                  {nodes
+                    .filter((node) => !blockedParents.has(node.id))
+                    .map((node) => <option key={node.id} value={node.id}>{node.name}</option>)}
+                </select>
+              </label>
+              <label>
+                Secteur opérationnel lié
+                <select
+                  value={draft.legacy_sector_id}
+                  onChange={(event) => setDraft((value) => ({ ...value, legacy_sector_id: event.target.value }))}
+                >
+                  <option value="">Aucun</option>
+                  {legacySectors.map((sector) => (
+                    <option key={sector.id} value={sector.id}>{sector.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Couleur cartographique
+                <input
+                  type="color"
+                  value={draft.color || '#4f8cff'}
+                  onChange={(event) => setDraft((value) => ({ ...value, color: event.target.value }))}
+                />
+              </label>
+              <div className="territory-form-actions">
+                <button type="button" onClick={() => setEditorOpen(false)}>Annuler</button>
+                <button
+                  type="button"
+                  className="is-primary"
+                  disabled={saving || !draft.name.trim()}
+                  onClick={save}
+                >
+                  {saving ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+              </div>
+            </>
+          ) : selected ? (
+            <>
+              <span className="territory-workspace__eyebrow">{KIND_LABELS[selected.kind] || selected.kind}</span>
+              <h3>{selected.name}</h3>
+              <p>{selected.code || 'Sans code'} · source {selected.source || 'manual'}</p>
+              <dl>
+                <div><dt>Sous-territoires</dt><dd>{selected.child_count || 0}</dd></div>
+                <div><dt>Géométrie</dt><dd>{selected.geometry_geojson?.type || 'À définir'}</dd></div>
+                <div><dt>Secteur métier</dt><dd>{selectedLegacySector?.name || selected.legacy_sector_id || 'Non lié'}</dd></div>
+                <div><dt>État</dt><dd>{selected.is_active === false ? 'Inactif' : 'Actif'}</dd></div>
+                <div><dt>Latitude</dt><dd>{selected.centroid_latitude ?? '—'}</dd></div>
+                <div><dt>Longitude</dt><dd>{selected.centroid_longitude ?? '—'}</dd></div>
+              </dl>
+              {canManage && (
+                <div className="territory-form-actions">
+                  <button type="button" onClick={() => beginCreate(selected)}>+ Sous-zone</button>
+                  <button type="button" onClick={beginEdit}>Modifier</button>
+                  {selected.is_active === false ? (
+                    <button type="button" onClick={reactivate}>Réactiver</button>
+                  ) : (
+                    <button type="button" className="is-danger" onClick={deactivate}>Désactiver</button>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="territory-empty">
+              Sélectionnez un territoire pour voir sa géométrie, son rattachement et ses sous-zones.
+            </div>
+          )}
+        </aside>
+      </div>
+    </section>
+  );
 }
