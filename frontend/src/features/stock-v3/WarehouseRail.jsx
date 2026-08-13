@@ -10,7 +10,11 @@ import {
   numeric,
   text,
 } from './stockUtils';
+import './stock-holder-v2.css';
 
+function warehouseType(warehouse) {
+  return text(warehouse?.warehouse_type ?? warehouse?.type).toUpperCase();
+}
 
 function WarehouseRow({
   warehouse,
@@ -20,6 +24,15 @@ function WarehouseRow({
   onSelect,
 }) {
   const id = normalizeIdentifier(warehouse?.id);
+  const type = warehouseType(warehouse);
+  const isTechnician = type === 'TECHNICIEN';
+  const displayName = text(warehouse?.name, `Dépôt #${id}`);
+  const subtitle = isTechnician
+    ? `Dotation terrain${warehouse?.code ? ` · ${warehouse.code}` : ''}`
+    : [
+        text(warehouse?.city),
+        text(warehouse?.warehouse_type ?? warehouse?.type, 'Dépôt').replace(/_/g, ' '),
+      ].filter(Boolean).join(' · ');
 
   return (
     <button
@@ -27,16 +40,16 @@ function WarehouseRow({
       className={[
         'st3-warehouse-row',
         selected ? 'st3-warehouse-row--selected' : '',
+        isTechnician ? 'st3-warehouse-row--technician' : '',
         warehouse?.is_active === false ? 'st3-warehouse-row--inactive' : '',
       ].join(' ')}
       onClick={() => onSelect(id)}
     >
       <span className="st3-warehouse-icon"><WarehouseIcon /></span>
       <span>
-        <strong>{text(warehouse?.name, `Dépôt #${id}`)}</strong>
+        <strong title={displayName}>{displayName}</strong>
         <small>
-          {text(warehouse?.city) ? `${text(warehouse?.city)} · ` : ''}
-          {text(warehouse?.warehouse_type ?? warehouse?.type, 'Type non renseigné').replace(/_/g, ' ')}
+          {subtitle}
           {warehouse?.is_active === false ? ' · inactif' : ''}
         </small>
       </span>
@@ -47,7 +60,6 @@ function WarehouseRow({
     </button>
   );
 }
-
 
 const WarehouseRail = memo(function WarehouseRail({
   collapsed,
@@ -75,22 +87,30 @@ const WarehouseRail = memo(function WarehouseRail({
       ),
     };
   });
+  const depotSummaries = summaries.filter(
+    ({ warehouse }) => warehouseType(warehouse) !== 'TECHNICIEN',
+  );
+  const technicianSummaries = summaries.filter(
+    ({ warehouse }) => warehouseType(warehouse) === 'TECHNICIEN',
+  );
 
   const selectedWarehouse = warehouses.find(
     (warehouse) => normalizeIdentifier(warehouse?.id) === selectedWarehouseId,
   ) || null;
+  const selectedIsPhysical =
+    selectedWarehouse && warehouseType(selectedWarehouse) !== 'TECHNICIEN';
 
   if (collapsed) {
     return (
       <aside className="st3-warehouse-rail st3-warehouse-rail--collapsed">
-        <button type="button" onClick={onToggle} title="Déployer les dépôts" aria-label="Déployer les dépôts">
+        <button type="button" onClick={onToggle} title="Déployer les emplacements" aria-label="Déployer les emplacements">
           <ChevronIcon direction="right" />
         </button>
         <button
           type="button"
           className={selectedWarehouseId === null ? 'active' : ''}
           onClick={() => onSelect(null)}
-          title="Tous les dépôts"
+          title="Stock général"
         >
           <WarehouseIcon />
           <span>{warehouses.length}</span>
@@ -103,12 +123,12 @@ const WarehouseRail = memo(function WarehouseRail({
     <aside className="st3-warehouse-rail">
       <header>
         <div>
-          <span>Implantations</span>
-          <strong>Dépôts</strong>
+          <span>Implantations & garde</span>
+          <strong>Emplacements</strong>
         </div>
 
         <span className="st3-rail-header-actions">
-          {selectedWarehouse && onEditWarehouse && (
+          {selectedIsPhysical && onEditWarehouse && (
             <button
               type="button"
               onClick={() => onEditWarehouse(selectedWarehouse)}
@@ -119,11 +139,11 @@ const WarehouseRail = memo(function WarehouseRail({
             </button>
           )}
           {canCreateWarehouse && (
-            <button type="button" onClick={onCreateWarehouse} title="Créer un dépôt" aria-label="Créer un dépôt">
+            <button type="button" onClick={onCreateWarehouse} title="Créer un dépôt physique" aria-label="Créer un dépôt physique">
               <PlusIcon />
             </button>
           )}
-          <button type="button" onClick={onToggle} title="Replier" aria-label="Replier les dépôts">
+          <button type="button" onClick={onToggle} title="Replier" aria-label="Replier les emplacements">
             <ChevronIcon />
           </button>
         </span>
@@ -139,7 +159,7 @@ const WarehouseRail = memo(function WarehouseRail({
       >
         <WarehouseIcon />
         <span>
-          <strong>Tous les dépôts</strong>
+          <strong>Stock général</strong>
           <small>Vue consolidée</small>
         </span>
         <b>{warehouses.length}</b>
@@ -147,23 +167,49 @@ const WarehouseRail = memo(function WarehouseRail({
 
       <div className="st3-warehouse-list">
         {summaries.length === 0 ? (
-          <div className="st3-rail-empty">Aucun dépôt configuré.</div>
+          <div className="st3-rail-empty">Aucun emplacement configuré.</div>
         ) : (
-          summaries.map(({ warehouse, lineCount, quantity }) => (
-            <WarehouseRow
-              key={warehouse.id}
-              warehouse={warehouse}
-              selected={selectedWarehouseId === normalizeIdentifier(warehouse?.id)}
-              lineCount={lineCount}
-              quantity={quantity}
-              onSelect={onSelect}
-            />
-          ))
+          <>
+            {depotSummaries.length ? (
+              <>
+                <div className="st3-warehouse-group-title">
+                  Dépôts physiques · {depotSummaries.length}
+                </div>
+                {depotSummaries.map(({ warehouse, lineCount, quantity }) => (
+                  <WarehouseRow
+                    key={warehouse.id}
+                    warehouse={warehouse}
+                    selected={selectedWarehouseId === normalizeIdentifier(warehouse?.id)}
+                    lineCount={lineCount}
+                    quantity={quantity}
+                    onSelect={onSelect}
+                  />
+                ))}
+              </>
+            ) : null}
+
+            {technicianSummaries.length ? (
+              <>
+                <div className="st3-warehouse-group-title">
+                  Dotations techniciens · {technicianSummaries.length}
+                </div>
+                {technicianSummaries.map(({ warehouse, lineCount, quantity }) => (
+                  <WarehouseRow
+                    key={warehouse.id}
+                    warehouse={warehouse}
+                    selected={selectedWarehouseId === normalizeIdentifier(warehouse?.id)}
+                    lineCount={lineCount}
+                    quantity={quantity}
+                    onSelect={onSelect}
+                  />
+                ))}
+              </>
+            ) : null}
+          </>
         )}
       </div>
     </aside>
   );
 });
-
 
 export default WarehouseRail;
