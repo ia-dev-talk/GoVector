@@ -1,0 +1,368 @@
+/*
+ * BlueVector Public V2 — readability pass.
+ *
+ * This file deliberately contains presentation-only overrides. Business
+ * contracts remain in their owning feature styles while this layer keeps
+ * dense operational screens readable on normal desktop zoom levels.
+ */
+
+/* -------------------------------------------------------------------------
+   Shared sv3 roots: Settings and Secteurs use the same historical root class.
+   Keep Settings viewport-contained while allowing the GIS/territory page to
+   grow and scroll when its hierarchy editor is taller than the viewport.
+   ------------------------------------------------------------------------- */
+.sv3-page:has(> .sv3-layout) {
+  overflow: hidden !important;
+}
+
+.sv3-page:has(> .territory-workspace) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.sv3-page:has(> .territory-workspace) > .sv3-content {
+  min-height: 560px;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+/* -------------------------------------------------------------------------
+   Cockpit — preserve density, remove 7px microcopy.
+   ------------------------------------------------------------------------- */
+.cpv4-metric b {
+  font-size: 10px;
+}
+
+.cpv4-metric small {
+  color: #8496b0;
+  font-size: 8.5px;
+}
+
+.cpv4-panel-header > div:first-child > span {
+  font-size: 8.5px;
+}
+
+.cpv4-panel-header > div:first-child > strong {
+  font-size: 13px;
+}
+
+.cpv4-link {
+  min-height: 30px;
+  font-size: 8.5px;
+}
+
+.cpv4-progress-head span {
+  font-size: 9px;
+}
+
+.cpv4-stages small {
+  color: #8496b0;
+  font-size: 8.5px;
+}
+
+.cpv4-stages b {
+  font-size: 9.5px;
+}
+
+.cpv4-decision strong {
+  font-size: 10.5px;
+}
+
+.cpv4-decision small {
+  color: #8496b0;
+  font-size: 9px;
+}
+
+.cpv4-personnel small {
+  color: #8496b0;
+  font-size: 8.5px;
+}
+
+.cpv4-personnel strong {
+  font-size: 12px;
+}
+
+.cpv4-label {
+  font-size: 8.5px;
+}
+
+.cpv4-sector-row > span:first-child {
+  font-size: 9px;
+}
+
+.cpv4-sector-row strong {
+  font-size: 9.5px;
+}
+
+.cpv4-quality > div {
+  grid-template-columns: 104px minmax(0, 1fr) 44px;
+}
+
+.cpv4-quality > div > span {
+  font-size: 9px;
+}
+
+.cpv4-quality > div > strong {
+  font-size: 9.5px;
+}
+
+.cpv4-activity time {
+  font-size: 9px;
+}
+
+.cpv4-activity strong {
+  font-size: 9.5px;
+}
+
+.cpv4-activity small {
+  color: #8496b0;
+  font-size: 8.5px;
+}
+
+.cpv4-empty {
+  font-size: 9.5px;
+}
+
+.cpv4-access strong {
+  font-size: 10px;
+}
+
+.cpv4-access small {
+  color: #8496b0;
+  font-size: 8.5px;
+}
+
+.cpv4-configbar-copy span,
+.cpv4-config-option,
+.cpv4-config-reset {
+  font-size: 9px;
+}
+
+/* -------------------------------------------------------------------------
+   Reports — analytics must be scannable, not microscopic.
+   Also trim purely decorative height so a useful amount fits per viewport.
+   ------------------------------------------------------------------------- */
+.rv3-kpi-main small {
+  font-size: 9.5px;
+}
+
+.rv3-kpi-trend {
+  font-size: 8.5px;
+}
+
+.rv3-panel-header > div > span {
+  font-size: 9px;
+}
+
+.rv3-panel-header strong {
+  font-size: 14px;
+}
+
+.rv3-performance-body {
+  min-height: 190px;
+  padding: 16px;
+}
+
+.rv3-performance-metrics span {
+  font-size: 8.5px;
+}
+
+.rv3-status-label {
+  font-size: 9.5px;
+}
+
+.rv3-status-row > strong {
+  font-size: 11px;
+}
+
+.rv3-field-capacity span,
+.rv3-field-capacity small {
+  font-size: 9px;
+}
+
+.rv3-hourly-chart {
+  min-height: 195px;
+  padding-top: 14px;
+}
+
+.rv3-hour-column {
+  height: 145px;
+}
+
+.rv3-hour-column > span,
+.rv3-hour-column > small {
+  font-size: 8.5px;
+}
+
+.rv3-ranking-list {
+  min-height: 220px;
+}
+
+.rv3-ranking-name strong {
+  font-size: 10.5px;
+}
+
+.rv3-ranking-value strong {
+  font-size: 11px;
+}
+
+.rv3-ranking-value small {
+  font-size: 8px;
+}
+
+.rv3-quality-row > span {
+  font-size: 9.5px;
+}
+
+.rv3-quality-row strong {
+  font-size: 10.5px;
+}
+
+.rv3-limit-notice {
+  font-size: 9px;
+}
+
+.rv3-export-card > div > span {
+  font-size: 9px;
+}
+
+.rv3-export-card p {
+  font-size: 10px;
+}
+
+.rv3-empty {
+  min-height: 125px;
+  font-size: 10px;
+}
+
+/* -------------------------------------------------------------------------
+   Intervention detail — keep context visible while evidence scrolls locally.
+   This removes the giant blank centre column produced by a very tall evidence
+   form and improves labels/readouts used during operational review.
+   ------------------------------------------------------------------------- */
+.intervention-detail-card-header h2 {
+  font-size: 15px;
+}
+
+.intervention-detail-card-body {
+  gap: 14px;
+}
+
+.intervention-detail-field > span,
+.intervention-detail-equipment-list span,
+.intervention-detail-stock-list span,
+.intervention-detail-measure-grid span,
+.intervention-detail-comment-list span {
+  font-size: 10px;
+}
+
+.intervention-detail-field > strong {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.intervention-detail-assignment-copy span {
+  font-size: 10.5px;
+}
+
+.intervention-detail-evidence-summary h3 {
+  font-size: 12px;
+}
+
+.intervention-detail-evidence-summary small {
+  font-size: 9.5px;
+}
+
+.intervention-detail-evidence-summary > span {
+  font-size: 10.5px;
+}
+
+.intervention-detail-file-link strong,
+.intervention-detail-measure-grid strong,
+.intervention-detail-equipment-list strong,
+.intervention-detail-stock-list strong {
+  font-size: 11px;
+}
+
+.intervention-detail-file-link small,
+.intervention-detail-comment-list small {
+  font-size: 9px;
+}
+
+.intervention-detail-comment-list p {
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.intervention-detail-timeline-title-row strong {
+  font-size: 11px;
+}
+
+.intervention-detail-timeline-content {
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.intervention-detail-timeline-actor {
+  font-size: 9px;
+}
+
+.intervention-detail-upload-form input,
+.intervention-detail-upload-form select,
+.intervention-detail-upload-form textarea {
+  min-height: 38px;
+  font-size: 10.5px;
+}
+
+.intervention-detail-map-footer {
+  font-size: 10.5px;
+}
+
+@media (min-width: 1181px) {
+  .intervention-detail-layout {
+    grid-template-columns:
+      minmax(260px, 0.74fr)
+      minmax(500px, 1.5fr)
+      minmax(330px, 0.96fr);
+    gap: 16px;
+  }
+
+  .intervention-detail-timeline-rail {
+    position: sticky;
+    top: 84px;
+    align-self: start;
+  }
+
+  .intervention-detail-evidence-rail {
+    position: sticky;
+    top: 84px;
+    align-self: start;
+    max-height: calc(100vh - 108px);
+    padding-right: 4px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
+
+@media (max-width: 1180px) {
+  .intervention-detail-timeline-rail,
+  .intervention-detail-evidence-rail {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Supervision — slightly stronger contextual copy after the compact V5 pass.
+   ------------------------------------------------------------------------- */
+.supv4-context-body,
+.supv4-resolution-body {
+  color: #dce6f4;
+}
+
+.supv4-inspector .exp-detail-label,
+.supv4-inspector .exp-detail-field > span,
+.supv4-inspector small {
+  font-size: max(9px, 0.72rem);
+}
