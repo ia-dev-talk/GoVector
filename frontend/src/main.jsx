@@ -7,6 +7,7 @@ import './styles/ux-readability-v2.css';
 import './styles/sector-flow-v2.css';
 import './styles/shell-v08.css';
 import './styles/operations-final-v08.css';
+import './styles/intervention-v08-layout.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
 	<React.StrictMode>
