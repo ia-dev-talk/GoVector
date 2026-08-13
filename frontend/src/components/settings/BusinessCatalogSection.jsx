@@ -10,11 +10,56 @@ import '../../styles/settings-business-catalog.css';
 import '../../styles/settings-business-catalog-actions.css';
 
 const SECTIONS = [
-  { key: 'technician_grades', title: 'Grades techniciens', shortTitle: 'Grades', copy: 'Ajoutables et archivables. Un grade utilisé reste protégé.', extensible: true },
-  { key: 'job_types', title: 'Types d’intervention', shortTitle: 'Types', copy: 'Présentation modifiable ; identifiants techniques protégés.' },
-  { key: 'priorities', title: 'Priorités', shortTitle: 'Priorités', copy: 'Libellés, couleurs, ordre et disponibilité.' },
-  { key: 'status_presentations', title: 'Statuts du workflow', shortTitle: 'Statuts', copy: 'Libellés et couleurs modifiables ; transitions et identifiants protégés.', alwaysActive: true },
-  { key: 'field_actions', title: 'Actions terrain', shortTitle: 'Actions terrain', copy: 'Types proposés au technicien dans la capture libre.' },
+  {
+    key: 'technician_grades',
+    title: 'Grades techniciens',
+    shortTitle: 'Grades',
+    copy: 'Ajoutez les niveaux terrain utilisés par les équipes et les profils techniciens.',
+    extensible: true,
+    prefix: 'grade',
+    newLabel: 'Nouveau grade',
+  },
+  {
+    key: 'job_types',
+    title: 'Types d’intervention',
+    shortTitle: 'Types',
+    copy: 'Ajoutez un libellé métier et rattachez-le à un comportement technique existant.',
+    extensible: true,
+    canonicalized: true,
+    prefix: 'type',
+    newLabel: 'Nouveau type',
+  },
+  {
+    key: 'priorities',
+    title: 'Priorités',
+    shortTitle: 'Priorités',
+    copy: 'Ajoutez des priorités métier tout en conservant une priorité système de référence.',
+    extensible: true,
+    canonicalized: true,
+    prefix: 'priorite',
+    newLabel: 'Nouvelle priorité',
+  },
+  {
+    key: 'status_presentations',
+    title: 'Statuts du workflow',
+    shortTitle: 'Statuts',
+    copy: 'Ajoutez des statuts d’affichage rattachés à un état système sans casser les transitions.',
+    extensible: true,
+    canonicalized: true,
+    prefix: 'statut',
+    newLabel: 'Nouveau statut',
+    protectSystemActive: true,
+  },
+  {
+    key: 'field_actions',
+    title: 'Actions terrain',
+    shortTitle: 'Actions terrain',
+    copy: 'Ajoutez des actions métier rattachées à une action terrain supportée par le mobile.',
+    extensible: true,
+    canonicalized: true,
+    prefix: 'action',
+    newLabel: 'Nouvelle action',
+  },
 ];
 
 function errorMessage(error) {
@@ -23,22 +68,48 @@ function errorMessage(error) {
 
 function copyValues(values) {
   return Object.fromEntries(
-    SECTIONS.map(({ key }) => [key, (values?.[key] || []).map((item) => ({ ...item }))]),
+    SECTIONS.map(({ key }) => [key, (values?.[key] || []).map((item) => ({
+      ...item,
+      metadata: { ...(item?.metadata || {}) },
+    }))]),
   );
 }
 
-function newGrade(items) {
-  const used = new Set(items.map((item) => item.code));
+function nextCode(prefix, items) {
+  const used = new Set(items.map((item) => normalizeCatalogCode(item.code)));
   let number = items.length + 1;
-  while (used.has(`grade_${number}`)) number += 1;
+  let candidate = `${prefix}_${number}`;
+  while (used.has(candidate)) {
+    number += 1;
+    candidate = `${prefix}_${number}`;
+  }
+  return candidate;
+}
+
+function nextOrder(items) {
+  return items.reduce(
+    (maximum, item) => Math.max(maximum, Number(item?.sort_order) || 0),
+    -10,
+  ) + 10;
+}
+
+function systemItems(items) {
+  return items.filter((item) => item?.metadata?.custom !== true);
+}
+
+function newCatalogItem(section, items) {
+  const system = systemItems(items);
+  const canonical = system[0]?.code || '';
   return {
-    code: `grade_${number}`,
-    label: 'Nouveau grade',
+    code: nextCode(section.prefix, items),
+    label: section.newLabel,
     description: null,
-    color: '#50D5FF',
-    sort_order: items.length * 10,
+    color: '#4B8DFF',
+    sort_order: nextOrder(items),
     active: true,
-    metadata: {},
+    metadata: section.canonicalized
+      ? { custom: true, canonical }
+      : {},
   };
 }
 
@@ -117,10 +188,32 @@ export default function BusinessCatalogSection({
     setDirty(true);
   };
 
-  const addGrade = () => {
+  const updateCanonical = (section, index, canonical) => {
     setValues((current) => ({
       ...current,
-      technician_grades: [...current.technician_grades, newGrade(current.technician_grades)],
+      [section]: current[section].map((item, itemIndex) => (
+        itemIndex === index
+          ? {
+              ...item,
+              metadata: {
+                ...(item.metadata || {}),
+                custom: true,
+                canonical,
+              },
+            }
+          : item
+      )),
+    }));
+    setDirty(true);
+  };
+
+  const addItem = () => {
+    setValues((current) => ({
+      ...current,
+      [activeSection.key]: [
+        ...current[activeSection.key],
+        newCatalogItem(activeSection, current[activeSection.key]),
+      ],
     }));
     setDirty(true);
   };
@@ -161,6 +254,7 @@ export default function BusinessCatalogSection({
 
   const activeItems = values[activeSection.key] || [];
   const activeItemsCount = activeItems.filter((item) => item.active).length;
+  const canonicalOptions = systemItems(activeItems);
 
   return (
     <section className="business-catalog">
@@ -168,7 +262,7 @@ export default function BusinessCatalogSection({
         <div>
           <span>Gouvernance opérationnelle</span>
           <h2>Référentiels métier</h2>
-          <p>Les équipes adaptent le vocabulaire sans casser les contrats utilisés par l’API, le web et le mobile.</p>
+          <p>Chaque catégorie s’administre séparément. Les ajouts métier restent reliés à un comportement système afin de préserver l’API, le web et le mobile.</p>
         </div>
         <div className="business-catalog__revision">
           <strong>Révision {document.revision}</strong>
@@ -177,8 +271,8 @@ export default function BusinessCatalogSection({
       </header>
 
       <div className="business-catalog__notice">
-        <strong>Deux niveaux de configuration</strong>
-        <span>Les grades sont extensibles. Les codes de workflow sont protégés ; leur affichage reste personnalisable.</span>
+        <strong>Configuration sûre</strong>
+        <span>Les lignes système restent protégées. Les nouvelles lignes peuvent être renommées et, lorsque nécessaire, mappées sur un comportement technique existant.</span>
       </div>
 
       <nav className="business-catalog__section-nav" aria-label="Catégories du référentiel métier">
@@ -220,21 +314,87 @@ export default function BusinessCatalogSection({
         <article className="catalog-card">
           <header>
             <div><h3>{activeSection.title}</h3><p>{activeSection.copy}</p></div>
-            {editable && activeSection.extensible ? <button type="button" onClick={addGrade}>+ Ajouter</button> : null}
+            {editable && activeSection.extensible ? (
+              <button type="button" onClick={addItem}>+ Ajouter</button>
+            ) : null}
           </header>
-          <div className="catalog-table" role="table" aria-label={activeSection.title}>
-            <div className="catalog-table__head" role="row"><span>Identifiant</span><span>Libellé</span><span>Couleur</span><span>Ordre</span><span>Actif</span></div>
-            {activeItems.map((item, index) => (
-              <div className="catalog-table__row" role="row" key={catalogRowKey(activeSection.key, index)}>
-                {activeSection.extensible && editable ? (
-                  <input aria-label={`Code ${item.label}`} value={item.code} onChange={(event) => updateItem(activeSection.key, index, 'code', normalizeCatalogCode(event.target.value))} />
-                ) : <code>{item.code}</code>}
-                <input disabled={!editable} aria-label={`Libellé ${item.code}`} value={item.label} onChange={(event) => updateItem(activeSection.key, index, 'label', event.target.value)} />
-                <input disabled={!editable} type="color" aria-label={`Couleur ${item.code}`} value={item.color || '#4B8DFF'} onInput={(event) => updateItem(activeSection.key, index, 'color', event.currentTarget.value)} />
-                <input disabled={!editable} type="number" min="0" max="10000" aria-label={`Ordre ${item.code}`} value={item.sort_order} onChange={(event) => updateItem(activeSection.key, index, 'sort_order', Number(event.target.value))} />
-                <label className="catalog-switch"><input disabled={!editable || activeSection.alwaysActive} type="checkbox" checked={item.active} onChange={(event) => updateItem(activeSection.key, index, 'active', event.target.checked)} /><span>{item.active ? 'Oui' : 'Archivé'}</span></label>
-              </div>
-            ))}
+          <div
+            className={[
+              'catalog-table',
+              activeSection.canonicalized ? 'catalog-table--canonical' : '',
+            ].filter(Boolean).join(' ')}
+            role="table"
+            aria-label={activeSection.title}
+          >
+            <div className="catalog-table__head" role="row">
+              <span>Identifiant</span>
+              <span>Libellé</span>
+              {activeSection.canonicalized ? <span>Comportement système</span> : null}
+              <span>Couleur</span>
+              <span>Ordre</span>
+              <span>Actif</span>
+            </div>
+            {activeItems.map((item, index) => {
+              const custom = item?.metadata?.custom === true;
+              return (
+                <div className="catalog-table__row" role="row" key={catalogRowKey(activeSection.key, index)}>
+                  {editable && (!activeSection.canonicalized || custom) ? (
+                    <input
+                      aria-label={`Code ${item.label}`}
+                      value={item.code}
+                      onChange={(event) => updateItem(activeSection.key, index, 'code', normalizeCatalogCode(event.target.value))}
+                    />
+                  ) : <code>{item.code}</code>}
+                  <input
+                    disabled={!editable}
+                    aria-label={`Libellé ${item.code}`}
+                    value={item.label}
+                    onChange={(event) => updateItem(activeSection.key, index, 'label', event.target.value)}
+                  />
+                  {activeSection.canonicalized ? (
+                    custom ? (
+                      <select
+                        disabled={!editable}
+                        aria-label={`Comportement système ${item.code}`}
+                        value={item?.metadata?.canonical || ''}
+                        onChange={(event) => updateCanonical(activeSection.key, index, event.target.value)}
+                      >
+                        {canonicalOptions.map((option) => (
+                          <option key={option.code} value={option.code}>{option.label} · {option.code}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="catalog-system-badge">Système · {item.code}</span>
+                    )
+                  ) : null}
+                  <input
+                    disabled={!editable}
+                    type="color"
+                    aria-label={`Couleur ${item.code}`}
+                    value={item.color || '#4B8DFF'}
+                    onInput={(event) => updateItem(activeSection.key, index, 'color', event.currentTarget.value)}
+                  />
+                  <input
+                    disabled={!editable}
+                    type="number"
+                    min="0"
+                    max="10000"
+                    aria-label={`Ordre ${item.code}`}
+                    value={item.sort_order}
+                    onChange={(event) => updateItem(activeSection.key, index, 'sort_order', Number(event.target.value))}
+                  />
+                  <label className="catalog-switch">
+                    <input
+                      disabled={!editable || (activeSection.protectSystemActive && !custom)}
+                      type="checkbox"
+                      checked={item.active}
+                      onChange={(event) => updateItem(activeSection.key, index, 'active', event.target.checked)}
+                    />
+                    <span>{item.active ? 'Oui' : 'Archivé'}</span>
+                  </label>
+                </div>
+              );
+            })}
           </div>
         </article>
       </div>
