@@ -28,6 +28,7 @@ SUPPORTED_FIELD_ACTION_TYPES = {
     "intervention_photo",
     "intervention_video",
     "intervention_document",
+    "intervention_sketch",
     "intervention_comment",
     "custom_intervention_action",
     "equipment_scan",
@@ -49,6 +50,7 @@ _MEDIA_ACTION_TYPES = {
     "intervention_photo",
     "intervention_video",
     "intervention_document",
+    "intervention_sketch",
     "client_signature",
 }
 
@@ -56,6 +58,7 @@ _ACTION_LABELS = {
     "intervention_photo": "Photo ajoutée",
     "intervention_video": "Vidéo ajoutée",
     "intervention_document": "Document ajouté",
+    "intervention_sketch": "Croquis terrain ajouté",
     "intervention_comment": "Commentaire",
     "custom_intervention_action": "Action terrain",
     "equipment_scan": "Équipement scanné",
@@ -79,6 +82,7 @@ FIELD_ACTION_LABELS = {
     "intervention_photo": "Photo",
     "intervention_video": "Vidéo",
     "intervention_document": "Document",
+    "intervention_sketch": "Croquis terrain",
     "intervention_comment": "Commentaire",
     "custom_intervention_action": "Autre action",
     "equipment_scan": "Scan QR / code-barres",
