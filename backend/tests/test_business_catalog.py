@@ -72,6 +72,57 @@ async def test_protected_catalog_rejects_removed_workflow_code():
 
 
 @pytest.mark.asyncio
+async def test_catalog_accepts_business_alias_mapped_to_system_behavior():
+    values = settings._catalog_defaults()
+    values.job_types.append(
+        CatalogItem(
+            code="installation_vip",
+            label="Installation VIP",
+            color="#4B8DFF",
+            sort_order=999,
+            active=True,
+            metadata={
+                "custom": True,
+                "canonical": JobType.INSTALLATION.value,
+            },
+        )
+    )
+    db = _grade_query_db()
+
+    validated = await settings._validated_catalog(db, values)
+
+    alias = next(item for item in validated.job_types if item.code == "installation_vip")
+    assert alias.label == "Installation VIP"
+    assert alias.metadata["custom"] is True
+    assert alias.metadata["canonical"] == JobType.INSTALLATION.value
+    assert {item.value for item in JobType}.issubset(
+        {item.code for item in validated.job_types}
+    )
+
+
+@pytest.mark.asyncio
+async def test_catalog_rejects_alias_without_supported_system_behavior():
+    values = settings._catalog_defaults()
+    values.priorities.append(
+        CatalogItem(
+            code="ultra",
+            label="Ultra",
+            color="#FF647C",
+            sort_order=999,
+            active=True,
+            metadata={"custom": True, "canonical": "NOT_A_PRIORITY"},
+        )
+    )
+    db = _grade_query_db()
+
+    with pytest.raises(HTTPException) as raised:
+        await settings._validated_catalog(db, values)
+
+    assert raised.value.status_code == 422
+    assert "comportement système" in raised.value.detail
+
+
+@pytest.mark.asyncio
 async def test_used_technician_grade_cannot_be_archived():
     values = settings._catalog_defaults()
     values.technician_grades = [
