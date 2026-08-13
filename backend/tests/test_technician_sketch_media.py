@@ -4,6 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from backend.api.routes import tech_media
+from backend.logic import technician_field_actions, technician_sync
 
 
 def test_sketch_accepts_image_media_and_uses_photo_limit(monkeypatch):
@@ -24,3 +25,10 @@ def test_sketch_rejects_non_image_media():
         tech_media._validate_mime("sketch", "application/pdf")
 
     assert exc_info.value.status_code == 415
+
+
+def test_sketch_has_an_authoritative_sync_action_contract():
+    assert "intervention_sketch" in technician_field_actions.SUPPORTED_FIELD_ACTION_TYPES
+    assert "intervention_sketch" in technician_field_actions._MEDIA_ACTION_TYPES
+    assert technician_field_actions.FIELD_ACTION_LABELS["intervention_sketch"] == "Croquis terrain"
+    assert "intervention_sketch" in technician_sync.SUPPORTED_SYNC_EVENT_TYPES
