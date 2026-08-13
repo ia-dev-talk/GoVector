@@ -1,0 +1,494 @@
+/*
+ * BlueVector V0.8 — final operational workspace pass.
+ *
+ * Goal: use normal desktop space for decisions and data instead of stacking
+ * oversized presentation blocks. This layer only changes layout/readability;
+ * business contracts remain owned by each feature.
+ */
+
+/* ========================================================================== 
+   STOCKS — one logistics workspace, no duplicated giant scope dashboard.
+   ========================================================================== */
+
+.st3-header {
+  grid-template-columns: minmax(235px, .52fr) minmax(0, 1.48fr) !important;
+  min-height: 74px !important;
+  padding: 10px 14px !important;
+  gap: 14px !important;
+}
+
+.st3-header-summary {
+  display: none !important;
+}
+
+.st3-header-actions {
+  gap: 6px !important;
+}
+
+.st3-search {
+  width: min(100%, 430px) !important;
+  height: 38px !important;
+}
+
+.st3-content {
+  padding: 8px 10px 10px !important;
+  gap: 8px !important;
+}
+
+.st3-kpis {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+}
+
+.st3-kpi,
+.st3-value-card {
+  min-height: 54px !important;
+  padding: 7px 9px !important;
+}
+
+.st3-kpi-value {
+  font-size: 18px !important;
+}
+
+.st3-kpi-label {
+  font-size: 10px !important;
+}
+
+.st3-value-card small {
+  font-size: 9px !important;
+}
+
+.st3-value-card strong {
+  font-size: 12px !important;
+}
+
+.st3-scopebar {
+  grid-template-columns: minmax(190px, .55fr) minmax(330px, 1.25fr) auto !important;
+  min-height: 58px !important;
+  padding: 8px 10px !important;
+  gap: 10px !important;
+}
+
+.st3-scopebar__identity,
+.st3-scopebar__selector {
+  gap: 2px !important;
+}
+
+.st3-scopebar__identity > span,
+.st3-scopebar__selector > span {
+  font-size: 8.5px !important;
+}
+
+.st3-scopebar__identity strong {
+  font-size: 14px !important;
+}
+
+.st3-scopebar__identity small {
+  font-size: 9.5px !important;
+}
+
+.st3-scopebar__selector select {
+  min-height: 36px !important;
+  font-size: 10.5px !important;
+}
+
+.st3-scopebar__metrics {
+  display: flex !important;
+  grid-column: auto !important;
+  grid-template-columns: none !important;
+  align-items: stretch !important;
+  gap: 5px !important;
+}
+
+.st3-scopebar__metrics > div {
+  min-width: 72px !important;
+  min-height: 38px !important;
+  padding: 5px 7px !important;
+  border-radius: 8px !important;
+}
+
+.st3-scopebar__metrics strong {
+  font-size: 13px !important;
+}
+
+.st3-scopebar__metrics span {
+  font-size: 7px !important;
+}
+
+.st3-workspace {
+  grid-template-columns: 210px minmax(0, 1fr) 315px !important;
+  gap: 8px !important;
+}
+
+.st3-workspace--rail-collapsed {
+  grid-template-columns: 52px minmax(0, 1fr) 315px !important;
+}
+
+.st3-warehouse-rail > header,
+.st3-panel-header,
+.st3-inspector-header {
+  min-height: 52px !important;
+  padding-inline: 10px !important;
+}
+
+.st3-warehouse-all {
+  min-height: 52px !important;
+}
+
+.st3-warehouse-row {
+  min-height: 54px !important;
+}
+
+.st3-warehouse-all strong,
+.st3-warehouse-row strong {
+  font-size: 10px !important;
+}
+
+.st3-warehouse-all small,
+.st3-warehouse-row small {
+  font-size: 8px !important;
+}
+
+.st3-warehouse-group-title {
+  padding: 8px 9px 4px !important;
+  font-size: 7.5px !important;
+}
+
+.st3-table-toolbar {
+  min-height: 44px !important;
+}
+
+.st3-table-head {
+  min-height: 34px !important;
+  font-size: 8.5px !important;
+}
+
+.st3-item-row {
+  min-width: 820px !important;
+  min-height: 56px !important;
+}
+
+.st3-item-row strong {
+  font-size: 10px !important;
+}
+
+.st3-item-row small {
+  font-size: 8px !important;
+}
+
+.st3-stock-state {
+  min-height: 25px !important;
+  font-size: 8.5px !important;
+}
+
+@container st3-page (max-width: 1300px) {
+  .st3-scopebar {
+    grid-template-columns: minmax(180px, .55fr) minmax(300px, 1.25fr) auto !important;
+  }
+
+  .st3-scopebar__metrics {
+    grid-column: auto !important;
+    display: flex !important;
+  }
+
+  .st3-workspace {
+    grid-template-columns: 190px minmax(0, 1fr) 290px !important;
+  }
+
+  .st3-workspace--rail-collapsed {
+    grid-template-columns: 52px minmax(0, 1fr) 290px !important;
+  }
+}
+
+@container st3-page (max-width: 1040px) {
+  .st3-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .st3-scopebar {
+    grid-template-columns: minmax(170px, .65fr) minmax(280px, 1.35fr) !important;
+  }
+
+  .st3-scopebar__metrics {
+    display: none !important;
+  }
+
+  .st3-workspace {
+    grid-template-columns: 175px minmax(0, 1fr) !important;
+  }
+
+  .st3-inspector {
+    display: none !important;
+  }
+}
+
+/* ========================================================================== 
+   SUPERVISION — keep resolution visible and scan more exceptions at once.
+   ========================================================================== */
+
+.supv4-shell {
+  padding: 9px 14px 0 !important;
+  gap: 8px !important;
+}
+
+.supv4-metrics {
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.supv4-metric {
+  min-height: 56px !important;
+  padding: 7px 8px !important;
+  grid-template-columns: 34px minmax(0, 1fr) !important;
+}
+
+.supv4-metric strong {
+  font-size: 16px !important;
+}
+
+.supv4-metric small {
+  font-size: 9px !important;
+}
+
+.supv4-workspace {
+  grid-template-columns: minmax(285px, .62fr) minmax(0, 1.45fr) minmax(255px, .58fr) !important;
+  gap: 8px !important;
+}
+
+.supv4-panel-header,
+.supv4-context-header {
+  min-height: 52px !important;
+}
+
+.supv4-panel-header span:first-child,
+.supv4-context-header > div > span {
+  font-size: 7.5px !important;
+}
+
+.supv4-panel-header strong,
+.supv4-context-header > div > strong {
+  font-size: 13px !important;
+}
+
+.supv4-queue-list {
+  padding: 6px !important;
+}
+
+.supv4-alert-row {
+  min-height: 88px !important;
+  padding: 8px 9px 8px 12px !important;
+  gap: 2px !important;
+}
+
+.supv4-alert-severity {
+  min-height: 18px !important;
+  line-height: 18px !important;
+}
+
+.supv4-alert-row > strong,
+.supv4-alert-subject {
+  font-size: 10.5px !important;
+}
+
+.supv4-alert-row small,
+.supv4-alert-location {
+  font-size: 8.5px !important;
+}
+
+.supv4-context-tabs {
+  min-height: 40px !important;
+}
+
+.supv4-context-tabs button {
+  min-height: 33px !important;
+  font-size: 9px !important;
+}
+
+.supv4-resolution-body {
+  padding: 7px !important;
+}
+
+.supv4-recommendation,
+.supv4-rules,
+.supv4-scope {
+  padding: 9px !important;
+}
+
+.supv4-recommendation strong {
+  font-size: 12.5px !important;
+}
+
+.supv4-recommendation p {
+  font-size: 9.5px !important;
+}
+
+.supv4-resolution-facts > div {
+  min-height: 34px !important;
+}
+
+.supv4-resolution-facts dt,
+.supv4-resolution-facts dd,
+.supv4-rules strong,
+.supv4-rules small {
+  font-size: 8px !important;
+}
+
+@container supervision-v4 (max-width: 1320px) and (min-width: 1081px) {
+  .supv4-workspace {
+    grid-template-columns: minmax(245px, .58fr) minmax(0, 1.42fr) minmax(235px, .54fr) !important;
+  }
+
+  .supv4-resolution {
+    display: flex !important;
+  }
+
+  .supv4-metrics {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  }
+}
+
+@container supervision-v4 (max-width: 1080px) {
+  .supv4-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .supv4-workspace {
+    grid-template-columns: minmax(260px, .65fr) minmax(0, 1.35fr) !important;
+  }
+
+  .supv4-resolution {
+    display: none !important;
+  }
+}
+
+@container supervision-v4 (max-width: 760px) {
+  .supv4-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ========================================================================== 
+   COCKPIT — preserve the decision grid on normal laptop widths.
+   ========================================================================== */
+
+.cockpit-v4-workspace {
+  padding: 9px 14px 14px !important;
+  gap: 8px !important;
+}
+
+.cpv4-configbar {
+  min-height: 42px !important;
+  padding: 7px 9px !important;
+}
+
+.cpv4-metrics {
+  gap: 6px !important;
+}
+
+.cpv4-metric {
+  min-height: 58px !important;
+}
+
+.cpv4-metric b {
+  font-size: 10px !important;
+}
+
+.cpv4-metric small {
+  font-size: 8.5px !important;
+}
+
+.cpv4-primary,
+.cpv4-secondary,
+.cpv4-tertiary {
+  gap: 8px !important;
+}
+
+.cpv4-panel-header {
+  min-height: 49px !important;
+}
+
+.cpv4-panel-header > div:first-child > span {
+  font-size: 8px !important;
+}
+
+.cpv4-panel-header > div:first-child > strong {
+  font-size: 13px !important;
+}
+
+.cpv4-link {
+  min-height: 29px !important;
+  font-size: 8.5px !important;
+}
+
+.cpv4-stages article {
+  min-height: 58px !important;
+}
+
+.cpv4-stages small {
+  font-size: 8px !important;
+}
+
+.cpv4-decision {
+  min-height: 52px !important;
+}
+
+.cpv4-decision strong {
+  font-size: 10px !important;
+}
+
+.cpv4-decision small {
+  font-size: 8.5px !important;
+}
+
+.cpv4-personnel small,
+.cpv4-sector-row > span:first-child,
+.cpv4-quality > div > span,
+.cpv4-activity strong,
+.cpv4-access strong {
+  font-size: 9px !important;
+}
+
+.cpv4-personnel strong,
+.cpv4-sector-row strong,
+.cpv4-quality > div > strong {
+  font-size: 10px !important;
+}
+
+.cpv4-activity small,
+.cpv4-access small {
+  font-size: 8px !important;
+}
+
+@container cockpit-v4 (max-width: 1320px) and (min-width: 931px) {
+  .cpv4-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .cpv4-primary {
+    grid-template-columns: minmax(0, 1.34fr) minmax(300px, .66fr) !important;
+  }
+
+  .cpv4-secondary {
+    grid-template-columns: minmax(0, 1.18fr) minmax(300px, .82fr) !important;
+  }
+
+  .cpv4-tertiary {
+    grid-template-columns: minmax(0, 1fr) minmax(330px, 1fr) !important;
+  }
+
+  .cpv4-stages {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+@container cockpit-v4 (max-width: 930px) {
+  .cpv4-primary,
+  .cpv4-secondary,
+  .cpv4-tertiary {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cpv4-stages {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
