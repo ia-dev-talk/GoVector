@@ -34,18 +34,12 @@ from . import (
     tour,
 )
 
-# Hierarchical GIS endpoints extend the historical sector surface, keeping one
-# stable `/api/v1/sectors/...` namespace for frontend and QGIS integrations.
 sectors.router.include_router(territories.router)
-
-# Product feedback lives next to audit/security under the already-mounted
-# `/api/v1` namespace; all internal users can create tickets, admins govern them.
 audit.router.include_router(feedback.router)
 
-# Import after the base routers: these modules intentionally extend existing
-# routers with public-V2 connected workflows.
 from . import stock_v2_patch  # noqa: E402,F401
 from . import stock_v2_atomic  # noqa: E402,F401
 from . import stock_history_v2  # noqa: E402,F401
+from . import warehouse_admin_v2  # noqa: E402,F401
 from . import tech_stock_v2  # noqa: E402,F401
 from . import job_stock_v2  # noqa: E402,F401
