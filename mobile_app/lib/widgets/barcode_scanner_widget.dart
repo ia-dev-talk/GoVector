@@ -172,6 +172,91 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
     _complete(value, label: 'Code saisi manuellement');
   }
 
+  Widget _cameraError(
+    BuildContext context,
+    MobileScannerException error,
+    Widget? child,
+  ) {
+    final permissionDenied =
+        error.errorCode == MobileScannerErrorCode.permissionDenied;
+    return ColoredBox(
+      color: BlueVectorColors.backgroundDeep,
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(BlueVectorSpacing.xl),
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 420),
+              padding: const EdgeInsets.all(BlueVectorSpacing.lg),
+              decoration: BoxDecoration(
+                color: BlueVectorColors.surface,
+                borderRadius: BorderRadius.circular(BlueVectorRadius.large),
+                border: Border.all(color: BlueVectorColors.borderStrong),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: BlueVectorColors.warning.withValues(alpha: .12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.no_photography_outlined,
+                      color: BlueVectorColors.warning,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: BlueVectorSpacing.md),
+                  Text(
+                    permissionDenied
+                        ? 'Accès caméra refusé'
+                        : 'Caméra indisponible',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: BlueVectorColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: BlueVectorSpacing.xs),
+                  Text(
+                    permissionDenied
+                        ? 'Autorisez la caméra dans les réglages Android, ou continuez immédiatement avec le numéro de série.'
+                        : 'Le scan automatique ne peut pas démarrer. Vous pouvez continuer l’intervention sans bloquer la synchronisation.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: BlueVectorColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: BlueVectorSpacing.lg),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _manualEntry,
+                      icon: const Icon(Icons.keyboard_alt_outlined),
+                      label: const Text('Saisir le code manuellement'),
+                    ),
+                  ),
+                  const SizedBox(height: BlueVectorSpacing.xs),
+                  TextButton(
+                    onPressed: widget.onClose ?? () => Navigator.maybePop(context),
+                    child: const Text('Revenir à l’intervention'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -199,6 +284,7 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
           MobileScanner(
             controller: _controller,
             onDetect: _onCapture,
+            errorBuilder: _cameraError,
           ),
           IgnorePointer(
             child: Container(
