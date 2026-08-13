@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api, apiClient } from '../../api/client';
 import ValidationPanel from '../../components/ValidationPanel';
@@ -14,12 +9,10 @@ import InterventionFieldSummary from './InterventionFieldSummary';
 import InterventionGraphicalTools from './InterventionGraphicalTools';
 import InterventionMapCard from './InterventionMapCard';
 import InterventionOverview from './InterventionOverview';
+import InterventionTechnicianPhotos from './InterventionTechnicianPhotos';
 import InterventionTimeline from './InterventionTimeline';
-import {
-  getApiErrorMessage,
-  identifier,
-  isRecord,
-} from './interventionDetailUtils';
+import { technicianMediaBucket } from './interventionEvidenceClassification';
+import { getApiErrorMessage, identifier, isRecord } from './interventionDetailUtils';
 import '../../styles/intervention-detail.css';
 
 function LoadingScreen() {
@@ -34,13 +27,8 @@ function LoadingScreen() {
 
 function friendlyApiError(error, fallback) {
   const resolved = getApiErrorMessage(error, fallback);
-  if (
-    /^request failed with status code\s+\d+/i.test(resolved) ||
-    /^network error$/i.test(resolved) ||
-    /^failed to fetch$/i.test(resolved)
-  ) {
-    return fallback;
-  }
+  if (/^request failed with status code\s+\d+/i.test(resolved)) return fallback;
+  if (/^network error$/i.test(resolved) || /^failed to fetch$/i.test(resolved)) return fallback;
   return resolved || fallback;
 }
 
@@ -53,9 +41,7 @@ export default function InterventionDetailPage({
   onJobLoaded,
 }) {
   const initialJobId = identifier(initialJob?.id);
-  const [job, setJob] = useState(() =>
-    isRecord(initialJob) ? initialJob : null,
-  );
+  const [job, setJob] = useState(() => (isRecord(initialJob) ? initialJob : null));
   const [timeline, setTimeline] = useState([]);
   const [equipment, setEquipment] = useState(null);
   const [stock, setStock] = useState(null);
@@ -73,172 +59,112 @@ export default function InterventionDetailPage({
 
   const jobId = initialJobId || identifier(job?.id);
 
-  const refreshData = useCallback(
-    async ({ manual = false } = {}) => {
-      if (!jobId) {
-        setJobError('Identifiant d’intervention indisponible.');
-        setInitialLoading(false);
-        return;
-      }
-
-      const requestSequence = requestSequenceRef.current + 1;
-      requestSequenceRef.current = requestSequence;
-
-      if (manual) {
-        setRefreshing(true);
-      }
-
-      setJobError('');
-      setTimelineError('');
-      setEquipmentError('');
-      setStockError('');
-      setFieldRecordError('');
-      setFieldRecord(null);
-
-      const [
-        jobResult,
-        timelineResult,
-        equipmentResult,
-        stockResult,
-        fieldRecordResult,
-        workflowResult,
-      ] = await Promise.allSettled([
-        api.getJob(jobId),
-        api.getJobTimeline(jobId),
-        api.getJobEquipment(jobId),
-        apiClient.get(`/stock-ftth/job-context/${encodeURIComponent(jobId)}`),
-        api.getJobFieldRecord(jobId),
-        api.getJobWorkflowCapabilities(jobId),
-      ]);
-
-      if (requestSequence !== requestSequenceRef.current) {
-        return;
-      }
-
-      if (
-        jobResult.status === 'fulfilled' &&
-        isRecord(jobResult.value?.data)
-      ) {
-        const loadedJob = jobResult.value.data;
-        setJob(loadedJob);
-
-        if (typeof onJobLoaded === 'function') {
-          onJobLoaded(loadedJob);
-        }
-      } else {
-        setJobError(
-          friendlyApiError(
-            jobResult.status === 'rejected' ? jobResult.reason : null,
-            'Impossible de charger les dernières données de l’intervention.',
-          ),
-        );
-      }
-
-      if (
-        timelineResult.status === 'fulfilled' &&
-        Array.isArray(timelineResult.value?.data)
-      ) {
-        setTimeline(timelineResult.value.data);
-      } else {
-        setTimelineError(
-          friendlyApiError(
-            timelineResult.status === 'rejected'
-              ? timelineResult.reason
-              : null,
-            'Historique serveur temporairement indisponible.',
-          ),
-        );
-      }
-
-      if (equipmentResult.status === 'fulfilled') {
-        setEquipment(equipmentResult.value?.data ?? null);
-      } else {
-        setEquipmentError(
-          friendlyApiError(
-            equipmentResult.reason,
-            'Équipements associés temporairement indisponibles.',
-          ),
-        );
-      }
-
-      if (stockResult.status === 'fulfilled') {
-        setStock(stockResult.value?.data ?? null);
-      } else {
-        setStockError(
-          friendlyApiError(
-            stockResult.reason,
-            'Stock du technicien temporairement indisponible.',
-          ),
-        );
-      }
-
-      if (
-        fieldRecordResult.status === 'fulfilled' &&
-        isRecord(fieldRecordResult.value?.data)
-      ) {
-        setFieldRecord(fieldRecordResult.value.data);
-      } else {
-        setFieldRecordError(
-          friendlyApiError(
-            fieldRecordResult.status === 'rejected'
-              ? fieldRecordResult.reason
-              : null,
-            'Actions et médias terrain temporairement indisponibles.',
-          ),
-        );
-      }
-
-      if (
-        workflowResult.status === 'fulfilled' &&
-        isRecord(workflowResult.value?.data)
-      ) {
-        setWorkflowCapabilities(workflowResult.value.data);
-      } else {
-        setWorkflowCapabilities(null);
-      }
-
+  const refreshData = useCallback(async ({ manual = false } = {}) => {
+    if (!jobId) {
+      setJobError('Identifiant d’intervention indisponible.');
       setInitialLoading(false);
-      setRefreshing(false);
-    },
-    [jobId, onJobLoaded],
-  );
+      return;
+    }
+
+    const requestSequence = requestSequenceRef.current + 1;
+    requestSequenceRef.current = requestSequence;
+    if (manual) setRefreshing(true);
+    setJobError('');
+    setTimelineError('');
+    setEquipmentError('');
+    setStockError('');
+    setFieldRecordError('');
+    setFieldRecord(null);
+
+    const results = await Promise.allSettled([
+      api.getJob(jobId),
+      api.getJobTimeline(jobId),
+      api.getJobEquipment(jobId),
+      apiClient.get(`/stock-ftth/job-context/${encodeURIComponent(jobId)}`),
+      api.getJobFieldRecord(jobId),
+      api.getJobWorkflowCapabilities(jobId),
+    ]);
+    if (requestSequence !== requestSequenceRef.current) return;
+
+    const [jobResult, timelineResult, equipmentResult, stockResult, fieldResult, workflowResult] = results;
+
+    if (jobResult.status === 'fulfilled' && isRecord(jobResult.value?.data)) {
+      const loadedJob = jobResult.value.data;
+      setJob(loadedJob);
+      onJobLoaded?.(loadedJob);
+    } else {
+      setJobError(friendlyApiError(
+        jobResult.status === 'rejected' ? jobResult.reason : null,
+        'Impossible de charger les dernières données de l’intervention.',
+      ));
+    }
+
+    if (timelineResult.status === 'fulfilled' && Array.isArray(timelineResult.value?.data)) {
+      setTimeline(timelineResult.value.data);
+    } else {
+      setTimelineError(friendlyApiError(
+        timelineResult.status === 'rejected' ? timelineResult.reason : null,
+        'Historique serveur temporairement indisponible.',
+      ));
+    }
+
+    if (equipmentResult.status === 'fulfilled') setEquipment(equipmentResult.value?.data ?? null);
+    else setEquipmentError(friendlyApiError(equipmentResult.reason, 'Équipements associés temporairement indisponibles.'));
+
+    if (stockResult.status === 'fulfilled') setStock(stockResult.value?.data ?? null);
+    else setStockError(friendlyApiError(stockResult.reason, 'Stock du technicien temporairement indisponible.'));
+
+    if (fieldResult.status === 'fulfilled' && isRecord(fieldResult.value?.data)) {
+      setFieldRecord(fieldResult.value.data);
+    } else {
+      setFieldRecordError(friendlyApiError(
+        fieldResult.status === 'rejected' ? fieldResult.reason : null,
+        'Actions et médias terrain temporairement indisponibles.',
+      ));
+    }
+
+    setWorkflowCapabilities(
+      workflowResult.status === 'fulfilled' && isRecord(workflowResult.value?.data)
+        ? workflowResult.value.data
+        : null,
+    );
+    setInitialLoading(false);
+    setRefreshing(false);
+  }, [jobId, onJobLoaded]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      refreshData();
-    }, 0);
-
+    const timer = window.setTimeout(() => refreshData(), 0);
     return () => {
       window.clearTimeout(timer);
       requestSequenceRef.current += 1;
     };
   }, [refreshData, refreshRevision]);
 
-  if (initialLoading && !job) {
-    return <LoadingScreen />;
-  }
+  if (initialLoading && !job) return <LoadingScreen />;
 
   if (!job) {
     return (
       <div className="intervention-detail-fatal-state">
         <strong>Intervention introuvable</strong>
-        <span>
-          {jobError || 'Aucune donnée exploitable n’a été reçue.'}
-        </span>
-        <button type="button" className="btn btn--primary" onClick={onBack}>
-          Retour aux interventions
-        </button>
+        <span>{jobError || 'Aucune donnée exploitable n’a été reçue.'}</span>
+        <button type="button" className="btn btn--primary" onClick={onBack}>Retour aux interventions</button>
       </div>
     );
   }
 
+  const technicianMedia = Array.isArray(fieldRecord?.technician_media)
+    ? fieldRecord.technician_media
+    : [];
+  const evidenceFieldRecord = isRecord(fieldRecord)
+    ? {
+        ...fieldRecord,
+        technician_media: technicianMedia.filter(
+          (item) => technicianMediaBucket(item) !== 'photos',
+        ),
+      }
+    : fieldRecord;
   const canValidate = jobAllowsCommand(workflowCapabilities, 'validate');
-  const relatedErrors = [
-    timelineError,
-    equipmentError,
-    stockError,
-    fieldRecordError,
-  ].filter(Boolean);
+  const relatedErrors = [timelineError, equipmentError, stockError, fieldRecordError].filter(Boolean);
 
   return (
     <>
@@ -255,44 +181,20 @@ export default function InterventionDetailPage({
 
         {jobError ? (
           <div className="intervention-detail-page-notice" role="alert">
-            <div>
-              <strong>Données principales partiellement actualisées</strong>
-              <span>{jobError}</span>
-            </div>
-
-            <button
-              type="button"
-              className="intervention-detail-text-button"
-              onClick={() => refreshData({ manual: true })}
-              disabled={refreshing}
-            >
-              Réessayer
-            </button>
+            <div><strong>Données principales partiellement actualisées</strong><span>{jobError}</span></div>
+            <button type="button" className="intervention-detail-text-button" onClick={() => refreshData({ manual: true })} disabled={refreshing}>Réessayer</button>
           </div>
         ) : relatedErrors.length > 0 ? (
           <div className="intervention-detail-page-notice" role="status">
             <div>
               <strong>Fiche utilisable · {relatedErrors.length} source{relatedErrors.length > 1 ? 's' : ''} liée{relatedErrors.length > 1 ? 's' : ''} à actualiser</strong>
-              <span>
-                Les données disponibles restent affichées. Relancez l’actualisation pour récupérer les blocs manquants.
-              </span>
+              <span>Les données disponibles restent affichées. Relancez l’actualisation pour récupérer les blocs manquants.</span>
             </div>
-            <button
-              type="button"
-              className="intervention-detail-text-button"
-              onClick={() => refreshData({ manual: true })}
-              disabled={refreshing}
-            >
-              {refreshing ? 'Actualisation…' : 'Réessayer'}
-            </button>
+            <button type="button" className="intervention-detail-text-button" onClick={() => refreshData({ manual: true })} disabled={refreshing}>{refreshing ? 'Actualisation…' : 'Réessayer'}</button>
           </div>
         ) : null}
 
-        <InterventionGraphicalTools
-          job={job}
-          onSaved={() => refreshData({ manual: true })}
-        />
-
+        <InterventionGraphicalTools job={job} onSaved={() => refreshData({ manual: true })} />
         <InterventionFieldSummary job={job} fieldRecord={fieldRecord} />
 
         <main className="intervention-detail-layout">
@@ -307,22 +209,21 @@ export default function InterventionDetailPage({
           </div>
 
           <div className="intervention-detail-center">
-            <InterventionOverview
-              job={job}
-              assignmentContext={stock}
-            />
-            <InterventionMapCard
-              job={job}
-              fieldReference={fieldRecord?.field_reference_location}
-            />
+            <InterventionOverview job={job} assignmentContext={stock} />
+            <InterventionMapCard job={job} fieldReference={fieldRecord?.field_reference_location} />
           </div>
 
           <div className="intervention-detail-rail intervention-detail-evidence-rail">
+            <InterventionTechnicianPhotos
+              job={job}
+              media={technicianMedia}
+              onRecordChanged={() => refreshData({ manual: true })}
+            />
             <InterventionEvidencePanel
               job={job}
               equipment={equipment}
               stock={stock}
-              fieldRecord={fieldRecord}
+              fieldRecord={evidenceFieldRecord}
               equipmentError={equipmentError}
               stockError={stockError}
               fieldRecordError={fieldRecordError}
