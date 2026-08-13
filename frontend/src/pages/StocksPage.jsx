@@ -29,6 +29,7 @@ import {
   asRecords,
   errorMessage,
   normalizeIdentifier,
+  numeric,
   searchMatches,
   stockSummary,
   text,
@@ -102,6 +103,146 @@ function technicianDisplay(technician) {
   ].filter(Boolean).join(' · ');
 }
 
+function warehouseType(warehouse) {
+  return text(warehouse?.warehouse_type ?? warehouse?.type).toUpperCase();
+}
+
+function technicianWarehouse(technician, warehouses) {
+  if (!technician?.id) return null;
+  const code = `TECH-${technician.id}`;
+  return warehouses.find(
+    (warehouse) => text(warehouse?.code).toUpperCase() === code,
+  ) || null;
+}
+
+function scopeItems(items, selectedWarehouseId) {
+  if (selectedWarehouseId === null) return items;
+
+  return items.flatMap((item) => {
+    const scopedLines = item.lines.filter(
+      (line) => normalizeIdentifier(line?.warehouse_id) === selectedWarehouseId,
+    );
+
+    if (scopedLines.length === 0) return [];
+
+    const totals = scopedLines.reduce(
+      (result, line) => ({
+        quantity: result.quantity + numeric(line?.quantity),
+        reserved: result.reserved + numeric(line?.reserved_quantity),
+        available: result.available + numeric(line?.available_quantity),
+      }),
+      { quantity: 0, reserved: 0, available: 0 },
+    );
+
+    if (totals.quantity <= 0 && totals.reserved <= 0 && totals.available <= 0) {
+      return [];
+    }
+
+    const lowStock =
+      item?.alert_enabled !== false &&
+      totals.available <= item.threshold;
+
+    return [{
+      ...item,
+      lines: scopedLines,
+      totals,
+      lowStock,
+      empty: totals.quantity <= 0,
+      warehouseCount: scopedLines.filter(
+        (line) => numeric(line?.quantity) > 0,
+      ).length,
+    }];
+  });
+}
+
+function StockScopeBar({
+  warehouses,
+  technicians,
+  selectedWarehouseId,
+  onSelect,
+  summary,
+}) {
+  const physicalWarehouses = warehouses.filter(
+    (warehouse) => warehouseType(warehouse) !== 'TECHNICIEN',
+  );
+  const technicianOptions = technicians
+    .map((technician) => ({
+      technician,
+      warehouse: technicianWarehouse(technician, warehouses),
+    }))
+    .filter(({ warehouse }) => warehouse);
+
+  const selectedWarehouse = warehouses.find(
+    (warehouse) => normalizeIdentifier(warehouse?.id) === selectedWarehouseId,
+  ) || null;
+  const selectedTechnician = selectedWarehouse
+    ? technicianOptions.find(
+        ({ warehouse }) =>
+          normalizeIdentifier(warehouse?.id) === selectedWarehouseId,
+      )?.technician || null
+    : null;
+
+  const title = selectedTechnician
+    ? text(selectedTechnician?.name, 'Technicien')
+    : selectedWarehouse
+      ? text(selectedWarehouse?.name, 'Dépôt')
+      : 'Stock général';
+
+  const subtitle = selectedTechnician
+    ? `Dotation terrain · ${text(selectedTechnician?.employee_id, `ID ${selectedTechnician?.id}`)}`
+    : selectedWarehouse
+      ? `${text(selectedWarehouse?.city, 'Localisation non renseignée')} · ${warehouseType(selectedWarehouse) || 'DÉPÔT'}`
+      : 'Tous les dépôts et toutes les dotations techniciens';
+
+  return (
+    <section className="st3-scopebar" aria-label="Périmètre du stock">
+      <div className="st3-scopebar__identity">
+        <span>Vue du stock</span>
+        <strong>{title}</strong>
+        <small>{subtitle}</small>
+      </div>
+
+      <label className="st3-scopebar__selector">
+        <span>Filtrer par détenteur</span>
+        <select
+          value={selectedWarehouseId ?? ''}
+          onChange={(event) =>
+            onSelect(event.target.value ? Number(event.target.value) : null)
+          }
+        >
+          <option value="">Stock général — vue consolidée</option>
+          {physicalWarehouses.length ? (
+            <optgroup label="Dépôts">
+              {physicalWarehouses.map((warehouse) => (
+                <option key={warehouse.id} value={warehouse.id}>
+                  {text(warehouse.name, `Dépôt #${warehouse.id}`)}
+                  {warehouse.code ? ` · ${warehouse.code}` : ''}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+          {technicianOptions.length ? (
+            <optgroup label="Techniciens">
+              {technicianOptions.map(({ technician, warehouse }) => (
+                <option key={warehouse.id} value={warehouse.id}>
+                  {text(technician.name, `Technicien #${technician.id}`)}
+                  {technician.employee_id ? ` · ${technician.employee_id}` : ''}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+        </select>
+      </label>
+
+      <div className="st3-scopebar__metrics">
+        <div><strong>{summary.catalog}</strong><span>articles</span></div>
+        <div><strong>{summary.available}</strong><span>disponibles</span></div>
+        <div><strong>{summary.reserved}</strong><span>réservés</span></div>
+      </div>
+    </section>
+  );
+}
+
 export default function StocksPage({
   userRole,
   onNavigate,
@@ -163,6 +304,26 @@ export default function StocksPage({
         ) ?? null
       : null,
     [requestedTechnicianId, technicians],
+  );
+
+  const technicianById = useMemo(
+    () => new Map(
+      technicians.map((technician) => [
+        normalizeIdentifier(technician?.id),
+        technician,
+      ]),
+    ),
+    [technicians],
+  );
+
+  const warehouseById = useMemo(
+    () => new Map(
+      warehouses.map((warehouse) => [
+        normalizeIdentifier(warehouse?.id),
+        warehouse,
+      ]),
+    ),
+    [warehouses],
   );
 
   const toast = useCallback((message, type = 'info') => {
@@ -247,6 +408,17 @@ export default function StocksPage({
     };
   }, [loadData]);
 
+  useEffect(() => {
+    if (!requestedTechnicianId || warehouses.length === 0) return;
+    const warehouse = warehouses.find(
+      (candidate) =>
+        text(candidate?.code).toUpperCase() === `TECH-${requestedTechnicianId}`,
+    );
+    if (warehouse) {
+      setSelectedWarehouseId(normalizeIdentifier(warehouse.id));
+    }
+  }, [requestedTechnicianId, warehouses]);
+
   const scheduleRealtimeRefresh = useCallback(() => {
     if (realtimeRefreshTimerRef.current !== null) {
       window.clearTimeout(realtimeRefreshTimerRef.current);
@@ -284,20 +456,18 @@ export default function StocksPage({
     [items, lines, warehouses],
   );
 
+  const scopedItems = useMemo(
+    () => scopeItems(aggregatedItems, selectedWarehouseId),
+    [aggregatedItems, selectedWarehouseId],
+  );
+
   const summary = useMemo(
-    () => stockSummary(aggregatedItems),
-    [aggregatedItems],
+    () => stockSummary(scopedItems),
+    [scopedItems],
   );
 
   const filteredItems = useMemo(
-    () => aggregatedItems.filter((item) => {
-      if (
-        selectedWarehouseId !== null &&
-        !item.lines.some(
-          (line) => normalizeIdentifier(line?.warehouse_id) === selectedWarehouseId,
-        )
-      ) return false;
-
+    () => scopedItems.filter((item) => {
       if (equipmentType && text(item?.equipment_type) !== equipmentType) {
         return false;
       }
@@ -321,31 +491,61 @@ export default function StocksPage({
       );
     }),
     [
-      aggregatedItems,
+      scopedItems,
       equipmentType,
       kpiFilter,
       operator,
       searchQuery,
-      selectedWarehouseId,
     ],
   );
 
   const selectedItem = useMemo(
-    () => aggregatedItems.find(
+    () => scopedItems.find(
       (item) => normalizeIdentifier(item?.id) === selectedItemId,
     ) || null,
-    [aggregatedItems, selectedItemId],
+    [scopedItems, selectedItemId],
   );
 
   const selectedMovements = useMemo(
     () => movements
-      .filter((movement) =>
-        normalizeIdentifier(movement?.item_id) === selectedItemId &&
-        (!requestedTechnicianId ||
-          normalizeIdentifier(movement?.technician_id) === requestedTechnicianId),
-      )
+      .filter((movement) => {
+        if (normalizeIdentifier(movement?.item_id) !== selectedItemId) return false;
+        if (
+          selectedWarehouseId !== null &&
+          normalizeIdentifier(movement?.warehouse_id) !== selectedWarehouseId
+        ) return false;
+        if (
+          selectedWarehouseId === null &&
+          requestedTechnicianId &&
+          normalizeIdentifier(movement?.technician_id) !== requestedTechnicianId
+        ) return false;
+        return true;
+      })
+      .map((movement) => {
+        const technician = technicianById.get(
+          normalizeIdentifier(movement?.technician_id),
+        );
+        const warehouse = warehouseById.get(
+          normalizeIdentifier(movement?.warehouse_id),
+        );
+        return {
+          ...movement,
+          technician_name: text(technician?.name),
+          technician_employee_id: text(technician?.employee_id),
+          warehouse_name: text(warehouse?.name),
+          warehouse_code: text(warehouse?.code),
+          warehouse_type: warehouseType(warehouse),
+        };
+      })
       .slice(0, 50),
-    [movements, requestedTechnicianId, selectedItemId],
+    [
+      movements,
+      requestedTechnicianId,
+      selectedItemId,
+      selectedWarehouseId,
+      technicianById,
+      warehouseById,
+    ],
   );
 
   const technicianMovements = useMemo(
@@ -359,12 +559,12 @@ export default function StocksPage({
   );
 
   const types = useMemo(
-    () => sortedUnique(aggregatedItems.map((item) => item?.equipment_type)),
-    [aggregatedItems],
+    () => sortedUnique(scopedItems.map((item) => item?.equipment_type)),
+    [scopedItems],
   );
   const operators = useMemo(
-    () => sortedUnique(aggregatedItems.map((item) => item?.operator)),
-    [aggregatedItems],
+    () => sortedUnique(scopedItems.map((item) => item?.operator)),
+    [scopedItems],
   );
 
   const openCreate = useCallback(() => {
@@ -385,15 +585,18 @@ export default function StocksPage({
         toast('Sélectionnez un article avant d’enregistrer une réception.', 'warning');
         return;
       }
-      if (warehouses.length === 0) {
-        toast('Aucun dépôt n’est configuré.', 'warning');
+      const physicalWarehouses = warehouses.filter(
+        (warehouse) => warehouseType(warehouse) !== 'TECHNICIEN',
+      );
+      if (physicalWarehouses.length === 0) {
+        toast('Aucun dépôt physique n’est configuré.', 'warning');
         return;
       }
       setReceptionItem(item);
       setFormError('');
       setReceptionOpen(true);
     },
-    [selectedItem, toast, warehouses.length],
+    [selectedItem, toast, warehouses],
   );
 
   const openIssue = useCallback(
@@ -506,11 +709,15 @@ export default function StocksPage({
     [loadData, toast],
   );
 
+  const physicalWarehouses = warehouses.filter(
+    (warehouse) => warehouseType(warehouse) !== 'TECHNICIEN',
+  );
+
   return (
     <div className="st3-page">
       <StockHeader
         catalogCount={summary.catalog}
-        warehouseCount={warehouses.length}
+        warehouseCount={physicalWarehouses.length}
         availableUnits={summary.available}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -521,7 +728,7 @@ export default function StocksPage({
         onReceive={() => openReception()}
         canManageCatalog={canManageCatalog}
         canMoveStock={canMoveStock}
-        hasWarehouses={warehouses.length > 0}
+        hasWarehouses={physicalWarehouses.length > 0}
       />
 
       {technicianContext ? (
@@ -569,6 +776,17 @@ export default function StocksPage({
           onFilter={setKpiFilter}
         />
 
+        <StockScopeBar
+          warehouses={warehouses}
+          technicians={technicians}
+          selectedWarehouseId={selectedWarehouseId}
+          onSelect={(warehouseId) => {
+            setSelectedWarehouseId(warehouseId);
+            setSelectedItemId(null);
+          }}
+          summary={summary}
+        />
+
         <main
           className={[
             'st3-workspace',
@@ -581,7 +799,10 @@ export default function StocksPage({
             warehouses={warehouses}
             lines={lines}
             selectedWarehouseId={selectedWarehouseId}
-            onSelect={setSelectedWarehouseId}
+            onSelect={(warehouseId) => {
+              setSelectedWarehouseId(warehouseId);
+              setSelectedItemId(null);
+            }}
             canCreateWarehouse={canManageCatalog}
             onCreateWarehouse={() => {
               setFormError('');
@@ -591,7 +812,7 @@ export default function StocksPage({
 
           <StockTable
             items={filteredItems}
-            totalCount={aggregatedItems.length}
+            totalCount={scopedItems.length}
             selectedId={selectedItemId}
             onSelect={setSelectedItemId}
             equipmentType={equipmentType}
@@ -607,8 +828,8 @@ export default function StocksPage({
             movements={selectedMovements}
             canManageCatalog={canManageCatalog}
             canMoveStock={canMoveStock}
-            canReceive={warehouses.length > 0}
-            canIssue={warehouses.length > 0 && technicians.length > 0}
+            canReceive={physicalWarehouses.length > 0}
+            canIssue={physicalWarehouses.length > 0 && technicians.length > 0}
             onEdit={openEdit}
             onReceive={openReception}
             onIssue={openIssue}
@@ -638,8 +859,14 @@ export default function StocksPage({
       {receptionOpen ? (
         <StockReceptionModal
           item={receptionItem}
-          warehouses={warehouses}
-          selectedWarehouseId={selectedWarehouseId}
+          warehouses={physicalWarehouses}
+          selectedWarehouseId={
+            physicalWarehouses.some(
+              (warehouse) => normalizeIdentifier(warehouse.id) === selectedWarehouseId,
+            )
+              ? selectedWarehouseId
+              : null
+          }
           saving={saving}
           error={formError}
           onClose={closeForms}
@@ -650,9 +877,15 @@ export default function StocksPage({
       {issueOpen ? (
         <StockIssueModal
           item={issueItem}
-          warehouses={warehouses}
+          warehouses={physicalWarehouses}
           technicians={technicians}
-          initialWarehouseId={selectedWarehouseId}
+          initialWarehouseId={
+            physicalWarehouses.some(
+              (warehouse) => normalizeIdentifier(warehouse.id) === selectedWarehouseId,
+            )
+              ? selectedWarehouseId
+              : null
+          }
           initialTechnicianId={technicianContext?.id ?? null}
           saving={saving}
           error={formError}
