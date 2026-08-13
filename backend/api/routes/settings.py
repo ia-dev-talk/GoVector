@@ -53,7 +53,7 @@ router = APIRouter()
 _OPERATIONAL_NAMESPACE = "operational"
 _OPERATIONAL_SCHEMA_VERSION = 3
 _CATALOG_NAMESPACE = "business_catalog"
-_CATALOG_SCHEMA_VERSION = 1
+_CATALOG_SCHEMA_VERSION = 2
 
 
 _CATALOG_COLORS = (
@@ -163,36 +163,79 @@ def _unique_codes(items: list[CatalogItem], section: str) -> None:
         )
 
 
-def _merge_protected_catalog(
+def _merge_extensible_catalog(
     submitted: list[CatalogItem],
     defaults: list[CatalogItem],
     *,
     section: str,
-    force_active: bool = False,
+    force_system_active: bool = False,
 ) -> list[CatalogItem]:
+    """Preserve engine codes while allowing business aliases.
+
+    Engine-backed identifiers remain mandatory because PostgreSQL/workflow
+    contracts still rely on them. Additional rows are safe presentation aliases:
+    each one must declare the canonical system code it maps to in metadata.
+    This lets administrators extend business vocabulary without introducing an
+    unsupported enum value into jobs or technician sync.
+    """
+
     _unique_codes(submitted, section)
     submitted_by_code = {item.code: item for item in submitted}
-    expected_codes = {item.code for item in defaults}
-    if set(submitted_by_code) != expected_codes:
+    default_by_code = {item.code: item for item in defaults}
+    expected_codes = set(default_by_code)
+    missing_codes = sorted(expected_codes - set(submitted_by_code))
+    if missing_codes:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                f"Les identifiants techniques de {section} sont protégés. "
-                "Modifiez leur présentation sans ajouter ni supprimer de code."
+                f"Les identifiants système de {section} sont protégés. "
+                "Restaurez : " + ", ".join(missing_codes)
             ),
         )
-    return [
-        CatalogItem(
-            code=default.code,
-            label=submitted_by_code[default.code].label,
-            description=submitted_by_code[default.code].description,
-            color=submitted_by_code[default.code].color,
-            sort_order=submitted_by_code[default.code].sort_order,
-            active=True if force_active else submitted_by_code[default.code].active,
-            metadata=default.metadata,
+
+    merged: list[CatalogItem] = []
+    for default in defaults:
+        submitted_item = submitted_by_code[default.code]
+        merged.append(
+            CatalogItem(
+                code=default.code,
+                label=submitted_item.label,
+                description=submitted_item.description,
+                color=submitted_item.color,
+                sort_order=submitted_item.sort_order,
+                active=True if force_system_active else submitted_item.active,
+                metadata=default.metadata,
+            )
         )
-        for default in defaults
-    ]
+
+    for item in submitted:
+        if item.code in expected_codes:
+            continue
+        metadata = dict(item.metadata or {})
+        canonical = str(metadata.get("canonical") or "").strip()
+        if canonical not in expected_codes:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"L'élément métier « {item.code} » de {section} doit être "
+                    "rattaché à un comportement système existant."
+                ),
+            )
+        metadata["custom"] = True
+        metadata["canonical"] = canonical
+        merged.append(
+            CatalogItem(
+                code=item.code,
+                label=item.label,
+                description=item.description,
+                color=item.color,
+                sort_order=item.sort_order,
+                active=item.active,
+                metadata=metadata,
+            )
+        )
+
+    return sorted(merged, key=lambda item: (item.sort_order, item.code))
 
 
 async def _validated_catalog(
@@ -226,19 +269,19 @@ async def _validated_catalog(
         technician_grades=sorted(
             values.technician_grades, key=lambda item: (item.sort_order, item.code)
         ),
-        job_types=_merge_protected_catalog(
+        job_types=_merge_extensible_catalog(
             values.job_types, defaults.job_types, section="job_types"
         ),
-        priorities=_merge_protected_catalog(
+        priorities=_merge_extensible_catalog(
             values.priorities, defaults.priorities, section="priorities"
         ),
-        status_presentations=_merge_protected_catalog(
+        status_presentations=_merge_extensible_catalog(
             values.status_presentations,
             defaults.status_presentations,
             section="status_presentations",
-            force_active=True,
+            force_system_active=True,
         ),
-        field_actions=_merge_protected_catalog(
+        field_actions=_merge_extensible_catalog(
             values.field_actions, defaults.field_actions, section="field_actions"
         ),
     )
@@ -254,7 +297,7 @@ def _catalog_response(
     )
     return BusinessCatalogDocumentResponse(
         namespace=_CATALOG_NAMESPACE,
-        schema_version=_CATALOG_SCHEMA_VERSION,
+        schema_version=_CATALOG_SCHEMA_VERSION if document is None else document.schema_version,
         revision=document.revision if document is not None else 0,
         values=values,
         updated_by=document.updated_by if document is not None else None,
