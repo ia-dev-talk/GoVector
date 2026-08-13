@@ -1,6 +1,6 @@
 """Public-V2 stock traceability read model.
 
-The stock journal is already authoritative in ``stock_movements``.  This module
+The stock journal is already authoritative in ``stock_movements``. This module
 only exposes a richer, navigation-ready projection so the frontend can answer
 "what moved, from where, for whom and for which intervention?" without
 rebuilding joins in the browser.
@@ -8,6 +8,7 @@ rebuilding joins in the browser.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Optional
 
 from fastapi import Depends, Query
@@ -40,11 +41,20 @@ async def stock_history_v2(
     technician_id: Optional[int] = Query(None, gt=0),
     job_id: Optional[int] = Query(None, gt=0),
     movement_type: Optional[str] = Query(None),
+    operator: Optional[str] = Query(None),
+    created_from: Optional[datetime] = Query(None),
+    created_to: Optional[datetime] = Query(None),
     limit: int = Query(250, ge=1, le=1000),
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_internal_user),
 ):
-    """Return enriched immutable stock movements, newest first."""
+    """Return enriched immutable stock movements, newest first.
+
+    ``created_from`` and ``created_to`` accept ISO-8601 datetimes. The filters
+    intentionally live on the server so exports and audit views use the same
+    authoritative selection instead of filtering an already-truncated browser
+    result.
+    """
 
     statement = (
         select(
@@ -83,6 +93,14 @@ async def stock_history_v2(
         if enum_value is not None:
             statement = statement.where(StockMovement.movement_type == enum_value)
 
+    normalized_operator = (operator or "").strip()
+    if normalized_operator:
+        statement = statement.where(StockMovement.operator.ilike(normalized_operator))
+    if created_from is not None:
+        statement = statement.where(StockMovement.created_at >= created_from)
+    if created_to is not None:
+        statement = statement.where(StockMovement.created_at <= created_to)
+
     normalized_search = (search or "").strip()
     if normalized_search:
         like = f"%{normalized_search}%"
@@ -97,6 +115,7 @@ async def stock_history_v2(
                 Job.job_number.ilike(like),
                 Job.customer_name.ilike(like),
                 Job.service_address.ilike(like),
+                StockMovement.operator.ilike(like),
                 StockMovement.notes.ilike(like),
             )
         )
