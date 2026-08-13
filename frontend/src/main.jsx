@@ -4,6 +4,7 @@ import App from './App.jsx';
 import './styles/index.css';
 import './styles/bluevector-v3.css';
 import './styles/ux-readability-v2.css';
+import './styles/sector-flow-v2.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
 	<React.StrictMode>
