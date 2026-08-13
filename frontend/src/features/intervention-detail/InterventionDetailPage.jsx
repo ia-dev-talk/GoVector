@@ -11,7 +11,6 @@ import InterventionMapCard from './InterventionMapCard';
 import InterventionOverview from './InterventionOverview';
 import InterventionTechnicianPhotos from './InterventionTechnicianPhotos';
 import InterventionTimeline from './InterventionTimeline';
-import { technicianMediaBucket } from './interventionEvidenceClassification';
 import { getApiErrorMessage, identifier, isRecord } from './interventionDetailUtils';
 import '../../styles/intervention-detail.css';
 
@@ -156,12 +155,7 @@ export default function InterventionDetailPage({
     ? fieldRecord.technician_media
     : [];
   const evidenceFieldRecord = isRecord(fieldRecord)
-    ? {
-        ...fieldRecord,
-        technician_media: technicianMedia.filter(
-          (item) => technicianMediaBucket(item) !== 'photos',
-        ),
-      }
+    ? { ...fieldRecord, technician_media: [] }
     : fieldRecord;
   const canValidate = jobAllowsCommand(workflowCapabilities, 'validate');
   const relatedErrors = [timelineError, equipmentError, stockError, fieldRecordError].filter(Boolean);
