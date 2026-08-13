@@ -1,0 +1,54 @@
+/* V0.8 — the GIS hierarchy and operational registry must coexist in one scrollable page. */
+
+.sv3-page {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.sv3-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.sv3-page > .territory-workspace {
+  flex: 0 0 auto;
+  margin: 12px 12px 0;
+}
+
+.sv3-content {
+  flex: 0 0 auto;
+  min-height: 650px;
+  overflow: visible;
+}
+
+.sv3-workspace {
+  min-height: 560px;
+  height: 560px;
+  flex: 0 0 auto;
+}
+
+.territory-workspace__body {
+  min-height: 360px;
+}
+
+.territory-tree {
+  max-height: 520px;
+}
+
+@media (max-width: 1100px) {
+  .sv3-header {
+    position: relative;
+  }
+
+  .sv3-content {
+    min-height: 760px;
+  }
+
+  .sv3-workspace {
+    height: 680px;
+    min-height: 680px;
+  }
+}
