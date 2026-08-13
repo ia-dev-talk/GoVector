@@ -1,7 +1,7 @@
 .st3-warehouse-group-title {
-  padding: 10px 10px 5px;
-  color: #6f83a1;
-  font-size: 8px;
+  padding: 11px 11px 6px;
+  color: #7d91ad;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: .09em;
   text-transform: uppercase;
@@ -22,5 +22,207 @@
 }
 
 .st3-warehouse-row--technician > span:nth-child(2) small {
-  color: #7894bb;
+  color: #87a3ca;
+}
+
+/* V0.8 — normal desktop zoom must remain readable without wasting the workspace. */
+.st3-content {
+  padding: 12px 14px 16px;
+  gap: 12px;
+}
+
+.st3-kpi {
+  min-height: 66px;
+  padding: 10px 12px;
+}
+
+.st3-kpi-value {
+  font-size: 21px;
+}
+
+.st3-kpi-label {
+  font-size: 10px;
+}
+
+.st3-value-card small {
+  font-size: 9px;
+}
+
+.st3-value-card strong {
+  font-size: 14px;
+}
+
+.st3-warehouse-all,
+.st3-warehouse-row {
+  min-height: 68px;
+  padding: 9px 10px;
+  gap: 9px;
+}
+
+.st3-warehouse-all strong,
+.st3-warehouse-row strong {
+  font-size: 10.5px;
+}
+
+.st3-warehouse-all small,
+.st3-warehouse-row small {
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+
+.st3-panel-header span,
+.st3-warehouse-rail > header span,
+.st3-section-title,
+.st3-inspector-header > div > span {
+  font-size: 9px;
+}
+
+.st3-panel-header strong,
+.st3-warehouse-rail > header strong,
+.st3-inspector-header strong {
+  font-size: 14px;
+}
+
+.st3-table-toolbar select {
+  min-height: 36px;
+  padding: 0 11px;
+  font-size: 10px;
+}
+
+.st3-table-head {
+  min-height: 40px;
+  font-size: 9px;
+}
+
+.st3-item-row {
+  min-height: 66px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.st3-item-row strong {
+  font-size: 10.5px;
+}
+
+.st3-item-row small {
+  color: #7588a4;
+  font-size: 8.5px;
+}
+
+.st3-stock-state {
+  min-height: 27px;
+  padding: 0 9px;
+  font-size: 9px;
+}
+
+.st3-inspector-tabs {
+  min-height: 47px;
+}
+
+.st3-inspector-tabs button {
+  font-size: 9.5px;
+}
+
+.st3-inspector-body {
+  padding: 12px;
+}
+
+.st3-inspector-body section {
+  padding: 13px;
+}
+
+.st3-detail-grid span,
+.st3-metric span {
+  font-size: 8.5px;
+}
+
+.st3-detail-grid strong {
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.st3-metric {
+  min-height: 60px;
+}
+
+.st3-metric strong {
+  font-size: 17px;
+}
+
+.st3-line-list > div {
+  min-height: 60px;
+  padding: 8px;
+}
+
+.st3-line-list strong {
+  font-size: 10px;
+}
+
+.st3-line-list small {
+  font-size: 8.5px;
+}
+
+.st3-movement-card__topline time {
+  font-size: 9px;
+}
+
+.st3-movement-card__amount span {
+  font-size: 10px;
+}
+
+.st3-movement-card__amount small {
+  font-size: 9px !important;
+}
+
+.st3-movement-card__context > span,
+.st3-movement-card__note > span {
+  font-size: 8px;
+}
+
+.st3-movement-card__context strong,
+.st3-movement-card__note strong {
+  font-size: 10px !important;
+}
+
+.st3-movement-card__context small,
+.st3-movement-card__note small {
+  font-size: 8.5px !important;
+}
+
+.st3-scopebar {
+  min-height: 84px;
+  padding: 13px 16px;
+  gap: 16px;
+}
+
+.st3-scopebar__identity > span,
+.st3-scopebar__selector > span {
+  font-size: 9px;
+}
+
+.st3-scopebar__identity strong {
+  font-size: 15px;
+}
+
+.st3-scopebar__identity small {
+  font-size: 10px;
+}
+
+.st3-scopebar__selector select {
+  min-height: 42px;
+  padding: 0 12px;
+  font-size: 11px;
+}
+
+.st3-scopebar__metrics > div {
+  min-height: 55px;
+  padding: 8px 10px;
+}
+
+.st3-scopebar__metrics strong {
+  font-size: 16px;
+}
+
+.st3-scopebar__metrics span {
+  font-size: 8.5px;
 }
