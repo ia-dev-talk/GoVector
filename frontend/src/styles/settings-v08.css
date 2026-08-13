@@ -6,55 +6,55 @@
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-layout {
-  grid-template-columns: 214px minmax(0, 1fr);
+  grid-template-columns: 190px minmax(0, 1fr);
   height: calc(100% - 104px);
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-navigation-copy {
-  padding: 14px 12px 12px;
+  padding: 13px 10px 11px;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-navigation-copy strong {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-navigation-copy p {
   margin-top: 5px;
-  font-size: 9px;
+  font-size: 8.5px;
   line-height: 1.4;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-nav-group {
-  padding: 10px 7px 2px;
+  padding: 9px 6px 2px;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-nav-group h2 {
-  margin: 0 7px 6px;
+  margin: 0 6px 6px;
   font-size: 7.5px;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-nav-item {
-  grid-template-columns: 32px minmax(0, 1fr);
-  min-height: 50px;
-  padding: 7px 8px;
-  gap: 8px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  min-height: 48px;
+  padding: 6px 7px;
+  gap: 7px;
   border-radius: 9px;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-nav-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-nav-copy strong {
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-nav-copy small {
   margin-top: 2px;
-  font-size: 7.8px;
+  font-size: 7.5px;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-nav-status {
@@ -62,11 +62,11 @@
 }
 
 .sv3-page:has(> .sv3-layout) > .sv3-layout > .sv3-content {
-  padding: 24px 26px 34px;
+  padding: 24px 28px 36px;
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-section {
-  width: min(1420px, 100%);
+  width: min(1480px, 100%);
 }
 
 .sv3-page:has(> .sv3-layout) .sv3-section-heading {
@@ -79,7 +79,7 @@
 
 @media (max-width: 1250px) {
   .sv3-page:has(> .sv3-layout) .sv3-layout {
-    grid-template-columns: 190px minmax(0, 1fr);
+    grid-template-columns: 168px minmax(0, 1fr);
   }
 
   .sv3-page:has(> .sv3-layout) .sv3-navigation-copy p,
