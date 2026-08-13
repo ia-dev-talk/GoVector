@@ -48,21 +48,13 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
     super.dispose();
   }
 
-  void _onCapture(BarcodeCapture capture) {
-    if (_processing) return;
-    String? code;
-    for (final barcode in capture.barcodes) {
-      final value = barcode.rawValue?.trim();
-      if (value != null && value.isNotEmpty) {
-        code = value;
-        break;
-      }
-    }
-    if (code == null || code == _lastCode) return;
+  void _complete(String rawCode, {String label = 'Code équipement'}) {
+    final code = rawCode.trim();
+    if (code.isEmpty || _processing) return;
 
     _processing = true;
     _lastCode = code;
-    final result = EquipmentScanResult(code: code, label: 'Code équipement');
+    final result = EquipmentScanResult(code: code, label: label);
 
     if (widget.onScanned != null) {
       widget.onScanned!(result);
@@ -76,11 +68,108 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
     setState(() {});
   }
 
+  void _onCapture(BarcodeCapture capture) {
+    if (_processing) return;
+
+    for (final barcode in capture.barcodes) {
+      final value = barcode.rawValue?.trim();
+      if (value != null && value.isNotEmpty && value != _lastCode) {
+        _complete(value);
+        return;
+      }
+    }
+  }
+
   void _resume() {
     setState(() {
       _processing = false;
       _lastCode = null;
     });
+  }
+
+  Future<void> _manualEntry() async {
+    final controller = TextEditingController();
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: BlueVectorColors.surface,
+      builder: (sheetContext) {
+        final keyboard = MediaQuery.viewInsetsOf(sheetContext).bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            BlueVectorSpacing.lg,
+            BlueVectorSpacing.lg,
+            BlueVectorSpacing.lg,
+            BlueVectorSpacing.lg + keyboard,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Saisir le numéro de série',
+                style: TextStyle(
+                  color: BlueVectorColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: BlueVectorSpacing.xs),
+              const Text(
+                'Utilisez cette saisie si la caméra est indisponible ou si le code est abîmé.',
+                style: TextStyle(
+                  color: BlueVectorColors.textSecondary,
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: BlueVectorSpacing.md),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  labelText: 'Numéro de série / code',
+                  hintText: 'Ex. ALCLF1234567',
+                ),
+                onSubmitted: (raw) {
+                  final code = raw.trim();
+                  if (code.isNotEmpty) Navigator.pop(sheetContext, code);
+                },
+              ),
+              const SizedBox(height: BlueVectorSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(sheetContext),
+                      child: const Text('Annuler'),
+                    ),
+                  ),
+                  const SizedBox(width: BlueVectorSpacing.sm),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton(
+                      onPressed: () {
+                        final code = controller.text.trim();
+                        if (code.isNotEmpty) Navigator.pop(sheetContext, code);
+                      },
+                      child: const Text('Valider le code'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    controller.dispose();
+
+    if (!mounted || value == null || value.trim().isEmpty) return;
+    _complete(value, label: 'Code saisi manuellement');
   }
 
   @override
@@ -121,9 +210,9 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                     Colors.black.withValues(alpha: 0.58),
                     Colors.transparent,
                     Colors.transparent,
-                    Colors.black.withValues(alpha: 0.68),
+                    Colors.black.withValues(alpha: 0.72),
                   ],
-                  stops: const [0, .24, .72, 1],
+                  stops: const [0, .24, .68, 1],
                 ),
               ),
             ),
@@ -187,69 +276,84 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                 const Spacer(),
                 Padding(
                   padding: const EdgeInsets.all(BlueVectorSpacing.lg),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    child: _processing
-                        ? Container(
-                            key: const ValueKey('captured'),
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(BlueVectorSpacing.md),
-                            decoration: BoxDecoration(
-                              color: BlueVectorColors.surface.withValues(alpha: .95),
-                              border: Border.all(color: BlueVectorColors.borderStrong),
-                              borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
-                            ),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  'Code capturé',
-                                  style: TextStyle(
-                                    color: BlueVectorColors.success,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                  child: Column(
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: _processing
+                            ? Container(
+                                key: const ValueKey('captured'),
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(BlueVectorSpacing.md),
+                                decoration: BoxDecoration(
+                                  color: BlueVectorColors.surface.withValues(alpha: .95),
+                                  border: Border.all(color: BlueVectorColors.borderStrong),
+                                  borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
                                 ),
-                                const SizedBox(height: BlueVectorSpacing.xs),
-                                Text(
-                                  _lastCode ?? '—',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                child: Column(
+                                  children: [
+                                    const Text(
+                                      'Code capturé',
+                                      style: TextStyle(
+                                        color: BlueVectorColors.success,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: BlueVectorSpacing.xs),
+                                    Text(
+                                      _lastCode ?? '—',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: BlueVectorColors.textPrimary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    if (widget.jobId != null) ...[
+                                      const SizedBox(height: BlueVectorSpacing.sm),
+                                      OutlinedButton.icon(
+                                        onPressed: _resume,
+                                        icon: const Icon(Icons.qr_code_scanner_rounded),
+                                        label: const Text('Scanner de nouveau'),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              )
+                            : Container(
+                                key: const ValueKey('waiting'),
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: BlueVectorSpacing.sm,
+                                  horizontal: BlueVectorSpacing.md,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: .58),
+                                  borderRadius: BorderRadius.circular(BlueVectorRadius.pill),
+                                ),
+                                child: const Text(
+                                  'Détection automatique · gardez le code net dans le cadre',
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: BlueVectorColors.textPrimary,
-                                    fontSize: 12,
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
                                   ),
                                 ),
-                                if (widget.jobId != null) ...[
-                                  const SizedBox(height: BlueVectorSpacing.sm),
-                                  OutlinedButton.icon(
-                                    onPressed: _resume,
-                                    icon: const Icon(Icons.qr_code_scanner_rounded),
-                                    label: const Text('Scanner de nouveau'),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          )
-                        : Container(
-                            key: const ValueKey('waiting'),
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: BlueVectorSpacing.sm,
-                              horizontal: BlueVectorSpacing.md,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: .58),
-                              borderRadius: BorderRadius.circular(BlueVectorRadius.pill),
-                            ),
-                            child: const Text(
-                              'Détection automatique · gardez le code net dans le cadre',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
                               ),
-                            ),
+                      ),
+                      if (!_processing) ...[
+                        const SizedBox(height: BlueVectorSpacing.sm),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _manualEntry,
+                            icon: const Icon(Icons.keyboard_alt_outlined),
+                            label: const Text('Saisir le code manuellement'),
                           ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
