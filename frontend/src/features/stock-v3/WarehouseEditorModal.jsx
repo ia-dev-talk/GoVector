@@ -29,19 +29,30 @@ function normalizeCode(value) {
 }
 
 
+function initialForm(warehouse) {
+  if (!warehouse) return { ...INITIAL_FORM };
+  return {
+    name: text(warehouse?.name),
+    code: normalizeCode(warehouse?.code),
+    type_: text(warehouse?.type ?? warehouse?.type_, 'ENTREPOT'),
+    address: text(warehouse?.address),
+    city: text(warehouse?.city, 'Casablanca'),
+    description: text(warehouse?.description),
+    is_active: warehouse?.is_active !== false,
+  };
+}
+
+
 const WarehouseEditorModal = memo(function WarehouseEditorModal({
+  warehouse = null,
   saving,
   error,
   onClose,
   onSave,
 }) {
-  const [form, setForm] =
-    useState({
-      ...INITIAL_FORM,
-    });
-
-  const [localError, setLocalError] =
-    useState('');
+  const [form, setForm] = useState(() => initialForm(warehouse));
+  const [localError, setLocalError] = useState('');
+  const editing = Boolean(warehouse?.id);
 
   const update = (key, value) => {
     setForm((current) => ({
@@ -56,40 +67,29 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
     const type = text(form.type_);
 
     if (!name) {
-      setLocalError(
-        'Le nom du dépôt est obligatoire.',
-      );
+      setLocalError('Le nom du dépôt est obligatoire.');
       return;
     }
 
     if (!code) {
-      setLocalError(
-        'Le code du dépôt est obligatoire.',
-      );
+      setLocalError('Le code du dépôt est obligatoire.');
       return;
     }
 
     if (!type) {
-      setLocalError(
-        'Le type de dépôt est obligatoire.',
-      );
+      setLocalError('Le type de dépôt est obligatoire.');
       return;
     }
 
     setLocalError('');
-
     onSave({
       name,
       code,
       type_: type,
-      address:
-        text(form.address) || null,
-      city:
-        text(form.city) || null,
-      description:
-        text(form.description) || null,
-      is_active:
-        form.is_active !== false,
+      address: text(form.address) || null,
+      city: text(form.city) || null,
+      description: text(form.description) || null,
+      is_active: form.is_active !== false,
     });
   };
 
@@ -98,12 +98,7 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
       className="st3-modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {
-        if (
-          event.target ===
-          event.currentTarget
-        ) {
-          onClose();
-        }
+        if (event.target === event.currentTarget) onClose();
       }}
     >
       <section
@@ -113,22 +108,14 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
         aria-labelledby="st3-warehouse-title"
       >
         <header>
-          <span className="st3-modal-icon">
-            <WarehouseIcon />
-          </span>
-
+          <span className="st3-modal-icon"><WarehouseIcon /></span>
           <div>
             <span>Implantations logistiques</span>
             <strong id="st3-warehouse-title">
-              Créer un dépôt
+              {editing ? 'Modifier le dépôt' : 'Créer un dépôt'}
             </strong>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fermer"
-          >
+          <button type="button" onClick={onClose} aria-label="Fermer">
             <CloseIcon />
           </button>
         </header>
@@ -138,12 +125,7 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
             <span>Nom du dépôt</span>
             <input
               value={form.name}
-              onChange={(event) =>
-                update(
-                  'name',
-                  event.target.value,
-                )
-              }
+              onChange={(event) => update('name', event.target.value)}
               placeholder="Ex. Dépôt Sidi Maarouf"
               autoFocus
             />
@@ -153,124 +135,56 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
             <span>Code</span>
             <input
               value={form.code}
-              onChange={(event) =>
-                update(
-                  'code',
-                  normalizeCode(
-                    event.target.value,
-                  ),
-                )
-              }
+              onChange={(event) => update('code', normalizeCode(event.target.value))}
               placeholder="CAS-SM-01"
             />
           </label>
 
           <label>
             <span>Type</span>
-            <select
-              value={form.type_}
-              onChange={(event) =>
-                update(
-                  'type_',
-                  event.target.value,
-                )
-              }
-            >
-              <option value="ENTREPOT">
-                Entrepôt
-              </option>
-              <option value="DEPOT">
-                Dépôt
-              </option>
-              <option value="VEHICULE">
-                Véhicule
-              </option>
-              <option value="TECHNICIEN">
-                Stock technicien
-              </option>
+            <select value={form.type_} onChange={(event) => update('type_', event.target.value)}>
+              <option value="ENTREPOT">Entrepôt</option>
+              <option value="DEPOT">Dépôt</option>
+              <option value="VEHICULE">Véhicule</option>
+              <option value="TECHNICIEN">Stock technicien</option>
             </select>
           </label>
 
           <label>
             <span>Ville</span>
-            <input
-              value={form.city}
-              onChange={(event) =>
-                update(
-                  'city',
-                  event.target.value,
-                )
-              }
-            />
+            <input value={form.city} onChange={(event) => update('city', event.target.value)} />
           </label>
 
           <label>
             <span>Adresse</span>
-            <input
-              value={form.address}
-              onChange={(event) =>
-                update(
-                  'address',
-                  event.target.value,
-                )
-              }
-            />
+            <input value={form.address} onChange={(event) => update('address', event.target.value)} />
           </label>
 
           <label className="st3-field-wide">
             <span>Description</span>
-            <textarea
-              rows={3}
-              value={form.description}
-              onChange={(event) =>
-                update(
-                  'description',
-                  event.target.value,
-                )
-              }
-            />
+            <textarea rows={3} value={form.description} onChange={(event) => update('description', event.target.value)} />
           </label>
 
           <label className="st3-switch-field st3-field-wide">
             <input
               type="checkbox"
               checked={form.is_active}
-              onChange={(event) =>
-                update(
-                  'is_active',
-                  event.target.checked,
-                )
-              }
+              onChange={(event) => update('is_active', event.target.checked)}
             />
             <span>Dépôt actif</span>
           </label>
 
           {(localError || error) && (
-            <div className="st3-form-error st3-field-wide">
-              {localError || error}
-            </div>
+            <div className="st3-form-error st3-field-wide">{localError || error}</div>
           )}
         </div>
 
         <footer>
-          <button
-            type="button"
-            className="st3-secondary-button"
-            onClick={onClose}
-            disabled={saving}
-          >
+          <button type="button" className="st3-secondary-button" onClick={onClose} disabled={saving}>
             Annuler
           </button>
-
-          <button
-            type="button"
-            className="st3-primary-button"
-            onClick={submit}
-            disabled={saving}
-          >
-            {saving
-              ? 'Création…'
-              : 'Créer le dépôt'}
+          <button type="button" className="st3-primary-button" onClick={submit} disabled={saving}>
+            {saving ? 'Enregistrement…' : editing ? 'Enregistrer' : 'Créer le dépôt'}
           </button>
         </footer>
       </section>
