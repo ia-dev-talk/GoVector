@@ -83,25 +83,48 @@ class TechnicianStockService {
     }
   }
 
+  static bool canUseCustodyCacheForStatus(int statusCode) {
+    return statusCode == 408 || statusCode == 429 || statusCode >= 500;
+  }
+
+  static Future<List<Map<String, dynamic>>> _fallbackCustody(
+    String token,
+    Object error,
+  ) async {
+    final cached = await _cachedCustody(token);
+    if (cached != null) return cached;
+    throw error;
+  }
+
   static Future<List<Map<String, dynamic>>> getCustody() async {
     final token = await _token();
+    late final http.Response response;
+
     try {
-      final response = await http
+      response = await http
           .get(
             AppConfig.apiUri('tech/jobs/stock-v2'),
             headers: _headers(token),
           )
           .timeout(AppConfig.httpTimeout);
-      if (response.statusCode != 200) {
-        throw Exception(_detail(response));
+    } catch (error) {
+      return _fallbackCustody(token, error);
+    }
+
+    if (response.statusCode != 200) {
+      final error = Exception(_detail(response));
+      if (canUseCustodyCacheForStatus(response.statusCode)) {
+        return _fallbackCustody(token, error);
       }
+      throw error;
+    }
+
+    try {
       final rows = _decodeCustody(response.body);
       await _cacheCustody(token, rows);
       return rows;
     } catch (error) {
-      final cached = await _cachedCustody(token);
-      if (cached != null) return cached;
-      rethrow;
+      return _fallbackCustody(token, error);
     }
   }
 
