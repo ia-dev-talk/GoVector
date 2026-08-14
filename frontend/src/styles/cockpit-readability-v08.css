@@ -1,0 +1,94 @@
+/* BlueVector V0.8 — cockpit readability pass.
+   Keep the dense two-column pilotage layout, but remove sub-10px copy
+   that made the cockpit hard to scan on normal laptop/desktop screens. */
+
+@media (min-width: 900px) {
+  .cockpit-v4-workspace .cpv4-metric strong {
+    font-size: 18px;
+  }
+
+  .cockpit-v4-workspace .cpv4-metric b {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .cockpit-v4-workspace .cpv4-metric small {
+    margin-top: 3px;
+    font-size: 9px;
+    line-height: 1.25;
+  }
+
+  .cockpit-v4-workspace .cpv4-panel-header > div:first-child > span,
+  .cockpit-v4-workspace .cpv4-label {
+    font-size: 8px;
+  }
+
+  .cockpit-v4-workspace .cpv4-panel-header > div:first-child > strong {
+    font-size: 13px;
+  }
+
+  .cockpit-v4-workspace .cpv4-link {
+    font-size: 9px;
+  }
+
+  .cockpit-v4-workspace .cpv4-progress-head span,
+  .cockpit-v4-workspace .cpv4-stages b,
+  .cockpit-v4-workspace .cpv4-score,
+  .cockpit-v4-workspace .cpv4-sector-row strong,
+  .cockpit-v4-workspace .cpv4-quality > div > strong,
+  .cockpit-v4-workspace .cpv4-activity time {
+    font-size: 9px;
+  }
+
+  .cockpit-v4-workspace .cpv4-stages small,
+  .cockpit-v4-workspace .cpv4-personnel small,
+  .cockpit-v4-workspace .cpv4-sector-row > span:first-child,
+  .cockpit-v4-workspace .cpv4-quality > div > span {
+    font-size: 9px;
+  }
+
+  .cockpit-v4-workspace .cpv4-stages strong {
+    font-size: 15px;
+  }
+
+  .cockpit-v4-workspace .cpv4-decision strong {
+    font-size: 11px;
+  }
+
+  .cockpit-v4-workspace .cpv4-decision small {
+    font-size: 9px;
+    line-height: 1.3;
+  }
+
+  .cockpit-v4-workspace .cpv4-personnel strong {
+    font-size: 12px;
+  }
+
+  .cockpit-v4-workspace .cpv4-activity strong {
+    font-size: 10px;
+  }
+
+  .cockpit-v4-workspace .cpv4-activity small,
+  .cockpit-v4-workspace .cpv4-empty {
+    font-size: 9px;
+  }
+
+  .cockpit-v4-workspace .cpv4-access strong {
+    font-size: 10.5px;
+  }
+
+  .cockpit-v4-workspace .cpv4-access small {
+    font-size: 9px;
+    line-height: 1.25;
+  }
+
+  .cockpit-v4-workspace .cpv4-configbar-copy strong {
+    font-size: 11px;
+  }
+
+  .cockpit-v4-workspace .cpv4-configbar-copy span,
+  .cockpit-v4-workspace .cpv4-config-option,
+  .cockpit-v4-workspace .cpv4-config-reset {
+    font-size: 9px;
+  }
+}
