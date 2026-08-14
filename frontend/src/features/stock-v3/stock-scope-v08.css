@@ -2,11 +2,11 @@
 
 .st3-scopebar {
   display: grid;
-  grid-template-columns: minmax(220px, .8fr) minmax(300px, 1.2fr) auto;
+  grid-template-columns: minmax(220px, .8fr) minmax(300px, 1.2fr);
   align-items: center;
   gap: 14px;
-  min-height: 72px;
-  padding: 11px 14px;
+  min-height: 62px;
+  padding: 9px 14px;
   border: 1px solid var(--border-color);
   border-radius: 13px;
   background: linear-gradient(135deg, rgba(75,141,255,.065), rgba(255,255,255,.012));
@@ -62,35 +62,13 @@
   box-shadow: 0 0 0 3px rgba(75,141,255,.11);
 }
 
+/* The KPI strip directly above already reflects the active holder scope.
+ * Repeating articles / available / reserved here created a second dashboard row
+ * and consumed vertical workspace without adding a new decision. Keep the scope
+ * bar focused on one job only: identify and change the stock holder context.
+ */
 .st3-scopebar__metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(74px, 1fr));
-  gap: 6px;
-}
-
-.st3-scopebar__metrics > div {
-  display: flex;
-  min-width: 74px;
-  min-height: 48px;
-  padding: 7px 9px;
-  justify-content: center;
-  flex-direction: column;
-  gap: 2px;
-  border: 1px solid rgba(112,140,180,.14);
-  border-radius: 9px;
-  background: rgba(4,13,24,.36);
-}
-
-.st3-scopebar__metrics strong {
-  color: #fff;
-  font-family: var(--font-mono);
-  font-size: 14px;
-}
-
-.st3-scopebar__metrics span {
-  color: #71859f;
-  font-size: 7.5px;
-  text-transform: uppercase;
+  display: none;
 }
 
 .st3-history-section {
@@ -200,17 +178,9 @@
   white-space: nowrap;
 }
 
-@container st3-page (max-width: 1300px) {
-  .st3-scopebar {
-    grid-template-columns: minmax(180px,.7fr) minmax(240px,1.2fr);
-  }
-  .st3-scopebar__metrics {
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
 @container st3-page (max-width: 880px) {
-  .st3-scopebar { grid-template-columns: 1fr; }
-  .st3-scopebar__metrics { grid-column: auto; }
+  .st3-scopebar {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
 }
