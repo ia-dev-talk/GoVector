@@ -67,43 +67,155 @@ class _FreeDocumentActionScreenState extends State<FreeDocumentActionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final file = _file;
+    final reference = widget.job.jobNumber.trim().isEmpty
+        ? 'Intervention #${widget.job.id}'
+        : widget.job.jobNumber.trim();
+    final customer = widget.job.customerName.trim();
+
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(title: const Text('Ajouter un document')),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(BlueVectorSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+        bottom: false,
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(
+            BlueVectorSpacing.md,
+            BlueVectorSpacing.md,
+            BlueVectorSpacing.md,
+            BlueVectorSpacing.xl,
+          ),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(BlueVectorSpacing.md),
+              decoration: BoxDecoration(
+                color: BlueVectorColors.surface,
+                borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+                border: Border.all(color: BlueVectorColors.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: BlueVectorColors.violet.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+                    ),
+                    child: const Icon(
+                      Icons.description_outlined,
+                      color: BlueVectorColors.violet,
+                    ),
+                  ),
+                  const SizedBox(width: BlueVectorSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          reference,
+                          style: const TextStyle(
+                            color: BlueVectorColors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (customer.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            customer,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: BlueVectorColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: BlueVectorSpacing.lg),
+            Text(
+              'PIÈCE À JOINDRE',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: BlueVectorColors.textSecondary,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: BlueVectorSpacing.xs),
+            OutlinedButton.icon(
+              onPressed: _saving ? null : _pick,
+              icon: Icon(
+                file == null
+                    ? Icons.attach_file_rounded
+                    : Icons.check_circle_outline_rounded,
+              ),
+              label: Text(file?.name ?? 'Choisir un PDF ou document'),
+            ),
+            if (file != null) ...[
+              const SizedBox(height: BlueVectorSpacing.xs),
               Text(
-                '${widget.job.jobNumber} · ${widget.job.customerName}',
-                style: const TextStyle(color: BlueVectorColors.textSecondary),
-              ),
-              const SizedBox(height: BlueVectorSpacing.lg),
-              OutlinedButton.icon(
-                onPressed: _saving ? null : _pick,
-                icon: const Icon(Icons.attach_file_rounded),
-                label: Text(_file?.name ?? 'Choisir un fichier'),
-              ),
-              const SizedBox(height: BlueVectorSpacing.sm),
-              TextField(
-                controller: _comment,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Commentaire (facultatif)',
+                '${file.extension?.toUpperCase() ?? 'FICHIER'} · ${_formatBytes(file.size)}',
+                style: const TextStyle(
+                  color: BlueVectorColors.textMuted,
+                  fontSize: 10,
                 ),
               ),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: _file?.path != null && !_saving ? _save : null,
-                icon: const Icon(Icons.save_outlined),
-                label: Text(_saving ? 'Enregistrement…' : 'Enregistrer'),
-              ),
             ],
-          ),
+            const SizedBox(height: BlueVectorSpacing.lg),
+            TextField(
+              controller: _comment,
+              minLines: 3,
+              maxLines: 6,
+              textInputAction: TextInputAction.newline,
+              scrollPadding: const EdgeInsets.only(bottom: 120),
+              decoration: const InputDecoration(
+                labelText: 'Commentaire (facultatif)',
+                hintText: 'Contexte utile pour le bureau ou le contrôle…',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: BlueVectorSpacing.md),
+            const Text(
+              'Le document est conservé localement si le réseau est indisponible, puis synchronisé avec l’intervention.',
+              style: TextStyle(
+                color: BlueVectorColors.textMuted,
+                fontSize: 10,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(
+          BlueVectorSpacing.md,
+          BlueVectorSpacing.xs,
+          BlueVectorSpacing.md,
+          BlueVectorSpacing.md,
+        ),
+        child: FilledButton.icon(
+          onPressed: file?.path != null && !_saving ? _save : null,
+          icon: const Icon(Icons.save_outlined),
+          label: Text(_saving ? 'Enregistrement…' : 'Enregistrer le document'),
         ),
       ),
     );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} Mo';
+    }
+    if (bytes >= 1024) {
+      return '${(bytes / 1024).toStringAsFixed(0)} Ko';
+    }
+    return '$bytes o';
   }
 }
