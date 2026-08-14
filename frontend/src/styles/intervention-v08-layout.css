@@ -92,7 +92,13 @@
 
   .intervention-detail-timeline-rail,
   .intervention-detail-evidence-rail {
+    position: sticky;
+    top: 14px;
     align-self: start;
+    max-height: calc(100vh - 190px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
   }
 
   .intervention-detail-map-body {
