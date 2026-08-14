@@ -10,6 +10,7 @@ import './styles/operations-final-v08.css';
 import './styles/intervention-v08-layout.css';
 import './styles/stock-responsive-v08.css';
 import './styles/supervision-responsive-v08.css';
+import './styles/cockpit-readability-v08.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
 	<React.StrictMode>
