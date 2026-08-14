@@ -24,6 +24,16 @@ def test_network_reference_requires_an_explicit_supported_type():
         {"reference_type": "pto"},
     )
 
+    pm_extracted = extract_structured_attribute(
+        action_type="network_reference",
+        payload={"reference_type": "pm", "value": "SRO-CASA-42"},
+    )
+    assert pm_extracted == (
+        "pm_reference",
+        "SRO-CASA-42",
+        {"reference_type": "pm"},
+    )
+
 
 def test_equipment_scan_maps_only_known_operational_categories():
     assert extract_structured_attribute(
@@ -67,6 +77,7 @@ def test_planned_value_remains_separate_and_nullable():
     job = SimpleNamespace(
         pto_raw="PTO-PLANNED",
         pbo_raw=None,
+        sro_raw="SRO-PLANNED",
         ont_serial=None,
         router_serial="RTR-1",
         wifi_box_serial=None,
@@ -75,4 +86,15 @@ def test_planned_value_remains_separate_and_nullable():
     assert planned_value_for_job(job, "pto_reference") == "PTO-PLANNED"
     assert planned_value_for_job(job, "pbo_reference") is None
     assert planned_value_for_job(job, "router_serial") == "RTR-1"
-    assert planned_value_for_job(job, "pm_reference") is None
+    assert planned_value_for_job(job, "pm_reference") == "SRO-PLANNED"
+
+    assert classify_attribute_observation(
+        observed_value="sro-planned",
+        resolved_value=None,
+        planned_value=planned_value_for_job(job, "pm_reference"),
+    ) == "accepted"
+    assert classify_attribute_observation(
+        observed_value="SRO-OTHER",
+        resolved_value=None,
+        planned_value=planned_value_for_job(job, "pm_reference"),
+    ) == "conflict"
