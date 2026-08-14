@@ -21,9 +21,12 @@ class MobileJobJournal extends StatefulWidget {
 }
 
 class _MobileJobJournalState extends State<MobileJobJournal> {
+  static const _collapsedEntryCount = 5;
+
   List<_JournalEntry> _entries = const [];
   bool _loading = true;
   bool _serverUnavailable = false;
+  bool _expanded = false;
 
   @override
   void initState() {
@@ -36,6 +39,9 @@ class _MobileJobJournalState extends State<MobileJobJournal> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.jobId != widget.jobId ||
         oldWidget.refreshToken != widget.refreshToken) {
+      if (oldWidget.jobId != widget.jobId) {
+        _expanded = false;
+      }
       _load();
     }
   }
@@ -53,7 +59,7 @@ class _MobileJobJournalState extends State<MobileJobJournal> {
     final entries = <_JournalEntry>[
       for (final item in server) _JournalEntry.fromServer(item),
       for (final event in local) _JournalEntry.fromLocal(event),
-    ]..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+    ]..sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
     if (!mounted) return;
     setState(() {
       _entries = entries;
@@ -64,6 +70,11 @@ class _MobileJobJournalState extends State<MobileJobJournal> {
 
   @override
   Widget build(BuildContext context) {
+    final visibleEntries = _expanded
+        ? _entries
+        : _entries.take(_collapsedEntryCount).toList(growable: false);
+    final hiddenCount = _entries.length - visibleEntries.length;
+
     return Container(
       padding: const EdgeInsets.all(BlueVectorSpacing.md),
       decoration: BoxDecoration(
@@ -81,7 +92,30 @@ class _MobileJobJournalState extends State<MobileJobJournal> {
               style: const TextStyle(color: BlueVectorColors.textMuted),
             )
           : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Activité récente',
+                        style: TextStyle(
+                          color: BlueVectorColors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${_entries.length} événement${_entries.length > 1 ? 's' : ''}',
+                      style: const TextStyle(
+                        color: BlueVectorColors.textMuted,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: BlueVectorSpacing.sm),
                 if (_serverUnavailable)
                   const Padding(
                     padding: EdgeInsets.only(bottom: BlueVectorSpacing.sm),
@@ -103,11 +137,30 @@ class _MobileJobJournalState extends State<MobileJobJournal> {
                       ],
                     ),
                   ),
-                for (var index = 0; index < _entries.length; index++)
+                for (var index = 0; index < visibleEntries.length; index++)
                   _JournalRow(
-                    entry: _entries[index],
-                    isLast: index == _entries.length - 1,
+                    entry: visibleEntries[index],
+                    isLast: index == visibleEntries.length - 1,
                   ),
+                if (_entries.length > _collapsedEntryCount) ...[
+                  const SizedBox(height: BlueVectorSpacing.xs),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: () => setState(() => _expanded = !_expanded),
+                      icon: Icon(
+                        _expanded
+                            ? Icons.expand_less_rounded
+                            : Icons.history_rounded,
+                      ),
+                      label: Text(
+                        _expanded
+                            ? 'Réduire le journal'
+                            : 'Voir $hiddenCount événement${hiddenCount > 1 ? 's' : ''} précédent${hiddenCount > 1 ? 's' : ''}',
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
     );
@@ -173,6 +226,7 @@ class _JournalEntry {
     'intervention_photo' => 'Photo ajoutée',
     'intervention_video' => 'Vidéo ajoutée',
     'intervention_document' => 'Document ajouté',
+    'intervention_sketch' => 'Croquis terrain ajouté',
     'intervention_comment' => 'Commentaire',
     'job_communication' ||
     'communication_reply' => 'Réponse au bureau',
