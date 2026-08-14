@@ -9,12 +9,12 @@ import {
 
 function jobDate(job) {
   const candidates = [
-    job?.completed_at,
-    job?.ended_at,
-    job?.closed_at,
     job?.scheduled_at,
     job?.scheduled_date,
     job?.planned_date,
+    job?.completed_at,
+    job?.ended_at,
+    job?.closed_at,
     job?.created_at,
   ];
 
