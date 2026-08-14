@@ -198,10 +198,45 @@
   text-align:center;
 }
 
-@media(max-width:1180px){
-  .intervention-field-summary-grid{grid-template-columns:1fr}
-  .intervention-field-summary-heading{align-items:flex-start;flex-direction:column}
-  .intervention-field-summary-heading small{text-align:left}
+@media(max-width:1180px) and (min-width:761px){
+  .intervention-field-summary-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .intervention-field-summary-block--gps{
+    grid-column:1/-1;
+  }
+
+  .intervention-field-summary-heading{
+    align-items:flex-end;
+    flex-direction:row;
+  }
+
+  .intervention-field-summary-heading small{
+    max-width:280px;
+    text-align:right;
+  }
+}
+
+@media(max-width:760px){
+  .intervention-field-summary{
+    padding:12px;
+  }
+
+  .intervention-field-summary-grid{
+    grid-template-columns:1fr;
+  }
+
+  .intervention-field-summary-heading{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:8px;
+  }
+
+  .intervention-field-summary-heading small{
+    max-width:none;
+    text-align:left;
+  }
 }
 
 @media(max-width:650px){
