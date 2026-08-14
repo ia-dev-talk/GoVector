@@ -41,6 +41,11 @@ function emptyBuckets() {
   return Object.fromEntries(KNOWN_BUCKETS.map((key) => [key, []]));
 }
 
+export function isCommunicationMedia(media) {
+  const eventType = normalized(media?.event_type ?? media?.eventType).replaceAll('-', '_');
+  return eventType === 'job_communication';
+}
+
 export function technicianMediaBucket(media) {
   const kind = normalizedKind(media);
   const mime = normalizedMime(media);
@@ -81,7 +86,7 @@ export function classifyTechnicianMedia(media) {
   const buckets = emptyBuckets();
 
   for (const item of Array.isArray(media) ? media : []) {
-    if (!item || typeof item !== 'object') continue;
+    if (!item || typeof item !== 'object' || isCommunicationMedia(item)) continue;
     buckets[technicianMediaBucket(item)].push(item);
   }
 
@@ -108,7 +113,7 @@ export function buildInterventionEvidenceBuckets({
   }
 
   for (const item of Array.isArray(technicianMedia) ? technicianMedia : []) {
-    if (!item || typeof item !== 'object') continue;
+    if (!item || typeof item !== 'object' || isCommunicationMedia(item)) continue;
     const bucket = technicianMediaBucket(item);
     buckets[bucket].push({
       ...item,
