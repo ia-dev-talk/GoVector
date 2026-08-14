@@ -1,0 +1,28 @@
+/* BlueVector V0.8 — preserve the actionable stock inspector on laptop widths.
+ *
+ * The holder selector already exposes depots and technician custody. On constrained
+ * desktop widths, the left warehouse rail is therefore the redundant surface; the
+ * item inspector is not. Keep catalog + actions visible instead of hiding the
+ * selected item's operational detail.
+ */
+
+@container st3-page (max-width: 1040px) and (min-width: 761px) {
+  .st3-workspace,
+  .st3-workspace--rail-collapsed {
+    grid-template-columns: minmax(0, 1fr) minmax(270px, 0.72fr) !important;
+  }
+
+  .st3-warehouse-rail,
+  .st3-warehouse-rail--collapsed {
+    display: none !important;
+  }
+
+  .st3-table-panel {
+    min-width: 0 !important;
+  }
+
+  .st3-inspector {
+    display: flex !important;
+    min-width: 0 !important;
+  }
+}
