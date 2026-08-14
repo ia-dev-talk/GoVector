@@ -60,6 +60,46 @@
   }
 }
 
+/*
+ * Large operations screens should behave like an intervention desk rather than
+ * a centered document. Keep planning history, business context and evidence
+ * visible in parallel once there is genuinely enough horizontal room.
+ */
+@media (min-width: 1650px) {
+  .intervention-detail-page {
+    padding-inline: 20px;
+  }
+
+  .intervention-detail-layout {
+    grid-template-columns:
+      minmax(260px, .52fr)
+      minmax(680px, 1.55fr)
+      minmax(320px, .68fr);
+    grid-template-areas: "timeline center evidence";
+    gap: 16px;
+  }
+
+  .intervention-detail-center {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .intervention-detail-center > .intervention-detail-card:first-child,
+  .intervention-detail-center > .intervention-detail-card:last-child {
+    grid-column: auto;
+  }
+
+  .intervention-detail-timeline-rail,
+  .intervention-detail-evidence-rail {
+    align-self: start;
+  }
+
+  .intervention-detail-map-body {
+    height: clamp(360px, 42vh, 520px);
+  }
+}
+
 @media (min-width: 781px) and (max-width: 1180px) {
   .intervention-detail-layout {
     display: grid;
