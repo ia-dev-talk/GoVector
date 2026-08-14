@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 
 import { api } from '../../api/client';
 import ImageAnnotationDialog from './ImageAnnotationDialog';
@@ -6,10 +6,10 @@ import { classifyTechnicianMedia } from './interventionEvidenceClassification';
 import './intervention-technician-photos.css';
 
 const GROUPS = Object.freeze([
-  ['photos', 'Photos terrain'],
+  ['photos', 'Photos'],
   ['sketches', 'Croquis terrain'],
-  ['videos', 'Vidéos terrain'],
-  ['documents', 'Documents terrain'],
+  ['videos', 'Vidéos'],
+  ['documents', 'Documents'],
   ['signatures', 'Signature client'],
   ['other', 'Autres preuves'],
 ]);
@@ -41,12 +41,11 @@ export default function InterventionTechnicianPhotos({ job, media = [], onRecord
       .filter((group) => group.items.length > 0),
     [buckets],
   );
-  const total = groups.reduce((sum, group) => sum + group.items.length, 0);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
   const [annotationTarget, setAnnotationTarget] = useState(null);
 
-  if (total === 0) return null;
+  if (groups.length === 0) return null;
 
   const openMedia = async (item) => {
     setBusyId(item.media_id);
@@ -107,16 +106,21 @@ export default function InterventionTechnicianPhotos({ job, media = [], onRecord
   };
 
   return (
-    <section className="intervention-detail-card intervention-tech-photos">
-      <header className="intervention-detail-card-header">
-        <div><span>Preuves synchronisées</span><h2>Preuves terrain</h2></div>
-        <span className="intervention-detail-card-count">{total}</span>
-      </header>
-      <div className="intervention-tech-photos__body">
-        {error ? <div className="intervention-tech-photos__error">{error}</div> : null}
-        {groups.map((group) => (
-          <section className="intervention-tech-evidence-group" key={group.key}>
-            <header className="intervention-tech-evidence-group__header"><strong>{group.label}</strong><span>{group.items.length}</span></header>
+    <>
+      {error ? <div className="intervention-tech-photos__error">{error}</div> : null}
+      {groups.map((group) => (
+        <section
+          className={`intervention-detail-card intervention-tech-evidence-card intervention-tech-evidence-card--${group.key}`}
+          key={group.key}
+        >
+          <header className="intervention-detail-card-header">
+            <div>
+              <span>Preuves synchronisées</span>
+              <h2>{group.label}</h2>
+            </div>
+            <span className="intervention-detail-card-count">{group.items.length}</span>
+          </header>
+          <div className="intervention-tech-photos__body">
             <div className="intervention-tech-photos__grid">
               {group.items.map((item) => {
                 const busy = busyId === item.media_id;
@@ -137,12 +141,12 @@ export default function InterventionTechnicianPhotos({ job, media = [], onRecord
                 );
               })}
             </div>
-          </section>
-        ))}
-      </div>
+          </div>
+        </section>
+      ))}
       {annotationTarget ? (
         <ImageAnnotationDialog blob={annotationTarget.blob} title={annotationTarget.filename || 'Photo terrain'} onCancel={() => setAnnotationTarget(null)} onSave={saveAnnotation} />
       ) : null}
-    </section>
+    </>
   );
 }
