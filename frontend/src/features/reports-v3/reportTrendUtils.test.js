@@ -55,6 +55,43 @@ test('daily series keeps empty days and classifies terminal outcomes', () => {
 });
 
 
+test('daily workload stays on the planned day when completion happens later', () => {
+  const range = {
+    start: new Date(2026, 7, 10),
+    end: new Date(2026, 7, 12),
+  };
+  const series = buildDailySeries([
+    {
+      scheduled_date: '2026-08-10',
+      completed_at: '2026-08-11T17:30:00Z',
+      status: 'COMPLETED',
+    },
+  ], range);
+
+  assert.equal(series[0].total, 1);
+  assert.equal(series[0].completed, 1);
+  assert.equal(series[1].total, 0);
+});
+
+
+test('daily series falls back to completion date when no planned date exists', () => {
+  const range = {
+    start: new Date(2026, 7, 10),
+    end: new Date(2026, 7, 12),
+  };
+  const series = buildDailySeries([
+    {
+      completed_at: '2026-08-11T09:00:00',
+      status: 'COMPLETED',
+    },
+  ], range);
+
+  assert.equal(series[0].total, 0);
+  assert.equal(series[1].total, 1);
+  assert.equal(series[1].completed, 1);
+});
+
+
 test('trend explanation describes the estimated daily movement', () => {
   const message = trendExplanation({
     slope: -1.25,
