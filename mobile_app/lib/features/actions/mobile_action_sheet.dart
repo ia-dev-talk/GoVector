@@ -188,34 +188,80 @@ Future<void> showMobileActionSheet({
     required String hint,
   }) async {
     final controller = TextEditingController();
-    final value = await showDialog<String>(
+    final value = await showModalBottomSheet<String>(
       context: pageContext,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 3,
-          maxLines: 6,
-          decoration: InputDecoration(hintText: hint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Annuler'),
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final keyboardInset = MediaQuery.viewInsetsOf(sheetContext).bottom;
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: keyboardInset),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              BlueVectorSpacing.md,
+              BlueVectorSpacing.sm,
+              BlueVectorSpacing.md,
+              BlueVectorSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(sheetContext).textTheme.titleLarge,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Fermer',
+                      onPressed: () => Navigator.pop(sheetContext),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: BlueVectorSpacing.xs),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  minLines: 3,
+                  maxLines: 6,
+                  textInputAction: TextInputAction.newline,
+                  decoration: InputDecoration(hintText: hint),
+                ),
+                const SizedBox(height: BlueVectorSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        child: const Text('Annuler'),
+                      ),
+                    ),
+                    const SizedBox(width: BlueVectorSpacing.xs),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton(
+                        onPressed: () {
+                          final text = controller.text.trim();
+                          if (text.isNotEmpty) {
+                            Navigator.pop(sheetContext, text);
+                          }
+                        },
+                        child: const Text('Enregistrer'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          FilledButton(
-            onPressed: () {
-              final text = controller.text.trim();
-
-              if (text.isNotEmpty) {
-                Navigator.pop(dialogContext, text);
-              }
-            },
-            child: const Text('Enregistrer'),
-          ),
-        ],
-      ),
+        );
+      },
     );
     controller.dispose();
 
@@ -239,63 +285,124 @@ Future<void> showMobileActionSheet({
   Future<void> promptNetworkReference() async {
     final controller = TextEditingController();
     var referenceType = 'pto';
-    final result = await showDialog<Map<String, String>>(
+    final result = await showModalBottomSheet<Map<String, String>>(
       context: pageContext,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Référence réseau observée'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Choisissez ce que vous relevez. La valeur préparée par le bureau reste conservée en cas de différence.',
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(bottom: keyboardInset),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                BlueVectorSpacing.md,
+                BlueVectorSpacing.sm,
+                BlueVectorSpacing.md,
+                BlueVectorSpacing.lg,
               ),
-              const SizedBox(height: BlueVectorSpacing.sm),
-              DropdownButtonFormField<String>(
-                initialValue: referenceType,
-                decoration: const InputDecoration(labelText: 'Type de repère'),
-                items: const [
-                  DropdownMenuItem(value: 'pto', child: Text('PTO')),
-                  DropdownMenuItem(value: 'pbo', child: Text('PBO')),
-                  DropdownMenuItem(value: 'pm', child: Text('PM / SRO')),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Référence réseau observée',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: BlueVectorSpacing.xxs),
+                            const Text(
+                              'La valeur préparée par le bureau reste conservée si le terrain diffère.',
+                              style: TextStyle(
+                                color: BlueVectorColors.textSecondary,
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Fermer',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: BlueVectorSpacing.md),
+                  DropdownButtonFormField<String>(
+                    initialValue: referenceType,
+                    decoration: const InputDecoration(labelText: 'Type de repère'),
+                    items: const [
+                      DropdownMenuItem(value: 'pto', child: Text('PTO')),
+                      DropdownMenuItem(value: 'pbo', child: Text('PBO')),
+                      DropdownMenuItem(value: 'pm', child: Text('PM / SRO')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setSheetState(() => referenceType = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: BlueVectorSpacing.sm),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) {
+                      final value = controller.text.trim();
+                      if (value.isNotEmpty) {
+                        Navigator.pop(context, {
+                          'reference_type': referenceType,
+                          'value': value,
+                        });
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Référence lue sur place',
+                      hintText: 'Ex. PTO-CASA-001234',
+                    ),
+                  ),
+                  const SizedBox(height: BlueVectorSpacing.md),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Annuler'),
+                        ),
+                      ),
+                      const SizedBox(width: BlueVectorSpacing.xs),
+                      Expanded(
+                        flex: 2,
+                        child: FilledButton(
+                          onPressed: () {
+                            final value = controller.text.trim();
+                            if (value.isNotEmpty) {
+                              Navigator.pop(context, {
+                                'reference_type': referenceType,
+                                'value': value,
+                              });
+                            }
+                          },
+                          child: const Text('Enregistrer'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setDialogState(() => referenceType = value);
-                  }
-                },
               ),
-              const SizedBox(height: BlueVectorSpacing.sm),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Référence lue sur place',
-                  hintText: 'Ex. PTO-CASA-001234',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Annuler'),
             ),
-            FilledButton(
-              onPressed: () {
-                final value = controller.text.trim();
-                if (value.isNotEmpty) {
-                  Navigator.pop(dialogContext, {
-                    'reference_type': referenceType,
-                    'value': value,
-                  });
-                }
-              },
-              child: const Text('Enregistrer'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
     controller.dispose();
