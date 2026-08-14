@@ -1,0 +1,108 @@
+/* BlueVector V0.8 — preserve the resolution workflow on constrained desktops.
+ *
+ * Supervision is an action surface, not only an alert reader. The V4 base hides
+ * the resolution rail once the workspace becomes narrow; on normal laptop widths
+ * that removes the recommendation, facts and primary action entirely. Stack the
+ * resolution panel below queue + context instead, and only collapse to a single
+ * column on genuinely narrow screens.
+ */
+
+@container supervision-v4 (max-width: 1080px) and (min-width: 761px) {
+  .supv4-workspace {
+    grid-template-columns: minmax(245px, 0.62fr) minmax(0, 1.38fr) !important;
+    grid-template-rows: minmax(420px, 1fr) auto;
+    align-content: stretch;
+    overflow-y: auto;
+  }
+
+  .supv4-queue,
+  .supv4-context {
+    min-height: 420px;
+  }
+
+  .supv4-resolution {
+    display: flex !important;
+    grid-column: 1 / -1;
+    min-height: 0;
+  }
+
+  .supv4-resolution-body {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.9fr) minmax(260px, 1.1fr) minmax(220px, 0.8fr);
+    align-items: start;
+    gap: 8px;
+    overflow: visible !important;
+  }
+
+  .supv4-recommendation,
+  .supv4-resolution-facts,
+  .supv4-resolution-actions,
+  .supv4-rules,
+  .supv4-scope {
+    margin-top: 0 !important;
+  }
+
+  .supv4-resolution-facts {
+    grid-column: 2;
+  }
+
+  .supv4-resolution-actions {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .supv4-rules {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+
+  .supv4-scope {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .supv4-resolution-actions--nominal {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}
+
+@container supervision-v4 (max-width: 880px) and (min-width: 761px) {
+  .supv4-resolution-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .supv4-recommendation {
+    grid-column: 1;
+  }
+
+  .supv4-resolution-facts {
+    grid-column: 2;
+  }
+
+  .supv4-resolution-actions {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .supv4-rules {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .supv4-scope {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+}
+
+@container supervision-v4 (max-width: 760px) {
+  .supv4-workspace {
+    overflow-y: visible;
+  }
+
+  .supv4-resolution {
+    display: flex !important;
+    min-height: 360px;
+  }
+}
