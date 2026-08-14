@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   classifyTechnicianMedia,
   countTechnicianMedia,
+  isCommunicationMedia,
   technicianMediaBucket,
 } from './interventionEvidenceClassification.js';
 
@@ -48,6 +49,28 @@ test('uses MIME type as a safe fallback for older media records', () => {
   assert.equal(technicianMediaBucket({ mime_type: 'application/octet-stream' }), 'other');
 });
 
+test('keeps communication attachments in the communication thread only', () => {
+  const communicationPhoto = {
+    media_id: 30,
+    kind: 'photo',
+    event_type: 'job_communication',
+    mime_type: 'image/png',
+  };
+
+  assert.equal(isCommunicationMedia(communicationPhoto), true);
+
+  const buckets = classifyTechnicianMedia([
+    communicationPhoto,
+    { media_id: 31, kind: 'photo', event_type: 'intervention_photo' },
+  ]);
+
+  assert.deepEqual(buckets.photos.map((item) => item.media_id), [31]);
+  assert.equal(
+    Object.values(buckets).reduce((total, items) => total + items.length, 0),
+    1,
+  );
+});
+
 test('returns stable counts and ignores invalid collection entries', () => {
   const counts = countTechnicianMedia([
     null,
@@ -56,6 +79,7 @@ test('returns stable counts and ignores invalid collection entries', () => {
     { kind: 'photo' },
     { kind: 'document' },
     { kind: 'unknown' },
+    { kind: 'photo', event_type: 'job_communication' },
   ]);
 
   assert.deepEqual(counts, {
