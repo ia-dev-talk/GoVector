@@ -1,11 +1,15 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/config.dart';
 import 'auth_service.dart';
 
 class TechnicianStockService {
+  static const _custodyCachePrefix = 'bluevector:technician-custody:v1';
+
   static Future<String> _token() async {
     final token = await AuthService.getToken();
     if (token == null || token.isEmpty) {
@@ -37,23 +41,68 @@ class TechnicianStockService {
     return 'Erreur de communication avec BlueVector';
   }
 
-  static Future<List<Map<String, dynamic>>> getCustody() async {
-    final token = await _token();
-    final response = await http
-        .get(
-          AppConfig.apiUri('tech/jobs/stock-v2'),
-          headers: _headers(token),
-        )
-        .timeout(AppConfig.httpTimeout);
-    if (response.statusCode != 200) {
-      throw Exception(_detail(response));
-    }
-    final decoded = jsonDecode(response.body);
+  static String _custodyCacheKey(String token) {
+    final sessionFingerprint = sha256
+        .convert(utf8.encode(token))
+        .toString()
+        .substring(0, 20);
+    return '$_custodyCachePrefix:$sessionFingerprint';
+  }
+
+  static List<Map<String, dynamic>> _decodeCustody(String raw) {
+    final decoded = jsonDecode(raw);
     if (decoded is! List) return const [];
     return decoded
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
         .toList(growable: false);
+  }
+
+  static Future<void> _cacheCustody(
+    String token,
+    List<Map<String, dynamic>> rows,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _custodyCacheKey(token),
+      jsonEncode(rows),
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>?> _cachedCustody(
+    String token,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    final cached = preferences.getString(_custodyCacheKey(token));
+    if (cached == null || cached.trim().isEmpty) return null;
+    try {
+      return _decodeCustody(cached);
+    } catch (_) {
+      await preferences.remove(_custodyCacheKey(token));
+      return null;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getCustody() async {
+    final token = await _token();
+    try {
+      final response = await http
+          .get(
+            AppConfig.apiUri('tech/jobs/stock-v2'),
+            headers: _headers(token),
+          )
+          .timeout(AppConfig.httpTimeout);
+      if (response.statusCode != 200) {
+        throw Exception(_detail(response));
+      }
+      final rows = _decodeCustody(response.body);
+      await _cacheCustody(token, rows);
+      return rows;
+    } catch (error) {
+      final cached = await _cachedCustody(token);
+      if (cached != null) return cached;
+      rethrow;
+    }
   }
 
   static Future<Map<String, dynamic>> resolveScan({
