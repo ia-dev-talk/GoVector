@@ -43,7 +43,7 @@ EQUIPMENT_CATEGORY_KEYS = {
 ATTRIBUTE_LABELS = {
     "pto_reference": "Référence PTO",
     "pbo_reference": "Référence PBO",
-    "pm_reference": "Référence PM",
+    "pm_reference": "Référence PM / SRO",
     "ont_serial": "Numéro de série ONT",
     "router_serial": "Numéro de série routeur",
     "wifi_box_serial": "Numéro de série boîtier WiFi",
@@ -54,6 +54,7 @@ ATTRIBUTE_LABELS = {
 JOB_PLANNED_FIELDS = {
     "pto_reference": "pto_raw",
     "pbo_reference": "pbo_raw",
+    "pm_reference": "sro_raw",
     "ont_serial": "ont_serial",
     "router_serial": "router_serial",
     "wifi_box_serial": "wifi_box_serial",
