@@ -631,9 +631,9 @@ Future<void> showMobileActionSheet({
 
       return DraggableScrollableSheet(
         expand: false,
-        initialChildSize: 0.88,
-        minChildSize: 0.55,
-        maxChildSize: 0.96,
+        initialChildSize: 0.82,
+        minChildSize: 0.48,
+        maxChildSize: 0.94,
         builder: (context, scrollController) => ListView(
           controller: scrollController,
           padding: EdgeInsets.fromLTRB(
@@ -703,7 +703,7 @@ Future<void> showMobileActionSheet({
                           crossAxisCount: 2,
                           crossAxisSpacing: BlueVectorSpacing.xs,
                           mainAxisSpacing: BlueVectorSpacing.xs,
-                          childAspectRatio: 1.72,
+                          childAspectRatio: 2.15,
                         ),
                     itemBuilder: (context, index) {
                       final action = categoryActions[index];
@@ -718,7 +718,7 @@ Future<void> showMobileActionSheet({
                   );
                 },
               ),
-              const SizedBox(height: BlueVectorSpacing.lg),
+              const SizedBox(height: BlueVectorSpacing.md),
             ],
           ],
         ),
@@ -859,7 +859,7 @@ class _ActionSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(category.icon, size: 15, color: BlueVectorColors.primaryBright),
+        Icon(category.icon, size: 14, color: BlueVectorColors.primaryBright),
         const SizedBox(width: BlueVectorSpacing.xs),
         Text(
           category.label,
@@ -890,7 +890,7 @@ class _ActionTile extends StatelessWidget {
         onTap: onPressed,
         borderRadius: BorderRadius.circular(BlueVectorRadius.small),
         child: Container(
-          padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+          padding: const EdgeInsets.all(BlueVectorSpacing.xs),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(BlueVectorRadius.small),
             border: Border.all(color: BlueVectorColors.border),
@@ -898,23 +898,23 @@ class _ActionTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: action.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(BlueVectorRadius.small),
                 ),
-                child: Icon(action.icon, color: action.color, size: 21),
+                child: Icon(action.icon, color: action.color, size: 19),
               ),
-              const SizedBox(width: BlueVectorSpacing.sm),
+              const SizedBox(width: BlueVectorSpacing.xs),
               Expanded(
                 child: Text(
                   action.label,
                   style: const TextStyle(
                     color: BlueVectorColors.textPrimary,
-                    fontSize: 11,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w800,
-                    height: 1.15,
+                    height: 1.12,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
