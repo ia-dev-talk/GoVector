@@ -107,14 +107,16 @@
 }
 
 /*
- * A 1024–1180px operations viewport is still wide enough for a real desk.
+ * A 900–1180px operations viewport is still wide enough for a real desk.
  * Keeping the history/evidence rail beside the dossier avoids pushing the two
  * most useful verification surfaces below a long map and business record.
+ * The 900px threshold also covers common compact laptop/browser widths seen in
+ * manual QA without forcing a cramped rail on true tablet layouts.
  */
-@media (min-width: 980px) and (max-width: 1180px) {
+@media (min-width: 900px) and (max-width: 1180px) {
   .intervention-detail-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(300px, .48fr);
+    grid-template-columns: minmax(0, 1fr) minmax(280px, .46fr);
     grid-template-areas:
       "center timeline"
       "center evidence";
@@ -149,7 +151,7 @@
   }
 }
 
-@media (min-width: 781px) and (max-width: 979px) {
+@media (min-width: 781px) and (max-width: 899px) {
   .intervention-detail-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
