@@ -159,8 +159,10 @@ class CurrentInterventionScreen extends StatelessWidget {
                   jobId: intervention.id,
                   refreshToken: pendingActions,
                 ),
-                const SizedBox(height: BlueVectorSpacing.lg),
-                _NetworkDataCard(job: intervention),
+                if (_NetworkDataCard.hasData(intervention)) ...[
+                  const SizedBox(height: BlueVectorSpacing.md),
+                  _NetworkDataCard(job: intervention),
+                ],
               ],
             ),
           ),
@@ -607,6 +609,14 @@ class _NetworkDataCard extends StatelessWidget {
 
   final Job job;
 
+  static bool hasData(Job job) => [
+    job.operator,
+    job.nro,
+    job.sro,
+    job.pbo,
+    job.pto,
+  ].any((value) => value?.trim().isNotEmpty == true);
+
   @override
   Widget build(BuildContext context) {
     final values = [
@@ -615,10 +625,10 @@ class _NetworkDataCard extends StatelessWidget {
       ('SRO', job.sro),
       ('PBO', job.pbo),
       ('PTO', job.pto),
-    ];
+    ].where((value) => value.$2?.trim().isNotEmpty == true).toList();
 
     return Container(
-      padding: const EdgeInsets.all(BlueVectorSpacing.md),
+      padding: const EdgeInsets.all(BlueVectorSpacing.sm),
       decoration: BoxDecoration(
         color: BlueVectorColors.surface,
         borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
@@ -627,39 +637,78 @@ class _NetworkDataCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Données réseau',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: BlueVectorSpacing.md),
-          for (final value in values)
-            Padding(
-              padding: const EdgeInsets.only(bottom: BlueVectorSpacing.sm),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 82,
-                    child: Text(
-                      value.$1,
-                      style: const TextStyle(
-                        color: BlueVectorColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      value.$2?.trim().isNotEmpty == true ? value.$2! : '—',
-                      style: const TextStyle(
-                        color: BlueVectorColors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
+          const Row(
+            children: [
+              Icon(
+                Icons.hub_outlined,
+                color: BlueVectorColors.primaryBright,
+                size: 16,
               ),
-            ),
+              SizedBox(width: BlueVectorSpacing.xs),
+              Text(
+                'Réseau préparé',
+                style: TextStyle(
+                  color: BlueVectorColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: BlueVectorSpacing.xs),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = (constraints.maxWidth - BlueVectorSpacing.xs) / 2;
+
+              return Wrap(
+                spacing: BlueVectorSpacing.xs,
+                runSpacing: BlueVectorSpacing.xs,
+                children: [
+                  for (final value in values)
+                    SizedBox(
+                      width: itemWidth,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: BlueVectorSpacing.xs,
+                          vertical: BlueVectorSpacing.xs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: BlueVectorColors.surfaceSoft,
+                          borderRadius: BorderRadius.circular(
+                            BlueVectorRadius.small,
+                          ),
+                          border: Border.all(color: BlueVectorColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              value.$1,
+                              style: const TextStyle(
+                                color: BlueVectorColors.textMuted,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              value.$2!.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: BlueVectorColors.textPrimary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
