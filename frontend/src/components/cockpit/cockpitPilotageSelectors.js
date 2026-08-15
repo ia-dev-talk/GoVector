@@ -252,8 +252,8 @@ function buildDecisions(jobs, summary, personnel, quality, statusMetadata) {
       key: 'quality',
       tone: 'info',
       title: 'Données métier incomplètes',
-      detail: `Compléter ${incomplete.join(' et ')}.`,
-      page: 'rapports',
+      detail: `Compléter ${incomplete.join(' et ')} dans les interventions concernées.`,
+      page: 'interventions',
     });
   }
 
