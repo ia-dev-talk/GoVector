@@ -14,7 +14,7 @@ class BlueVectorBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final markSize = compact ? 42.0 : 64.0;
+    final markSize = compact ? 36.0 : 64.0;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -24,7 +24,7 @@ class BlueVectorBrand extends StatelessWidget {
           height: markSize,
           child: const CustomPaint(painter: _BlueVectorMarkPainter()),
         ),
-        SizedBox(width: compact ? 10 : 14),
+        SizedBox(width: compact ? 8 : 14),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -33,9 +33,9 @@ class BlueVectorBrand extends StatelessWidget {
               'BlueVector',
               style: TextStyle(
                 color: BlueVectorColors.textPrimary,
-                fontSize: compact ? 20 : 27,
+                fontSize: compact ? 18 : 27,
                 fontWeight: FontWeight.w800,
-                letterSpacing: -0.8,
+                letterSpacing: compact ? -0.5 : -0.8,
               ),
             ),
             if (showSubtitle)
@@ -43,7 +43,7 @@ class BlueVectorBrand extends StatelessWidget {
                 'Technicien FTTH',
                 style: TextStyle(
                   color: BlueVectorColors.textSecondary,
-                  fontSize: compact ? 10 : 12,
+                  fontSize: compact ? 9 : 12,
                   fontWeight: FontWeight.w500,
                 ),
               ),
