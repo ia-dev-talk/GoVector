@@ -76,67 +76,75 @@ class _MobileJobJournalState extends State<MobileJobJournal> {
     final hiddenCount = _entries.length - visibleEntries.length;
 
     return Container(
-      padding: const EdgeInsets.all(BlueVectorSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        BlueVectorSpacing.sm,
+        BlueVectorSpacing.xs,
+        BlueVectorSpacing.sm,
+        BlueVectorSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: BlueVectorColors.surface,
         borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
         border: Border.all(color: BlueVectorColors.border),
       ),
       child: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: BlueVectorSpacing.sm),
+              child: Center(child: CircularProgressIndicator()),
+            )
           : _entries.isEmpty
-          ? Text(
-              _serverUnavailable
-                  ? 'Journal serveur indisponible hors ligne.'
-                  : 'Aucune activité enregistrée.',
-              style: const TextStyle(color: BlueVectorColors.textMuted),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: BlueVectorSpacing.sm),
+              child: Text(
+                _serverUnavailable
+                    ? 'Journal serveur indisponible hors ligne.'
+                    : 'Aucune activité enregistrée.',
+                style: const TextStyle(color: BlueVectorColors.textMuted),
+              ),
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Activité récente',
-                        style: TextStyle(
-                          color: BlueVectorColors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${_entries.length} événement${_entries.length > 1 ? 's' : ''}',
-                      style: const TextStyle(
-                        color: BlueVectorColors.textMuted,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: BlueVectorSpacing.sm),
-                if (_serverUnavailable)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: BlueVectorSpacing.sm),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.cloud_off_outlined,
-                          size: 14,
-                          color: BlueVectorColors.warning,
-                        ),
-                        SizedBox(width: BlueVectorSpacing.xs),
-                        Text(
-                          'Activités locales affichées',
-                          style: TextStyle(
-                            color: BlueVectorColors.warning,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: BlueVectorSpacing.xs,
+                    right: BlueVectorSpacing.xs,
+                    bottom: BlueVectorSpacing.xs,
                   ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${_entries.length} événement${_entries.length > 1 ? 's' : ''}',
+                        style: const TextStyle(
+                          color: BlueVectorColors.textMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_serverUnavailable)
+                        const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.cloud_off_outlined,
+                              size: 13,
+                              color: BlueVectorColors.warning,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Local',
+                              style: TextStyle(
+                                color: BlueVectorColors.warning,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
                 for (var index = 0; index < visibleEntries.length; index++)
                   _JournalRow(
                     entry: visibleEntries[index],
@@ -287,7 +295,7 @@ class _JournalRow extends StatelessWidget {
           const SizedBox(width: BlueVectorSpacing.sm),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: BlueVectorSpacing.md),
+              padding: const EdgeInsets.only(bottom: BlueVectorSpacing.sm),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
