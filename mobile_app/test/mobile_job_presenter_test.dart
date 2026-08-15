@@ -2,7 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_app/features/interventions/mobile_job_presenter.dart';
 import 'package:mobile_app/models/job.dart';
 
-Job _job(String type) => Job(
+Job _job(
+  String type, {
+  String? priority,
+  String? validationStatus,
+}) => Job(
   id: 4,
   jobNumber: '',
   jobType: type,
@@ -12,6 +16,8 @@ Job _job(String type) => Job(
   assignedTechId: 3,
   latitude: 33.547915,
   longitude: -7.595783,
+  priority: priority,
+  validationStatus: validationStatus,
 );
 
 void main() {
@@ -29,6 +35,33 @@ void main() {
 
     test('keeps the FTTH fallback when no type is configured', () {
       expect(MobileJobPresenter.title(_job('   ')), 'Intervention FTTH');
+    });
+  });
+
+  group('MobileJobPresenter.isUrgent', () {
+    test('uses the authoritative intervention priority from the API', () {
+      expect(
+        MobileJobPresenter.isUrgent(
+          _job('DEPANNAGE', priority: 'URGENT'),
+        ),
+        isTrue,
+      );
+      expect(
+        MobileJobPresenter.isUrgent(
+          _job('DEPANNAGE', priority: 'normal'),
+        ),
+        isFalse,
+      );
+    });
+
+    test('keeps legacy urgency signals for backward compatibility', () {
+      expect(
+        MobileJobPresenter.isUrgent(
+          _job('DEPANNAGE', validationStatus: 'URGENT'),
+        ),
+        isTrue,
+      );
+      expect(MobileJobPresenter.isUrgent(_job('URGENCE')), isTrue);
     });
   });
 }

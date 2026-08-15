@@ -37,6 +37,7 @@ class Job {
   final double? opticalPowerDbm;
   final int? cableLengthM;
 
+  final String? priority;
   final String? validationStatus;
   final bool? rejectedByOperator;
   final String? failureReason;
@@ -80,6 +81,7 @@ class Job {
     this.opticalPowerDbm,
     this.cableLengthM,
 
+    this.priority,
     this.validationStatus,
     this.rejectedByOperator,
     this.failureReason,
@@ -95,32 +97,25 @@ class Job {
       serviceAddress: json["service_address"] ?? "",
       assignedTechId: json["assigned_tech_id"],
 
-      gpsLatitude:
-          (json["gps_latitude"] as num?)?.toDouble(),
+      gpsLatitude: (json["gps_latitude"] as num?)?.toDouble(),
 
-      gpsLongitude:
-          (json["gps_longitude"] as num?)?.toDouble(),
+      gpsLongitude: (json["gps_longitude"] as num?)?.toDouble(),
 
       beforePhoto: json["before_photo"],
 
       afterPhoto: json["after_photo"],
 
-      customerPhone:
-    json["customer_phone"],
+      customerPhone: json["customer_phone"],
 
-      scheduledDate:
-    json["scheduled_date"],
+      scheduledDate: json["scheduled_date"],
 
-      latitude:
-    (json["latitude"] as num?)?.toDouble() ?? 0,
+      latitude: (json["latitude"] as num?)?.toDouble() ?? 0,
 
-      longitude:
-    (json["longitude"] as num?)?.toDouble() ?? 0,
+      longitude: (json["longitude"] as num?)?.toDouble() ?? 0,
       hasServiceCoordinates:
           json["latitude"] != null && json["longitude"] != null,
 
-      coordinatorComments:
-          json["coordinator_comments"],
+      coordinatorComments: json["coordinator_comments"],
 
       ontSerial: json["ont_serial"],
       routerSerial: json["router_serial"],
@@ -133,9 +128,10 @@ class Job {
       splitter: json["splitter"],
       splitterPort: json["splitter_port"],
       pto: json["pto"],
-      opticalPowerDbm:(json["optical_power_dbm"] as num?)?.toDouble(),
+      opticalPowerDbm: (json["optical_power_dbm"] as num?)?.toDouble(),
       cableLengthM: json["cable_length_m"],
 
+      priority: json["priority"],
       validationStatus: json["validation_status"],
       rejectedByOperator: json["rejected_by_operator"],
       failureReason: json["failure_reason"],
@@ -173,6 +169,7 @@ class Job {
       "pto": pto,
       "optical_power_dbm": opticalPowerDbm,
       "cable_length_m": cableLengthM,
+      "priority": priority,
       "validation_status": validationStatus,
       "rejected_by_operator": rejectedByOperator,
       "failure_reason": failureReason,

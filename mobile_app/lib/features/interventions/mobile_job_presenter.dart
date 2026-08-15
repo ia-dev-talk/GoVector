@@ -19,8 +19,11 @@ abstract final class MobileJobPresenter {
   }
 
   static bool isUrgent(Job job) {
-    return (job.validationStatus ?? '').toUpperCase() == 'URGENT' ||
-        job.jobType.toUpperCase() == 'URGENCE';
+    final priority = (job.priority ?? '').trim().toUpperCase();
+    final validation = (job.validationStatus ?? '').trim().toUpperCase();
+    final type = job.jobType.trim().toUpperCase();
+
+    return priority == 'URGENT' || validation == 'URGENT' || type == 'URGENCE';
   }
 
   static DateTime? scheduledAt(Job job) {
