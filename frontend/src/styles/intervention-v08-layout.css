@@ -142,6 +142,17 @@
     width: 100%;
   }
 
+  .intervention-detail-timeline-rail,
+  .intervention-detail-evidence-rail {
+    position: sticky;
+    top: 10px;
+    align-self: start;
+    max-height: calc(100vh - 150px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
   .intervention-detail-overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
