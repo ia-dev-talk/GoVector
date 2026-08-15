@@ -217,31 +217,82 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
       final controller = TextEditingController();
       body = await showDialog<String>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Répondre au bureau'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            minLines: 3,
-            maxLines: 6,
-            decoration: const InputDecoration(
-              hintText: 'Votre réponse ou complément…',
+        useSafeArea: false,
+        builder: (dialogContext) {
+          final media = MediaQuery.of(dialogContext);
+          return AnimatedPadding(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.fromLTRB(
+              BlueVectorSpacing.md,
+              media.padding.top + BlueVectorSpacing.md,
+              BlueVectorSpacing.md,
+              media.viewInsets.bottom + BlueVectorSpacing.md,
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Annuler'),
+            child: Dialog(
+              insetPadding: EdgeInsets.zero,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(BlueVectorSpacing.md),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Répondre au bureau',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: BlueVectorSpacing.xs),
+                      const Text(
+                        'La réponse reste disponible hors ligne et sera synchronisée dès que possible.',
+                        style: TextStyle(color: BlueVectorColors.textSecondary),
+                      ),
+                      const SizedBox(height: BlueVectorSpacing.md),
+                      TextField(
+                        controller: controller,
+                        autofocus: true,
+                        minLines: 3,
+                        maxLines: 6,
+                        textInputAction: TextInputAction.newline,
+                        decoration: const InputDecoration(
+                          labelText: 'Réponse terrain',
+                          hintText: 'Votre réponse ou complément…',
+                        ),
+                      ),
+                      const SizedBox(height: BlueVectorSpacing.md),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              child: const Text('Annuler'),
+                            ),
+                          ),
+                          const SizedBox(width: BlueVectorSpacing.xs),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () {
+                                final value = controller.text.trim();
+                                if (value.isNotEmpty) {
+                                  Navigator.pop(dialogContext, value);
+                                }
+                              },
+                              child: const Text('Envoyer'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            FilledButton(
-              onPressed: () {
-                final value = controller.text.trim();
-                if (value.isNotEmpty) Navigator.pop(dialogContext, value);
-              },
-              child: const Text('Envoyer'),
-            ),
-          ],
-        ),
+          );
+        },
       );
       controller.dispose();
       if (body == null) return;
