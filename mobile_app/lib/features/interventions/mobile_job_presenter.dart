@@ -182,11 +182,50 @@ abstract final class MobileJobPresenter {
   }
 
   static String title(Job job) {
-    if (job.jobType.trim().isNotEmpty) {
-      return job.jobType;
+    final raw = job.jobType.trim();
+
+    if (raw.isEmpty) {
+      return 'Intervention FTTH';
     }
 
-    return 'Intervention FTTH';
+    final normalized = raw
+        .toUpperCase()
+        .replaceAll(RegExp(r'[\s_-]+'), ' ')
+        .trim();
+
+    const labels = <String, String>{
+      'DEPANNAGE': 'Dépannage',
+      'DEPANNAGE FTTH': 'Dépannage FTTH',
+      'SAV': 'SAV',
+      'SAV FTTH': 'SAV FTTH',
+      'INSTALLATION': 'Installation',
+      'INSTALLATION FTTH': 'Installation FTTH',
+      'MAINTENANCE': 'Maintenance',
+      'MAINTENANCE FTTH': 'Maintenance FTTH',
+      'MIGRATION': 'Migration',
+      'MIGRATION FTTH': 'Migration FTTH',
+      'URGENCE': 'Urgence',
+    };
+
+    final known = labels[normalized];
+    if (known != null) {
+      return known;
+    }
+
+    if (raw == raw.toUpperCase()) {
+      return raw
+          .toLowerCase()
+          .split(RegExp(r'\s+'))
+          .where((part) => part.isNotEmpty)
+          .map(
+            (part) => part.length == 1
+                ? part.toUpperCase()
+                : '${part[0].toUpperCase()}${part.substring(1)}',
+          )
+          .join(' ');
+    }
+
+    return raw;
   }
 
   static String reference(Job job) {
