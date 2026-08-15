@@ -89,7 +89,7 @@ class CurrentInterventionScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(
                 BlueVectorSpacing.md,
-                BlueVectorSpacing.xl,
+                BlueVectorSpacing.md,
                 BlueVectorSpacing.md,
                 BlueVectorSpacing.lg,
               ),
@@ -132,20 +132,20 @@ class CurrentInterventionScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: BlueVectorSpacing.lg),
+                const SizedBox(height: BlueVectorSpacing.md),
                 _ClientCard(
                   job: intervention,
                   onOpenSiteHistory: onOpenSiteHistory,
                 ),
-                const SizedBox(height: BlueVectorSpacing.sm),
+                const SizedBox(height: BlueVectorSpacing.xs),
                 _OperationalIndicators(
                   job: intervention,
                   isOnline: isOnline,
                   pendingActions: pendingActions,
                 ),
-                const SizedBox(height: BlueVectorSpacing.sm),
+                const SizedBox(height: BlueVectorSpacing.xs),
                 MobileFieldContextCard(jobId: intervention.id),
-                const SizedBox(height: BlueVectorSpacing.lg),
+                const SizedBox(height: BlueVectorSpacing.md),
                 Row(
                   children: [
                     Text(
@@ -185,8 +185,16 @@ class _ClientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final customerName = job.customerName.isEmpty
+        ? 'Client non renseigné'
+        : job.customerName;
+    final phone = job.customerPhone?.trim();
+    final address = job.serviceAddress.isEmpty
+        ? 'Adresse non renseignée'
+        : job.serviceAddress;
+
     return Container(
-      padding: const EdgeInsets.all(BlueVectorSpacing.md),
+      padding: const EdgeInsets.all(BlueVectorSpacing.sm),
       decoration: BoxDecoration(
         color: BlueVectorColors.surface,
         borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
@@ -197,8 +205,8 @@ class _ClientCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: BlueVectorColors.primarySoft,
                   borderRadius: BorderRadius.circular(BlueVectorRadius.small),
@@ -206,6 +214,7 @@ class _ClientCard extends StatelessWidget {
                 child: const Icon(
                   Icons.person_outline_rounded,
                   color: BlueVectorColors.primaryBright,
+                  size: 19,
                 ),
               ),
               const SizedBox(width: BlueVectorSpacing.sm),
@@ -214,76 +223,68 @@ class _ClientCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      job.customerName.isEmpty
-                          ? 'Client non renseigné'
-                          : job.customerName,
+                      customerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: BlueVectorColors.textPrimary,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      job.customerPhone?.trim().isNotEmpty == true
-                          ? job.customerPhone!
-                          : 'Téléphone non renseigné',
-                      style: const TextStyle(
-                        color: BlueVectorColors.textSecondary,
-                        fontSize: 11,
+                    if (phone?.isNotEmpty == true) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        phone!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: BlueVectorColors.textSecondary,
+                          fontSize: 10,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: BlueVectorColors.textMuted,
+              TextButton.icon(
+                onPressed: onOpenSiteHistory,
+                icon: const Icon(Icons.history_rounded, size: 16),
+                label: const Text('Historique'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  visualDensity: VisualDensity.compact,
+                  textStyle: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: BlueVectorSpacing.md),
-          const Divider(),
-          const SizedBox(height: BlueVectorSpacing.md),
+          const SizedBox(height: BlueVectorSpacing.xs),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(
                 Icons.location_on_outlined,
                 color: BlueVectorColors.textMuted,
-                size: 18,
+                size: 16,
               ),
               const SizedBox(width: BlueVectorSpacing.xs),
               Expanded(
                 child: Text(
-                  job.serviceAddress.isEmpty
-                      ? 'Adresse non renseignée'
-                      : job.serviceAddress,
+                  address,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: BlueVectorColors.textSecondary,
-                    fontSize: 12,
-                    height: 1.35,
+                    fontSize: 11,
+                    height: 1.3,
                   ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: BlueVectorSpacing.sm),
-          const Divider(),
-          Material(
-            color: Colors.transparent,
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              onTap: onOpenSiteHistory,
-              leading: const Icon(
-                Icons.history_rounded,
-                color: BlueVectorColors.primaryBright,
-              ),
-              title: const Text('Historique du site'),
-              subtitle: const Text('Travaux précédemment réalisés ici'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-            ),
           ),
         ],
       ),
@@ -317,22 +318,22 @@ class _OperationalIndicators extends StatelessWidget {
             color: BlueVectorColors.warning,
           ),
         ),
-        const SizedBox(width: BlueVectorSpacing.xs),
+        const SizedBox(width: BlueVectorSpacing.xxs),
         Expanded(
           child: _Indicator(
             icon: Icons.location_searching_rounded,
             label: 'Site',
             value: hasSiteCoordinates
-                ? 'Coordonnées'
+                ? 'GPS prêt'
                 : hasAddress
-                ? 'Adresse seule'
+                ? 'Adresse'
                 : 'À préciser',
             color: hasSiteCoordinates
                 ? BlueVectorColors.success
                 : BlueVectorColors.warning,
           ),
         ),
-        const SizedBox(width: BlueVectorSpacing.xs),
+        const SizedBox(width: BlueVectorSpacing.xxs),
         Expanded(
           child: _Indicator(
             icon: isOnline
@@ -370,36 +371,48 @@ class _Indicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 78),
-      padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+      constraints: const BoxConstraints(minHeight: 54),
+      padding: const EdgeInsets.symmetric(
+        horizontal: BlueVectorSpacing.xs,
+        vertical: BlueVectorSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: BlueVectorColors.surface,
         borderRadius: BorderRadius.circular(BlueVectorRadius.small),
         border: Border.all(color: BlueVectorColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: BlueVectorSpacing.sm),
-          Text(
-            label,
-            style: const TextStyle(
-              color: BlueVectorColors.textMuted,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: BlueVectorSpacing.xs),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: BlueVectorColors.textMuted,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: BlueVectorColors.textPrimary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(
-              color: BlueVectorColors.textPrimary,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
