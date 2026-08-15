@@ -240,13 +240,13 @@ void main() {
     expect(find.text('PROCHAINE ÉTAPE'), findsOneWidget);
     expect(find.text('Clôturer l’intervention'), findsOneWidget);
     expect(find.text('Ajouter une trace terrain'), findsOneWidget);
+    expect(find.text('Historique'), findsOneWidget);
     await tester.tap(find.text('Clôturer l’intervention'));
     await tester.tap(find.text('Ajouter une trace terrain'));
     expect(advanced, isTrue);
     expect(actionOpened, isTrue);
 
-    await tester.scrollUntilVisible(find.text('Historique du site'), 250);
-    await tester.tap(find.text('Historique du site'));
+    await tester.tap(find.text('Historique'));
     expect(opened, isTrue);
   });
 
