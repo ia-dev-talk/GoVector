@@ -1,0 +1,27 @@
+/* BlueVector V0.8 — final holder-scope contract.
+ *
+ * The scoped stock bar has exactly two responsibilities: identify the current
+ * holder and change it. The KPI strip above owns articles/available/reserved.
+ * Keep this late override after operations-final-v08.css so the retired third
+ * metrics column cannot leave dead horizontal space in the logistics workspace.
+ */
+
+.st3-scopebar {
+  grid-template-columns: minmax(220px, 0.72fr) minmax(340px, 1.28fr) !important;
+}
+
+.st3-scopebar__metrics {
+  display: none !important;
+}
+
+@container st3-page (max-width: 1040px) and (min-width: 881px) {
+  .st3-scopebar {
+    grid-template-columns: minmax(190px, 0.68fr) minmax(300px, 1.32fr) !important;
+  }
+}
+
+@container st3-page (max-width: 880px) {
+  .st3-scopebar {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
