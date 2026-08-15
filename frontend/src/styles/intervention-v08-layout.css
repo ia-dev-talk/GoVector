@@ -106,7 +106,50 @@
   }
 }
 
-@media (min-width: 781px) and (max-width: 1180px) {
+/*
+ * A 1024–1180px operations viewport is still wide enough for a real desk.
+ * Keeping the history/evidence rail beside the dossier avoids pushing the two
+ * most useful verification surfaces below a long map and business record.
+ */
+@media (min-width: 980px) and (max-width: 1180px) {
+  .intervention-detail-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, .48fr);
+    grid-template-areas:
+      "center timeline"
+      "center evidence";
+    align-items: start;
+    gap: 14px;
+  }
+
+  .intervention-detail-center {
+    grid-area: center;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .intervention-detail-timeline-rail {
+    grid-area: timeline;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .intervention-detail-evidence-rail {
+    grid-area: evidence;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .intervention-detail-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .intervention-detail-map-body {
+    height: clamp(300px, 38vh, 410px);
+  }
+}
+
+@media (min-width: 781px) and (max-width: 979px) {
   .intervention-detail-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
