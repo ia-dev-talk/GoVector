@@ -1,4 +1,5 @@
 import { FILES_URL } from '../../api/client';
+import { buildRuntimeFileUrl } from '../../lib/runtime-files.js';
 
 export function isRecord(value) {
   return (
@@ -231,20 +232,7 @@ export function getStatusMeta(value) {
 }
 
 export function buildFileUrl(value) {
-  const path = text(value);
-
-  if (!path) {
-    return null;
-  }
-
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-
-  const base = FILES_URL.replace(/\/$/, '');
-  const normalizedPath = path.replace(/^\//, '');
-
-  return `${base}/${normalizedPath}`;
+  return buildRuntimeFileUrl(value, FILES_URL);
 }
 
 export function getApiErrorMessage(error, fallback) {
