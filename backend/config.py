@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "BlueVector"
-    APP_VERSION: str = "0.0.8"
+    APP_VERSION: str = "1.0.1"
     DEBUG: bool = True
     ENVIRONMENT: str = "development"
     IS_DEMO: bool = False  # Enable simulation engine and /simulation/* endpoints
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     NOMINATIM_URL: str = "https://nominatim.openstreetmap.org/search"
     GEOCODING_COUNTRY: str = "Morocco"
     GEOCODING_COUNTRY_CODE: str = "ma"
-    GEOCODING_USER_AGENT: str = "BlueVector-FTTH/0.0.8"
+    GEOCODING_USER_AGENT: str = "BlueVector-FTTH/1.0.1"
     GEOCODING_TIMEOUT: float = 10.0
     GEOCODING_DELAY_SECONDS: float = 0.05
 
