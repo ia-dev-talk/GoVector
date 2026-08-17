@@ -9,18 +9,18 @@ This document is the operational gate for promoting the current Public V2 work i
 - Baseline commit: `f093e57d3333796d8e08925aa9ee142feacfeaca`
 - Target: a coherent field-operations V1 whose critical web, API, PostgreSQL/geolocation and technician-mobile paths are validated together.
 
-## Current validation status — 2026-08-17
+## Current validation status — 2026-08-18
 
-The V1 branch is still **not promotable**. The current GitHub Actions run cannot start any of its four jobs because GitHub reports an account billing/spending-limit problem on the repository owner. This is an infrastructure blocker, not evidence that the code failed or passed.
+The V1 branch is still **not promotable** because the required manual critical journeys and deployment-safety checks below remain open.
 
-Until a workflow actually executes on the current release head:
+Automated validation is currently green on release candidate `c8d7b5772f31d5e1ae9e8b4396d200f8bf709154` via GitHub Actions run `32075073053`:
 
-- backend gate: **unvalidated**;
-- PostgreSQL/geolocation gate: **unvalidated**;
-- frontend gate: **unvalidated**;
-- mobile gate: **unvalidated**.
+- backend gate: **green** — Alembic heads + backend pytest suite passed;
+- PostgreSQL/geolocation gate: **green** — clean PostgreSQL bootstrap, migrations and targeted PostgreSQL contracts passed;
+- frontend gate: **green** — `npm ci`, lint, tests and production build passed;
+- mobile gate: **green** — pinned Flutter 3.47.0, analyze, tests, pilot release APK build and artifact upload passed.
 
-Do not replace these states with green based on older commits or local assumptions.
+The earlier GitHub billing/spending-limit issue is no longer an active release blocker. Automated green status applies only to the exact candidate/run above; any later release-head commit must be revalidated before promotion.
 
 Hardening already applied on this release branch includes:
 
@@ -28,7 +28,9 @@ Hardening already applied on this release branch includes:
 - Android release builds require an explicit HTTPS `API_BASE_URL` and reject local addresses;
 - malformed JWT payloads fail closed on both HTTP and WebSocket authentication paths;
 - web login refuses CLIENT accounts whose organization is missing or inactive before issuing a token;
-- backend and mobile runtime version metadata is aligned on BlueVector `1.0.1` (`1.0.1+2` for the Android package).
+- backend and mobile runtime version metadata is aligned on BlueVector `1.0.1` (`1.0.1+2` for the Android package);
+- Flutter CI is pinned to `3.47.0` so release-gate reruns do not silently move to another stable toolchain;
+- production web file/media URLs default to same-origin instead of inheriting a localhost fallback.
 
 ## Blocking gates
 
@@ -41,7 +43,7 @@ All four quality jobs must pass on the same commit:
 - frontend: install, lint, tests and production build;
 - mobile: Flutter analyze, tests and pilot release APK build.
 
-A component passing in isolation is not sufficient for release promotion.
+A component passing in isolation is not sufficient for release promotion. The current documented green candidate is `c8d7b5772f31d5e1ae9e8b4396d200f8bf709154` / run `32075073053`; any subsequent head supersedes that candidate and must earn its own green run.
 
 ### 2. Manual web journeys
 
