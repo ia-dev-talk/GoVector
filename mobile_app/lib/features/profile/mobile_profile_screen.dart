@@ -173,7 +173,7 @@ class MobileProfileScreen extends StatelessWidget {
           _SectionCard(
             title: 'Connexion au système',
             children: [
-              const _InfoRow(
+              _InfoRow(
                 icon: Icons.lan_outlined,
                 label: 'API BlueVector',
                 value: AuthService.baseUrl,
