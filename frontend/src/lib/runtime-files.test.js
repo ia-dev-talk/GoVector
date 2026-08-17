@@ -1,10 +1,21 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
   buildRuntimeFileUrl,
   resolveRuntimeFileBase,
 } from './runtime-files.js';
+
+test('production file configuration defaults to same-origin', () => {
+  const productionEnv = readFileSync(
+    new URL('../../.env.production', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(productionEnv, /^VITE_FILES_URL=\/$/m);
+  assert.doesNotMatch(productionEnv, /localhost|127\.0\.0\.1|\[?::1\]?/i);
+});
 
 test('rejects localhost file origin in a non-local browser', () => {
   assert.equal(
