@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:bluevector/config/config.dart';
+import 'package:mobile_app/config/config.dart';
 
 void main() {
   group('AppConfig.resolveApiBaseUrl', () {
