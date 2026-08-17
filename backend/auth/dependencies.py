@@ -1,11 +1,11 @@
-from jose import JWTError, ExpiredSignatureError
-from fastapi import Depends, HTTPException, status, WebSocket, WebSocketException
+from jose import JWTError
+from fastapi import Depends, HTTPException, status, WebSocketException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 
 from backend.auth.security import decode_token
 from backend.database.connection import AsyncSessionLocal, get_db
-from backend.database.models import ClientOrganization, User, UserRole, Technician
+from backend.database.models import ClientOrganization, User, UserRole
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login"
@@ -128,13 +128,18 @@ async def get_current_user_ws(token: str) -> User:
     """
     try:
         payload = decode_token(token)
+        if not isinstance(payload, dict):
+            raise WebSocketException(code=1008, reason="Invalid token")
+
         user_id = payload.get("sub")
         if user_id is None:
             raise WebSocketException(code=1008, reason="Invalid token")
+
+        user_id = int(user_id)
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(User).where(
-                    User.id == int(user_id),
+                    User.id == user_id,
                     User.is_active.is_(True),
                 )
             )
@@ -152,7 +157,7 @@ async def get_current_user_ws(token: str) -> User:
                 if organization_active is not True:
                     raise WebSocketException(code=1008, reason="Client access disabled")
             return user
-    except (JWTError, ExpiredSignatureError, ValueError):
+    except (JWTError, TypeError, ValueError):
         raise WebSocketException(code=1008, reason="Invalid or expired token")
 
 
