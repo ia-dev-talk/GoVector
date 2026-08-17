@@ -1,27 +1,38 @@
 """
-API routes for Technician authentication (Mobile)
-Login endpoint for technicians using username/password
+API routes for Technician authentication (Mobile).
+Login endpoint for field users using username/password.
 """
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from pydantic import BaseModel, Field
+import logging
 
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.auth.security import create_access_token, verify_password
 from backend.database.connection import get_db
-from backend.database.models import Technician, User
-from backend.auth.security import verify_password, create_access_token
+from backend.database.models import Technician, User, UserRole
 
 router = APIRouter()
+logger = logging.getLogger("uvicorn.error")
+
+MOBILE_FIELD_ROLES = frozenset({
+    UserRole.TECHNICIAN,
+    UserRole.CHEF_ORIENTEUR,
+})
+INVALID_CREDENTIALS = "Identifiants invalides"
 
 
 class TechLoginRequest(BaseModel):
-    """Requête de login pour un technicien"""
+    """Requête de login pour un utilisateur terrain."""
+
     username: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=1)
 
 
 class TechLoginResponse(BaseModel):
-    """Réponse de login avec token JWT"""
+    """Réponse de login avec token JWT."""
+
     access_token: str
     token_type: str = "bearer"
     user_id: int
@@ -30,84 +41,61 @@ class TechLoginResponse(BaseModel):
     orienteur_id: int | None = None
 
 
+def _reject_login(reason: str) -> None:
+    """Reject without exposing account/profile details to clients or logs."""
+
+    logger.warning("[TECH_AUTH] Mobile login rejected: %s", reason)
+    raise HTTPException(status_code=401, detail=INVALID_CREDENTIALS)
+
+
 @router.post("/login", response_model=TechLoginResponse)
 async def tech_login(
     login_data: TechLoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Login mobile pour les techniciens"""
-    import logging
-    logger = logging.getLogger("uvicorn.error")
+    """Authenticate an account authorized to use the technician mobile app."""
 
-    logger.info(f"[TECH_AUTH] 📱 Tentative login mobile - username: {login_data.username}")
-
-    # 1. Recherche de l'utilisateur dans la table USERS
     user_result = await db.execute(
         select(User).where(User.username == login_data.username)
     )
     user = user_result.scalar_one_or_none()
 
     if not user:
-        logger.warning(f"[TECH_AUTH] ❌ Utilisateur INTROUVABLE: {login_data.username}")
-        raise HTTPException(status_code=401, detail="Identifiants invalides")
+        _reject_login("unknown account")
 
-    logger.info(
-        f"[TECH_AUTH] 🔎 Utilisateur trouvé - ID: {user.id}, "
-        f"Role: {user.role.value}, Active: {user.is_active}, "
-        f"TechID: {user.technician_id}, OriID: {user.orienteur_id}"
-    )
-
-    # Vérification du statut actif
     if not user.is_active:
-        logger.warning(f"[TECH_AUTH] ❌ Compte inactif: {login_data.username}")
-        raise HTTPException(status_code=401, detail="Identifiants invalides")
+        _reject_login("inactive account")
 
-    # Vérification du lien technicien
+    if user.role not in MOBILE_FIELD_ROLES:
+        _reject_login("role not allowed for mobile field access")
+
     if not user.technician_id:
-        logger.warning(f"[TECH_AUTH] ❌ Pas de technician_id lié pour: {login_data.username}")
-        raise HTTPException(status_code=401, detail="Identifiants invalides")
+        _reject_login("missing technician profile link")
 
-    # 2. Vérification du mot de passe
     if not user.password_hash:
-        logger.warning(f"[TECH_AUTH] ❌ Aucun password_hash pour: {login_data.username}")
-        raise HTTPException(status_code=401, detail="Identifiants invalides")
+        _reject_login("password authentication unavailable")
 
-    is_password_correct = verify_password(
-        login_data.password,
-        user.password_hash
-    )
+    if not verify_password(login_data.password, user.password_hash):
+        _reject_login("invalid credentials")
 
-    logger.info(f"[TECH_AUTH] {'✅ Mot de passe VALIDE' if is_password_correct else '❌ Mot de passe INVALIDE'}")
-
-    if not is_password_correct:
-        raise HTTPException(status_code=401, detail="Identifiants invalides")
-
-    # 3. Récupération du profil Technicien
     tech_result = await db.execute(
         select(Technician).where(Technician.id == user.technician_id)
     )
     technician = tech_result.scalar_one_or_none()
 
     if not technician:
-        logger.error(
-            f"[TECH_AUTH] ❌ Profil technicien introuvable pour "
-            f"user.technician_id={user.technician_id}"
-        )
-        raise HTTPException(status_code=401, detail="Profil technicien introuvable")
-
-    logger.info(
-        f"[TECH_AUTH] ✅ Connexion réussie - Technicien: {technician.name} "
-        f"(ID: {technician.id}, OriID: {technician.orienteur_id})"
-    )
+        _reject_login("technician profile unavailable")
 
     access_token = create_access_token(
         data={
             "sub": str(user.id),
             "username": user.username,
-            "role": "TECHNICIAN",
+            "role": user.role.value,
             "type": "tech_mobile",
         }
     )
+
+    logger.info("[TECH_AUTH] Mobile field login succeeded")
 
     return TechLoginResponse(
         access_token=access_token,
