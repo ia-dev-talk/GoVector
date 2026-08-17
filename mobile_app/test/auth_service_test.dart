@@ -7,6 +7,13 @@ import 'package:mobile_app/config/config.dart';
 import 'package:mobile_app/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+String jwtWithSubject(int userId) {
+  final payload = base64Url.encode(
+    utf8.encode(jsonEncode({'sub': '$userId'})),
+  );
+  return 'header.$payload.signature';
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -52,13 +59,81 @@ void main() {
   });
 
   test('session existante récupère user_id depuis le sub JWT', () async {
-    final payload = base64Url.encode(utf8.encode(jsonEncode({'sub': '19'})));
     SharedPreferences.setMockInitialValues({
-      'tech_token': 'header.$payload.signature',
+      'tech_token': jwtWithSubject(19),
       'tech_id': 3,
     });
 
     expect(await AuthService.getUserId(), 19);
+  });
+
+  test(
+    'nouveau login ne réutilise jamais le user_id du technicien précédent',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'tech_token': jwtWithSubject(3),
+        'tech_user_id': 3,
+        'tech_id': 3,
+        'tech_name': 'Ancien Technicien',
+      });
+
+      final client = MockClient((_) async {
+        return http.Response(
+          jsonEncode({
+            'access_token': jwtWithSubject(19),
+            // Compatibilité API : user_id peut manquer, le JWT devient source
+            // de secours mais l'ancien ID local doit être supprimé.
+            'technician_id': 12,
+            'technician_name': 'Nouveau Technicien',
+          }),
+          200,
+        );
+      });
+
+      final success = await AuthService.login(
+        'nouveau',
+        'mot-de-passe',
+        client: client,
+      );
+
+      expect(success, isTrue);
+      expect(await AuthService.getUserId(), 19);
+      expect(await AuthService.getTechnicianId(), 12);
+      expect(await AuthService.getTechnicianName(), 'Nouveau Technicien');
+      expect(await AuthService.isLoggedIn(), isTrue);
+    },
+  );
+
+  test('réponse login incomplète ne remplace pas une session existante', () async {
+    SharedPreferences.setMockInitialValues({
+      'tech_token': jwtWithSubject(3),
+      'tech_user_id': 3,
+      'tech_id': 3,
+      'tech_name': 'Technicien Actuel',
+    });
+
+    final client = MockClient((_) async {
+      return http.Response(
+        jsonEncode({
+          'access_token': jwtWithSubject(19),
+          'technician_id': 0,
+          'technician_name': 'Réponse invalide',
+        }),
+        200,
+      );
+    });
+
+    final success = await AuthService.login(
+      'autre',
+      'mot-de-passe',
+      client: client,
+    );
+
+    expect(success, isFalse);
+    expect(AuthService.lastLoginFailure?.type, LoginFailureType.serverError);
+    expect(await AuthService.getUserId(), 3);
+    expect(await AuthService.getTechnicianId(), 3);
+    expect(await AuthService.getTechnicianName(), 'Technicien Actuel');
   });
 
   test('logout préserve les actions legacy non synchronisées', () async {
