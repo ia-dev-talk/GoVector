@@ -83,8 +83,8 @@ class AppConfig {
   /// Nom de l'application.
   static const String appName = 'BlueVector';
 
-  /// Version de l'application.
-  static const String appVersion = '1.0.0';
+  /// Version de l'application, alignée avec pubspec.yaml (1.0.1+2).
+  static const String appVersion = '1.0.1';
 
   /// Intervalle de mise à jour GPS en secondes.
   static const int gpsUpdateIntervalSeconds = 15;
