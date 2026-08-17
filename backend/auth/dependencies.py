@@ -25,17 +25,20 @@ async def get_current_user(
 
     try:
         payload = decode_token(token)
-        user_id = payload.get("sub")
+        if not isinstance(payload, dict):
+            raise credentials_exception
 
+        user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception
 
-    except JWTError:
+        user_id = int(user_id)
+    except (JWTError, TypeError, ValueError):
         raise credentials_exception
 
     result = await db.execute(
         select(User).where(
-            User.id == int(user_id),
+            User.id == user_id,
             User.is_active.is_(True),
         )
     )
@@ -151,6 +154,7 @@ async def get_current_user_ws(token: str) -> User:
             return user
     except (JWTError, ExpiredSignatureError, ValueError):
         raise WebSocketException(code=1008, reason="Invalid or expired token")
+
 
 async def require_admin(
     current_user: User = Depends(get_current_user),
