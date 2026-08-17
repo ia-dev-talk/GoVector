@@ -9,6 +9,27 @@ This document is the operational gate for promoting the current Public V2 work i
 - Baseline commit: `f093e57d3333796d8e08925aa9ee142feacfeaca`
 - Target: a coherent field-operations V1 whose critical web, API, PostgreSQL/geolocation and technician-mobile paths are validated together.
 
+## Current validation status — 2026-08-17
+
+The V1 branch is still **not promotable**. The current GitHub Actions run cannot start any of its four jobs because GitHub reports an account billing/spending-limit problem on the repository owner. This is an infrastructure blocker, not evidence that the code failed or passed.
+
+Until a workflow actually executes on the current release head:
+
+- backend gate: **unvalidated**;
+- PostgreSQL/geolocation gate: **unvalidated**;
+- frontend gate: **unvalidated**;
+- mobile gate: **unvalidated**.
+
+Do not replace these states with green based on older commits or local assumptions.
+
+Hardening already applied on this release branch includes:
+
+- production backend configuration rejects development secrets, debug/reload, development DB credentials and unsafe CORS; production CORS must be explicit HTTPS and non-local;
+- Android release builds require an explicit HTTPS `API_BASE_URL` and reject local addresses;
+- malformed JWT payloads fail closed on both HTTP and WebSocket authentication paths;
+- web login refuses CLIENT accounts whose organization is missing or inactive before issuing a token;
+- backend and mobile runtime version metadata is aligned on BlueVector `1.0.1` (`1.0.1+2` for the Android package).
+
 ## Blocking gates
 
 ### 1. Automated quality
@@ -61,6 +82,12 @@ Before a public production deployment:
 - production Android signing configured outside the repository;
 - persistent media/object-storage strategy defined and backup/restore exercised;
 - secrets kept outside source control.
+
+The current pilot persists technician media in a Docker volume and the repository backup procedure archives both PostgreSQL and technician media with checksums. A public-production object-storage/durability decision remains a deployment gate rather than a code-complete claim.
+
+### 5. Web endpoint safety
+
+Before promotion, direct web/file URLs must never silently fall back to `localhost` in a production browser. Relative same-origin `/api` routing is the preferred default for the bundled web application; any explicit external API/files origin must be deployment-configured.
 
 ## Promotion rule
 
