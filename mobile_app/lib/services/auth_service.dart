@@ -22,15 +22,31 @@ class LoginFailure {
 }
 
 class AuthService {
-  static const String baseUrl = AppConfig.apiBaseUrl;
+  static String get baseUrl => AppConfig.apiBaseUrl;
 
-  static const String _tokenKey = "tech_token";
-  static const String _userIdKey = "tech_user_id";
-  static const String _techIdKey = "tech_id";
-  static const String _techNameKey = "tech_name";
+  static const String _tokenKey = 'tech_token';
+  static const String _userIdKey = 'tech_user_id';
+  static const String _techIdKey = 'tech_id';
+  static const String _techNameKey = 'tech_name';
 
   static LoginFailure? _lastLoginFailure;
   static LoginFailure? get lastLoginFailure => _lastLoginFailure;
+
+  static int? _positiveInt(dynamic value) {
+    if (value is int && value > 0) {
+      return value;
+    }
+    final parsed = int.tryParse('${value ?? ''}');
+    return parsed != null && parsed > 0 ? parsed : null;
+  }
+
+  static String? _nonEmptyString(dynamic value) {
+    if (value is! String) {
+      return null;
+    }
+    final normalized = value.trim();
+    return normalized.isEmpty ? null : normalized;
+  }
 
   // =========================
   // LOGIN
@@ -48,8 +64,8 @@ class AuthService {
       final response = await requestClient
           .post(
             AppConfig.apiUri('tech/login'),
-            headers: {"Content-Type": "application/json"},
-            body: jsonEncode({"username": username, "password": password}),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'username': username, 'password': password}),
           )
           .timeout(timeout);
 
@@ -69,9 +85,21 @@ class AuthService {
         return false;
       }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>?;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        _lastLoginFailure = const LoginFailure(
+          LoginFailureType.serverError,
+          'Réponse invalide du serveur.',
+        );
+        return false;
+      }
 
-      if (data == null || data["access_token"] == null) {
+      final token = _nonEmptyString(decoded['access_token']);
+      final technicianId = _positiveInt(decoded['technician_id']);
+      final technicianName = _nonEmptyString(decoded['technician_name']);
+      final userId = _positiveInt(decoded['user_id']);
+
+      if (token == null || technicianId == null || technicianName == null) {
         _lastLoginFailure = const LoginFailure(
           LoginFailureType.serverError,
           'Réponse invalide du serveur.',
@@ -81,13 +109,18 @@ class AuthService {
 
       final prefs = await SharedPreferences.getInstance();
 
-      await prefs.setString(_tokenKey, data["access_token"]);
-      final userId = data["user_id"];
-      if (userId is int && userId > 0) {
+      // Replace the identity atomically from the app's point of view. In
+      // particular, never retain a previous technician's owner IDs if an older
+      // API response omits user_id: getUserId() can derive it from the new JWT.
+      await prefs.remove(_userIdKey);
+      await prefs.remove(_techIdKey);
+      await prefs.remove(_techNameKey);
+      await prefs.setString(_tokenKey, token);
+      if (userId != null) {
         await prefs.setInt(_userIdKey, userId);
       }
-      await prefs.setInt(_techIdKey, data["technician_id"] ?? 0);
-      await prefs.setString(_techNameKey, data["technician_name"] ?? "");
+      await prefs.setInt(_techIdKey, technicianId);
+      await prefs.setString(_techNameKey, technicianName);
 
       return true;
     } on TimeoutException {
@@ -143,7 +176,8 @@ class AuthService {
 
   static Future<int?> getTechnicianId() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_techIdKey);
+    final technicianId = prefs.getInt(_techIdKey);
+    return technicianId != null && technicianId > 0 ? technicianId : null;
   }
 
   static Future<int?> getUserId() async {
@@ -162,13 +196,14 @@ class AuthService {
       if (parts.length != 3) {
         return null;
       }
-      final payload =
-          jsonDecode(
-                utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
-              )
-              as Map<String, dynamic>;
-      final parsed = int.tryParse('${payload['sub']}');
-      if (parsed == null || parsed <= 0) {
+      final decoded = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+      final parsed = _positiveInt(decoded['sub']);
+      if (parsed == null) {
         return null;
       }
       await prefs.setInt(_userIdKey, parsed);
@@ -180,7 +215,8 @@ class AuthService {
 
   static Future<String?> getTechnicianName() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_techNameKey);
+    final name = prefs.getString(_techNameKey)?.trim();
+    return name == null || name.isEmpty ? null : name;
   }
 
   // =========================
@@ -188,28 +224,25 @@ class AuthService {
   // =========================
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
-    return token != null;
+    final technicianId = await getTechnicianId();
+    final userId = await getUserId();
+    return token != null && technicianId != null && userId != null;
   }
 
   // =========================
-  // LOGOUT (FIX IMPORTANT)
+  // LOGOUT
   // =========================
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // suppression ciblée
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
     await prefs.remove(_techIdKey);
     await prefs.remove(_techNameKey);
 
-    // sécurité supplémentaire (ANTI BUG SESSION BLOQUÉE)
     await prefs.reload();
   }
 
-  // =========================
-  // HARD RESET (UTIL POUR TON BUG ACTUEL)
-  // =========================
   static Future<void> clearAuth() async {
     await logout();
   }
