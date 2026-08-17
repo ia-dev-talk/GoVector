@@ -101,6 +101,8 @@ jobs:
       - run: flutter test
       - name: Build pilot release APK
         timeout-minutes: 20
+        env:
+          ORG_GRADLE_PROJECT_pilotSigning: "true"
         run: >-
           flutter build apk --release --no-pub
           --dart-define=API_BASE_URL=https://api.invalid/api/v1
