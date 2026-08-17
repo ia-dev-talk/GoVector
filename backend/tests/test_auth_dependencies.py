@@ -1,5 +1,5 @@
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, WebSocketException
 
 from backend.auth import dependencies
 
@@ -36,3 +36,28 @@ async def test_get_current_user_rejects_malformed_subject_before_db_lookup(
 
     assert error.value.status_code == 401
     assert error.value.headers == {"WWW-Authenticate": "Bearer"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"sub": "not-a-number"},
+        {"sub": None},
+        ["unexpected", "payload"],
+    ],
+)
+async def test_websocket_auth_rejects_malformed_payload_before_db_lookup(
+    monkeypatch,
+    payload,
+):
+    monkeypatch.setattr(
+        dependencies,
+        "decode_token",
+        lambda _token: payload,
+    )
+
+    with pytest.raises(WebSocketException) as error:
+        await dependencies.get_current_user_ws("signed-but-invalid")
+
+    assert error.value.code == 1008
