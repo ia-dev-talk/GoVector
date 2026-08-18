@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from datetime import datetime, timezone
 from uuid import uuid4
 
 import asyncpg
@@ -102,12 +103,25 @@ async def _exercise(database_url: str) -> dict:
                 role=UserRole.ADMIN,
                 is_active=True,
             )
-            source_stock = Stock(
+            batch_a_expiry = datetime(2026, 9, 1, tzinfo=timezone.utc)
+            batch_b_expiry = datetime(2026, 10, 1, tzinfo=timezone.utc)
+            batch_a = Stock(
                 item_id=item.id,
                 warehouse_id=source.id,
-                quantity=4,
+                quantity=1,
                 reserved_quantity=0,
-                available_quantity=4,
+                available_quantity=1,
+                batch_number="LOT-A",
+                expiration_date=batch_a_expiry,
+            )
+            batch_b = Stock(
+                item_id=item.id,
+                warehouse_id=source.id,
+                quantity=3,
+                reserved_quantity=0,
+                available_quantity=3,
+                batch_number="LOT-B",
+                expiration_date=batch_b_expiry,
             )
             issue = StockIssue(
                 issue_number="ISSUE-ALLOC-1",
@@ -116,7 +130,7 @@ async def _exercise(database_url: str) -> dict:
                 status=StockIssueStatus.BROUILLON,
                 notes="Dotation terrain test",
             )
-            db.add_all([user, source_stock, issue])
+            db.add_all([user, batch_a, batch_b, issue])
             await db.flush()
             db.add(
                 StockIssueItem(
@@ -138,18 +152,26 @@ async def _exercise(database_url: str) -> dict:
                 select(Warehouse).where(Warehouse.code == f"TECH-{technician.id}")
             )
             assert destination is not None
-            refreshed_source = await db.scalar(
-                select(Stock).where(
-                    Stock.item_id == item.id,
-                    Stock.warehouse_id == source.id,
+            source_lines = (
+                await db.execute(
+                    select(Stock)
+                    .where(
+                        Stock.item_id == item.id,
+                        Stock.warehouse_id == source.id,
+                    )
+                    .order_by(Stock.batch_number.asc())
                 )
-            )
-            destination_stock = await db.scalar(
-                select(Stock).where(
-                    Stock.item_id == item.id,
-                    Stock.warehouse_id == destination.id,
+            ).scalars().all()
+            destination_lines = (
+                await db.execute(
+                    select(Stock)
+                    .where(
+                        Stock.item_id == item.id,
+                        Stock.warehouse_id == destination.id,
+                    )
+                    .order_by(Stock.batch_number.asc())
                 )
-            )
+            ).scalars().all()
             movements = (
                 await db.execute(
                     select(StockMovement)
@@ -166,11 +188,21 @@ async def _exercise(database_url: str) -> dict:
                 "payload_status": payload["status"],
                 "payload_warehouse": payload["technician_warehouse_id"],
                 "destination_id": destination.id,
-                "source_quantity": refreshed_source.quantity,
-                "source_available": refreshed_source.available_quantity,
-                "destination_quantity": destination_stock.quantity,
-                "destination_available": destination_stock.available_quantity,
+                "source": [
+                    (line.batch_number, line.quantity, line.available_quantity)
+                    for line in source_lines
+                ],
+                "destination": [
+                    (
+                        line.batch_number,
+                        line.quantity,
+                        line.available_quantity,
+                        line.expiration_date,
+                    )
+                    for line in destination_lines
+                ],
                 "movement_quantities": [movement.quantity for movement in movements],
+                "movement_notes": [movement.notes for movement in movements],
                 "movement_technicians": [movement.technician_id for movement in movements],
                 "issue_status": refreshed_issue.status.value,
                 "delivered": issue_item.quantity_delivered,
@@ -179,7 +211,7 @@ async def _exercise(database_url: str) -> dict:
         await engine.dispose()
 
 
-def test_technician_allocation_moves_stock_and_preserves_audit_trail():
+def test_technician_allocation_preserves_batches_and_audit_trail():
     admin_url = _admin_url()
     database_name = f"bluevector_stock_{uuid4().hex}"
     asyncio.run(_create_database(admin_url, database_name))
@@ -191,11 +223,16 @@ def test_technician_allocation_moves_stock_and_preserves_audit_trail():
 
     assert result["payload_status"] == "VALIDE"
     assert result["payload_warehouse"] == result["destination_id"]
-    assert result["source_quantity"] == 2
-    assert result["source_available"] == 2
-    assert result["destination_quantity"] == 2
-    assert result["destination_available"] == 2
-    assert result["movement_quantities"] == [-2, 2]
+    assert result["source"] == [("LOT-A", 0, 0), ("LOT-B", 2, 2)]
+    assert [(batch, quantity, available) for batch, quantity, available, _ in result["destination"]] == [
+        ("LOT-A", 1, 1),
+        ("LOT-B", 1, 1),
+    ]
+    assert result["destination"][0][3].date().isoformat() == "2026-09-01"
+    assert result["destination"][1][3].date().isoformat() == "2026-10-01"
+    assert result["movement_quantities"] == [-1, 1, -1, 1]
+    assert any("lot=LOT-A" in note for note in result["movement_notes"])
+    assert any("lot=LOT-B" in note for note in result["movement_notes"])
     assert len(set(result["movement_technicians"])) == 1
     assert result["movement_technicians"][0] is not None
     assert result["issue_status"] == "VALIDE"

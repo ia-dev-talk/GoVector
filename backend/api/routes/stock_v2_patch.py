@@ -46,9 +46,7 @@ async def _technician_warehouse(
     technician: Technician,
 ) -> Warehouse:
     code = f"TECH-{technician.id}"
-    warehouse = await db.scalar(
-        select(Warehouse).where(Warehouse.code == code)
-    )
+    warehouse = await db.scalar(select(Warehouse).where(Warehouse.code == code))
     if warehouse is not None:
         if not warehouse.is_active:
             warehouse.is_active = True
@@ -76,20 +74,23 @@ async def _destination_line(
     *,
     item_id: int,
     warehouse_id: int,
+    batch_number: str | None,
+    expiration_date: datetime | None,
 ) -> Stock:
     result = await db.execute(
         select(Stock)
         .where(
             Stock.item_id == item_id,
             Stock.warehouse_id == warehouse_id,
-            Stock.batch_number.is_(None),
+            Stock.batch_number == batch_number,
+            Stock.expiration_date == expiration_date,
         )
         .with_for_update()
     )
     lines = result.scalars().all()
     if len(lines) > 1:
         raise ValueError(
-            "Plusieurs lignes de dotation existent pour cet article et ce technicien."
+            "Plusieurs lignes de dotation existent pour le même article, lot et technicien."
         )
     if lines:
         return lines[0]
@@ -100,11 +101,21 @@ async def _destination_line(
         quantity=0,
         reserved_quantity=0,
         available_quantity=0,
-        batch_number=None,
+        batch_number=batch_number,
+        expiration_date=expiration_date,
     )
     db.add(line)
     await db.flush()
     return line
+
+
+def _movement_notes(issue: StockIssue, source: Stock) -> str:
+    expiration = source.expiration_date.isoformat() if source.expiration_date else "none"
+    trace = (
+        f"lot={source.batch_number or 'NO_BATCH'}; expiration={expiration}; "
+        f"source_stock_id={source.id}"
+    )
+    return f"{issue.notes} | {trace}" if issue.notes else trace
 
 
 async def _transfer_issue_item(
@@ -136,65 +147,69 @@ async def _transfer_issue_item(
             f"({available} disponible, {item.quantity} demandé)."
         )
 
-    destination_line = await _destination_line(
-        db,
-        item_id=item.item_id,
-        warehouse_id=destination.id,
-    )
-    destination_before = int(destination_line.quantity or 0)
     remaining = int(item.quantity)
-
     for source in source_lines:
         if remaining <= 0:
             break
         line_available = max(int(source.available_quantity or 0), 0)
         if line_available <= 0:
             continue
+
         moved = min(line_available, remaining)
         source_before = int(source.quantity or 0)
         source.quantity = source_before - moved
         source.available_quantity = int(source.available_quantity or 0) - moved
+        notes = _movement_notes(issue, source)
 
-        db.add(
-            StockMovement(
-                item_id=item.item_id,
-                warehouse_id=issue.warehouse_id,
-                movement_type=StockMovementType.TRANSFERT,
-                quantity=-moved,
-                quantity_before=source_before,
-                quantity_after=source.quantity,
-                reference_type="issue",
-                reference_id=issue.id,
-                operator=issue.operator,
-                job_id=issue.job_id,
-                technician_id=issue.technician_id,
-                notes=issue.notes,
-                created_by=current_user.id,
-            )
+        destination_line = await _destination_line(
+            db,
+            item_id=item.item_id,
+            warehouse_id=destination.id,
+            batch_number=source.batch_number,
+            expiration_date=source.expiration_date,
+        )
+        destination_before = int(destination_line.quantity or 0)
+        destination_line.quantity = destination_before + moved
+        destination_line.available_quantity = (
+            int(destination_line.available_quantity or 0) + moved
+        )
+
+        db.add_all(
+            [
+                StockMovement(
+                    item_id=item.item_id,
+                    warehouse_id=issue.warehouse_id,
+                    movement_type=StockMovementType.TRANSFERT,
+                    quantity=-moved,
+                    quantity_before=source_before,
+                    quantity_after=source.quantity,
+                    reference_type="issue",
+                    reference_id=issue.id,
+                    operator=issue.operator,
+                    job_id=issue.job_id,
+                    technician_id=issue.technician_id,
+                    notes=notes,
+                    created_by=current_user.id,
+                ),
+                StockMovement(
+                    item_id=item.item_id,
+                    warehouse_id=destination.id,
+                    movement_type=StockMovementType.TRANSFERT,
+                    quantity=moved,
+                    quantity_before=destination_before,
+                    quantity_after=destination_line.quantity,
+                    reference_type="issue",
+                    reference_id=issue.id,
+                    operator=issue.operator,
+                    job_id=issue.job_id,
+                    technician_id=issue.technician_id,
+                    notes=notes,
+                    created_by=current_user.id,
+                ),
+            ]
         )
         remaining -= moved
 
-    destination_line.quantity = destination_before + item.quantity
-    destination_line.available_quantity = (
-        int(destination_line.available_quantity or 0) + item.quantity
-    )
-    db.add(
-        StockMovement(
-            item_id=item.item_id,
-            warehouse_id=destination.id,
-            movement_type=StockMovementType.TRANSFERT,
-            quantity=item.quantity,
-            quantity_before=destination_before,
-            quantity_after=destination_line.quantity,
-            reference_type="issue",
-            reference_id=issue.id,
-            operator=issue.operator,
-            job_id=issue.job_id,
-            technician_id=issue.technician_id,
-            notes=issue.notes,
-            created_by=current_user.id,
-        )
-    )
     item.quantity_delivered = item.quantity
 
 
