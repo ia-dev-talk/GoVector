@@ -11,10 +11,11 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.connection import get_db
-from backend.database.models import User
+from backend.database.models import ExportTemplate, User
 from backend.auth.dependencies import get_current_user, require_chef_orienteur
 from backend.services.export_service import FieldOptExportService
 
@@ -78,6 +79,26 @@ class TemplateUpdate(BaseModel):
     include_photos: Optional[bool] = Field(default=None)
     include_signatures: Optional[bool] = Field(default=None)
     is_default: Optional[bool] = Field(default=None)
+
+
+async def _ensure_template_mutation_access(
+    db: AsyncSession,
+    template_id: int,
+    current_user: User,
+) -> None:
+    """Reject cross-owner template mutations while preserving ADMIN access."""
+    if current_user.role == "ADMIN":
+        return
+
+    result = await db.execute(
+        select(ExportTemplate.id).where(
+            ExportTemplate.id == template_id,
+            ExportTemplate.created_by == current_user.id,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        # Hide existence from users who do not own the template.
+        raise HTTPException(status_code=404, detail="Modèle d'export introuvable.")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -187,7 +208,6 @@ async def preview_export(
         # Récupérer un échantillon (10 premiers)
         filters = request.filters or {}
 
-        from sqlalchemy import select
         query = await FieldOptExportService.build_job_query(db, filters)
         query = query.limit(10)
         result = await db.execute(query)
@@ -303,6 +323,7 @@ async def update_template(
 ):
     """Met à jour un modèle d'export existant."""
     try:
+        await _ensure_template_mutation_access(db, template_id, current_user)
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         template = await FieldOptExportService.update_template(
             db=db,
@@ -314,6 +335,8 @@ async def update_template(
             "template": template,
             "message": "Modèle mis à jour avec succès.",
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as exc:
@@ -329,11 +352,14 @@ async def delete_template(
 ):
     """Supprime un modèle d'export."""
     try:
+        await _ensure_template_mutation_access(db, template_id, current_user)
         await FieldOptExportService.delete_template(db=db, template_id=template_id)
         return {
             "success": True,
             "message": "Modèle supprimé avec succès.",
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as exc:
