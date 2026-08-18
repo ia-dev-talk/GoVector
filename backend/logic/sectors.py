@@ -1,6 +1,6 @@
 """Logique métier pour les Secteurs."""
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from typing import List, Optional
 from datetime import datetime, timedelta
 
@@ -54,12 +54,22 @@ async def update_sector(db: AsyncSession, sector_id: int, **kwargs) -> Optional[
 
 
 async def delete_sector(db: AsyncSession, sector_id: int) -> bool:
-    """Désactiver un secteur (soft delete)"""
+    """Désactiver un secteur et retirer ses affectations technicien."""
     sector = await get_sector(db, sector_id)
     if not sector:
         return False
+
     sector.is_active = False
     sector.updated_at = datetime.utcnow()
+    await db.execute(
+        text(
+            """
+            DELETE FROM technician_sectors
+            WHERE sector_id = :sector_id
+            """
+        ),
+        {"sector_id": sector_id},
+    )
     await db.commit()
     return True
 

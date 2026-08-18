@@ -59,6 +59,41 @@ class TechnicianSectorAssignmentUpdate(BaseModel):
     sector_ids: List[int] = Field(default_factory=list)
 
 
+def _validate_assignment_sector_rows(requested_ids, rows) -> None:
+    """Reject missing or inactive sectors before mutating technician assignments."""
+    states = {
+        int(row["id"]): bool(row["is_active"])
+        for row in rows
+    }
+    missing_ids = [
+        sector_id
+        for sector_id in requested_ids
+        if sector_id not in states
+    ]
+    if missing_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Secteur introuvable : "
+                + ", ".join(str(value) for value in missing_ids)
+            ),
+        )
+
+    inactive_ids = [
+        sector_id
+        for sector_id in requested_ids
+        if not states[sector_id]
+    ]
+    if inactive_ids:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Secteur inactif non assignable : "
+                + ", ".join(str(value) for value in inactive_ids)
+            ),
+        )
+
+
 _ASSIGNMENT_QUERY = text(
     """
     SELECT
@@ -195,8 +230,8 @@ async def replace_technician_sector_assignment(
     Replace a technician's complete sector assignment atomically.
 
     The primary sector is always part of the selected sector set. Sector IDs
-    are validated against the central Sector registry, so free-text values
-    cannot create detached or misspelled assignments.
+    are validated against the central active Sector registry, so free-text or
+    deactivated values cannot create detached operational assignments.
     """
     del current_user
 
@@ -260,35 +295,17 @@ async def replace_technician_sector_assignment(
         sector_result = await db.execute(
             text(
                 f"""
-                SELECT id
+                SELECT id, is_active
                 FROM sectors
                 WHERE id IN ({placeholders})
                 """
             ),
             params,
         )
-
-        existing_ids = {
-            int(value)
-            for value in sector_result.scalars().all()
-        }
-        missing_ids = [
-            sector_id
-            for sector_id in normalized_ids
-            if sector_id not in existing_ids
-        ]
-
-        if missing_ids:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Secteur introuvable : "
-                    + ", ".join(
-                        str(value)
-                        for value in missing_ids
-                    )
-                ),
-            )
+        _validate_assignment_sector_rows(
+            normalized_ids,
+            sector_result.mappings().all(),
+        )
 
     try:
         await db.execute(
@@ -432,7 +449,7 @@ async def delete_existing_sector(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_chef_orienteur),
 ):
-    """Désactiver un secteur."""
+    """Désactiver un secteur et retirer ses affectations technicien."""
     del current_user
     success = await delete_sector(
         db,
