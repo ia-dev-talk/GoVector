@@ -13,7 +13,7 @@ This document is the operational gate for promoting the current Public V2 work i
 
 The V1 branch is still **not promotable** because the required manual critical journeys and deployment-safety checks below remain open.
 
-Automated validation is currently green on release candidate `c8d7b5772f31d5e1ae9e8b4396d200f8bf709154` via GitHub Actions run `32075073053`:
+Automated validation is currently green on release candidate `bad4258874f59f17b9f93fff23f196b25a01e01b` via GitHub Actions run `32102268272`:
 
 - backend gate: **green** — Alembic heads + backend pytest suite passed;
 - PostgreSQL/geolocation gate: **green** — clean PostgreSQL bootstrap, migrations and targeted PostgreSQL contracts passed;
@@ -30,7 +30,12 @@ Hardening already applied on this release branch includes:
 - web login refuses CLIENT accounts whose organization is missing or inactive before issuing a token;
 - backend and mobile runtime version metadata is aligned on BlueVector `1.0.1` (`1.0.1+2` for the Android package);
 - Flutter CI is pinned to `3.47.0` so release-gate reruns do not silently move to another stable toolchain;
-- production web file/media URLs default to same-origin instead of inheriting a localhost fallback.
+- production web file/media URLs default to same-origin instead of inheriting a localhost fallback;
+- production backup tooling covers PostgreSQL plus technician media with checksum-aware restore tooling; the real restore drill remains a manual deployment gate;
+- export-template update/delete operations enforce owner isolation for non-admin users;
+- depot-to-technician stock allocation preserves batch number and expiration traceability when one issue spans several lots;
+- inactive sectors cannot be newly assigned to technicians and deactivation removes their relational technician assignments;
+- Cockpit operational KPI/decision/capacity/sector-load calculations remain based on the full operational dataset instead of being distorted by the UI search query.
 
 ## Blocking gates
 
@@ -43,7 +48,7 @@ All four quality jobs must pass on the same commit:
 - frontend: install, lint, tests and production build;
 - mobile: Flutter analyze, tests and pilot release APK build.
 
-A component passing in isolation is not sufficient for release promotion. The current documented green candidate is `c8d7b5772f31d5e1ae9e8b4396d200f8bf709154` / run `32075073053`; any subsequent head supersedes that candidate and must earn its own green run.
+A component passing in isolation is not sufficient for release promotion. The current documented green candidate is `bad4258874f59f17b9f93fff23f196b25a01e01b` / run `32102268272`; any subsequent head supersedes that candidate and must earn its own green run.
 
 ### 2. Manual web journeys
 
