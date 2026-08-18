@@ -750,11 +750,10 @@ export default function DashboardHome({
     );
   }, [jobs, normalizedSearch]);
 
-
-const effectiveSummary = useMemo(
-  () => summarizeJobs(visibleJobs, workflowStatuses),
-  [visibleJobs, workflowStatuses],
-);
+  const effectiveSummary = useMemo(
+    () => summarizeJobs(jobs, workflowStatuses),
+    [jobs, workflowStatuses],
+  );
 
   const personnelSummary = useMemo(() => {
     const counts = {
@@ -764,7 +763,7 @@ const effectiveSummary = useMemo(
       offline: 0,
     };
 
-    visibleTechnicians.forEach((technician) => {
+    technicians.forEach((technician) => {
       const status = normalizeStatus(
         technician?.live_status ?? technician?.status,
       );
@@ -776,12 +775,12 @@ const effectiveSummary = useMemo(
     });
 
     return counts;
-  }, [visibleTechnicians]);
+  }, [technicians]);
 
   const sectorLoad = useMemo(() => {
     const counts = new Map();
 
-    visibleJobs.forEach((job) => {
+    jobs.forEach((job) => {
       const sector = jobSector(job);
       if (!sector) return;
 
@@ -795,14 +794,14 @@ const effectiveSummary = useMemo(
           second.count - first.count ||
           first.sector.localeCompare(second.sector, 'fr'),
       );
-  }, [visibleJobs]);
+  }, [jobs]);
 
   const positionedCounts = useMemo(
     () => ({
-      technicians: visibleTechnicians.filter(hasTechnicianPosition).length,
-      jobs: visibleJobs.filter(hasJobPosition).length,
+      technicians: technicians.filter(hasTechnicianPosition).length,
+      jobs: jobs.filter(hasJobPosition).length,
     }),
-    [visibleJobs, visibleTechnicians],
+    [jobs, technicians],
   );
 
   const handleNavigate = useCallback(
@@ -831,12 +830,19 @@ const effectiveSummary = useMemo(
       handleNavigate('interventions', {
         id: exactJob.id,
       });
+      return;
+    }
+
+    if (visibleJobs.length === 0 && visibleTechnicians.length === 0) {
+      toast('Aucun résultat pour cette recherche.', 'info');
     }
   }, [
     handleNavigate,
     normalizedSearch,
     searchQuery,
+    toast,
     visibleJobs,
+    visibleTechnicians,
   ]);
 
   if (loading) {
@@ -847,7 +853,6 @@ const effectiveSummary = useMemo(
       </div>
     );
   }
-
 
   return (
     <div className="cockpit">
@@ -880,18 +885,17 @@ const effectiveSummary = useMemo(
         onRetry={() => loadData({ manual: true })}
       />
 
-
-<CockpitPilotageWorkspace
-  summary={effectiveSummary}
-  jobs={visibleJobs}
-  personnelSummary={personnelSummary}
-  sectorLoad={sectorLoad}
-  positionedCounts={positionedCounts}
-  activities={activities}
-  canAssign={canAssign}
-  onNavigate={handleNavigate}
-  statusMetadata={workflowStatuses}
-/>
+      <CockpitPilotageWorkspace
+        summary={effectiveSummary}
+        jobs={jobs}
+        personnelSummary={personnelSummary}
+        sectorLoad={sectorLoad}
+        positionedCounts={positionedCounts}
+        activities={activities}
+        canAssign={canAssign}
+        onNavigate={handleNavigate}
+        statusMetadata={workflowStatuses}
+      />
 
       <div className="toast-container" aria-live="polite">
         {toasts.map((item) => (
