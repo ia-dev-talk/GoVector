@@ -2,27 +2,23 @@ import {
   memo,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
+import { apiClient } from '../../api/client';
+import {
+  DEFAULT_COCKPIT_VIEW,
+  cockpitViewFingerprint,
+  normalizeCockpitView,
+  toggleCockpitSection,
+} from './cockpitViewPreferences';
 import {
   buildCockpitPilotage,
   text,
 } from './cockpitPilotageSelectors';
 import '../../styles/cockpit-customization.css';
 
-
-const COCKPIT_VIEW_STORAGE_KEY = 'bluevector:cockpit-view:v1';
-
-const DEFAULT_COCKPIT_VIEW = Object.freeze({
-  metrics: true,
-  progression: true,
-  decisions: true,
-  capacity: true,
-  quality: true,
-  activity: true,
-  quickAccess: true,
-});
 
 const COCKPIT_VIEW_OPTIONS = Object.freeze([
   ['metrics', 'Indicateurs'],
@@ -33,32 +29,6 @@ const COCKPIT_VIEW_OPTIONS = Object.freeze([
   ['activity', 'Activité live'],
   ['quickAccess', 'Accès rapides'],
 ]);
-
-
-function readCockpitView() {
-  try {
-    const stored = window.localStorage.getItem(COCKPIT_VIEW_STORAGE_KEY);
-
-    if (!stored) {
-      return { ...DEFAULT_COCKPIT_VIEW };
-    }
-
-    const parsed = JSON.parse(stored);
-
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { ...DEFAULT_COCKPIT_VIEW };
-    }
-
-    return Object.fromEntries(
-      Object.entries(DEFAULT_COCKPIT_VIEW).map(([key, fallback]) => [
-        key,
-        typeof parsed[key] === 'boolean' ? parsed[key] : fallback,
-      ]),
-    );
-  } catch {
-    return { ...DEFAULT_COCKPIT_VIEW };
-  }
-}
 
 
 function Icon({ name }) {
@@ -169,16 +139,29 @@ function Metric({ label, value, subtitle, tone, icon, onClick }) {
 }
 
 
-function CockpitViewControls({ visibility, onToggle, onReset }) {
+function CockpitViewControls({
+  visibility,
+  syncState,
+  syncError,
+  onToggle,
+  onReset,
+}) {
   const visibleCount = Object.values(visibility).filter(Boolean).length;
+  const syncLabel = {
+    loading: 'Chargement du profil…',
+    saving: 'Enregistrement…',
+    saved: 'Synchronisée avec votre profil',
+    error: 'Synchronisation indisponible',
+  }[syncState] ?? 'Synchronisée avec votre profil';
 
   return (
     <div className="cpv4-configbar">
       <div className="cpv4-configbar-copy">
         <strong>Vue cockpit personnalisable</strong>
         <span>
-          {visibleCount}/{COCKPIT_VIEW_OPTIONS.length} blocs visibles · préférence conservée sur cet appareil
+          {visibleCount}/{COCKPIT_VIEW_OPTIONS.length} blocs visibles · {syncLabel}
         </span>
+        {syncError ? <small role="status">{syncError}</small> : null}
       </div>
 
       <details>
@@ -186,16 +169,22 @@ function CockpitViewControls({ visibility, onToggle, onReset }) {
         <div className="cpv4-config-popover">
           <span>Blocs du cockpit</span>
           <div className="cpv4-config-grid">
-            {COCKPIT_VIEW_OPTIONS.map(([key, label]) => (
-              <label className="cpv4-config-option" key={key}>
-                <input
-                  type="checkbox"
-                  checked={visibility[key]}
-                  onChange={() => onToggle(key)}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
+            {COCKPIT_VIEW_OPTIONS.map(([key, label]) => {
+              const lastVisible = visibility[key] && visibleCount === 1;
+
+              return (
+                <label className="cpv4-config-option" key={key}>
+                  <input
+                    type="checkbox"
+                    checked={visibility[key]}
+                    disabled={lastVisible}
+                    title={lastVisible ? 'Au moins un bloc doit rester visible' : undefined}
+                    onChange={() => onToggle(key)}
+                  />
+                  <span>{label}</span>
+                </label>
+              );
+            })}
           </div>
           <button
             type="button"
@@ -475,18 +464,78 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
   onNavigate,
   statusMetadata = [],
 }) {
-  const [visibility, setVisibility] = useState(readCockpitView);
+  const [visibility, setVisibility] = useState({ ...DEFAULT_COCKPIT_VIEW });
+  const [preferenceSync, setPreferenceSync] = useState('loading');
+  const [preferenceError, setPreferenceError] = useState('');
+  const [preferenceHydrated, setPreferenceHydrated] = useState(false);
+  const persistedFingerprint = useRef('');
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        COCKPIT_VIEW_STORAGE_KEY,
-        JSON.stringify(visibility),
-      );
-    } catch {
-      // Le cockpit reste utilisable même si le stockage navigateur est bloqué.
+    let cancelled = false;
+
+    apiClient
+      .get('/auth/me/cockpit-view')
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+
+        const normalized = normalizeCockpitView(response.data);
+        persistedFingerprint.current = cockpitViewFingerprint(normalized);
+        setVisibility(normalized);
+        setPreferenceHydrated(true);
+        setPreferenceSync('saved');
+        setPreferenceError('');
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+
+        setPreferenceHydrated(false);
+        setPreferenceSync('error');
+        setPreferenceError(
+          'Votre vue reste utilisable, mais elle ne sera pas synchronisée tant que le profil est indisponible.',
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!preferenceHydrated) {
+      return undefined;
     }
-  }, [visibility]);
+
+    const fingerprint = cockpitViewFingerprint(visibility);
+    if (fingerprint === persistedFingerprint.current) {
+      return undefined;
+    }
+
+    setPreferenceSync('saving');
+    setPreferenceError('');
+
+    const timeoutId = window.setTimeout(() => {
+      apiClient
+        .put('/auth/me/cockpit-view', normalizeCockpitView(visibility))
+        .then((response) => {
+          const normalized = normalizeCockpitView(response.data);
+          persistedFingerprint.current = cockpitViewFingerprint(normalized);
+          setPreferenceSync('saved');
+          setPreferenceError('');
+        })
+        .catch(() => {
+          setPreferenceSync('error');
+          setPreferenceError(
+            'La dernière personnalisation n’a pas pu être enregistrée. Réessayez après rétablissement de la connexion.',
+          );
+        });
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [preferenceHydrated, visibility]);
 
   const pilotage = useMemo(
     () =>
@@ -511,20 +560,15 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
   ];
 
   const toggleSection = (key) => {
-    if (!Object.hasOwn(DEFAULT_COCKPIT_VIEW, key)) {
-      return;
-    }
-
-    setVisibility((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
+    setVisibility((current) => toggleCockpitSection(current, key));
   };
 
   return (
     <div className="cockpit-body cockpit-v4-workspace">
       <CockpitViewControls
         visibility={visibility}
+        syncState={preferenceSync}
+        syncError={preferenceError}
         onToggle={toggleSection}
         onReset={() => setVisibility({ ...DEFAULT_COCKPIT_VIEW })}
       />
