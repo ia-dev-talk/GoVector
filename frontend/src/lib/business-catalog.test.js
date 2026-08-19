@@ -3,7 +3,9 @@ import test from 'node:test';
 
 import {
   catalogRowKey,
+  isCustomCatalogItem,
   normalizeCatalogCode,
+  removeCatalogItem,
   validateBusinessCatalogDraft,
 } from './business-catalog.js';
 import { SETTINGS_NAV_GROUPS } from '../features/settings-v3/settingsCatalog.js';
@@ -17,6 +19,28 @@ test('catalog rows keep a stable identity while their editable code changes', ()
 test('catalog identifiers are normalized without losing subsequent keystrokes', () => {
   assert.equal(normalizeCatalogCode('Référent FTTH'), 'referent_ftth');
   assert.equal(normalizeCatalogCode('senior-n2'), 'senior-n2');
+});
+
+
+test('catalog deletion policy only exposes server-classified custom rows', () => {
+  assert.equal(isCustomCatalogItem({ metadata: { custom: true } }), true);
+  assert.equal(isCustomCatalogItem({ metadata: { custom: false } }), false);
+  assert.equal(isCustomCatalogItem({ metadata: {} }), false);
+  assert.equal(isCustomCatalogItem(null), false);
+});
+
+
+test('removing a custom catalog row does not mutate the source collection', () => {
+  const source = [
+    { code: 'junior', metadata: { custom: false } },
+    { code: 'expert_ftth', metadata: { custom: true } },
+    { code: 'senior', metadata: { custom: false } },
+  ];
+
+  const next = removeCatalogItem(source, 1);
+
+  assert.deepEqual(next.map((item) => item.code), ['junior', 'senior']);
+  assert.equal(source.length, 3);
 });
 
 

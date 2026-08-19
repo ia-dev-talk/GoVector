@@ -13,6 +13,20 @@ export function catalogRowKey(section, index) {
 }
 
 
+export function isCustomCatalogItem(item) {
+  return item?.metadata?.custom === true;
+}
+
+
+export function removeCatalogItem(items, index) {
+  if (!Array.isArray(items) || !Number.isInteger(index) || index < 0 || index >= items.length) {
+    return Array.isArray(items) ? [...items] : [];
+  }
+
+  return items.filter((_, itemIndex) => itemIndex !== index);
+}
+
+
 export function validateBusinessCatalogDraft(values) {
   const messages = [];
 

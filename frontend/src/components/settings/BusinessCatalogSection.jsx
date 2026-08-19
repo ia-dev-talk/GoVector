@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../../api/client';
 import {
   catalogRowKey,
+  isCustomCatalogItem,
   normalizeCatalogCode,
+  removeCatalogItem,
   validateBusinessCatalogDraft,
 } from '../../lib/business-catalog';
 import '../../styles/settings-business-catalog.css';
@@ -94,7 +96,7 @@ function nextOrder(items) {
 }
 
 function systemItems(items) {
-  return items.filter((item) => item?.metadata?.custom !== true);
+  return items.filter((item) => !isCustomCatalogItem(item));
 }
 
 function newCatalogItem(section, items) {
@@ -107,9 +109,10 @@ function newCatalogItem(section, items) {
     color: '#4B8DFF',
     sort_order: nextOrder(items),
     active: true,
-    metadata: section.canonicalized
-      ? { custom: true, canonical }
-      : {},
+    metadata: {
+      custom: true,
+      ...(section.canonicalized ? { canonical } : {}),
+    },
   };
 }
 
@@ -218,6 +221,23 @@ export default function BusinessCatalogSection({
     setDirty(true);
   };
 
+  const requestDeleteItem = (index) => {
+    const item = values?.[activeSection.key]?.[index];
+    if (!editable || !isCustomCatalogItem(item)) return;
+
+    const confirmed = window.confirm(
+      `Supprimer « ${item.label || item.code} » du référentiel ?\n\nLa suppression ne sera appliquée qu’après « Enregistrer le référentiel ». Le serveur la refusera si cet élément est encore utilisé.`,
+    );
+    if (!confirmed) return;
+
+    setValues((current) => ({
+      ...current,
+      [activeSection.key]: removeCatalogItem(current[activeSection.key], index),
+    }));
+    setDirty(true);
+    toast?.('Suppression préparée. Enregistrez pour appliquer la modification.', 'info');
+  };
+
   const save = async () => {
     const validationMessages = validateBusinessCatalogDraft(values);
     if (validationMessages.length > 0) {
@@ -272,131 +292,152 @@ export default function BusinessCatalogSection({
 
       <div className="business-catalog__notice">
         <strong>Configuration sûre</strong>
-        <span>Les lignes système restent protégées. Les nouvelles lignes peuvent être renommées et, lorsque nécessaire, mappées sur un comportement technique existant.</span>
+        <span>Les lignes système restent protégées. Une ligne personnalisée peut être supprimée après confirmation ; le serveur bloque l’enregistrement si elle est encore référencée.</span>
       </div>
 
-      <nav className="business-catalog__section-nav" aria-label="Catégories du référentiel métier">
-        {SECTIONS.map((section) => {
-          const sectionItems = values[section.key] || [];
-          const enabled = sectionItems.filter((item) => item.active).length;
-          return (
-            <button
-              type="button"
-              key={section.key}
-              className={section.key === activeSection.key ? 'is-active' : ''}
-              onClick={() => setActiveSectionKey(section.key)}
-            >
-              <span>{section.shortTitle}</span>
-              <strong>{sectionItems.length}</strong>
-              <small>{enabled} actifs</small>
-            </button>
-          );
-        })}
-      </nav>
+      <div className="business-catalog__workspace">
+        <nav className="business-catalog__section-nav" aria-label="Catégories du référentiel métier">
+          {SECTIONS.map((section) => {
+            const sectionItems = values[section.key] || [];
+            const enabled = sectionItems.filter((item) => item.active).length;
+            return (
+              <button
+                type="button"
+                key={section.key}
+                className={section.key === activeSection.key ? 'is-active' : ''}
+                aria-current={section.key === activeSection.key ? 'page' : undefined}
+                onClick={() => setActiveSectionKey(section.key)}
+              >
+                <span>{section.shortTitle}</span>
+                <strong>{sectionItems.length}</strong>
+                <small>{enabled} actifs</small>
+              </button>
+            );
+          })}
+        </nav>
 
-      <div className="business-catalog__focus-summary">
-        <div>
-          <span>Section active</span>
-          <strong>{activeSection.title}</strong>
-          <small>{activeSection.copy}</small>
-        </div>
-        <div>
-          <strong>{activeItems.length}</strong>
-          <span>éléments</span>
-        </div>
-        <div>
-          <strong>{activeItemsCount}</strong>
-          <span>actifs</span>
-        </div>
-      </div>
-
-      <div className="business-catalog__sections business-catalog__sections--focused">
-        <article className="catalog-card">
-          <header>
-            <div><h3>{activeSection.title}</h3><p>{activeSection.copy}</p></div>
-            {editable && activeSection.extensible ? (
-              <button type="button" onClick={addItem}>+ Ajouter</button>
-            ) : null}
-          </header>
-          <div
-            className={[
-              'catalog-table',
-              activeSection.canonicalized ? 'catalog-table--canonical' : '',
-            ].filter(Boolean).join(' ')}
-            role="table"
-            aria-label={activeSection.title}
-          >
-            <div className="catalog-table__head" role="row">
-              <span>Identifiant</span>
-              <span>Libellé</span>
-              {activeSection.canonicalized ? <span>Comportement système</span> : null}
-              <span>Couleur</span>
-              <span>Ordre</span>
-              <span>Actif</span>
+        <div className="business-catalog__panel">
+          <div className="business-catalog__focus-summary">
+            <div>
+              <span>Section active</span>
+              <strong>{activeSection.title}</strong>
+              <small>{activeSection.copy}</small>
             </div>
-            {activeItems.map((item, index) => {
-              const custom = item?.metadata?.custom === true;
-              return (
-                <div className="catalog-table__row" role="row" key={catalogRowKey(activeSection.key, index)}>
-                  {editable && (!activeSection.canonicalized || custom) ? (
-                    <input
-                      aria-label={`Code ${item.label}`}
-                      value={item.code}
-                      onChange={(event) => updateItem(activeSection.key, index, 'code', normalizeCatalogCode(event.target.value))}
-                    />
-                  ) : <code>{item.code}</code>}
-                  <input
-                    disabled={!editable}
-                    aria-label={`Libellé ${item.code}`}
-                    value={item.label}
-                    onChange={(event) => updateItem(activeSection.key, index, 'label', event.target.value)}
-                  />
-                  {activeSection.canonicalized ? (
-                    custom ? (
-                      <select
-                        disabled={!editable}
-                        aria-label={`Comportement système ${item.code}`}
-                        value={item?.metadata?.canonical || ''}
-                        onChange={(event) => updateCanonical(activeSection.key, index, event.target.value)}
-                      >
-                        {canonicalOptions.map((option) => (
-                          <option key={option.code} value={option.code}>{option.label} · {option.code}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="catalog-system-badge">Système · {item.code}</span>
-                    )
-                  ) : null}
-                  <input
-                    disabled={!editable}
-                    type="color"
-                    aria-label={`Couleur ${item.code}`}
-                    value={item.color || '#4B8DFF'}
-                    onInput={(event) => updateItem(activeSection.key, index, 'color', event.currentTarget.value)}
-                  />
-                  <input
-                    disabled={!editable}
-                    type="number"
-                    min="0"
-                    max="10000"
-                    aria-label={`Ordre ${item.code}`}
-                    value={item.sort_order}
-                    onChange={(event) => updateItem(activeSection.key, index, 'sort_order', Number(event.target.value))}
-                  />
-                  <label className="catalog-switch">
-                    <input
-                      disabled={!editable || (activeSection.protectSystemActive && !custom)}
-                      type="checkbox"
-                      checked={item.active}
-                      onChange={(event) => updateItem(activeSection.key, index, 'active', event.target.checked)}
-                    />
-                    <span>{item.active ? 'Oui' : 'Archivé'}</span>
-                  </label>
-                </div>
-              );
-            })}
+            <div>
+              <strong>{activeItems.length}</strong>
+              <span>éléments</span>
+            </div>
+            <div>
+              <strong>{activeItemsCount}</strong>
+              <span>actifs</span>
+            </div>
           </div>
-        </article>
+
+          <div className="business-catalog__sections business-catalog__sections--focused">
+            <article className="catalog-card">
+              <header>
+                <div><h3>{activeSection.title}</h3><p>{activeSection.copy}</p></div>
+                {editable && activeSection.extensible ? (
+                  <button type="button" onClick={addItem}>+ Ajouter</button>
+                ) : null}
+              </header>
+              <div
+                className={[
+                  'catalog-table',
+                  activeSection.canonicalized ? 'catalog-table--canonical' : '',
+                ].filter(Boolean).join(' ')}
+                role="table"
+                aria-label={activeSection.title}
+              >
+                <div className="catalog-table__head" role="row">
+                  <span>Identifiant</span>
+                  <span>Libellé</span>
+                  {activeSection.canonicalized ? <span>Comportement système</span> : null}
+                  <span>Couleur</span>
+                  <span>Ordre</span>
+                  <span>Actif</span>
+                  <span className="catalog-table__actions-title">Actions</span>
+                </div>
+                {activeItems.map((item, index) => {
+                  const custom = isCustomCatalogItem(item);
+                  return (
+                    <div className="catalog-table__row" role="row" key={catalogRowKey(activeSection.key, index)}>
+                      {editable && custom ? (
+                        <input
+                          aria-label={`Code ${item.label}`}
+                          value={item.code}
+                          onChange={(event) => updateItem(activeSection.key, index, 'code', normalizeCatalogCode(event.target.value))}
+                        />
+                      ) : <code>{item.code}</code>}
+                      <input
+                        disabled={!editable}
+                        aria-label={`Libellé ${item.code}`}
+                        value={item.label}
+                        onChange={(event) => updateItem(activeSection.key, index, 'label', event.target.value)}
+                      />
+                      {activeSection.canonicalized ? (
+                        custom ? (
+                          <select
+                            disabled={!editable}
+                            aria-label={`Comportement système ${item.code}`}
+                            value={item?.metadata?.canonical || ''}
+                            onChange={(event) => updateCanonical(activeSection.key, index, event.target.value)}
+                          >
+                            {canonicalOptions.map((option) => (
+                              <option key={option.code} value={option.code}>{option.label} · {option.code}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="catalog-system-badge">Système · {item.code}</span>
+                        )
+                      ) : null}
+                      <input
+                        disabled={!editable}
+                        type="color"
+                        aria-label={`Couleur ${item.code}`}
+                        value={item.color || '#4B8DFF'}
+                        onInput={(event) => updateItem(activeSection.key, index, 'color', event.currentTarget.value)}
+                      />
+                      <input
+                        disabled={!editable}
+                        type="number"
+                        min="0"
+                        max="10000"
+                        aria-label={`Ordre ${item.code}`}
+                        value={item.sort_order}
+                        onChange={(event) => updateItem(activeSection.key, index, 'sort_order', Number(event.target.value))}
+                      />
+                      <label className="catalog-switch">
+                        <input
+                          disabled={!editable || (activeSection.protectSystemActive && !custom)}
+                          type="checkbox"
+                          checked={item.active}
+                          onChange={(event) => updateItem(activeSection.key, index, 'active', event.target.checked)}
+                        />
+                        <span>{item.active ? 'Oui' : 'Archivé'}</span>
+                      </label>
+                      <div className="catalog-row-actions">
+                        {editable && custom ? (
+                          <button
+                            type="button"
+                            className="catalog-delete-button"
+                            aria-label={`Supprimer ${item.label || item.code}`}
+                            title="Supprimer cette ligne personnalisée"
+                            onClick={() => requestDeleteItem(index)}
+                          >
+                            <span aria-hidden="true">⌫</span>
+                          </button>
+                        ) : (
+                          <span className="catalog-protected" title="Élément système protégé" aria-label="Élément système protégé">Protégé</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </article>
+          </div>
+        </div>
       </div>
 
       <footer className="business-catalog__footer">
