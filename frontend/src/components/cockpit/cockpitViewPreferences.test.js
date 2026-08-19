@@ -42,6 +42,29 @@ function createSharedCoordinator() {
   };
 }
 
+function createUncoordinatedFallback() {
+  return {
+    publishIntent() {},
+    isLatestIntent() {
+      return true;
+    },
+    withLock(run) {
+      return Promise.resolve().then(run);
+    },
+  };
+}
+
+function intentRank(token) {
+  const [clock, sequence] = String(token).split(':');
+  return [Number(clock), Number(sequence)];
+}
+
+function compareIntentRank(left, right) {
+  const [leftClock, leftSequence] = intentRank(left);
+  const [rightClock, rightSequence] = intentRank(right);
+  return leftClock - rightClock || leftSequence - rightSequence;
+}
+
 
 test('normalizes partial persisted cockpit preferences', () => {
   const view = normalizeCockpitView({ metrics: false, quality: false });
@@ -104,7 +127,7 @@ test('serializes cockpit saves and only acknowledges the latest intent', async (
   const save = (payload) => {
     calls.push(payload);
     return new Promise((resolve) => {
-      resolvers.push(() => resolve(payload));
+      resolvers.push(() => resolve(payload.view));
     });
   };
 
@@ -123,7 +146,8 @@ test('serializes cockpit saves and only acknowledges the latest intent', async (
     () => calls.length === 1,
     'La première sauvegarde Cockpit ne démarre pas',
   );
-  assert.deepEqual(calls, [{ metrics: false }]);
+  assert.equal(calls[0].view.metrics, false);
+  assert.match(calls[0].client_intent, /^\d+:\d+:/);
   assert.equal(queue.pending, 2);
 
   resolvers[0]();
@@ -132,13 +156,15 @@ test('serializes cockpit saves and only acknowledges the latest intent', async (
     () => calls.length === 2,
     'La seconde sauvegarde Cockpit ne démarre pas après la première',
   );
-  assert.deepEqual(calls, [{ metrics: false }, { metrics: true }]);
+  assert.equal(calls[1].view.metrics, true);
+  assert.ok(compareIntentRank(calls[1].client_intent, calls[0].client_intent) > 0);
   assert.deepEqual(saved, []);
 
   resolvers[1]();
   await second;
 
-  assert.deepEqual(saved, [{ metrics: true }]);
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].metrics, true);
   assert.equal(queue.pending, 0);
 });
 
@@ -158,8 +184,8 @@ test('shared coordination keeps a newer cockpit intent authoritative across queu
       calls.push(['first', payload]);
       return new Promise((resolve) => {
         firstResolvers.push(() => {
-          persisted = payload;
-          resolve(payload);
+          persisted = payload.view;
+          resolve(payload.view);
         });
       });
     },
@@ -175,24 +201,85 @@ test('shared coordination keeps a newer cockpit intent authoritative across queu
     payload: { metrics: true },
     save: async (payload) => {
       calls.push(['second', payload]);
-      persisted = payload;
-      return payload;
+      persisted = payload.view;
+      return payload.view;
     },
     onLatestSaved: () => acknowledgements.push('second'),
   });
 
-  assert.deepEqual(calls, [['first', { metrics: false }]]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1].view.metrics, false);
 
   firstResolvers[0]();
   await first;
   await second;
 
-  assert.deepEqual(calls, [
-    ['first', { metrics: false }],
-    ['second', { metrics: true }],
-  ]);
-  assert.deepEqual(persisted, { metrics: true });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1][1].view.metrics, true);
+  assert.deepEqual(persisted, normalizeCockpitView({ metrics: true }));
   assert.deepEqual(acknowledgements, ['second']);
+  assert.equal(firstQueue.pending, 0);
+  assert.equal(secondQueue.pending, 0);
+});
+
+
+test('server intent ordering protects the newest view when locks and storage coordination are unavailable', async () => {
+  const firstQueue = createCockpitPreferenceSaveQueue({
+    coordinator: createUncoordinatedFallback(),
+  });
+  const secondQueue = createCockpitPreferenceSaveQueue({
+    coordinator: createUncoordinatedFallback(),
+  });
+  let releaseFirst;
+  let persisted = null;
+  let persistedIntent = null;
+  const errors = [];
+
+  const serverCommit = (request) => {
+    if (
+      persistedIntent &&
+      compareIntentRank(request.client_intent, persistedIntent) <= 0
+    ) {
+      const error = new Error('stale cockpit intent');
+      error.status = 409;
+      throw error;
+    }
+    persistedIntent = request.client_intent;
+    persisted = request.view;
+    return request.view;
+  };
+
+  const first = enqueueCockpitPreferenceSave(firstQueue, {
+    payload: { metrics: false },
+    save: (request) => new Promise((resolve, reject) => {
+      releaseFirst = () => {
+        try {
+          resolve(serverCommit(request));
+        } catch (error) {
+          reject(error);
+        }
+      };
+    }),
+    onLatestError: (error) => errors.push(error),
+  });
+
+  await waitFor(
+    () => typeof releaseFirst === 'function',
+    'La première écriture concurrente ne démarre pas',
+  );
+
+  const second = enqueueCockpitPreferenceSave(secondQueue, {
+    payload: { metrics: true },
+    save: async (request) => serverCommit(request),
+  });
+
+  await second;
+  releaseFirst();
+  await first;
+
+  assert.equal(persisted.metrics, true);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].status, 409);
   assert.equal(firstQueue.pending, 0);
   assert.equal(secondQueue.pending, 0);
 });

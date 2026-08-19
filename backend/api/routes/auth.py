@@ -3,8 +3,15 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth.dependencies import get_current_user
@@ -18,7 +25,9 @@ logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter()
 
-_COCKPIT_SCHEMA_VERSION = 1
+_COCKPIT_SCHEMA_VERSION = 2
+_COCKPIT_VIEW_FIELD = "view"
+_COCKPIT_INTENT_FIELD = "client_intent"
 
 
 class CockpitViewPreferences(BaseModel):
@@ -39,12 +48,84 @@ class CockpitViewPreferences(BaseModel):
         return self
 
 
+class CockpitViewUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    view: CockpitViewPreferences
+    client_intent: str
+
+    @field_validator("client_intent")
+    @classmethod
+    def validate_client_intent(cls, value: str) -> str:
+        _cockpit_intent_rank(value)
+        return value
+
+
 def _cockpit_namespace(user_id: int) -> str:
     return f"cockpit_view:user:{int(user_id)}"
 
 
 def _default_cockpit_view() -> CockpitViewPreferences:
     return CockpitViewPreferences()
+
+
+def _cockpit_intent_rank(value: str) -> tuple[int, int, str]:
+    token = str(value or "").strip()
+    parts = token.split(":", 2)
+    if len(parts) != 3 or not parts[2] or len(token) > 160:
+        raise ValueError("client_intent Cockpit invalide")
+
+    try:
+        clock = int(parts[0])
+        sequence = int(parts[1])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("client_intent Cockpit invalide") from exc
+
+    if clock <= 0 or sequence <= 0:
+        raise ValueError("client_intent Cockpit invalide")
+
+    return clock, sequence, token
+
+
+def _cockpit_view_values(values: object) -> dict:
+    if not isinstance(values, dict):
+        return {}
+
+    nested = values.get(_COCKPIT_VIEW_FIELD)
+    if isinstance(nested, dict):
+        return nested
+
+    # Schema v1 stored the preference booleans directly in ApplicationSetting.values.
+    return values
+
+
+def _cockpit_stored_intent(values: object) -> str | None:
+    if not isinstance(values, dict):
+        return None
+    token = values.get(_COCKPIT_INTENT_FIELD)
+    return token if isinstance(token, str) and token.strip() else None
+
+
+def _cockpit_document_values(payload: CockpitViewUpdate) -> dict:
+    return {
+        _COCKPIT_VIEW_FIELD: payload.view.model_dump(mode="json"),
+        _COCKPIT_INTENT_FIELD: payload.client_intent,
+    }
+
+
+def _ensure_fresh_cockpit_intent(
+    incoming_intent: str,
+    stored_values: object,
+) -> None:
+    stored_intent = _cockpit_stored_intent(stored_values)
+    if stored_intent is None:
+        return
+
+    if _cockpit_intent_rank(incoming_intent) <= _cockpit_intent_rank(stored_intent):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Une personnalisation Cockpit plus récente est déjà enregistrée.",
+        )
 
 
 def _invalid_credentials() -> HTTPException:
@@ -145,7 +226,9 @@ async def get_my_cockpit_view(
         return _default_cockpit_view()
 
     try:
-        return CockpitViewPreferences.model_validate(document.values or {})
+        return CockpitViewPreferences.model_validate(
+            _cockpit_view_values(document.values or {})
+        )
     except ValidationError:
         logger.warning(
             "[AUTH] Invalid cockpit preferences ignored - user_id=%s",
@@ -154,36 +237,74 @@ async def get_my_cockpit_view(
         return _default_cockpit_view()
 
 
+async def _update_existing_cockpit_document(
+    *,
+    db: AsyncSession,
+    document: ApplicationSetting,
+    payload: CockpitViewUpdate,
+    user_id: int,
+) -> CockpitViewPreferences:
+    _ensure_fresh_cockpit_intent(payload.client_intent, document.values)
+    document.schema_version = _COCKPIT_SCHEMA_VERSION
+    document.revision = max(int(document.revision or 0) + 1, 1)
+    document.values = _cockpit_document_values(payload)
+    document.updated_by = user_id
+    await db.commit()
+    return payload.view
+
+
 @router.put("/me/cockpit-view", response_model=CockpitViewPreferences)
 async def update_my_cockpit_view(
-    payload: CockpitViewPreferences,
+    payload: CockpitViewUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Persist cockpit layout for the authenticated user only."""
+    """Persist only the newest authenticated user's cockpit intent."""
     namespace = _cockpit_namespace(current_user.id)
     result = await db.execute(
-        select(ApplicationSetting).where(
-            ApplicationSetting.namespace == namespace
-        )
+        select(ApplicationSetting)
+        .where(ApplicationSetting.namespace == namespace)
+        .with_for_update()
     )
     document = result.scalar_one_or_none()
-    serialized = payload.model_dump(mode="json")
 
-    if document is None:
-        document = ApplicationSetting(
-            namespace=namespace,
-            schema_version=_COCKPIT_SCHEMA_VERSION,
-            revision=1,
-            values=serialized,
-            updated_by=current_user.id,
+    if document is not None:
+        return await _update_existing_cockpit_document(
+            db=db,
+            document=document,
+            payload=payload,
+            user_id=current_user.id,
         )
-        db.add(document)
-    else:
-        document.schema_version = _COCKPIT_SCHEMA_VERSION
-        document.revision = max(int(document.revision or 0) + 1, 1)
-        document.values = serialized
-        document.updated_by = current_user.id
 
-    await db.commit()
-    return payload
+    document = ApplicationSetting(
+        namespace=namespace,
+        schema_version=_COCKPIT_SCHEMA_VERSION,
+        revision=1,
+        values=_cockpit_document_values(payload),
+        updated_by=current_user.id,
+    )
+    db.add(document)
+
+    try:
+        await db.commit()
+        return payload.view
+    except IntegrityError:
+        # Two first-time sessions can race before the per-user row exists.
+        # The unique namespace picks one winner; then compare intent ranks and
+        # apply only the genuinely newer user action.
+        await db.rollback()
+        result = await db.execute(
+            select(ApplicationSetting)
+            .where(ApplicationSetting.namespace == namespace)
+            .with_for_update()
+        )
+        document = result.scalar_one_or_none()
+        if document is None:
+            raise
+
+        return await _update_existing_cockpit_document(
+            db=db,
+            document=document,
+            payload=payload,
+            user_id=current_user.id,
+        )

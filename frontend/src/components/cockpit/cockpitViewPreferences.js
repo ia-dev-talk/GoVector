@@ -59,9 +59,23 @@ export function cockpitViewFingerprint(value) {
   return JSON.stringify(normalizeCockpitView(value));
 }
 
+function intentClockMicros() {
+  const performanceApi = typeof globalThis !== 'undefined'
+    ? globalThis.performance
+    : undefined;
+  const timeOrigin = Number(performanceApi?.timeOrigin);
+  const elapsed = Number(performanceApi?.now?.());
+
+  if (Number.isFinite(timeOrigin) && Number.isFinite(elapsed)) {
+    return Math.round((timeOrigin + elapsed) * 1000);
+  }
+
+  return Date.now() * 1000;
+}
+
 function createIntentToken() {
   cockpitIntentCounter += 1;
-  return `${Date.now()}:${cockpitIntentCounter}:${Math.random().toString(36).slice(2)}`;
+  return `${intentClockMicros()}:${cockpitIntentCounter}:${Math.random().toString(36).slice(2)}`;
 }
 
 function createBrowserPreferenceCoordinator() {
@@ -85,6 +99,8 @@ function createBrowserPreferenceCoordinator() {
         const latest = storage?.getItem(COCKPIT_PREFERENCE_INTENT);
         return !latest || latest === token;
       } catch {
+        // The server also orders writes by client_intent, so storage is only
+        // an optimization for suppressing obsolete requests and acknowledgements.
         return true;
       }
     },
@@ -130,6 +146,10 @@ export function enqueueCockpitPreferenceSave(
   const coordinator = queue.coordinator ?? createBrowserPreferenceCoordinator();
   const sequence = queue.latestSequence + 1;
   const intentToken = createIntentToken();
+  const requestPayload = {
+    view: normalizeCockpitView(payload),
+    client_intent: intentToken,
+  };
   queue.latestSequence = sequence;
   queue.pending += 1;
   coordinator.publishIntent(intentToken);
@@ -139,7 +159,7 @@ export function enqueueCockpitPreferenceSave(
       return { status: 'superseded' };
     }
 
-    const result = await save(payload);
+    const result = await save(requestPayload);
     return {
       status: coordinator.isLatestIntent(intentToken) ? 'saved' : 'superseded',
       result,
