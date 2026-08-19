@@ -243,26 +243,61 @@ async def _validated_catalog(
 ) -> BusinessCatalogValues:
     defaults = _catalog_defaults()
     _unique_codes(values.technician_grades, "technician_grades")
+
+    submitted_grade_codes = {item.code for item in values.technician_grades}
+    protected_grade_codes = {item.code for item in defaults.technician_grades}
+    missing_system_grades = sorted(protected_grade_codes - submitted_grade_codes)
+    if missing_system_grades:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Les identifiants système de technician_grades sont protégés. "
+                "Restaurez : " + ", ".join(missing_system_grades)
+            ),
+        )
+
     active_grades = {item.code for item in values.technician_grades if item.active}
     if not active_grades:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Au moins un grade technicien doit rester actif.",
         )
-    used_grades = set(
+
+    referenced_grades = set(
+        (await db.execute(select(Technician.grade))).scalars().all()
+    )
+    removed_referenced_grades = sorted(
+        grade
+        for grade in referenced_grades
+        if grade and grade not in submitted_grade_codes
+    )
+    if removed_referenced_grades:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Impossible de supprimer un grade référencé par un technicien : "
+                + ", ".join(removed_referenced_grades)
+            ),
+        )
+
+    active_used_grades = set(
         (
             await db.execute(
                 select(Technician.grade).where(Technician.is_active.is_(True))
             )
         ).scalars().all()
     )
-    missing_used = sorted(grade for grade in used_grades if grade not in active_grades)
-    if missing_used:
+    archived_active_used_grades = sorted(
+        grade
+        for grade in active_used_grades
+        if grade and grade not in active_grades
+    )
+    if archived_active_used_grades:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
                 "Impossible d'archiver un grade utilisé par un technicien actif : "
-                + ", ".join(missing_used)
+                + ", ".join(archived_active_used_grades)
             ),
         )
     return BusinessCatalogValues(
