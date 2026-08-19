@@ -10,6 +10,17 @@ import {
   toggleCockpitSection,
 } from './cockpitViewPreferences.js';
 
+async function waitFor(predicate, message) {
+  const timeoutAt = Date.now() + 1000;
+
+  while (!predicate()) {
+    if (Date.now() >= timeoutAt) {
+      assert.fail(message);
+    }
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
 
 test('normalizes partial persisted cockpit preferences', () => {
   const view = normalizeCockpitView({ metrics: false, quality: false });
@@ -87,14 +98,19 @@ test('serializes cockpit saves and only acknowledges the latest intent', async (
     onLatestSaved: (value) => saved.push(value),
   });
 
-  await Promise.resolve();
-  await Promise.resolve();
+  await waitFor(
+    () => calls.length === 1,
+    'La première sauvegarde Cockpit ne démarre pas',
+  );
   assert.deepEqual(calls, [{ metrics: false }]);
   assert.equal(queue.pending, 2);
 
   resolvers[0]();
   await first;
-  await Promise.resolve();
+  await waitFor(
+    () => calls.length === 2,
+    'La seconde sauvegarde Cockpit ne démarre pas après la première',
+  );
   assert.deepEqual(calls, [{ metrics: false }, { metrics: true }]);
   assert.deepEqual(saved, []);
 
