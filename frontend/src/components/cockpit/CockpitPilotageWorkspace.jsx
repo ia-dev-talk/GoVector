@@ -514,9 +514,6 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
       return undefined;
     }
 
-    setPreferenceSync('saving');
-    setPreferenceError('');
-
     const timeoutId = window.setTimeout(() => {
       apiClient
         .put('/auth/me/cockpit-view', normalizeCockpitView(visibility))
@@ -559,8 +556,19 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     ['Disponibles', pilotage.personnel.available, `${pilotage.personnel.total} techniciens`, 'success', 'users', 'personnel'],
   ];
 
+  const markPreferenceSaving = () => {
+    setPreferenceSync('saving');
+    setPreferenceError('');
+  };
+
   const toggleSection = (key) => {
+    markPreferenceSaving();
     setVisibility((current) => toggleCockpitSection(current, key));
+  };
+
+  const resetView = () => {
+    markPreferenceSaving();
+    setVisibility({ ...DEFAULT_COCKPIT_VIEW });
   };
 
   return (
@@ -570,7 +578,7 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
         syncState={preferenceSync}
         syncError={preferenceError}
         onToggle={toggleSection}
-        onReset={() => setVisibility({ ...DEFAULT_COCKPIT_VIEW })}
+        onReset={resetView}
       />
 
       {visibility.metrics ? (
