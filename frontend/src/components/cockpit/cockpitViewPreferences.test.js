@@ -4,6 +4,8 @@ import test from 'node:test';
 import {
   DEFAULT_COCKPIT_VIEW,
   cockpitViewFingerprint,
+  createCockpitPreferenceSaveQueue,
+  enqueueCockpitPreferenceSave,
   normalizeCockpitView,
   toggleCockpitSection,
 } from './cockpitViewPreferences.js';
@@ -58,4 +60,47 @@ test('fingerprint is stable after normalization', () => {
     cockpitViewFingerprint({ metrics: true }),
     cockpitViewFingerprint(normalizeCockpitView({ metrics: true })),
   );
+});
+
+
+test('serializes cockpit saves and only acknowledges the latest intent', async () => {
+  const queue = createCockpitPreferenceSaveQueue();
+  const resolvers = [];
+  const saved = [];
+  const calls = [];
+
+  const save = (payload) => {
+    calls.push(payload);
+    return new Promise((resolve) => {
+      resolvers.push(() => resolve(payload));
+    });
+  };
+
+  const first = enqueueCockpitPreferenceSave(queue, {
+    payload: { metrics: false },
+    save,
+    onLatestSaved: (value) => saved.push(value),
+  });
+  const second = enqueueCockpitPreferenceSave(queue, {
+    payload: { metrics: true },
+    save,
+    onLatestSaved: (value) => saved.push(value),
+  });
+
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(calls, [{ metrics: false }]);
+  assert.equal(queue.pending, 2);
+
+  resolvers[0]();
+  await first;
+  await Promise.resolve();
+  assert.deepEqual(calls, [{ metrics: false }, { metrics: true }]);
+  assert.deepEqual(saved, []);
+
+  resolvers[1]();
+  await second;
+
+  assert.deepEqual(saved, [{ metrics: true }]);
+  assert.equal(queue.pending, 0);
 });

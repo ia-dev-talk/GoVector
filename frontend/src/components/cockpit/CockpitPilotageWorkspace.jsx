@@ -10,6 +10,8 @@ import { apiClient } from '../../api/client';
 import {
   DEFAULT_COCKPIT_VIEW,
   cockpitViewFingerprint,
+  createCockpitPreferenceSaveQueue,
+  enqueueCockpitPreferenceSave,
   normalizeCockpitView,
   toggleCockpitSection,
 } from './cockpitViewPreferences';
@@ -469,6 +471,7 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
   const [preferenceError, setPreferenceError] = useState('');
   const [preferenceHydrated, setPreferenceHydrated] = useState(false);
   const persistedFingerprint = useRef('');
+  const preferenceSaveQueue = useRef(createCockpitPreferenceSaveQueue());
 
   useEffect(() => {
     let cancelled = false;
@@ -509,26 +512,34 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
       return undefined;
     }
 
-    const fingerprint = cockpitViewFingerprint(visibility);
-    if (fingerprint === persistedFingerprint.current) {
+    const normalized = normalizeCockpitView(visibility);
+    const fingerprint = cockpitViewFingerprint(normalized);
+    if (
+      fingerprint === persistedFingerprint.current &&
+      preferenceSaveQueue.current.pending === 0
+    ) {
       return undefined;
     }
 
     const timeoutId = window.setTimeout(() => {
-      apiClient
-        .put('/auth/me/cockpit-view', normalizeCockpitView(visibility))
-        .then((response) => {
-          const normalized = normalizeCockpitView(response.data);
-          persistedFingerprint.current = cockpitViewFingerprint(normalized);
+      enqueueCockpitPreferenceSave(preferenceSaveQueue.current, {
+        payload: normalized,
+        save: (payload) => apiClient
+          .put('/auth/me/cockpit-view', payload)
+          .then((response) => response.data),
+        onLatestSaved: (savedView) => {
+          const saved = normalizeCockpitView(savedView);
+          persistedFingerprint.current = cockpitViewFingerprint(saved);
           setPreferenceSync('saved');
           setPreferenceError('');
-        })
-        .catch(() => {
+        },
+        onLatestError: () => {
           setPreferenceSync('error');
           setPreferenceError(
             'La dernière personnalisation n’a pas pu être enregistrée. Réessayez après rétablissement de la connexion.',
           );
-        });
+        },
+      });
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
