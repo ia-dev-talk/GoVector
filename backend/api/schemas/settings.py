@@ -134,6 +134,20 @@ class BusinessCatalogValues(BaseModel):
     status_presentations: List[CatalogItem] = Field(default_factory=list)
     field_actions: List[CatalogItem] = Field(default_factory=list)
 
+    @field_validator("technician_grades")
+    @classmethod
+    def classify_technician_grades(
+        cls, items: List[CatalogItem]
+    ) -> List[CatalogItem]:
+        """Make system/custom classification authoritative on every API round-trip."""
+        protected_codes = {"junior", "senior"}
+        normalized: List[CatalogItem] = []
+        for item in items:
+            metadata = dict(item.metadata or {})
+            metadata["custom"] = item.code not in protected_codes
+            normalized.append(item.model_copy(update={"metadata": metadata}))
+        return normalized
+
 
 class BusinessCatalogUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
