@@ -17,7 +17,7 @@ async function waitFor(predicate, message) {
     if (Date.now() >= timeoutAt) {
       assert.fail(message);
     }
-    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 }
 
