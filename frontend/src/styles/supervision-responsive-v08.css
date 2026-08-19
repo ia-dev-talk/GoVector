@@ -6,7 +6,7 @@
  * widths; only collapse to a single column on genuinely narrow screens.
  */
 
-@container supervision-v4 (max-width: 1080px) and (min-width: 761px) {
+@container supervision-v4 (max-width: 1320px) and (min-width: 761px) {
   .supv4-shell {
     overflow: hidden;
   }
