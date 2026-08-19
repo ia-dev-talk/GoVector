@@ -14,6 +14,10 @@ export const DEFAULT_COCKPIT_VIEW = Object.freeze(
   ),
 );
 
+const COCKPIT_PREFERENCE_LOCK = 'bluevector:cockpit-view:save:v1';
+const COCKPIT_PREFERENCE_INTENT = 'bluevector:cockpit-view:intent:v1';
+let cockpitIntentCounter = 0;
+
 export function normalizeCockpitView(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value)
     ? value
@@ -55,11 +59,54 @@ export function cockpitViewFingerprint(value) {
   return JSON.stringify(normalizeCockpitView(value));
 }
 
-export function createCockpitPreferenceSaveQueue() {
+function createIntentToken() {
+  cockpitIntentCounter += 1;
+  return `${Date.now()}:${cockpitIntentCounter}:${Math.random().toString(36).slice(2)}`;
+}
+
+function createBrowserPreferenceCoordinator() {
+  const storage = typeof globalThis !== 'undefined'
+    ? globalThis.localStorage
+    : undefined;
+  const locks = typeof globalThis !== 'undefined'
+    ? globalThis.navigator?.locks
+    : undefined;
+
+  return {
+    publishIntent(token) {
+      try {
+        storage?.setItem(COCKPIT_PREFERENCE_INTENT, token);
+      } catch {
+        // Private browsing/storage restrictions must not make the cockpit unusable.
+      }
+    },
+    isLatestIntent(token) {
+      try {
+        const latest = storage?.getItem(COCKPIT_PREFERENCE_INTENT);
+        return !latest || latest === token;
+      } catch {
+        return true;
+      }
+    },
+    withLock(run) {
+      if (locks?.request) {
+        return locks.request(
+          COCKPIT_PREFERENCE_LOCK,
+          { mode: 'exclusive' },
+          run,
+        );
+      }
+      return Promise.resolve().then(run);
+    },
+  };
+}
+
+export function createCockpitPreferenceSaveQueue({ coordinator } = {}) {
   return {
     tail: Promise.resolve(),
     latestSequence: 0,
     pending: 0,
+    coordinator: coordinator ?? createBrowserPreferenceCoordinator(),
   };
 }
 
@@ -80,26 +127,45 @@ export function enqueueCockpitPreferenceSave(
     throw new TypeError('Fonction de sauvegarde Cockpit obligatoire');
   }
 
+  const coordinator = queue.coordinator ?? createBrowserPreferenceCoordinator();
   const sequence = queue.latestSequence + 1;
+  const intentToken = createIntentToken();
   queue.latestSequence = sequence;
   queue.pending += 1;
+  coordinator.publishIntent(intentToken);
 
-  const run = () => Promise.resolve().then(() => save(payload));
+  const run = () => coordinator.withLock(async () => {
+    if (!coordinator.isLatestIntent(intentToken)) {
+      return { status: 'superseded' };
+    }
+
+    const result = await save(payload);
+    return {
+      status: coordinator.isLatestIntent(intentToken) ? 'saved' : 'superseded',
+      result,
+    };
+  });
 
   queue.tail = Promise.resolve(queue.tail)
     .catch(() => undefined)
     .then(run)
     .then(
-      (result) => {
+      (outcome) => {
         queue.pending = Math.max(0, queue.pending - 1);
-        if (queue.latestSequence === sequence) {
-          onLatestSaved?.(result);
+        if (
+          outcome?.status === 'saved' &&
+          queue.latestSequence === sequence
+        ) {
+          onLatestSaved?.(outcome.result);
         }
-        return result;
+        return outcome?.result;
       },
       (error) => {
         queue.pending = Math.max(0, queue.pending - 1);
-        if (queue.latestSequence === sequence) {
+        if (
+          queue.latestSequence === sequence &&
+          coordinator.isLatestIntent(intentToken)
+        ) {
           onLatestError?.(error);
         }
         return undefined;

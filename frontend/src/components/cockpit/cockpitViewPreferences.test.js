@@ -21,6 +21,27 @@ async function waitFor(predicate, message) {
   }
 }
 
+function createSharedCoordinator() {
+  let latestIntent = '';
+  let lockTail = Promise.resolve();
+
+  return {
+    publishIntent(token) {
+      latestIntent = token;
+    },
+    isLatestIntent(token) {
+      return latestIntent === token;
+    },
+    withLock(run) {
+      const execution = Promise.resolve(lockTail)
+        .catch(() => undefined)
+        .then(run);
+      lockTail = execution.catch(() => undefined);
+      return execution;
+    },
+  };
+}
+
 
 test('normalizes partial persisted cockpit preferences', () => {
   const view = normalizeCockpitView({ metrics: false, quality: false });
@@ -119,4 +140,59 @@ test('serializes cockpit saves and only acknowledges the latest intent', async (
 
   assert.deepEqual(saved, [{ metrics: true }]);
   assert.equal(queue.pending, 0);
+});
+
+
+test('shared coordination keeps a newer cockpit intent authoritative across queues', async () => {
+  const coordinator = createSharedCoordinator();
+  const firstQueue = createCockpitPreferenceSaveQueue({ coordinator });
+  const secondQueue = createCockpitPreferenceSaveQueue({ coordinator });
+  const calls = [];
+  const acknowledgements = [];
+  const firstResolvers = [];
+  let persisted = null;
+
+  const first = enqueueCockpitPreferenceSave(firstQueue, {
+    payload: { metrics: false },
+    save: (payload) => {
+      calls.push(['first', payload]);
+      return new Promise((resolve) => {
+        firstResolvers.push(() => {
+          persisted = payload;
+          resolve(payload);
+        });
+      });
+    },
+    onLatestSaved: () => acknowledgements.push('first'),
+  });
+
+  await waitFor(
+    () => calls.length === 1,
+    'La sauvegarde de la première instance ne démarre pas',
+  );
+
+  const second = enqueueCockpitPreferenceSave(secondQueue, {
+    payload: { metrics: true },
+    save: async (payload) => {
+      calls.push(['second', payload]);
+      persisted = payload;
+      return payload;
+    },
+    onLatestSaved: () => acknowledgements.push('second'),
+  });
+
+  assert.deepEqual(calls, [['first', { metrics: false }]]);
+
+  firstResolvers[0]();
+  await first;
+  await second;
+
+  assert.deepEqual(calls, [
+    ['first', { metrics: false }],
+    ['second', { metrics: true }],
+  ]);
+  assert.deepEqual(persisted, { metrics: true });
+  assert.deepEqual(acknowledgements, ['second']);
+  assert.equal(firstQueue.pending, 0);
+  assert.equal(secondQueue.pending, 0);
 });
