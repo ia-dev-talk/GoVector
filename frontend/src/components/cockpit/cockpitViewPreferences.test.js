@@ -119,6 +119,14 @@ test('exposes distinct business presets backed only by supported cockpit blocks'
       Object.keys(DEFAULT_COCKPIT_VIEW),
     );
   }
+
+  const defaultPreset = detectCockpitPreset(DEFAULT_COCKPIT_VIEW);
+  assert.equal(defaultPreset, 'admin');
+  assert.notEqual(
+    COCKPIT_VIEW_PRESETS[defaultPreset].label,
+    'Admin',
+    'La vue complète ne doit pas revendiquer un rôle ADMIN pour un utilisateur non-admin',
+  );
 });
 
 
