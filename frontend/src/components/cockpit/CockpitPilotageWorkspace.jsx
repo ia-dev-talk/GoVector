@@ -9,16 +9,22 @@ import {
 import { apiClient } from '../../api/client';
 import {
   COCKPIT_VIEW_PRESETS,
+  DEFAULT_COCKPIT_ORDER,
   DEFAULT_COCKPIT_VIEW,
   applyCockpitPreset,
   canRetryCockpitPreferenceSync,
-  cockpitViewFingerprint,
   createCockpitPreferenceSaveQueue,
   detectCockpitPreset,
   enqueueCockpitPreferenceSave,
+  moveCockpitSection,
+  normalizeCockpitOrder,
   normalizeCockpitView,
   toggleCockpitSection,
 } from './cockpitViewPreferences';
+import {
+  cockpitLayoutFingerprint,
+  normalizeCockpitLayout,
+} from './cockpitLayoutIdentity';
 import {
   buildCockpitPilotage,
   text,
@@ -35,6 +41,10 @@ const COCKPIT_VIEW_OPTIONS = Object.freeze([
   ['activity', 'Activité live'],
   ['quickAccess', 'Accès rapides'],
 ]);
+
+const COCKPIT_VIEW_LABELS = Object.freeze(
+  Object.fromEntries(COCKPIT_VIEW_OPTIONS),
+);
 
 
 function Icon({ name }) {
@@ -147,12 +157,14 @@ function Metric({ label, value, subtitle, tone, icon, onClick }) {
 
 function CockpitViewControls({
   visibility,
+  order,
   syncState,
   syncError,
   canRetry,
   onRetry,
   onPreset,
   onToggle,
+  onMove,
   onReset,
 }) {
   const visibleCount = Object.values(visibility).filter(Boolean).length;
@@ -161,6 +173,7 @@ function CockpitViewControls({
     ? COCKPIT_VIEW_PRESETS[activePreset].label
     : 'Personnalisée';
   const controlsDisabled = syncState === 'loading';
+  const normalizedOrder = normalizeCockpitOrder(order);
   const syncLabel = {
     loading: 'Chargement du profil…',
     saving: 'Enregistrement…',
@@ -215,31 +228,59 @@ function CockpitViewControls({
           </div>
 
           <span style={{ marginTop: '10px' }}>Blocs du cockpit</span>
-          <div className="cpv4-config-grid">
-            {COCKPIT_VIEW_OPTIONS.map(([key, label]) => {
+          <div className="cpv4-config-grid" aria-label="Ordre et visibilité des blocs">
+            {normalizedOrder.map((key, index) => {
+              const label = COCKPIT_VIEW_LABELS[key] ?? key;
               const lastVisible = visibility[key] && visibleCount === 1;
 
               return (
-                <label className="cpv4-config-option" key={key}>
-                  <input
-                    type="checkbox"
-                    checked={visibility[key]}
-                    disabled={controlsDisabled || lastVisible}
-                    title={lastVisible ? 'Au moins un bloc doit rester visible' : undefined}
-                    onChange={() => onToggle(key)}
-                  />
-                  <span>{label}</span>
-                </label>
+                <div className="cpv4-config-option" key={key}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
+                    <input
+                      type="checkbox"
+                      checked={visibility[key]}
+                      disabled={controlsDisabled || lastVisible}
+                      title={lastVisible ? 'Au moins un bloc doit rester visible' : undefined}
+                      onChange={() => onToggle(key)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                  <span style={{ display: 'inline-flex', gap: '2px', marginLeft: 'auto' }}>
+                    <button
+                      type="button"
+                      className="cpv4-link"
+                      aria-label={`Monter ${label}`}
+                      title={`Monter ${label}`}
+                      disabled={controlsDisabled || index === 0}
+                      onClick={() => onMove(key, 'up')}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="cpv4-link"
+                      aria-label={`Descendre ${label}`}
+                      title={`Descendre ${label}`}
+                      disabled={controlsDisabled || index === normalizedOrder.length - 1}
+                      onClick={() => onMove(key, 'down')}
+                    >
+                      ↓
+                    </button>
+                  </span>
+                </div>
               );
             })}
           </div>
+          <small style={{ display: 'block', marginTop: '8px', color: 'var(--text-muted)' }}>
+            Les presets changent la visibilité. Votre ordre personnalisé est conservé jusqu’à réinitialisation.
+          </small>
           <button
             type="button"
             className="cpv4-config-reset"
             disabled={controlsDisabled}
             onClick={onReset}
           >
-            Réinitialiser la vue par défaut
+            Réinitialiser visibilité et ordre
           </button>
         </div>
       </details>
@@ -513,6 +554,7 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
   statusMetadata = [],
 }) {
   const [visibility, setVisibility] = useState({ ...DEFAULT_COCKPIT_VIEW });
+  const [order, setOrder] = useState([...DEFAULT_COCKPIT_ORDER]);
   const [preferenceSync, setPreferenceSync] = useState('loading');
   const [preferenceError, setPreferenceError] = useState('');
   const [preferenceHydrated, setPreferenceHydrated] = useState(false);
@@ -530,9 +572,10 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
           return;
         }
 
-        const normalized = normalizeCockpitView(response.data);
-        persistedFingerprint.current = cockpitViewFingerprint(normalized);
-        setVisibility(normalized);
+        const normalized = normalizeCockpitLayout(response.data);
+        persistedFingerprint.current = cockpitLayoutFingerprint(normalized);
+        setVisibility(normalized.view);
+        setOrder(normalized.order);
         setPreferenceHydrated(true);
         setPreferenceSync('saved');
         setPreferenceError('');
@@ -559,8 +602,8 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
       return undefined;
     }
 
-    const normalized = normalizeCockpitView(visibility);
-    const fingerprint = cockpitViewFingerprint(normalized);
+    const normalized = normalizeCockpitLayout({ view: visibility, order });
+    const fingerprint = cockpitLayoutFingerprint(normalized);
     if (
       fingerprint === persistedFingerprint.current &&
       preferenceSaveQueue.current.pending === 0
@@ -574,9 +617,9 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
         save: (payload) => apiClient
           .put('/auth/me/cockpit-view', payload)
           .then((response) => response.data),
-        onLatestSaved: (savedView) => {
-          const saved = normalizeCockpitView(savedView);
-          persistedFingerprint.current = cockpitViewFingerprint(saved);
+        onLatestSaved: (savedLayout) => {
+          const saved = normalizeCockpitLayout(savedLayout);
+          persistedFingerprint.current = cockpitLayoutFingerprint(saved);
           setPreferenceSync('saved');
           setPreferenceError('');
         },
@@ -590,7 +633,7 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [preferenceHydrated, preferenceRetryToken, visibility]);
+  }, [order, preferenceHydrated, preferenceRetryToken, visibility]);
 
   const pilotage = useMemo(
     () =>
@@ -629,9 +672,15 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     setVisibility((current) => toggleCockpitSection(current, key));
   };
 
+  const moveSection = (key, direction) => {
+    markPreferenceSaving();
+    setOrder((current) => moveCockpitSection(current, key, direction));
+  };
+
   const resetView = () => {
     markPreferenceSaving();
     setVisibility({ ...DEFAULT_COCKPIT_VIEW });
+    setOrder([...DEFAULT_COCKPIT_ORDER]);
   };
 
   const canRetryPreference = canRetryCockpitPreferenceSync({
@@ -647,20 +696,13 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     setPreferenceRetryToken((current) => current + 1);
   };
 
-  return (
-    <div className="cockpit-body cockpit-v4-workspace">
-      <CockpitViewControls
-        visibility={visibility}
-        syncState={preferenceSync}
-        syncError={preferenceError}
-        canRetry={canRetryPreference}
-        onRetry={retryPreference}
-        onPreset={applyPreset}
-        onToggle={toggleSection}
-        onReset={resetView}
-      />
+  const renderBlock = (key) => {
+    if (!visibility[key]) {
+      return null;
+    }
 
-      {visibility.metrics ? (
+    if (key === 'metrics') {
+      return (
         <section className="cpv4-metrics" aria-label="Situation de la journée">
           {metrics.map(([label, value, subtitle, tone, icon, page]) => (
             <Metric
@@ -674,50 +716,86 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
             />
           ))}
         </section>
-      ) : null}
+      );
+    }
 
-      {visibility.progression || visibility.decisions ? (
-        <div className="cpv4-primary">
-          {visibility.progression ? (
-            <Progression
-              stages={pilotage.stages}
-              onOpen={() => onNavigate?.('interventions')}
-            />
-          ) : null}
-          {visibility.decisions ? (
-            <Decisions decisions={pilotage.decisions} onNavigate={onNavigate} />
-          ) : null}
-        </div>
-      ) : null}
+    if (key === 'progression') {
+      return (
+        <Progression
+          stages={pilotage.stages}
+          onOpen={() => onNavigate?.('interventions')}
+        />
+      );
+    }
 
-      {visibility.capacity || visibility.quality ? (
-        <div className="cpv4-secondary">
-          {visibility.capacity ? (
-            <Capacity pilotage={pilotage} onNavigate={onNavigate} />
-          ) : null}
-          {visibility.quality ? (
-            <Quality
-              quality={pilotage.quality}
-              onOpen={() => onNavigate?.('rapports')}
-            />
-          ) : null}
-        </div>
-      ) : null}
+    if (key === 'decisions') {
+      return <Decisions decisions={pilotage.decisions} onNavigate={onNavigate} />;
+    }
 
-      {visibility.activity || visibility.quickAccess ? (
-        <div className="cpv4-tertiary">
-          {visibility.activity ? (
-            <RecentActivity activities={activities} />
-          ) : null}
-          {visibility.quickAccess ? (
-            <QuickAccess
-              pilotage={pilotage}
-              canAssign={canAssign}
-              onNavigate={onNavigate}
-            />
-          ) : null}
-        </div>
-      ) : null}
+    if (key === 'capacity') {
+      return <Capacity pilotage={pilotage} onNavigate={onNavigate} />;
+    }
+
+    if (key === 'quality') {
+      return (
+        <Quality
+          quality={pilotage.quality}
+          onOpen={() => onNavigate?.('rapports')}
+        />
+      );
+    }
+
+    if (key === 'activity') {
+      return <RecentActivity activities={activities} />;
+    }
+
+    if (key === 'quickAccess') {
+      return (
+        <QuickAccess
+          pilotage={pilotage}
+          canAssign={canAssign}
+          onNavigate={onNavigate}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div className="cockpit-body cockpit-v4-workspace">
+      <CockpitViewControls
+        visibility={visibility}
+        order={order}
+        syncState={preferenceSync}
+        syncError={preferenceError}
+        canRetry={canRetryPreference}
+        onRetry={retryPreference}
+        onPreset={applyPreset}
+        onToggle={toggleSection}
+        onMove={moveSection}
+        onReset={resetView}
+      />
+
+      <div
+        className="cpv4-custom-layout"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
+          gap: '12px',
+          alignItems: 'stretch',
+        }}
+      >
+        {normalizeCockpitOrder(order).map((key) => (
+          <div
+            key={key}
+            data-cockpit-block={key}
+            style={key === 'metrics' ? { gridColumn: '1 / -1' } : undefined}
+          >
+            {renderBlock(key)}
+          </div>
+        ))}
+      </div>
     </div>
   );
 });
