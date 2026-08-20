@@ -16,8 +16,8 @@ export const DEFAULT_COCKPIT_VIEW = Object.freeze(
 
 export const COCKPIT_VIEW_PRESETS = Object.freeze({
   admin: Object.freeze({
-    label: 'Admin',
-    description: 'Vision complète pour gouvernance et exploitation.',
+    label: 'Pilotage complet',
+    description: 'Vue complète de gouvernance et d’exploitation, sans supposer le rôle de l’utilisateur.',
     view: Object.freeze({ ...DEFAULT_COCKPIT_VIEW }),
   }),
   dispatch: Object.freeze({
