@@ -8,6 +8,8 @@ export const COCKPIT_VIEW_KEYS = Object.freeze([
   'quickAccess',
 ]);
 
+export const DEFAULT_COCKPIT_ORDER = Object.freeze([...COCKPIT_VIEW_KEYS]);
+
 export const DEFAULT_COCKPIT_VIEW = Object.freeze(
   Object.fromEntries(
     COCKPIT_VIEW_KEYS.map((key) => [key, true]),
@@ -108,6 +110,45 @@ export function normalizeCockpitView(value) {
   return Object.values(normalized).some(Boolean)
     ? normalized
     : { ...DEFAULT_COCKPIT_VIEW };
+}
+
+export function normalizeCockpitOrder(value) {
+  if (!Array.isArray(value)) {
+    return [...DEFAULT_COCKPIT_ORDER];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+  value.forEach((item) => {
+    const key = String(item ?? '').trim();
+    if (COCKPIT_VIEW_KEYS.includes(key) && !seen.has(key)) {
+      seen.add(key);
+      normalized.push(key);
+    }
+  });
+
+  DEFAULT_COCKPIT_ORDER.forEach((key) => {
+    if (!seen.has(key)) {
+      normalized.push(key);
+    }
+  });
+
+  return normalized;
+}
+
+export function moveCockpitSection(order, key, direction) {
+  const normalized = normalizeCockpitOrder(order);
+  const index = normalized.indexOf(key);
+  const delta = direction === 'up' ? -1 : direction === 'down' ? 1 : 0;
+  const target = index + delta;
+
+  if (index < 0 || delta === 0 || target < 0 || target >= normalized.length) {
+    return normalized;
+  }
+
+  const next = [...normalized];
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
 }
 
 export function applyCockpitPreset(presetKey) {
@@ -211,9 +252,6 @@ export function createBrowserPreferenceCoordinator({
   );
   const normalizedScope = normalizePreferenceScope(scope);
 
-  // Without an authenticated identity, local cross-tab coordination is disabled
-  // rather than falling back to a global namespace shared by different users.
-  // The server still orders writes by client_intent.
   if (!normalizedScope) {
     return {
       publishIntent() {},
@@ -243,8 +281,6 @@ export function createBrowserPreferenceCoordinator({
         const latest = resolvedStorage?.getItem(intentKey);
         return !latest || latest === token;
       } catch {
-        // The server also orders writes by client_intent, so storage is only
-        // an optimization for suppressing obsolete requests and acknowledgements.
         return true;
       }
     },
@@ -296,6 +332,9 @@ export function enqueueCockpitPreferenceSave(
   const intentToken = createIntentToken();
   const requestPayload = {
     view: normalizeCockpitView(payload),
+    ...(Array.isArray(payload?.order)
+      ? { order: normalizeCockpitOrder(payload.order) }
+      : {}),
     client_intent: intentToken,
   };
   queue.latestSequence = sequence;

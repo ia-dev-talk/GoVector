@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   COCKPIT_VIEW_PRESETS,
+  DEFAULT_COCKPIT_ORDER,
   DEFAULT_COCKPIT_VIEW,
   applyCockpitPreset,
   canRetryCockpitPreferenceSync,
@@ -10,6 +11,8 @@ import {
   createCockpitPreferenceSaveQueue,
   detectCockpitPreset,
   enqueueCockpitPreferenceSave,
+  moveCockpitSection,
+  normalizeCockpitOrder,
   normalizeCockpitView,
   toggleCockpitSection,
 } from './cockpitViewPreferences.js';
@@ -92,6 +95,31 @@ test('recovers from an empty or corrupt cockpit configuration', () => {
       quickAccess: false,
     }),
     { ...DEFAULT_COCKPIT_VIEW },
+  );
+});
+
+
+test('normalizes cockpit order without duplicates or missing supported blocks', () => {
+  assert.deepEqual(
+    normalizeCockpitOrder(['quality', 'metrics', 'quality', 'unknown']),
+    ['quality', 'metrics', 'progression', 'decisions', 'capacity', 'activity', 'quickAccess'],
+  );
+  assert.deepEqual(normalizeCockpitOrder(null), [...DEFAULT_COCKPIT_ORDER]);
+});
+
+
+test('moves cockpit blocks one position while keeping boundaries stable', () => {
+  assert.deepEqual(
+    moveCockpitSection(DEFAULT_COCKPIT_ORDER, 'quality', 'up'),
+    ['metrics', 'progression', 'decisions', 'quality', 'capacity', 'activity', 'quickAccess'],
+  );
+  assert.deepEqual(
+    moveCockpitSection(DEFAULT_COCKPIT_ORDER, 'metrics', 'up'),
+    [...DEFAULT_COCKPIT_ORDER],
+  );
+  assert.deepEqual(
+    moveCockpitSection(DEFAULT_COCKPIT_ORDER, 'quickAccess', 'down'),
+    [...DEFAULT_COCKPIT_ORDER],
   );
 });
 
@@ -237,6 +265,33 @@ test('serializes cockpit saves and only acknowledges the latest intent', async (
   assert.equal(saved.length, 1);
   assert.equal(saved[0].metrics, true);
   assert.equal(queue.pending, 0);
+});
+
+
+test('save queue forwards normalized order only when the caller provides one', async () => {
+  const queue = createCockpitPreferenceSaveQueue({ coordinator: createUncoordinatedFallback() });
+  let request;
+
+  await enqueueCockpitPreferenceSave(queue, {
+    payload: {
+      metrics: true,
+      order: ['quality', 'metrics', 'quality'],
+    },
+    save: async (payload) => {
+      request = payload;
+      return payload.view;
+    },
+  });
+
+  assert.deepEqual(request.order, [
+    'quality',
+    'metrics',
+    'progression',
+    'decisions',
+    'capacity',
+    'activity',
+    'quickAccess',
+  ]);
 });
 
 

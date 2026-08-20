@@ -4,15 +4,17 @@ from pydantic import ValidationError
 
 from backend.api.routes.auth import (
     _COCKPIT_MAX_FUTURE_SKEW_MS,
-    CockpitViewPreferences,
-    CockpitViewUpdate,
     _cockpit_document_values,
     _cockpit_intent_rank,
     _cockpit_namespace,
+    _cockpit_order_values,
     _cockpit_stored_intent,
     _cockpit_view_values,
     _ensure_fresh_cockpit_intent,
     _validate_cockpit_intent_clock,
+    CockpitViewLayout,
+    CockpitViewPreferences,
+    CockpitViewUpdate,
 )
 
 
@@ -40,6 +42,34 @@ def test_cockpit_preferences_reject_completely_empty_cockpit():
         )
 
 
+def test_cockpit_layout_requires_every_supported_block_exactly_once():
+    layout = CockpitViewLayout(
+        order=[
+            "quality",
+            "metrics",
+            "progression",
+            "decisions",
+            "capacity",
+            "activity",
+            "quickAccess",
+        ]
+    )
+    assert layout.order[0] == "quality"
+
+    with pytest.raises(ValidationError, match="Ordre"):
+        CockpitViewLayout(
+            order=[
+                "metrics",
+                "metrics",
+                "progression",
+                "decisions",
+                "capacity",
+                "activity",
+                "quickAccess",
+            ]
+        )
+
+
 def test_cockpit_namespace_is_scoped_to_authenticated_user():
     assert _cockpit_namespace(7) == "cockpit_view:user:7"
     assert _cockpit_namespace(8) == "cockpit_view:user:8"
@@ -49,6 +79,7 @@ def test_cockpit_namespace_is_scoped_to_authenticated_user():
 def test_cockpit_document_reads_legacy_flat_values_and_v2_nested_values():
     legacy = _view(metrics=False).model_dump()
     assert _cockpit_view_values(legacy) == legacy
+    assert _cockpit_order_values(legacy)[0] == "metrics"
 
     update = CockpitViewUpdate(
         view=_view(metrics=False),
@@ -57,7 +88,52 @@ def test_cockpit_document_reads_legacy_flat_values_and_v2_nested_values():
     stored = _cockpit_document_values(update)
 
     assert _cockpit_view_values(stored)["metrics"] is False
+    assert _cockpit_order_values(stored)[0] == "metrics"
     assert _cockpit_stored_intent(stored) == "1000000:1:first"
+
+
+def test_existing_custom_order_survives_legacy_visibility_only_update():
+    existing = {
+        "view": _view(metrics=False).model_dump(),
+        "order": [
+            "quality",
+            "metrics",
+            "progression",
+            "decisions",
+            "capacity",
+            "activity",
+            "quickAccess",
+        ],
+        "client_intent": "1000000:1:first",
+    }
+    update = CockpitViewUpdate(
+        view=_view(quality=False),
+        client_intent="1000001:1:second",
+    )
+
+    stored = _cockpit_document_values(update, existing_values=existing)
+    assert stored["order"] == existing["order"]
+    assert stored["view"]["quality"] is False
+
+
+def test_explicit_custom_order_is_persisted_with_view():
+    order = [
+        "quality",
+        "metrics",
+        "progression",
+        "decisions",
+        "capacity",
+        "activity",
+        "quickAccess",
+    ]
+    update = CockpitViewUpdate(
+        view=_view(),
+        order=order,
+        client_intent="1000001:1:ordered",
+    )
+
+    stored = _cockpit_document_values(update)
+    assert stored["order"] == order
 
 
 def test_cockpit_update_rejects_malformed_client_intent():

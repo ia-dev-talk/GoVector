@@ -26,10 +26,20 @@ logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter()
 
-_COCKPIT_SCHEMA_VERSION = 2
+_COCKPIT_SCHEMA_VERSION = 3
 _COCKPIT_VIEW_FIELD = "view"
+_COCKPIT_ORDER_FIELD = "order"
 _COCKPIT_INTENT_FIELD = "client_intent"
 _COCKPIT_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000
+_COCKPIT_BLOCK_KEYS = (
+    "metrics",
+    "progression",
+    "decisions",
+    "capacity",
+    "quality",
+    "activity",
+    "quickAccess",
+)
 
 
 class CockpitViewPreferences(BaseModel):
@@ -45,16 +55,40 @@ class CockpitViewPreferences(BaseModel):
 
     @model_validator(mode="after")
     def keep_recovery_surface(self):
-        if not any(self.model_dump().values()):
+        if not any(getattr(self, key) for key in _COCKPIT_BLOCK_KEYS):
             raise ValueError("Au moins un bloc du cockpit doit rester visible.")
         return self
+
+
+class CockpitViewLayout(CockpitViewPreferences):
+    order: list[str] = list(_COCKPIT_BLOCK_KEYS)
+
+    @field_validator("order")
+    @classmethod
+    def validate_order(cls, value: list[str]) -> list[str]:
+        normalized = [str(item).strip() for item in value]
+        if (
+            len(normalized) != len(_COCKPIT_BLOCK_KEYS)
+            or len(set(normalized)) != len(normalized)
+            or set(normalized) != set(_COCKPIT_BLOCK_KEYS)
+        ):
+            raise ValueError("Ordre des blocs Cockpit invalide")
+        return normalized
 
 
 class CockpitViewUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     view: CockpitViewPreferences
+    order: list[str] | None = None
     client_intent: str
+
+    @field_validator("order")
+    @classmethod
+    def validate_optional_order(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return CockpitViewLayout(order=value).order
 
     @field_validator("client_intent")
     @classmethod
@@ -69,6 +103,10 @@ def _cockpit_namespace(user_id: int) -> str:
 
 def _default_cockpit_view() -> CockpitViewPreferences:
     return CockpitViewPreferences()
+
+
+def _default_cockpit_order() -> list[str]:
+    return list(_COCKPIT_BLOCK_KEYS)
 
 
 def _cockpit_intent_rank(value: str) -> tuple[int, int, str]:
@@ -113,8 +151,18 @@ def _cockpit_view_values(values: object) -> dict:
     if isinstance(nested, dict):
         return nested
 
-    # Schema v1 stored the preference booleans directly in ApplicationSetting.values.
     return values
+
+
+def _cockpit_order_values(values: object) -> list[str]:
+    if not isinstance(values, dict):
+        return _default_cockpit_order()
+
+    raw = values.get(_COCKPIT_ORDER_FIELD)
+    try:
+        return CockpitViewLayout(order=raw).order if isinstance(raw, list) else _default_cockpit_order()
+    except ValidationError:
+        return _default_cockpit_order()
 
 
 def _cockpit_stored_intent(values: object) -> str | None:
@@ -124,9 +172,21 @@ def _cockpit_stored_intent(values: object) -> str | None:
     return token if isinstance(token, str) and token.strip() else None
 
 
-def _cockpit_document_values(payload: CockpitViewUpdate) -> dict:
+def _cockpit_layout(view: CockpitViewPreferences, order: list[str]) -> CockpitViewLayout:
+    return CockpitViewLayout(**view.model_dump(), order=order)
+
+
+def _cockpit_document_values(
+    payload: CockpitViewUpdate,
+    *,
+    existing_values: object | None = None,
+) -> dict:
+    order = payload.order
+    if order is None:
+        order = _cockpit_order_values(existing_values)
     return {
         _COCKPIT_VIEW_FIELD: payload.view.model_dump(mode="json"),
+        _COCKPIT_ORDER_FIELD: order,
         _COCKPIT_INTENT_FIELD: payload.client_intent,
     }
 
@@ -145,9 +205,6 @@ def _ensure_fresh_cockpit_intent(
     incoming_rank = _cockpit_intent_rank(incoming_intent)
     stored_rank = _cockpit_intent_rank(stored_intent)
 
-    # Schema v2 initially trusted the client's wall clock. If a workstation or
-    # API client persisted a far-future token, do not let that legacy value
-    # poison the user's Cockpit indefinitely after the clock is corrected.
     if stored_rank[0] > server_now + _COCKPIT_MAX_FUTURE_SKEW_MS:
         logger.warning("[AUTH] Ignoring poisoned future cockpit intent")
         return
@@ -241,7 +298,7 @@ async def me(
     }
 
 
-@router.get("/me/cockpit-view", response_model=CockpitViewPreferences)
+@router.get("/me/cockpit-view", response_model=CockpitViewLayout)
 async def get_my_cockpit_view(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -254,18 +311,19 @@ async def get_my_cockpit_view(
     )
     document = result.scalar_one_or_none()
     if document is None:
-        return _default_cockpit_view()
+        return _cockpit_layout(_default_cockpit_view(), _default_cockpit_order())
 
     try:
-        return CockpitViewPreferences.model_validate(
+        view = CockpitViewPreferences.model_validate(
             _cockpit_view_values(document.values or {})
         )
+        return _cockpit_layout(view, _cockpit_order_values(document.values or {}))
     except ValidationError:
         logger.warning(
             "[AUTH] Invalid cockpit preferences ignored - user_id=%s",
             current_user.id,
         )
-        return _default_cockpit_view()
+        return _cockpit_layout(_default_cockpit_view(), _default_cockpit_order())
 
 
 async def _update_existing_cockpit_document(
@@ -274,17 +332,19 @@ async def _update_existing_cockpit_document(
     document: ApplicationSetting,
     payload: CockpitViewUpdate,
     user_id: int,
-) -> CockpitViewPreferences:
+) -> CockpitViewLayout:
     _ensure_fresh_cockpit_intent(payload.client_intent, document.values)
+    previous_values = document.values
+    order = payload.order or _cockpit_order_values(previous_values)
     document.schema_version = _COCKPIT_SCHEMA_VERSION
     document.revision = max(int(document.revision or 0) + 1, 1)
-    document.values = _cockpit_document_values(payload)
+    document.values = _cockpit_document_values(payload, existing_values=previous_values)
     document.updated_by = user_id
     await db.commit()
-    return payload.view
+    return _cockpit_layout(payload.view, order)
 
 
-@router.put("/me/cockpit-view", response_model=CockpitViewPreferences)
+@router.put("/me/cockpit-view", response_model=CockpitViewLayout)
 async def update_my_cockpit_view(
     payload: CockpitViewUpdate,
     db: AsyncSession = Depends(get_db),
@@ -307,6 +367,7 @@ async def update_my_cockpit_view(
             user_id=current_user.id,
         )
 
+    order = payload.order or _default_cockpit_order()
     document = ApplicationSetting(
         namespace=namespace,
         schema_version=_COCKPIT_SCHEMA_VERSION,
@@ -318,11 +379,8 @@ async def update_my_cockpit_view(
 
     try:
         await db.commit()
-        return payload.view
+        return _cockpit_layout(payload.view, order)
     except IntegrityError:
-        # Two first-time sessions can race before the per-user row exists.
-        # The unique namespace picks one winner; then compare intent ranks and
-        # apply only the genuinely newer user action.
         await db.rollback()
         result = await db.execute(
             select(ApplicationSetting)
