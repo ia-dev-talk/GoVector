@@ -1,5 +1,5 @@
 import ContextMenuView from './ContextMenuView';
-import { useInterventionPermissions } from '../features/interventions/InterventionPermissionsContext';
+import { useInterventionPermissions } from '../features/interventions/interventionPermissionsContext';
 
 function normalizeStatus(value) {
   return String(value ?? '').trim().toLowerCase();

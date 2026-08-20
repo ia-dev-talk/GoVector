@@ -1,5 +1,5 @@
 import InterventionInspectorView from './InterventionInspectorView';
-import { useInterventionPermissions } from '../../features/interventions/InterventionPermissionsContext';
+import { useInterventionPermissions } from '../../features/interventions/interventionPermissionsContext';
 
 export default function InterventionInspector(props) {
   const { canDeleteIntervention } =
