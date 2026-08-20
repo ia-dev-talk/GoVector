@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { getInterventionWorkspaceContextLabel } from '../../lib/interventionWorkspaceContext';
 
 
 function CalendarIcon() {
@@ -88,6 +89,12 @@ const InterventionWorkspaceHeader = memo(
           ? 'Aujourd’hui'
           : formatDate(viewDate);
 
+    const contextLabel =
+      getInterventionWorkspaceContextLabel({
+        isToday,
+        isDemo,
+      });
+
     return (
       <header className="intervention-workspace-header intervention-workspace-header--v4">
         <div className="intervention-workspace-identity">
@@ -98,9 +105,11 @@ const InterventionWorkspaceHeader = memo(
           <div className="intervention-workspace-title-row">
             <h1>Interventions</h1>
 
-            <span className="intervention-workspace-live">
-              <span aria-hidden="true" />
-              Opérationnel
+            <span
+              className="intervention-workspace-eyebrow"
+              aria-label={`Contexte : ${contextLabel}`}
+            >
+              {contextLabel}
             </span>
           </div>
 
