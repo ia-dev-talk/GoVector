@@ -146,6 +146,10 @@ export function cockpitViewFingerprint(value) {
   return JSON.stringify(normalizeCockpitView(value));
 }
 
+export function canRetryCockpitPreferenceSync({ syncState, hydrated } = {}) {
+  return syncState === 'error' && hydrated === true;
+}
+
 function intentClockMicros() {
   const performanceApi = typeof globalThis !== 'undefined'
     ? globalThis.performance

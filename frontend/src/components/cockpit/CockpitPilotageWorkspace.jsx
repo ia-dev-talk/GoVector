@@ -11,6 +11,7 @@ import {
   COCKPIT_VIEW_PRESETS,
   DEFAULT_COCKPIT_VIEW,
   applyCockpitPreset,
+  canRetryCockpitPreferenceSync,
   cockpitViewFingerprint,
   createCockpitPreferenceSaveQueue,
   detectCockpitPreset,
@@ -148,6 +149,8 @@ function CockpitViewControls({
   visibility,
   syncState,
   syncError,
+  canRetry,
+  onRetry,
   onPreset,
   onToggle,
   onReset,
@@ -172,7 +175,16 @@ function CockpitViewControls({
         <span>
           Vue {activePresetLabel} · {visibleCount}/{COCKPIT_VIEW_OPTIONS.length} blocs visibles · {syncLabel}
         </span>
-        {syncError ? <small role="status">{syncError}</small> : null}
+        {syncError ? (
+          <div>
+            <small role="status">{syncError}</small>
+            {canRetry ? (
+              <button type="button" className="cpv4-link" onClick={onRetry}>
+                Réessayer
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <details>
@@ -504,6 +516,7 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
   const [preferenceSync, setPreferenceSync] = useState('loading');
   const [preferenceError, setPreferenceError] = useState('');
   const [preferenceHydrated, setPreferenceHydrated] = useState(false);
+  const [preferenceRetryToken, setPreferenceRetryToken] = useState(0);
   const persistedFingerprint = useRef('');
   const preferenceSaveQueue = useRef(createCockpitPreferenceSaveQueue());
 
@@ -577,7 +590,7 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [preferenceHydrated, visibility]);
+  }, [preferenceHydrated, preferenceRetryToken, visibility]);
 
   const pilotage = useMemo(
     () =>
@@ -621,12 +634,27 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     setVisibility({ ...DEFAULT_COCKPIT_VIEW });
   };
 
+  const canRetryPreference = canRetryCockpitPreferenceSync({
+    syncState: preferenceSync,
+    hydrated: preferenceHydrated,
+  });
+
+  const retryPreference = () => {
+    if (!canRetryPreference) {
+      return;
+    }
+    markPreferenceSaving();
+    setPreferenceRetryToken((current) => current + 1);
+  };
+
   return (
     <div className="cockpit-body cockpit-v4-workspace">
       <CockpitViewControls
         visibility={visibility}
         syncState={preferenceSync}
         syncError={preferenceError}
+        canRetry={canRetryPreference}
+        onRetry={retryPreference}
         onPreset={applyPreset}
         onToggle={toggleSection}
         onReset={resetView}

@@ -5,6 +5,7 @@ import {
   COCKPIT_VIEW_PRESETS,
   DEFAULT_COCKPIT_VIEW,
   applyCockpitPreset,
+  canRetryCockpitPreferenceSync,
   cockpitViewFingerprint,
   createCockpitPreferenceSaveQueue,
   detectCockpitPreset,
@@ -131,6 +132,26 @@ test('applies and detects a cockpit business preset deterministically', () => {
   assert.equal(detectCockpitPreset(dispatch), 'dispatch');
   assert.equal(detectCockpitPreset({ ...dispatch, activity: false }), null);
   assert.deepEqual(applyCockpitPreset('unknown'), { ...DEFAULT_COCKPIT_VIEW });
+});
+
+
+test('offers preference retry only for an hydrated view after a sync error', () => {
+  assert.equal(
+    canRetryCockpitPreferenceSync({ syncState: 'error', hydrated: true }),
+    true,
+  );
+  assert.equal(
+    canRetryCockpitPreferenceSync({ syncState: 'error', hydrated: false }),
+    false,
+  );
+  assert.equal(
+    canRetryCockpitPreferenceSync({ syncState: 'saving', hydrated: true }),
+    false,
+  );
+  assert.equal(
+    canRetryCockpitPreferenceSync({ syncState: 'saved', hydrated: true }),
+    false,
+  );
 });
 
 
