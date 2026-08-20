@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getInterventionPermissions } from './interventionPermissions.js';
+import {
+  getInterventionPermissions,
+  isInterventionDeleteRequest,
+} from './interventionPermissions.js';
 
 test('intervention deletion is limited to chef and admin roles', () => {
   assert.equal(
@@ -28,6 +31,32 @@ test('intervention deletion fails closed for missing or unknown roles', () => {
   );
   assert.equal(
     getInterventionPermissions('unknown').canDeleteIntervention,
+    false,
+  );
+});
+
+test('intervention delete request matching is narrow and method-aware', () => {
+  assert.equal(
+    isInterventionDeleteRequest({ method: 'delete', url: '/jobs/41' }),
+    true,
+  );
+  assert.equal(
+    isInterventionDeleteRequest({
+      method: 'DELETE',
+      url: '/api/v1/jobs/41?force=false',
+    }),
+    true,
+  );
+  assert.equal(
+    isInterventionDeleteRequest({ method: 'get', url: '/jobs/41' }),
+    false,
+  );
+  assert.equal(
+    isInterventionDeleteRequest({ method: 'delete', url: '/jobs/41/media/2' }),
+    false,
+  );
+  assert.equal(
+    isInterventionDeleteRequest({ method: 'delete', url: '/stock/41' }),
     false,
   );
 });
