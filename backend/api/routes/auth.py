@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -28,6 +29,7 @@ router = APIRouter()
 _COCKPIT_SCHEMA_VERSION = 2
 _COCKPIT_VIEW_FIELD = "view"
 _COCKPIT_INTENT_FIELD = "client_intent"
+_COCKPIT_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000
 
 
 class CockpitViewPreferences(BaseModel):
@@ -57,7 +59,7 @@ class CockpitViewUpdate(BaseModel):
     @field_validator("client_intent")
     @classmethod
     def validate_client_intent(cls, value: str) -> str:
-        _cockpit_intent_rank(value)
+        _validate_cockpit_intent_clock(value)
         return value
 
 
@@ -85,6 +87,22 @@ def _cockpit_intent_rank(value: str) -> tuple[int, int, str]:
         raise ValueError("client_intent Cockpit invalide")
 
     return clock, sequence, token
+
+
+def _cockpit_server_clock_ms() -> int:
+    return int(time.time() * 1000)
+
+
+def _validate_cockpit_intent_clock(
+    value: str,
+    *,
+    now_ms: int | None = None,
+) -> str:
+    clock, _, _ = _cockpit_intent_rank(value)
+    server_now = _cockpit_server_clock_ms() if now_ms is None else int(now_ms)
+    if clock > server_now + _COCKPIT_MAX_FUTURE_SKEW_MS:
+        raise ValueError("client_intent Cockpit trop éloigné dans le futur")
+    return value
 
 
 def _cockpit_view_values(values: object) -> dict:
@@ -116,12 +134,25 @@ def _cockpit_document_values(payload: CockpitViewUpdate) -> dict:
 def _ensure_fresh_cockpit_intent(
     incoming_intent: str,
     stored_values: object,
+    *,
+    now_ms: int | None = None,
 ) -> None:
     stored_intent = _cockpit_stored_intent(stored_values)
     if stored_intent is None:
         return
 
-    if _cockpit_intent_rank(incoming_intent) <= _cockpit_intent_rank(stored_intent):
+    server_now = _cockpit_server_clock_ms() if now_ms is None else int(now_ms)
+    incoming_rank = _cockpit_intent_rank(incoming_intent)
+    stored_rank = _cockpit_intent_rank(stored_intent)
+
+    # Schema v2 initially trusted the client's wall clock. If a workstation or
+    # API client persisted a far-future token, do not let that legacy value
+    # poison the user's Cockpit indefinitely after the clock is corrected.
+    if stored_rank[0] > server_now + _COCKPIT_MAX_FUTURE_SKEW_MS:
+        logger.warning("[AUTH] Ignoring poisoned future cockpit intent")
+        return
+
+    if incoming_rank <= stored_rank:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Une personnalisation Cockpit plus récente est déjà enregistrée.",
