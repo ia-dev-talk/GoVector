@@ -169,25 +169,78 @@ function createIntentToken() {
   return `${intentClockMilliseconds()}:${cockpitIntentCounter}:${Math.random().toString(36).slice(2)}`;
 }
 
-function createBrowserPreferenceCoordinator() {
-  const storage = typeof globalThis !== 'undefined'
-    ? globalThis.localStorage
-    : undefined;
-  const locks = typeof globalThis !== 'undefined'
-    ? globalThis.navigator?.locks
-    : undefined;
+function normalizePreferenceScope(value) {
+  return value === null || value === undefined
+    ? ''
+    : String(value).trim();
+}
+
+export function resolveCockpitPreferenceScope({ storage } = {}) {
+  const resolvedStorage = storage ?? (
+    typeof globalThis !== 'undefined'
+      ? globalThis.localStorage
+      : undefined
+  );
+
+  try {
+    const rawUser = resolvedStorage?.getItem('user');
+    if (!rawUser) return '';
+
+    const user = JSON.parse(rawUser);
+    const userId = normalizePreferenceScope(user?.id);
+    return userId ? `user:${userId}` : '';
+  } catch {
+    return '';
+  }
+}
+
+export function createBrowserPreferenceCoordinator({
+  scope,
+  storage,
+  locks,
+} = {}) {
+  const resolvedStorage = storage ?? (
+    typeof globalThis !== 'undefined'
+      ? globalThis.localStorage
+      : undefined
+  );
+  const resolvedLocks = locks ?? (
+    typeof globalThis !== 'undefined'
+      ? globalThis.navigator?.locks
+      : undefined
+  );
+  const normalizedScope = normalizePreferenceScope(scope);
+
+  // Without an authenticated identity, local cross-tab coordination is disabled
+  // rather than falling back to a global namespace shared by different users.
+  // The server still orders writes by client_intent.
+  if (!normalizedScope) {
+    return {
+      publishIntent() {},
+      isLatestIntent() {
+        return true;
+      },
+      withLock(run) {
+        return Promise.resolve().then(run);
+      },
+    };
+  }
+
+  const namespace = encodeURIComponent(normalizedScope);
+  const intentKey = `${COCKPIT_PREFERENCE_INTENT}:${namespace}`;
+  const lockKey = `${COCKPIT_PREFERENCE_LOCK}:${namespace}`;
 
   return {
     publishIntent(token) {
       try {
-        storage?.setItem(COCKPIT_PREFERENCE_INTENT, token);
+        resolvedStorage?.setItem(intentKey, token);
       } catch {
         // Private browsing/storage restrictions must not make the cockpit unusable.
       }
     },
     isLatestIntent(token) {
       try {
-        const latest = storage?.getItem(COCKPIT_PREFERENCE_INTENT);
+        const latest = resolvedStorage?.getItem(intentKey);
         return !latest || latest === token;
       } catch {
         // The server also orders writes by client_intent, so storage is only
@@ -196,9 +249,9 @@ function createBrowserPreferenceCoordinator() {
       }
     },
     withLock(run) {
-      if (locks?.request) {
-        return locks.request(
-          COCKPIT_PREFERENCE_LOCK,
+      if (resolvedLocks?.request) {
+        return resolvedLocks.request(
+          lockKey,
           { mode: 'exclusive' },
           run,
         );
@@ -213,7 +266,9 @@ export function createCockpitPreferenceSaveQueue({ coordinator } = {}) {
     tail: Promise.resolve(),
     latestSequence: 0,
     pending: 0,
-    coordinator: coordinator ?? createBrowserPreferenceCoordinator(),
+    coordinator: coordinator ?? createBrowserPreferenceCoordinator({
+      scope: resolveCockpitPreferenceScope(),
+    }),
   };
 }
 
@@ -234,7 +289,9 @@ export function enqueueCockpitPreferenceSave(
     throw new TypeError('Fonction de sauvegarde Cockpit obligatoire');
   }
 
-  const coordinator = queue.coordinator ?? createBrowserPreferenceCoordinator();
+  const coordinator = queue.coordinator ?? createBrowserPreferenceCoordinator({
+    scope: resolveCockpitPreferenceScope(),
+  });
   const sequence = queue.latestSequence + 1;
   const intentToken = createIntentToken();
   const requestPayload = {
