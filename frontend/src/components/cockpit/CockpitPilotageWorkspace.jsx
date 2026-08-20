@@ -18,7 +18,6 @@ import {
   enqueueCockpitPreferenceSave,
   moveCockpitSection,
   normalizeCockpitOrder,
-  normalizeCockpitView,
   toggleCockpitSection,
 } from './cockpitViewPreferences';
 import {
