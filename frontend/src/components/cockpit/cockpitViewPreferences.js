@@ -150,7 +150,7 @@ export function canRetryCockpitPreferenceSync({ syncState, hydrated } = {}) {
   return syncState === 'error' && hydrated === true;
 }
 
-function intentClockMicros() {
+function intentClockMilliseconds() {
   const performanceApi = typeof globalThis !== 'undefined'
     ? globalThis.performance
     : undefined;
@@ -158,15 +158,15 @@ function intentClockMicros() {
   const elapsed = Number(performanceApi?.now?.());
 
   if (Number.isFinite(timeOrigin) && Number.isFinite(elapsed)) {
-    return Math.round((timeOrigin + elapsed) * 1000);
+    return Math.round(timeOrigin + elapsed);
   }
 
-  return Date.now() * 1000;
+  return Date.now();
 }
 
 function createIntentToken() {
   cockpitIntentCounter += 1;
-  return `${intentClockMicros()}:${cockpitIntentCounter}:${Math.random().toString(36).slice(2)}`;
+  return `${intentClockMilliseconds()}:${cockpitIntentCounter}:${Math.random().toString(36).slice(2)}`;
 }
 
 function createBrowserPreferenceCoordinator() {
