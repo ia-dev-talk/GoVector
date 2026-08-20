@@ -8,9 +8,12 @@ import {
 
 import { apiClient } from '../../api/client';
 import {
+  COCKPIT_VIEW_PRESETS,
   DEFAULT_COCKPIT_VIEW,
+  applyCockpitPreset,
   cockpitViewFingerprint,
   createCockpitPreferenceSaveQueue,
+  detectCockpitPreset,
   enqueueCockpitPreferenceSave,
   normalizeCockpitView,
   toggleCockpitSection,
@@ -145,10 +148,16 @@ function CockpitViewControls({
   visibility,
   syncState,
   syncError,
+  onPreset,
   onToggle,
   onReset,
 }) {
   const visibleCount = Object.values(visibility).filter(Boolean).length;
+  const activePreset = detectCockpitPreset(visibility);
+  const activePresetLabel = activePreset
+    ? COCKPIT_VIEW_PRESETS[activePreset].label
+    : 'Personnalisée';
+  const controlsDisabled = syncState === 'loading';
   const syncLabel = {
     loading: 'Chargement du profil…',
     saving: 'Enregistrement…',
@@ -161,7 +170,7 @@ function CockpitViewControls({
       <div className="cpv4-configbar-copy">
         <strong>Vue cockpit personnalisable</strong>
         <span>
-          {visibleCount}/{COCKPIT_VIEW_OPTIONS.length} blocs visibles · {syncLabel}
+          Vue {activePresetLabel} · {visibleCount}/{COCKPIT_VIEW_OPTIONS.length} blocs visibles · {syncLabel}
         </span>
         {syncError ? <small role="status">{syncError}</small> : null}
       </div>
@@ -169,7 +178,31 @@ function CockpitViewControls({
       <details>
         <summary>Personnaliser la vue</summary>
         <div className="cpv4-config-popover">
-          <span>Blocs du cockpit</span>
+          <span>Presets métier</span>
+          <div className="cpv4-config-grid">
+            {Object.entries(COCKPIT_VIEW_PRESETS).map(([key, preset]) => {
+              const selected = activePreset === key;
+              return (
+                <button
+                  type="button"
+                  className="cpv4-config-option"
+                  key={key}
+                  aria-pressed={selected}
+                  disabled={controlsDisabled}
+                  title={preset.description}
+                  onClick={() => onPreset(key)}
+                  style={selected ? {
+                    borderColor: 'var(--color-accent)',
+                    color: 'var(--text-primary)',
+                  } : undefined}
+                >
+                  <span>{preset.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <span style={{ marginTop: '10px' }}>Blocs du cockpit</span>
           <div className="cpv4-config-grid">
             {COCKPIT_VIEW_OPTIONS.map(([key, label]) => {
               const lastVisible = visibility[key] && visibleCount === 1;
@@ -179,7 +212,7 @@ function CockpitViewControls({
                   <input
                     type="checkbox"
                     checked={visibility[key]}
-                    disabled={lastVisible}
+                    disabled={controlsDisabled || lastVisible}
                     title={lastVisible ? 'Au moins un bloc doit rester visible' : undefined}
                     onChange={() => onToggle(key)}
                   />
@@ -191,6 +224,7 @@ function CockpitViewControls({
           <button
             type="button"
             className="cpv4-config-reset"
+            disabled={controlsDisabled}
             onClick={onReset}
           >
             Réinitialiser la vue par défaut
@@ -572,6 +606,11 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     setPreferenceError('');
   };
 
+  const applyPreset = (presetKey) => {
+    markPreferenceSaving();
+    setVisibility(applyCockpitPreset(presetKey));
+  };
+
   const toggleSection = (key) => {
     markPreferenceSaving();
     setVisibility((current) => toggleCockpitSection(current, key));
@@ -588,6 +627,7 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
         visibility={visibility}
         syncState={preferenceSync}
         syncError={preferenceError}
+        onPreset={applyPreset}
         onToggle={toggleSection}
         onReset={resetView}
       />
