@@ -12,7 +12,6 @@ import {
   DEFAULT_COCKPIT_ORDER,
   DEFAULT_COCKPIT_VIEW,
   applyCockpitPreset,
-  canRetryCockpitPreferenceSync,
   createCockpitPreferenceSaveQueue,
   detectCockpitPreset,
   enqueueCockpitPreferenceSave,
@@ -24,6 +23,10 @@ import {
   cockpitLayoutFingerprint,
   normalizeCockpitLayout,
 } from './cockpitLayoutIdentity';
+import {
+  cockpitPreferenceRetryMode,
+  reconcileCockpitHydration,
+} from './cockpitPreferenceHydration';
 import {
   buildCockpitPilotage,
   text,
@@ -175,6 +178,7 @@ function CockpitViewControls({
   const normalizedOrder = normalizeCockpitOrder(order);
   const syncLabel = {
     loading: 'Chargement du profil…',
+    'load-error': 'Profil indisponible · vue locale',
     saving: 'Enregistrement…',
     saved: 'Synchronisée avec votre profil',
     error: 'Synchronisation indisponible',
@@ -558,8 +562,20 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
   const [preferenceError, setPreferenceError] = useState('');
   const [preferenceHydrated, setPreferenceHydrated] = useState(false);
   const [preferenceRetryToken, setPreferenceRetryToken] = useState(0);
+  const [preferenceHydrationRetryToken, setPreferenceHydrationRetryToken] = useState(0);
   const persistedFingerprint = useRef('');
   const preferenceSaveQueue = useRef(createCockpitPreferenceSaveQueue());
+  const preferenceLocallyModified = useRef(false);
+  const latestLocalLayout = useRef(
+    normalizeCockpitLayout({
+      view: DEFAULT_COCKPIT_VIEW,
+      order: DEFAULT_COCKPIT_ORDER,
+    }),
+  );
+
+  useEffect(() => {
+    latestLocalLayout.current = normalizeCockpitLayout({ view: visibility, order });
+  }, [order, visibility]);
 
   useEffect(() => {
     let cancelled = false;
@@ -571,13 +587,20 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
           return;
         }
 
-        const normalized = normalizeCockpitLayout(response.data);
-        persistedFingerprint.current = cockpitLayoutFingerprint(normalized);
-        setVisibility(normalized.view);
-        setOrder(normalized.order);
+        const reconciliation = reconcileCockpitHydration({
+          remoteLayout: response.data,
+          localLayout: latestLocalLayout.current,
+          locallyModified: preferenceLocallyModified.current,
+        });
+
+        persistedFingerprint.current = reconciliation.persistedFingerprint;
+        latestLocalLayout.current = reconciliation.layout;
+        setVisibility(reconciliation.layout.view);
+        setOrder(reconciliation.layout.order);
         setPreferenceHydrated(true);
-        setPreferenceSync('saved');
+        setPreferenceSync(reconciliation.shouldPersistLocal ? 'saving' : 'saved');
         setPreferenceError('');
+        preferenceLocallyModified.current = reconciliation.shouldPersistLocal;
       })
       .catch(() => {
         if (cancelled) {
@@ -585,16 +608,18 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
         }
 
         setPreferenceHydrated(false);
-        setPreferenceSync('error');
+        setPreferenceSync('load-error');
         setPreferenceError(
-          'Votre vue reste utilisable, mais elle ne sera pas synchronisée tant que le profil est indisponible.',
+          preferenceLocallyModified.current
+            ? 'Votre vue a été modifiée localement. Réessayez la synchronisation : vos changements seront conservés puis enregistrés après reconnexion.'
+            : 'Le profil de vue est indisponible. Vous pouvez continuer localement puis réessayer sans recharger la page.',
         );
       });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [preferenceHydrationRetryToken]);
 
   useEffect(() => {
     if (!preferenceHydrated) {
@@ -619,6 +644,7 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
         onLatestSaved: (savedLayout) => {
           const saved = normalizeCockpitLayout(savedLayout);
           persistedFingerprint.current = cockpitLayoutFingerprint(saved);
+          preferenceLocallyModified.current = false;
           setPreferenceSync('saved');
           setPreferenceError('');
         },
@@ -656,43 +682,61 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     ['Disponibles', pilotage.personnel.available, `${pilotage.personnel.total} techniciens`, 'success', 'users', 'personnel'],
   ];
 
-  const markPreferenceSaving = () => {
+  const markPreferenceChanged = () => {
+    preferenceLocallyModified.current = true;
+
+    if (!preferenceHydrated) {
+      setPreferenceSync('load-error');
+      setPreferenceError(
+        'Votre vue est modifiée localement et n’est pas encore synchronisée. Réessayez lorsque le profil redevient disponible.',
+      );
+      return;
+    }
+
     setPreferenceSync('saving');
     setPreferenceError('');
   };
 
   const applyPreset = (presetKey) => {
-    markPreferenceSaving();
+    markPreferenceChanged();
     setVisibility(applyCockpitPreset(presetKey));
   };
 
   const toggleSection = (key) => {
-    markPreferenceSaving();
+    markPreferenceChanged();
     setVisibility((current) => toggleCockpitSection(current, key));
   };
 
   const moveSection = (key, direction) => {
-    markPreferenceSaving();
+    markPreferenceChanged();
     setOrder((current) => moveCockpitSection(current, key, direction));
   };
 
   const resetView = () => {
-    markPreferenceSaving();
+    markPreferenceChanged();
     setVisibility({ ...DEFAULT_COCKPIT_VIEW });
     setOrder([...DEFAULT_COCKPIT_ORDER]);
   };
 
-  const canRetryPreference = canRetryCockpitPreferenceSync({
+  const retryMode = cockpitPreferenceRetryMode({
     syncState: preferenceSync,
     hydrated: preferenceHydrated,
   });
+  const canRetryPreference = retryMode !== null;
 
   const retryPreference = () => {
-    if (!canRetryPreference) {
+    if (retryMode === 'hydrate') {
+      setPreferenceSync('loading');
+      setPreferenceError('');
+      setPreferenceHydrationRetryToken((current) => current + 1);
       return;
     }
-    markPreferenceSaving();
-    setPreferenceRetryToken((current) => current + 1);
+
+    if (retryMode === 'save') {
+      setPreferenceSync('saving');
+      setPreferenceError('');
+      setPreferenceRetryToken((current) => current + 1);
+    }
   };
 
   const renderBlock = (key) => {
