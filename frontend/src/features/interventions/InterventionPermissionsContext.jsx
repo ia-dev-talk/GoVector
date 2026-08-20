@@ -24,6 +24,9 @@ export function InterventionPermissionsProvider({
   );
 }
 
+// This module intentionally exports the provider and its paired consumer hook.
+// The hook does not alter Fast Refresh component boundaries.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useInterventionPermissions() {
   return (
     useContext(InterventionPermissionsContext) ??
