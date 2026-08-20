@@ -129,7 +129,7 @@ test('applies and detects a cockpit business preset deterministically', () => {
   assert.equal(dispatch.capacity, true);
   assert.equal(dispatch.quality, false);
   assert.equal(detectCockpitPreset(dispatch), 'dispatch');
-  assert.equal(detectCockpitPreset({ ...dispatch, quality: true }), null);
+  assert.equal(detectCockpitPreset({ ...dispatch, activity: false }), null);
   assert.deepEqual(applyCockpitPreset('unknown'), { ...DEFAULT_COCKPIT_VIEW });
 });
 
