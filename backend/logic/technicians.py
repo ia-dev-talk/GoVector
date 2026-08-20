@@ -60,13 +60,13 @@ async def get_all_technicians(
 	skip: int = 0,
 	limit: int = 100,
 ) -> List[Technician]:
-	"""Get all technicians with optional filtering"""
+	"""Get all technicians with optional filtering and deterministic pagination."""
 	query = select(Technician)
 
 	if active_only:
 		query = query.where(Technician.is_active == True)
 
-	query = query.offset(skip).limit(limit)
+	query = query.order_by(Technician.id.asc()).offset(skip).limit(limit)
 	result = await db.execute(query)
 	return result.scalars().all()
 
@@ -92,8 +92,6 @@ async def update_technician(
 	if not tech:
 		return None
 
-	# Mapping des noms de champs frontend → modèle SQLAlchemy
-	# Exemple : le frontend envoie "address" mais le modèle attend "home_address"
 	FIELD_MAP = {
 		"address": "home_address",
 	}
@@ -101,7 +99,6 @@ async def update_technician(
 	for field, value in kwargs.items():
 		model_field = FIELD_MAP.get(field, field)
 		if hasattr(tech, model_field):
-			# Mapper TechnicianStatus vers TechnicianLiveStatus si nécessaire
 			if model_field == "status" and isinstance(value, TechnicianStatus):
 				value = _map_to_live_status(value)
 				model_field = "live_status"
@@ -178,7 +175,7 @@ async def add_skill_to_technician(
 		return False
 
 	if skill_code not in tech.skills:
-		tech.skills = [*tech.skills, skill_code]  # Reassign to trigger JSON change detection
+		tech.skills = [*tech.skills, skill_code]
 		await db.commit()
 
 	return True
@@ -189,7 +186,7 @@ async def remove_skill_from_technician(
 	tech_id: int,
 	skill_code: str,
 ) -> bool:
-	"""Remove a skill from a technician"""
+	"""Remove a skill from technician"""
 	tech = await get_technician(db, tech_id)
 	if not tech:
 		return False
@@ -205,13 +202,7 @@ async def get_technician_workload(
 	db: AsyncSession,
 	tech_id: int,
 ) -> Optional[dict]:
-	"""
-	Get technician's workload for today.
-
-	FIX: Route called this with only tech_id but the old signature required
-	target_date as a second positional argument — causing a TypeError at runtime.
-	Now defaults to today and makes the date optional.
-	"""
+	"""Get technician's workload for today."""
 	tech = await get_technician(db, tech_id)
 	if not tech:
 		return None
@@ -256,12 +247,12 @@ async def get_technicians_by_orienteur(
     skip: int = 0,
     limit: int = 100,
 ) -> List[Technician]:
-    """Get technicians affiliated with a specific orienteur"""
+    """Get technicians affiliated with a specific orienteur with deterministic pagination."""
     query = select(Technician).where(
         Technician.orienteur_id == orienteur_id,
         Technician.is_active == True,
     )
-    query = query.offset(skip).limit(limit)
+    query = query.order_by(Technician.id.asc()).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -282,14 +273,7 @@ async def get_available_technicians_by_orienteur(
 
 
 async def delete_technician(db: AsyncSession, tech_id: int) -> bool:
-	"""
-	Soft-delete a technician by deactivating them.
-
-	FIX: Route called tech_logic.delete_technician() but only
-	deactivate_technician() existed in the logic layer — hard crash at runtime.
-	Renamed to delete_technician and maps to the soft-delete (deactivate) pattern,
-	which is the correct behavior — you don't want to hard-delete techs with history.
-	"""
+	"""Soft-delete a technician by deactivating them."""
 	tech = await get_technician(db, tech_id)
 	if not tech:
 		return False
