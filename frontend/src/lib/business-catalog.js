@@ -1,3 +1,11 @@
+const CANONICALIZED_SECTIONS = new Set([
+  'job_types',
+  'priorities',
+  'status_presentations',
+  'field_actions',
+]);
+
+
 export function normalizeCatalogCode(value) {
   return String(value ?? '')
     .trim()
@@ -15,6 +23,38 @@ export function catalogRowKey(section, index) {
 
 export function isCustomCatalogItem(item) {
   return item?.metadata?.custom === true;
+}
+
+
+export function activeCanonicalOptions(items) {
+  return (items || []).filter((item) => !isCustomCatalogItem(item) && item?.active === true);
+}
+
+
+export function canonicalLinkState(item, items) {
+  if (!isCustomCatalogItem(item)) {
+    return { status: 'system', canonical: null };
+  }
+
+  const canonical = normalizeCatalogCode(item?.metadata?.canonical);
+  if (!canonical) {
+    return { status: 'missing', canonical: '' };
+  }
+
+  const target = (items || []).find(
+    (candidate) => !isCustomCatalogItem(candidate)
+      && normalizeCatalogCode(candidate?.code) === canonical,
+  );
+
+  if (!target) {
+    return { status: 'missing', canonical };
+  }
+
+  return {
+    status: target.active === true ? 'active' : 'archived',
+    canonical,
+    target,
+  };
 }
 
 
@@ -51,6 +91,19 @@ export function validateBusinessCatalogDraft(values) {
 
       if (!label) {
         messages.push(`${section} · ${code || `ligne ${index + 1}`} : libellé obligatoire.`);
+      }
+
+      if (CANONICALIZED_SECTIONS.has(section) && isCustomCatalogItem(item) && item?.active) {
+        const link = canonicalLinkState(item, items);
+        if (link.status === 'missing') {
+          messages.push(
+            `${section} · ${code || `ligne ${index + 1}`} : choisissez un comportement système existant.`,
+          );
+        } else if (link.status === 'archived') {
+          messages.push(
+            `${section} · ${code || `ligne ${index + 1}`} : le comportement système « ${link.canonical} » est archivé. Choisissez un comportement actif ou archivez cet élément métier.`,
+          );
+        }
       }
     });
   });

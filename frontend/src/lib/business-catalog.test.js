@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  activeCanonicalOptions,
+  canonicalLinkState,
   catalogRowKey,
   isCustomCatalogItem,
   normalizeCatalogCode,
@@ -27,6 +29,22 @@ test('catalog deletion policy only exposes server-classified custom rows', () =>
   assert.equal(isCustomCatalogItem({ metadata: { custom: false } }), false);
   assert.equal(isCustomCatalogItem({ metadata: {} }), false);
   assert.equal(isCustomCatalogItem(null), false);
+});
+
+
+test('canonical choices only include active system behaviors', () => {
+  const items = [
+    { code: 'installation', label: 'Installation', active: true, metadata: { custom: false } },
+    { code: 'repair', label: 'Réparation', active: false, metadata: { custom: false } },
+    { code: 'vip', label: 'VIP', active: true, metadata: { custom: true, canonical: 'installation' } },
+  ];
+
+  assert.deepEqual(activeCanonicalOptions(items).map((item) => item.code), ['installation']);
+  assert.equal(canonicalLinkState(items[2], items).status, 'active');
+  assert.equal(
+    canonicalLinkState({ ...items[2], metadata: { custom: true, canonical: 'repair' } }, items).status,
+    'archived',
+  );
 });
 
 
@@ -68,6 +86,45 @@ test('catalog validation mirrors the backend identifier contract', () => {
 
   assert.equal(messages.length, 1);
   assert.match(messages[0], /commençant par une lettre/);
+});
+
+
+test('active aliases cannot keep an archived canonical behavior', () => {
+  const values = {
+    job_types: [
+      { code: 'installation', label: 'Installation', active: false, metadata: { custom: false } },
+      {
+        code: 'installation_vip',
+        label: 'Installation VIP',
+        active: true,
+        metadata: { custom: true, canonical: 'installation' },
+      },
+    ],
+  };
+
+  const messages = validateBusinessCatalogDraft(values);
+
+  assert.equal(messages.length, 1);
+  assert.match(messages[0], /installation_vip/);
+  assert.match(messages[0], /installation/);
+  assert.match(messages[0], /archivé/);
+});
+
+
+test('archived aliases may preserve an archived canonical for history', () => {
+  const values = {
+    field_actions: [
+      { code: 'scan', label: 'Scan', active: false, metadata: { custom: false } },
+      {
+        code: 'scan_legacy',
+        label: 'Scan legacy',
+        active: false,
+        metadata: { custom: true, canonical: 'scan' },
+      },
+    ],
+  };
+
+  assert.deepEqual(validateBusinessCatalogDraft(values), []);
 });
 
 
