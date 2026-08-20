@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  COCKPIT_VIEW_PRESETS,
   DEFAULT_COCKPIT_VIEW,
+  applyCockpitPreset,
   cockpitViewFingerprint,
   createCockpitPreferenceSaveQueue,
+  detectCockpitPreset,
   enqueueCockpitPreferenceSave,
   normalizeCockpitView,
   toggleCockpitSection,
@@ -89,6 +92,45 @@ test('recovers from an empty or corrupt cockpit configuration', () => {
     }),
     { ...DEFAULT_COCKPIT_VIEW },
   );
+});
+
+
+test('exposes distinct business presets backed only by supported cockpit blocks', () => {
+  assert.deepEqual(Object.keys(COCKPIT_VIEW_PRESETS), [
+    'admin',
+    'dispatch',
+    'supervision',
+    'direction',
+    'stock',
+    'secteurs',
+  ]);
+
+  const fingerprints = Object.values(COCKPIT_VIEW_PRESETS).map((preset) => (
+    cockpitViewFingerprint(preset.view)
+  ));
+  assert.equal(new Set(fingerprints).size, fingerprints.length);
+
+  for (const preset of Object.values(COCKPIT_VIEW_PRESETS)) {
+    assert.ok(preset.label);
+    assert.ok(preset.description);
+    assert.deepEqual(
+      Object.keys(normalizeCockpitView(preset.view)),
+      Object.keys(DEFAULT_COCKPIT_VIEW),
+    );
+  }
+});
+
+
+test('applies and detects a cockpit business preset deterministically', () => {
+  const dispatch = applyCockpitPreset('dispatch');
+
+  assert.equal(dispatch.metrics, true);
+  assert.equal(dispatch.decisions, true);
+  assert.equal(dispatch.capacity, true);
+  assert.equal(dispatch.quality, false);
+  assert.equal(detectCockpitPreset(dispatch), 'dispatch');
+  assert.equal(detectCockpitPreset({ ...dispatch, quality: true }), null);
+  assert.deepEqual(applyCockpitPreset('unknown'), { ...DEFAULT_COCKPIT_VIEW });
 });
 
 

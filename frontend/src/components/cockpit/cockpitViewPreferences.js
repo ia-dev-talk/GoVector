@@ -14,6 +14,79 @@ export const DEFAULT_COCKPIT_VIEW = Object.freeze(
   ),
 );
 
+export const COCKPIT_VIEW_PRESETS = Object.freeze({
+  admin: Object.freeze({
+    label: 'Admin',
+    description: 'Vision complète pour gouvernance et exploitation.',
+    view: Object.freeze({ ...DEFAULT_COCKPIT_VIEW }),
+  }),
+  dispatch: Object.freeze({
+    label: 'Dispatch',
+    description: 'Affectation, arbitrage et capacité terrain en priorité.',
+    view: Object.freeze({
+      metrics: true,
+      progression: true,
+      decisions: true,
+      capacity: true,
+      quality: false,
+      activity: true,
+      quickAccess: true,
+    }),
+  }),
+  supervision: Object.freeze({
+    label: 'Supervision',
+    description: 'Décisions, qualité, capacité et événements récents.',
+    view: Object.freeze({
+      metrics: true,
+      progression: false,
+      decisions: true,
+      capacity: true,
+      quality: true,
+      activity: true,
+      quickAccess: true,
+    }),
+  }),
+  direction: Object.freeze({
+    label: 'Direction',
+    description: 'Synthèse, avancement et qualité sans surcharge opérationnelle.',
+    view: Object.freeze({
+      metrics: true,
+      progression: true,
+      decisions: false,
+      capacity: false,
+      quality: true,
+      activity: true,
+      quickAccess: false,
+    }),
+  }),
+  stock: Object.freeze({
+    label: 'Stock',
+    description: 'Qualité, mouvements et accès aux surfaces opérationnelles.',
+    view: Object.freeze({
+      metrics: true,
+      progression: false,
+      decisions: false,
+      capacity: false,
+      quality: true,
+      activity: true,
+      quickAccess: true,
+    }),
+  }),
+  secteurs: Object.freeze({
+    label: 'Secteurs',
+    description: 'Charge territoriale, qualité et navigation opérationnelle.',
+    view: Object.freeze({
+      metrics: true,
+      progression: false,
+      decisions: false,
+      capacity: true,
+      quality: true,
+      activity: false,
+      quickAccess: true,
+    }),
+  }),
+});
+
 const COCKPIT_PREFERENCE_LOCK = 'bluevector:cockpit-view:save:v1';
 const COCKPIT_PREFERENCE_INTENT = 'bluevector:cockpit-view:intent:v1';
 let cockpitIntentCounter = 0;
@@ -35,6 +108,20 @@ export function normalizeCockpitView(value) {
   return Object.values(normalized).some(Boolean)
     ? normalized
     : { ...DEFAULT_COCKPIT_VIEW };
+}
+
+export function applyCockpitPreset(presetKey) {
+  const preset = COCKPIT_VIEW_PRESETS[presetKey];
+  return preset
+    ? normalizeCockpitView(preset.view)
+    : { ...DEFAULT_COCKPIT_VIEW };
+}
+
+export function detectCockpitPreset(value) {
+  const fingerprint = cockpitViewFingerprint(value);
+  return Object.entries(COCKPIT_VIEW_PRESETS).find(([, preset]) => (
+    cockpitViewFingerprint(preset.view) === fingerprint
+  ))?.[0] ?? null;
 }
 
 export function toggleCockpitSection(current, key) {
