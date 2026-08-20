@@ -193,6 +193,12 @@ def _merge_extensible_catalog(
             ),
         )
 
+    active_system_codes = {
+        code
+        for code in expected_codes
+        if force_system_active or submitted_by_code[code].active
+    }
+
     merged: list[CatalogItem] = []
     for default in defaults:
         submitted_item = submitted_by_code[default.code]
@@ -219,6 +225,16 @@ def _merge_extensible_catalog(
                 detail=(
                     f"L'élément métier « {item.code} » de {section} doit être "
                     "rattaché à un comportement système existant."
+                ),
+            )
+        if item.active and canonical not in active_system_codes:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"L'élément métier « {item.code} » de {section} ne peut pas "
+                    f"rester actif car son comportement système « {canonical} » "
+                    "est archivé. Choisissez un comportement système actif ou "
+                    "archivez l'élément métier."
                 ),
             )
         metadata["custom"] = True
