@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -90,5 +91,29 @@ test('retry mode distinguishes initial hydration failure from save failure', () 
   assert.equal(
     cockpitPreferenceRetryMode({ syncState: 'saving', hydrated: true }),
     null,
+  );
+});
+
+test('workspace captures the latest local layout synchronously before React state updates', () => {
+  const workspace = readFileSync(
+    new URL('./CockpitPilotageWorkspace.jsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(
+    workspace,
+    /const markPreferenceChanged = \(nextLayout\) => \{[\s\S]*latestLocalLayout\.current = normalized;[\s\S]*preferenceLocallyModified\.current = true;/,
+  );
+  assert.match(
+    workspace,
+    /const toggleSection = \(key\) => \{[\s\S]*toggleCockpitSection\(latestLocalLayout\.current\.view, key\)[\s\S]*setVisibility\(next\.view\);/,
+  );
+  assert.match(
+    workspace,
+    /const moveSection = \(key, direction\) => \{[\s\S]*moveCockpitSection\(latestLocalLayout\.current\.order, key, direction\)[\s\S]*setOrder\(next\.order\);/,
+  );
+  assert.doesNotMatch(
+    workspace,
+    /useEffect\(\(\) => \{\s*latestLocalLayout\.current = normalizeCockpitLayout\(\{ view: visibility, order \}\);/,
   );
 });

@@ -574,10 +574,6 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
   );
 
   useEffect(() => {
-    latestLocalLayout.current = normalizeCockpitLayout({ view: visibility, order });
-  }, [order, visibility]);
-
-  useEffect(() => {
     let cancelled = false;
 
     apiClient
@@ -682,7 +678,9 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
     ['Disponibles', pilotage.personnel.available, `${pilotage.personnel.total} techniciens`, 'success', 'users', 'personnel'],
   ];
 
-  const markPreferenceChanged = () => {
+  const markPreferenceChanged = (nextLayout) => {
+    const normalized = normalizeCockpitLayout(nextLayout);
+    latestLocalLayout.current = normalized;
     preferenceLocallyModified.current = true;
 
     if (!preferenceHydrated) {
@@ -690,32 +688,45 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
       setPreferenceError(
         'Votre vue est modifiée localement et n’est pas encore synchronisée. Réessayez lorsque le profil redevient disponible.',
       );
-      return;
+      return normalized;
     }
 
     setPreferenceSync('saving');
     setPreferenceError('');
+    return normalized;
   };
 
   const applyPreset = (presetKey) => {
-    markPreferenceChanged();
-    setVisibility(applyCockpitPreset(presetKey));
+    const next = markPreferenceChanged({
+      view: applyCockpitPreset(presetKey),
+      order: latestLocalLayout.current.order,
+    });
+    setVisibility(next.view);
   };
 
   const toggleSection = (key) => {
-    markPreferenceChanged();
-    setVisibility((current) => toggleCockpitSection(current, key));
+    const next = markPreferenceChanged({
+      view: toggleCockpitSection(latestLocalLayout.current.view, key),
+      order: latestLocalLayout.current.order,
+    });
+    setVisibility(next.view);
   };
 
   const moveSection = (key, direction) => {
-    markPreferenceChanged();
-    setOrder((current) => moveCockpitSection(current, key, direction));
+    const next = markPreferenceChanged({
+      view: latestLocalLayout.current.view,
+      order: moveCockpitSection(latestLocalLayout.current.order, key, direction),
+    });
+    setOrder(next.order);
   };
 
   const resetView = () => {
-    markPreferenceChanged();
-    setVisibility({ ...DEFAULT_COCKPIT_VIEW });
-    setOrder([...DEFAULT_COCKPIT_ORDER]);
+    const next = markPreferenceChanged({
+      view: DEFAULT_COCKPIT_VIEW,
+      order: DEFAULT_COCKPIT_ORDER,
+    });
+    setVisibility(next.view);
+    setOrder(next.order);
   };
 
   const retryMode = cockpitPreferenceRetryMode({
