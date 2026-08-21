@@ -10,7 +10,7 @@ export function shouldWarnBeforeWizardClose({
   dirty = false,
   persisted = false,
 } = {}) {
-  return Boolean(dirty) && !Boolean(persisted);
+  return Boolean(dirty) && !persisted;
 }
 
 export function isWizardMutatingButtonLabel(value) {
