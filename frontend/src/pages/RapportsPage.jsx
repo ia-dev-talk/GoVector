@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import ExportCenter from '../components/export/ExportCenter';
+import { buildReportExportFilters } from '../components/export/exportScope';
 import Toast from '../components/Toast';
 import ReportsHeader from '../features/reports-v3/ReportsHeader';
 import ReportsKpiStrip from '../features/reports-v3/ReportsKpiStrip';
@@ -68,6 +69,14 @@ export default function RapportsPage({ onNavigate }) {
   const liveRelevant = periodSelection.ok && reportIncludesCivilDate(range);
   const scopeMatches = periodSelection.ok && reportScopesMatch(range, displayedRange);
   const scopeTransition = !periodSelection.ok || (hasSnapshot && !scopeMatches);
+  const exportScopeFilters = useMemo(() => {
+    if (!hasSnapshot || !scopeMatches || periodSelection.error) return null;
+
+    return buildReportExportFilters({
+      startDate: localDateKey(displayedRange.start),
+      endDate: localDateKey(displayedRange.end),
+    });
+  }, [displayedRange, hasSnapshot, periodSelection.error, scopeMatches]);
 
   const toast = useCallback((message, type = 'info') => {
     const id = ++toastIdRef.current;
@@ -278,8 +287,10 @@ export default function RapportsPage({ onNavigate }) {
         </div>
       )}
 
-      {exportOpen && hasSnapshot && scopeMatches && !periodSelection.error && (
+      {exportOpen && exportScopeFilters && (
         <ExportCenter
+          fixedFilters={exportScopeFilters}
+          fixedFiltersLabel={`Périmètre Rapports verrouillé : ${formatRange(displayedRange)}. Les filtres des profils et modèles ne peuvent pas remplacer ce scope.`}
           onClose={() => setExportOpen(false)}
           onGenerated={({ filename }) => toast(
             filename ? `Export généré : ${filename}` : 'Export généré avec succès.',

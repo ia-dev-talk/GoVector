@@ -22,6 +22,7 @@ import ExportFilterPanel from './ExportFilterPanel';
 import ExportTemplateManager from './ExportTemplateManager';
 import ExportHistory from './ExportHistory';
 import ExportResume from './ExportResume';
+import { resolveExportFilters } from './exportScope';
 
 import './export-center.css';
 
@@ -434,6 +435,8 @@ function CloseIcon() {
 export default function ExportCenter({
   onClose,
   onGenerated,
+  fixedFilters = null,
+  fixedFiltersLabel = '',
 }) {
   const reactId = useId();
 
@@ -463,7 +466,7 @@ export default function ExportCenter({
 
   const [selectedColumns, setSelectedColumns] = useState([]);
   const [selectedFormat, setSelectedFormat] = useState('excel');
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState(() => resolveExportFilters({}, fixedFilters));
   const [includePhotos, setIncludePhotos] = useState(false);
   const [includeSignatures, setIncludeSignatures] = useState(true);
   const [exportName, setExportName] = useState('');
@@ -475,6 +478,11 @@ export default function ExportCenter({
   const busy = initialLoading || Boolean(actionLoading);
   const canClose = !busy && typeof onClose === 'function';
   const canManage = managementAccess === 'allowed';
+  const filtersLocked = fixedFilters !== null && fixedFilters !== undefined;
+  const effectiveFilters = useMemo(
+    () => resolveExportFilters(filters, fixedFilters),
+    [filters, fixedFilters],
+  );
 
   const formatKeys = useMemo(
     () => new Set(formats.map((format) => text(format.key))),
@@ -517,7 +525,7 @@ export default function ExportCenter({
   const exportPayload = useMemo(
     () => ({
       columns: effectiveColumns,
-      filters: normalizeFilters(filters),
+      filters: effectiveFilters,
       export_format: effectiveFormat,
       include_photos:
         effectiveFormat === 'zip' || includePhotos,
@@ -534,9 +542,9 @@ export default function ExportCenter({
     }),
     [
       effectiveColumns,
+      effectiveFilters,
       effectiveFormat,
       exportName,
-      filters,
       includePhotos,
       includeSignatures,
       selectedTemplate?.id,
@@ -779,11 +787,12 @@ export default function ExportCenter({
 
   const handleFiltersChange = useCallback(
     (nextFilters) => {
+      if (filtersLocked) return;
       setSelectedTemplate(null);
       setFilters(normalizeFilters(nextFilters));
       invalidatePreview();
     },
-    [invalidatePreview],
+    [filtersLocked, invalidatePreview],
   );
 
   const handleFormatChange = useCallback(
@@ -880,7 +889,11 @@ export default function ExportCenter({
           columns,
         ),
       );
-      setFilters(normalizeFilters(profile.filters));
+      setFilters(
+        filtersLocked
+          ? resolveExportFilters({}, fixedFilters)
+          : normalizeFilters(profile.filters),
+      );
       setExportName(
         text(profile.name).slice(
           0,
@@ -893,6 +906,8 @@ export default function ExportCenter({
     },
     [
       columns,
+      filtersLocked,
+      fixedFilters,
       invalidatePreview,
       profiles,
     ],
@@ -941,7 +956,11 @@ export default function ExportCenter({
 
       setSelectedTemplate(template);
       setSelectedColumns(nextColumns);
-      setFilters(normalizeFilters(template.filters));
+      setFilters(
+        filtersLocked
+          ? resolveExportFilters({}, fixedFilters)
+          : normalizeFilters(template.filters),
+      );
       setSelectedFormat(nextFormat);
       setIncludePhotos(photos);
       setIncludeSignatures(signatures);
@@ -957,6 +976,8 @@ export default function ExportCenter({
     },
     [
       columns,
+      filtersLocked,
+      fixedFilters,
       formatKeys,
       formats,
       invalidatePreview,
@@ -1381,9 +1402,28 @@ export default function ExportCenter({
                       onChange={handleColumnsChange}
                     />
 
+                    {filtersLocked && (
+                      <div
+                        className="export-error"
+                        role="status"
+                        style={{
+                          color: 'var(--color-info, var(--export-text))',
+                          borderColor: 'var(--color-info, var(--export-border))',
+                          background: 'var(--export-surface-alt, transparent)',
+                        }}
+                      >
+                        {text(
+                          fixedFiltersLabel,
+                          'Le périmètre de cet export est verrouillé sur la vue Rapports affichée. Les profils et modèles ne peuvent pas remplacer ces filtres.',
+                        )}
+                      </div>
+                    )}
+
                     <ExportFilterPanel
-                      filters={filters}
+                      filters={effectiveFilters}
                       onChange={handleFiltersChange}
+                      disabled={filtersLocked}
+                      title={filtersLocked ? 'Filtres du rapport (verrouillés)' : 'Filtres'}
                     />
 
                     <div className="export-step-actions">
@@ -1593,7 +1633,7 @@ export default function ExportCenter({
                       sample={sample}
                       columns={effectiveColumns}
                       format={effectiveFormat}
-                      filters={filters}
+                      filters={effectiveFilters}
                       includePhotos={includePhotos}
                       includeSignatures={includeSignatures}
                       exportName={exportPayload.export_name}
