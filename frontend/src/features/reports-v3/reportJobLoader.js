@@ -44,26 +44,41 @@ function jobIdentity(job) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-export async function fetchCompleteReportJobs({
-  fetchPage,
-  dateFrom,
-  dateTo,
-  pageSize = 500,
-  maxPagesPerDay = 200,
-}) {
-  if (typeof fetchPage !== 'function') {
-    throw new TypeError('fetchPage doit être une fonction.');
-  }
-  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 500) {
-    throw new RangeError('pageSize doit être compris entre 1 et 500.');
-  }
-  if (!Number.isInteger(maxPagesPerDay) || maxPagesPerDay < 1) {
-    throw new RangeError('maxPagesPerDay invalide.');
-  }
+function unstableCollectionError() {
+  const error = new Error('Le périmètre Rapports a changé pendant la pagination. Réessayez.');
+  error.code = 'BLUEVECTOR_REPORT_COLLECTION_UNSTABLE';
+  return error;
+}
 
+function jobFingerprint(job) {
+  return JSON.stringify([
+    jobIdentity(job),
+    job?.updated_at ?? null,
+    job?.scheduled_date ?? null,
+    job?.status ?? null,
+    job?.priority ?? null,
+    job?.technician_id ?? job?.assigned_technician_id ?? null,
+    job?.job_type_id ?? job?.job_type ?? job?.type ?? null,
+    job?.operator ?? job?.operator_name ?? null,
+    job?.sector_id ?? null,
+    job?.orienteur_id ?? null,
+    job?.deleted_at ?? null,
+  ]);
+}
+
+function snapshotFingerprint(jobs) {
+  return jobs.map(jobFingerprint).join('\n');
+}
+
+async function collectReportSnapshot({
+  fetchPage,
+  dates,
+  pageSize,
+  maxPagesPerDay,
+}) {
   const jobs = [];
   const seenIds = new Set();
-  const dates = enumerateCivilDateKeys(dateFrom, dateTo);
+  let paginated = false;
 
   for (const scheduledDate of dates) {
     for (let page = 0; page < maxPagesPerDay; page += 1) {
@@ -76,17 +91,14 @@ export async function fetchCompleteReportJobs({
       if (!Array.isArray(records)) {
         throw new TypeError(`Réponse interventions invalide pour ${scheduledDate}.`);
       }
+      if (page > 0) paginated = true;
 
       for (const record of records) {
         const id = jobIdentity(record);
         if (id === null) {
           throw new TypeError(`Intervention sans identifiant valide pour ${scheduledDate}.`);
         }
-        if (seenIds.has(id)) {
-          const error = new Error('Le périmètre Rapports a changé pendant la pagination. Réessayez.');
-          error.code = 'BLUEVECTOR_REPORT_COLLECTION_UNSTABLE';
-          throw error;
-        }
+        if (seenIds.has(id)) throw unstableCollectionError();
         seenIds.add(id);
         jobs.push(record);
       }
@@ -100,5 +112,54 @@ export async function fetchCompleteReportJobs({
     }
   }
 
-  return jobs;
+  return {
+    jobs,
+    paginated,
+    fingerprint: snapshotFingerprint(jobs),
+  };
+}
+
+export async function fetchCompleteReportJobs({
+  fetchPage,
+  dateFrom,
+  dateTo,
+  pageSize = 500,
+  maxPagesPerDay = 200,
+  maxSnapshotPasses = 3,
+}) {
+  if (typeof fetchPage !== 'function') {
+    throw new TypeError('fetchPage doit être une fonction.');
+  }
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 500) {
+    throw new RangeError('pageSize doit être compris entre 1 et 500.');
+  }
+  if (!Number.isInteger(maxPagesPerDay) || maxPagesPerDay < 1) {
+    throw new RangeError('maxPagesPerDay invalide.');
+  }
+  if (!Number.isInteger(maxSnapshotPasses) || maxSnapshotPasses < 2) {
+    throw new RangeError('maxSnapshotPasses doit être supérieur ou égal à 2.');
+  }
+
+  const dates = enumerateCivilDateKeys(dateFrom, dateTo);
+  let previous = await collectReportSnapshot({
+    fetchPage,
+    dates,
+    pageSize,
+    maxPagesPerDay,
+  });
+
+  if (!previous.paginated) return previous.jobs;
+
+  for (let pass = 1; pass < maxSnapshotPasses; pass += 1) {
+    const current = await collectReportSnapshot({
+      fetchPage,
+      dates,
+      pageSize,
+      maxPagesPerDay,
+    });
+    if (current.fingerprint === previous.fingerprint) return current.jobs;
+    previous = current;
+  }
+
+  throw unstableCollectionError();
 }
