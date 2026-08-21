@@ -9,6 +9,12 @@ import ReportsKpiStrip from '../features/reports-v3/ReportsKpiStrip';
 import ReportsOverview from '../features/reports-v3/ReportsOverview';
 import ReportsQualityPanel from '../features/reports-v3/ReportsQualityPanel';
 import ReportsRankings from '../features/reports-v3/ReportsRankings';
+import {
+  buildReportBusinessFilterOptions,
+  filterReportJobs,
+  normalizeReportBusinessFilters,
+  reportBusinessFilterCount,
+} from '../features/reports-v3/reportBusinessScope';
 import { fetchCompleteReportJobs } from '../features/reports-v3/reportJobLoader';
 import { resolveReportPeriodSelection } from '../features/reports-v3/reportPeriodSelection';
 import {
@@ -34,6 +40,30 @@ const POLLING_INTERVAL_MS = 60_000;
 const REALTIME_DELAY_MS = 700;
 const TOAST_DURATION_MS = 3200;
 
+function hasOption(options, value) {
+  if (!value) return true;
+  return options.some((option) => String(option.value) === String(value));
+}
+
+function ReportFilterSelect({ label, value, options, onChange, emptyLabel }) {
+  return (
+    <label>
+      <span>{label}</span>
+      <select value={value ?? ''} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{emptyLabel}</option>
+        {value && !hasOption(options, value) && (
+          <option value={String(value)}>Sélection active · aucune donnée</option>
+        )}
+        {options.map((option) => (
+          <option key={`${label}-${option.value}`} value={String(option.value)}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export default function RapportsPage({ onNavigate }) {
   const todayKey = useMemo(() => localDateKey(), []);
   const [period, setPeriod] = useState('today');
@@ -43,6 +73,7 @@ export default function RapportsPage({ onNavigate }) {
   const [jobs, setJobs] = useState([]);
   const [previousJobs, setPreviousJobs] = useState([]);
   const [technicians, setTechnicians] = useState({});
+  const [businessFilters, setBusinessFilters] = useState({});
   const [displayedRange, setDisplayedRange] = useState(() => ({
     start: new Date(),
     end: new Date(),
@@ -69,14 +100,41 @@ export default function RapportsPage({ onNavigate }) {
   const liveRelevant = periodSelection.ok && reportIncludesCivilDate(range);
   const scopeMatches = periodSelection.ok && reportScopesMatch(range, displayedRange);
   const scopeTransition = !periodSelection.ok || (hasSnapshot && !scopeMatches);
+  const normalizedBusinessFilters = useMemo(
+    () => normalizeReportBusinessFilters(businessFilters),
+    [businessFilters],
+  );
+  const activeBusinessFilterCount = useMemo(
+    () => reportBusinessFilterCount(normalizedBusinessFilters),
+    [normalizedBusinessFilters],
+  );
+  const businessFilterOptions = useMemo(
+    () => buildReportBusinessFilterOptions(jobs),
+    [jobs],
+  );
+  const filteredJobs = useMemo(
+    () => filterReportJobs(jobs, normalizedBusinessFilters),
+    [jobs, normalizedBusinessFilters],
+  );
+  const filteredPreviousJobs = useMemo(
+    () => filterReportJobs(previousJobs, normalizedBusinessFilters),
+    [normalizedBusinessFilters, previousJobs],
+  );
   const exportScopeFilters = useMemo(() => {
     if (!hasSnapshot || !scopeMatches || periodSelection.error) return null;
 
     return buildReportExportFilters({
       startDate: localDateKey(displayedRange.start),
       endDate: localDateKey(displayedRange.end),
+      filters: normalizedBusinessFilters,
     });
-  }, [displayedRange, hasSnapshot, periodSelection.error, scopeMatches]);
+  }, [
+    displayedRange,
+    hasSnapshot,
+    normalizedBusinessFilters,
+    periodSelection.error,
+    scopeMatches,
+  ]);
 
   const toast = useCallback((message, type = 'info') => {
     const id = ++toastIdRef.current;
@@ -193,18 +251,32 @@ export default function RapportsPage({ onNavigate }) {
     onTechEvent: scheduleRealtimeRefresh,
   });
 
-  const analytics = useMemo(() => buildAnalytics(jobs), [jobs]);
-  const previousAnalytics = useMemo(() => buildAnalytics(previousJobs), [previousJobs]);
+  const analytics = useMemo(() => buildAnalytics(filteredJobs), [filteredJobs]);
+  const previousAnalytics = useMemo(
+    () => buildAnalytics(filteredPreviousJobs),
+    [filteredPreviousJobs],
+  );
   const comparison = useMemo(
     () => compareAnalytics(analytics, previousAnalytics),
     [analytics, previousAnalytics],
   );
   const trendAnalytics = useMemo(
-    () => buildTrendAnalytics(jobs, displayedRange),
-    [displayedRange, jobs],
+    () => buildTrendAnalytics(filteredJobs, displayedRange),
+    [displayedRange, filteredJobs],
   );
   const activeTechnicians = activeTechnicianCount(technicians);
   const totalTechnicians = totalTechnicianCount(technicians);
+
+  const updateBusinessFilter = useCallback((key, value) => {
+    setBusinessFilters((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }, []);
+
+  const clearBusinessFilters = useCallback(() => {
+    setBusinessFilters({});
+  }, []);
 
   const openInterventions = useCallback((intent = null) => {
     if (typeof onNavigate !== 'function') return;
@@ -246,6 +318,69 @@ export default function RapportsPage({ onNavigate }) {
         onCustomEndChange={setCustomEnd}
         periodError={periodSelection.error}
       />
+
+      {hasSnapshot && scopeMatches && !periodSelection.error && (
+        <div
+          className="rv3-period-controls"
+          aria-label="Filtres analytiques"
+          style={{
+            padding: '8px 18px',
+            justifyContent: 'flex-start',
+            flexWrap: 'wrap',
+            borderBottom: '1px solid var(--border-light)',
+            background: 'var(--surface-panel-alt)',
+          }}
+        >
+          <ReportFilterSelect
+            label="Secteur"
+            value={businessFilters.sector_id}
+            options={businessFilterOptions.sectors}
+            emptyLabel="Tous les secteurs"
+            onChange={(value) => updateBusinessFilter('sector_id', value)}
+          />
+          <ReportFilterSelect
+            label="Technicien"
+            value={businessFilters.technician_id}
+            options={businessFilterOptions.technicians}
+            emptyLabel="Tous les techniciens"
+            onChange={(value) => updateBusinessFilter('technician_id', value)}
+          />
+          <ReportFilterSelect
+            label="Type"
+            value={businessFilters.job_type}
+            options={businessFilterOptions.jobTypes}
+            emptyLabel="Tous les types"
+            onChange={(value) => updateBusinessFilter('job_type', value)}
+          />
+          <ReportFilterSelect
+            label="Opérateur"
+            value={businessFilters.operator}
+            options={businessFilterOptions.operators}
+            emptyLabel="Tous les opérateurs"
+            onChange={(value) => updateBusinessFilter('operator', value)}
+          />
+          <ReportFilterSelect
+            label="Statut"
+            value={businessFilters.status}
+            options={businessFilterOptions.statuses}
+            emptyLabel="Tous les statuts"
+            onChange={(value) => updateBusinessFilter('status', value)}
+          />
+          <span className="rv3-range-pill" aria-live="polite">
+            {filteredJobs.length} / {jobs.length} interventions · {activeBusinessFilterCount} filtre(s)
+          </span>
+          <button
+            type="button"
+            className="rv3-icon-button"
+            onClick={clearBusinessFilters}
+            disabled={activeBusinessFilterCount === 0}
+            aria-label="Réinitialiser les filtres analytiques"
+            title="Réinitialiser les filtres"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {scopeTransition && refreshing && periodSelection.ok && (
         <div className="rv3-notice" role="status" aria-live="polite">
@@ -290,7 +425,7 @@ export default function RapportsPage({ onNavigate }) {
       {exportOpen && exportScopeFilters && (
         <ExportCenter
           fixedFilters={exportScopeFilters}
-          fixedFiltersLabel={`Périmètre Rapports verrouillé : ${formatRange(displayedRange)}. Les filtres des profils et modèles ne peuvent pas remplacer ce scope.`}
+          fixedFiltersLabel={`Périmètre Rapports verrouillé : ${formatRange(displayedRange)} · ${activeBusinessFilterCount} filtre(s) métier. Les profils et modèles ne peuvent pas remplacer ce scope.`}
           onClose={() => setExportOpen(false)}
           onGenerated={({ filename }) => toast(
             filename ? `Export généré : ${filename}` : 'Export généré avec succès.',
