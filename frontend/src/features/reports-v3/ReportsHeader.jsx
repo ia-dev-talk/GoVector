@@ -1,10 +1,11 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   CalendarIcon,
   ExportIcon,
   RefreshIcon,
   ReportsIcon,
 } from './ReportIcons';
+import { resolveReportRealtimeStatus } from './reportRealtimeStatus';
 import {
   PERIOD_OPTIONS,
   formatRange,
@@ -22,6 +23,20 @@ const ReportsHeader = memo(function ReportsHeader({
   onExport,
   exportDisabled = false,
 }) {
+  const realtimeStatus = useMemo(
+    () => resolveReportRealtimeStatus(range, connected),
+    [connected, range],
+  );
+
+  const realtimeClassName = [
+    'rv3-live-pill',
+    realtimeStatus.tone === 'connected'
+      ? 'rv3-live-pill--connected'
+      : realtimeStatus.tone === 'reconnecting'
+        ? 'rv3-live-pill--reconnecting'
+        : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <header className="rv3-header">
       <div className="rv3-header-identity">
@@ -39,17 +54,13 @@ const ReportsHeader = memo(function ReportsHeader({
               <h1>Rapports</h1>
 
               <span
-                className={[
-                  'rv3-live-pill',
-                  connected
-                    ? 'rv3-live-pill--connected'
-                    : 'rv3-live-pill--reconnecting',
-                ].join(' ')}
+                className={realtimeClassName}
+                title={realtimeStatus.liveRelevant
+                  ? undefined
+                  : 'Le statut du flux live ne s’applique pas à cette période.'}
               >
                 <i />
-                {connected
-                  ? 'TEMPS RÉEL'
-                  : 'RECONNEXION'}
+                {realtimeStatus.label}
               </span>
             </div>
 
