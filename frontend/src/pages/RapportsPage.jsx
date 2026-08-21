@@ -8,6 +8,7 @@ import ReportsKpiStrip from '../features/reports-v3/ReportsKpiStrip';
 import ReportsOverview from '../features/reports-v3/ReportsOverview';
 import ReportsQualityPanel from '../features/reports-v3/ReportsQualityPanel';
 import ReportsRankings from '../features/reports-v3/ReportsRankings';
+import { fetchCompleteReportJobs } from '../features/reports-v3/reportJobLoader';
 import {
   reportScopesMatch,
   resolveReportSnapshot,
@@ -27,7 +28,7 @@ import {
 import { useWebSocket } from '../hooks/useWebSocket';
 import '../styles/reports-v3.css';
 
-const SEARCH_LIMIT = 1000;
+const REPORT_PAGE_SIZE = 500;
 const POLLING_INTERVAL_MS = 60_000;
 const REALTIME_DELAY_MS = 700;
 const TOAST_DURATION_MS = 3200;
@@ -43,7 +44,6 @@ export default function RapportsPage({ onNavigate }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
-  const [resultLimitReached, setResultLimitReached] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
   const requestRef = useRef(0);
@@ -78,25 +78,29 @@ export default function RapportsPage({ onNavigate }) {
     if (!silent) setRefreshing(true);
     setError('');
 
-    const currentParams = {
-      date_from: localDateKey(range.start),
-      date_to: localDateKey(range.end),
-      limit: SEARCH_LIMIT,
+    const currentRange = {
+      dateFrom: localDateKey(range.start),
+      dateTo: localDateKey(range.end),
     };
-    const previousParams = {
-      date_from: localDateKey(priorRange.start),
-      date_to: localDateKey(priorRange.end),
-      limit: SEARCH_LIMIT,
+    const previousRangeParams = {
+      dateFrom: localDateKey(priorRange.start),
+      dateTo: localDateKey(priorRange.end),
     };
+    const fetchJobs = ({ dateFrom, dateTo }) => fetchCompleteReportJobs({
+      fetchPage: (params) => api.getJobs(params),
+      dateFrom,
+      dateTo,
+      pageSize: REPORT_PAGE_SIZE,
+    });
     const results = await Promise.allSettled([
-      api.searchJobs(currentParams),
-      api.searchJobs(previousParams),
+      fetchJobs(currentRange).then((data) => ({ data })),
+      fetchJobs(previousRangeParams).then((data) => ({ data })),
       api.getDashboardTechnicians(),
     ]);
     if (requestId !== requestRef.current) return;
 
     const resolution = resolveReportSnapshot(results, {
-      limit: SEARCH_LIMIT,
+      limit: Number.MAX_SAFE_INTEGER,
     });
 
     if (!resolution.ok) {
@@ -113,7 +117,6 @@ export default function RapportsPage({ onNavigate }) {
     setJobs(snapshot.jobs);
     setPreviousJobs(snapshot.previousJobs);
     setTechnicians(snapshot.technicians);
-    setResultLimitReached(snapshot.resultLimitReached);
     setDisplayedRange({
       start: new Date(range.start),
       end: new Date(range.end),
@@ -231,7 +234,7 @@ export default function RapportsPage({ onNavigate }) {
           <ReportsRankings analytics={analytics} />
           <ReportsQualityPanel
             analytics={analytics}
-            resultLimitReached={resultLimitReached}
+            resultLimitReached={false}
             onExport={() => setExportOpen(true)}
           />
         </div>
