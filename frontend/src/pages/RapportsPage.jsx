@@ -12,6 +12,7 @@ import {
   reportScopesMatch,
   resolveReportSnapshot,
 } from '../features/reports-v3/reportSnapshot';
+import { reportIncludesCivilDate } from '../features/reports-v3/reportRealtimeStatus';
 import { buildTrendAnalytics } from '../features/reports-v3/reportTrendUtils';
 import {
   activeTechnicianCount,
@@ -52,6 +53,7 @@ export default function RapportsPage({ onNavigate }) {
 
   const range = useMemo(() => periodRange(period), [period]);
   const priorRange = useMemo(() => previousRange(range), [range]);
+  const liveRelevant = reportIncludesCivilDate(range);
   const scopeMatches = reportScopesMatch(range, displayedRange);
   const scopeTransition = hasSnapshot && !scopeMatches;
 
@@ -125,21 +127,24 @@ export default function RapportsPage({ onNavigate }) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => loadData(), 0);
-    const interval = window.setInterval(() => loadData({ silent: true }), POLLING_INTERVAL_MS);
+    const interval = liveRelevant
+      ? window.setInterval(() => loadData({ silent: true }), POLLING_INTERVAL_MS)
+      : null;
     return () => {
       window.clearTimeout(timer);
-      window.clearInterval(interval);
+      if (interval) window.clearInterval(interval);
       requestRef.current += 1;
     };
-  }, [loadData]);
+  }, [liveRelevant, loadData]);
 
   const scheduleRealtimeRefresh = useCallback(() => {
+    if (!liveRelevant) return;
     if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
     realtimeTimerRef.current = window.setTimeout(() => {
       realtimeTimerRef.current = null;
       loadData({ silent: true });
     }, REALTIME_DELAY_MS);
-  }, [loadData]);
+  }, [liveRelevant, loadData]);
 
   const websocket = useWebSocket('dashboard', {
     onDashboardUpdate: scheduleRealtimeRefresh,
