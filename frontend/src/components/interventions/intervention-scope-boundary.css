@@ -5,6 +5,10 @@
   min-height: 100%;
 }
 
+.intervention-scope-content {
+  display: contents;
+}
+
 .intervention-scope-shield {
   position: absolute;
   inset: 0;
@@ -27,6 +31,11 @@
   border-radius: 16px;
   background: var(--surface-900, #101a24);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.intervention-scope-card:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
 }
 
 .intervention-scope-indicator {

@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -29,6 +30,10 @@ function formatScopeDate(value) {
 export default function InterventionScopeBoundary({
   children,
 }) {
+  const contentRef = useRef(null);
+  const cardRef = useRef(null);
+  const retryButtonRef = useRef(null);
+  const restoreFocusRef = useRef(null);
   const [scopeState, setScopeState] = useState({
     status: 'idle',
     date: null,
@@ -115,9 +120,84 @@ export default function InterventionScopeBoundary({
     scopeState.status === 'loading' ||
     scopeState.status === 'error';
 
+  useEffect(() => {
+    const content = contentRef.current;
+
+    if (!isBlocking) {
+      content?.removeAttribute('inert');
+      content?.removeAttribute('aria-hidden');
+
+      const restoreTarget = restoreFocusRef.current;
+      restoreFocusRef.current = null;
+      if (
+        restoreTarget?.isConnected &&
+        typeof restoreTarget.focus === 'function'
+      ) {
+        requestAnimationFrame(() => {
+          restoreTarget.focus({ preventScroll: true });
+        });
+      }
+      return undefined;
+    }
+
+    const activeElement = document.activeElement;
+    if (
+      content &&
+      activeElement instanceof HTMLElement &&
+      content.contains(activeElement)
+    ) {
+      restoreFocusRef.current = activeElement;
+    }
+
+    content?.setAttribute('inert', '');
+    content?.setAttribute('aria-hidden', 'true');
+
+    const focusTarget = scopeState.status === 'error'
+      ? retryButtonRef.current
+      : cardRef.current;
+    focusTarget?.focus({ preventScroll: true });
+
+    const shield = cardRef.current?.closest('.intervention-scope-shield');
+    const guardBlockedWorkspace = (event) => {
+      if (shield?.contains(event.target)) {
+        if (event.key === 'Tab') {
+          event.preventDefault();
+          focusTarget?.focus({ preventScroll: true });
+        }
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      focusTarget?.focus({ preventScroll: true });
+    };
+
+    document.addEventListener(
+      'keydown',
+      guardBlockedWorkspace,
+      true,
+    );
+
+    return () => {
+      document.removeEventListener(
+        'keydown',
+        guardBlockedWorkspace,
+        true,
+      );
+      content?.removeAttribute('inert');
+      content?.removeAttribute('aria-hidden');
+    };
+  }, [isBlocking, scopeState.status]);
+
   return (
     <div className="intervention-scope-boundary">
-      {children}
+      <div
+        ref={contentRef}
+        className="intervention-scope-content"
+      >
+        {children}
+      </div>
 
       {isBlocking ? (
         <div
@@ -128,8 +208,13 @@ export default function InterventionScopeBoundary({
               : 'status'
           }
           aria-live="polite"
+          aria-modal="true"
         >
-          <div className="intervention-scope-card">
+          <div
+            ref={cardRef}
+            className="intervention-scope-card"
+            tabIndex={-1}
+          >
             <div
               className={[
                 'intervention-scope-indicator',
@@ -166,6 +251,7 @@ export default function InterventionScopeBoundary({
 
             {scopeState.status === 'error' ? (
               <button
+                ref={retryButtonRef}
                 type="button"
                 className="intervention-scope-retry"
                 onClick={retry}
