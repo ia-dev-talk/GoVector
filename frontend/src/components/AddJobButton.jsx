@@ -4,7 +4,7 @@ import {
   useState,
 } from 'react';
 
-import JobWizard from './JobWizard';
+import GuardedJobWizard from './GuardedJobWizard';
 import Button from './ui/Button';
 
 function isRecord(value) {
@@ -221,7 +221,7 @@ const AddJobButton = forwardRef(
         </Button>
 
         {open && (
-          <JobWizard
+          <GuardedJobWizard
             {...remainingWizardProps}
             initialData={null}
             onCreated={

@@ -1,4 +1,4 @@
-import JobWizard from './JobWizard';
+import GuardedJobWizard from './GuardedJobWizard';
 
 /**
  * Point d'entrée historique de modification d'une intervention.
@@ -18,7 +18,7 @@ export default function EditJobWindow({
   }
 
   return (
-    <JobWizard
+    <GuardedJobWizard
       {...wizardProps}
       initialData={job}
       onClose={onClose}

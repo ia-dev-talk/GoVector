@@ -1,4 +1,4 @@
-import JobWizard from './JobWizard';
+import GuardedJobWizard from './GuardedJobWizard';
 
 /**
  * Adaptateur de compatibilité pour les anciens imports AddJobModal.
@@ -13,7 +13,7 @@ export default function AddJobModal({
   ...wizardProps
 }) {
   return (
-    <JobWizard
+    <GuardedJobWizard
       {...wizardProps}
       initialData={null}
       onClose={onClose}
