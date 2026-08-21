@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { api } from '../../api/client';
 import {
+  activeCanonicalOptions,
+  canonicalLinkState,
   catalogRowKey,
   isCustomCatalogItem,
   normalizeCatalogCode,
@@ -100,8 +102,9 @@ function systemItems(items) {
 }
 
 function newCatalogItem(section, items) {
-  const system = systemItems(items);
-  const canonical = system[0]?.code || '';
+  const canonical = section.canonicalized
+    ? activeCanonicalOptions(items)[0]?.code || ''
+    : '';
   return {
     code: nextCode(section.prefix, items),
     label: section.newLabel,
@@ -274,7 +277,7 @@ export default function BusinessCatalogSection({
 
   const activeItems = values[activeSection.key] || [];
   const activeItemsCount = activeItems.filter((item) => item.active).length;
-  const canonicalOptions = systemItems(activeItems);
+  const canonicalOptions = activeCanonicalOptions(activeItems);
 
   return (
     <section className="business-catalog">
@@ -360,6 +363,9 @@ export default function BusinessCatalogSection({
                 </div>
                 {activeItems.map((item, index) => {
                   const custom = isCustomCatalogItem(item);
+                  const canonicalState = activeSection.canonicalized && custom
+                    ? canonicalLinkState(item, activeItems)
+                    : null;
                   return (
                     <div className="catalog-table__row" role="row" key={catalogRowKey(activeSection.key, index)}>
                       {editable && custom ? (
@@ -383,6 +389,18 @@ export default function BusinessCatalogSection({
                             value={item?.metadata?.canonical || ''}
                             onChange={(event) => updateCanonical(activeSection.key, index, event.target.value)}
                           >
+                            {canonicalState?.status === 'archived' ? (
+                              <option value={canonicalState.canonical} disabled>
+                                Archivé · {canonicalState.target?.label || canonicalState.canonical}
+                              </option>
+                            ) : null}
+                            {canonicalState?.status === 'missing' ? (
+                              <option value={canonicalState.canonical || ''} disabled>
+                                {canonicalState.canonical
+                                  ? `Introuvable · ${canonicalState.canonical}`
+                                  : 'Choisir un comportement système actif'}
+                              </option>
+                            ) : null}
                             {canonicalOptions.map((option) => (
                               <option key={option.code} value={option.code}>{option.label} · {option.code}</option>
                             ))}
