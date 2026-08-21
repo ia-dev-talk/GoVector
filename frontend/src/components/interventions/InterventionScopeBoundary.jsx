@@ -27,7 +27,7 @@ function formatScopeDate(value) {
   }).format(date);
 }
 
-export function isInternalScopeRetryEvent(event, retryEvent) {
+function isInternalScopeRetryEvent(event, retryEvent) {
   return Boolean(retryEvent) && event === retryEvent;
 }
 
