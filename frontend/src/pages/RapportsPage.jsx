@@ -9,6 +9,7 @@ import ReportsOverview from '../features/reports-v3/ReportsOverview';
 import ReportsQualityPanel from '../features/reports-v3/ReportsQualityPanel';
 import ReportsRankings from '../features/reports-v3/ReportsRankings';
 import { fetchCompleteReportJobs } from '../features/reports-v3/reportJobLoader';
+import { resolveReportPeriodSelection } from '../features/reports-v3/reportPeriodSelection';
 import {
   reportScopesMatch,
   resolveReportSnapshot,
@@ -21,7 +22,6 @@ import {
   compareAnalytics,
   formatRange,
   localDateKey,
-  periodRange,
   previousRange,
   totalTechnicianCount,
 } from '../features/reports-v3/reportUtils';
@@ -34,11 +34,18 @@ const REALTIME_DELAY_MS = 700;
 const TOAST_DURATION_MS = 3200;
 
 export default function RapportsPage({ onNavigate }) {
+  const todayKey = useMemo(() => localDateKey(), []);
   const [period, setPeriod] = useState('today');
+  const [exactDate, setExactDate] = useState(todayKey);
+  const [customStart, setCustomStart] = useState(todayKey);
+  const [customEnd, setCustomEnd] = useState(todayKey);
   const [jobs, setJobs] = useState([]);
   const [previousJobs, setPreviousJobs] = useState([]);
   const [technicians, setTechnicians] = useState({});
-  const [displayedRange, setDisplayedRange] = useState(() => periodRange('today'));
+  const [displayedRange, setDisplayedRange] = useState(() => ({
+    start: new Date(),
+    end: new Date(),
+  }));
   const [hasSnapshot, setHasSnapshot] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,11 +58,20 @@ export default function RapportsPage({ onNavigate }) {
   const toastIdRef = useRef(0);
   const toastTimersRef = useRef(new Set());
 
-  const range = useMemo(() => periodRange(period), [period]);
-  const priorRange = useMemo(() => previousRange(range), [range]);
-  const liveRelevant = reportIncludesCivilDate(range);
-  const scopeMatches = reportScopesMatch(range, displayedRange);
-  const scopeTransition = hasSnapshot && !scopeMatches;
+  const periodSelection = useMemo(() => resolveReportPeriodSelection({
+    period,
+    exactDate,
+    customStart,
+    customEnd,
+  }), [customEnd, customStart, exactDate, period]);
+  const range = periodSelection.range ?? displayedRange;
+  const priorRange = useMemo(
+    () => previousRange(range),
+    [range],
+  );
+  const liveRelevant = periodSelection.ok && reportIncludesCivilDate(range);
+  const scopeMatches = periodSelection.ok && reportScopesMatch(range, displayedRange);
+  const scopeTransition = !periodSelection.ok || (hasSnapshot && !scopeMatches);
 
   const toast = useCallback((message, type = 'info') => {
     const id = ++toastIdRef.current;
@@ -74,17 +90,26 @@ export default function RapportsPage({ onNavigate }) {
   }, []);
 
   const loadData = useCallback(async ({ silent = false } = {}) => {
+    if (!periodSelection.ok || !periodSelection.range) {
+      setError(periodSelection.error);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    const requestedRange = periodSelection.range;
+    const requestedPriorRange = previousRange(requestedRange);
     const requestId = ++requestRef.current;
     if (!silent) setRefreshing(true);
     setError('');
 
     const currentRange = {
-      dateFrom: localDateKey(range.start),
-      dateTo: localDateKey(range.end),
+      dateFrom: localDateKey(requestedRange.start),
+      dateTo: localDateKey(requestedRange.end),
     };
     const previousRangeParams = {
-      dateFrom: localDateKey(priorRange.start),
-      dateTo: localDateKey(priorRange.end),
+      dateFrom: localDateKey(requestedPriorRange.start),
+      dateTo: localDateKey(requestedPriorRange.end),
     };
     const fetchJobs = ({ dateFrom, dateTo }) => fetchCompleteReportJobs({
       fetchPage: (params) => api.getJobs(params),
@@ -118,17 +143,24 @@ export default function RapportsPage({ onNavigate }) {
     setPreviousJobs(snapshot.previousJobs);
     setTechnicians(snapshot.technicians);
     setDisplayedRange({
-      start: new Date(range.start),
-      end: new Date(range.end),
+      start: new Date(requestedRange.start),
+      end: new Date(requestedRange.end),
     });
     setHasSnapshot(true);
     setLastUpdatedAt(new Date());
     setError('');
     setLoading(false);
     setRefreshing(false);
-  }, [priorRange.end, priorRange.start, range.end, range.start]);
+  }, [periodSelection]);
 
   useEffect(() => {
+    if (!periodSelection.ok) {
+      setError(periodSelection.error);
+      setLoading(false);
+      setRefreshing(false);
+      return undefined;
+    }
+
     const timer = window.setTimeout(() => loadData(), 0);
     const interval = liveRelevant
       ? window.setInterval(() => loadData({ silent: true }), POLLING_INTERVAL_MS)
@@ -138,7 +170,7 @@ export default function RapportsPage({ onNavigate }) {
       if (interval) window.clearInterval(interval);
       requestRef.current += 1;
     };
-  }, [liveRelevant, loadData]);
+  }, [liveRelevant, loadData, periodSelection.error, periodSelection.ok]);
 
   const scheduleRealtimeRefresh = useCallback(() => {
     if (!liveRelevant) return;
@@ -200,9 +232,16 @@ export default function RapportsPage({ onNavigate }) {
         onRefresh={() => loadData()}
         onExport={() => setExportOpen(true)}
         exportDisabled={!hasSnapshot || scopeTransition}
+        exactDate={exactDate}
+        onExactDateChange={setExactDate}
+        customStart={customStart}
+        onCustomStartChange={setCustomStart}
+        customEnd={customEnd}
+        onCustomEndChange={setCustomEnd}
+        periodError={periodSelection.error}
       />
 
-      {scopeTransition && refreshing && (
+      {scopeTransition && refreshing && periodSelection.ok && (
         <div className="rv3-notice" role="status" aria-live="polite">
           <span>
             Chargement de {formatRange(range)}… Les chiffres du dernier snapshot
@@ -214,11 +253,13 @@ export default function RapportsPage({ onNavigate }) {
       {error && (
         <div className="rv3-notice" role="alert">
           <span>{error}</span>
-          <button type="button" onClick={() => loadData()} disabled={refreshing}>Réessayer</button>
+          {periodSelection.ok && (
+            <button type="button" onClick={() => loadData()} disabled={refreshing}>Réessayer</button>
+          )}
         </div>
       )}
 
-      {hasSnapshot && scopeMatches && (
+      {hasSnapshot && scopeMatches && !periodSelection.error && (
         <div className="rv3-content">
           <ReportsKpiStrip
             analytics={analytics}
@@ -240,7 +281,7 @@ export default function RapportsPage({ onNavigate }) {
         </div>
       )}
 
-      {exportOpen && hasSnapshot && scopeMatches && (
+      {exportOpen && hasSnapshot && scopeMatches && !periodSelection.error && (
         <ExportCenter
           onClose={() => setExportOpen(false)}
           onGenerated={({ filename }) => toast(

@@ -11,6 +11,11 @@ import {
   formatRange,
 } from './reportUtils';
 
+const RANGE_OPTIONS = Object.freeze([
+  ...PERIOD_OPTIONS,
+  { value: 'exact', label: 'Jour exact' },
+  { value: 'custom', label: 'Période personnalisée' },
+]);
 
 const ReportsHeader = memo(function ReportsHeader({
   period,
@@ -22,6 +27,13 @@ const ReportsHeader = memo(function ReportsHeader({
   onRefresh,
   onExport,
   exportDisabled = false,
+  exactDate = '',
+  onExactDateChange,
+  customStart = '',
+  onCustomStartChange,
+  customEnd = '',
+  onCustomEndChange,
+  periodError = '',
 }) {
   const realtimeStatus = useMemo(
     () => resolveReportRealtimeStatus(range, connected),
@@ -40,19 +52,14 @@ const ReportsHeader = memo(function ReportsHeader({
   return (
     <header className="rv3-header">
       <div className="rv3-header-identity">
-        <span className="rv3-eyebrow">
-          Analytique FTTH
-        </span>
+        <span className="rv3-eyebrow">Analytique FTTH</span>
 
         <div className="rv3-title-row">
-          <span className="rv3-title-icon">
-            <ReportsIcon />
-          </span>
+          <span className="rv3-title-icon"><ReportsIcon /></span>
 
           <div>
             <div className="rv3-title-line">
               <h1>Rapports</h1>
-
               <span
                 className={realtimeClassName}
                 title={realtimeStatus.liveRelevant
@@ -63,10 +70,7 @@ const ReportsHeader = memo(function ReportsHeader({
                 {realtimeStatus.label}
               </span>
             </div>
-
-            <p>
-              Performance, activité et qualité des données terrain
-            </p>
+            <p>Performance, activité et qualité des données terrain</p>
           </div>
         </div>
       </div>
@@ -76,47 +80,72 @@ const ReportsHeader = memo(function ReportsHeader({
           <CalendarIcon />
           <select
             value={period}
-            onChange={(event) =>
-              onPeriodChange(
-                event.target.value,
-              )
-            }
+            onChange={(event) => onPeriodChange(event.target.value)}
             aria-label="Période d’analyse"
           >
-            {PERIOD_OPTIONS.map(
-              (option) => (
-                <option
-                  key={option.value}
-                  value={option.value}
-                >
-                  {option.label}
-                </option>
-              ),
-            )}
+            {RANGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </label>
 
-        <span className="rv3-range-pill">
-          {formatRange(range)}
-        </span>
+        {period === 'exact' && (
+          <label>
+            <span>Jour</span>
+            <input
+              type="date"
+              value={exactDate}
+              onChange={(event) => onExactDateChange?.(event.target.value)}
+              aria-label="Jour exact analysé"
+              aria-invalid={Boolean(periodError) || undefined}
+            />
+          </label>
+        )}
+
+        {period === 'custom' && (
+          <>
+            <label>
+              <span>Début</span>
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd || undefined}
+                onChange={(event) => onCustomStartChange?.(event.target.value)}
+                aria-label="Début de la période personnalisée"
+                aria-invalid={Boolean(periodError) || undefined}
+              />
+            </label>
+            <label>
+              <span>Fin</span>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart || undefined}
+                onChange={(event) => onCustomEndChange?.(event.target.value)}
+                aria-label="Fin de la période personnalisée"
+                aria-invalid={Boolean(periodError) || undefined}
+              />
+            </label>
+          </>
+        )}
+
+        <span className="rv3-range-pill">{formatRange(range)}</span>
+        {periodError && (
+          <span className="rv3-period-error" role="alert">{periodError}</span>
+        )}
       </div>
 
       <div className="rv3-header-actions">
         {lastUpdatedAt && (
           <span
             className="rv3-updated-at"
-            title={lastUpdatedAt.toLocaleString(
-              'fr-FR',
-            )}
+            title={lastUpdatedAt.toLocaleString('fr-FR')}
           >
             MAJ{' '}
-            {lastUpdatedAt.toLocaleTimeString(
-              'fr-FR',
-              {
-                hour: '2-digit',
-                minute: '2-digit',
-              },
-            )}
+            {lastUpdatedAt.toLocaleTimeString('fr-FR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </span>
         )}
 
@@ -124,22 +153,20 @@ const ReportsHeader = memo(function ReportsHeader({
           type="button"
           className="rv3-icon-button"
           onClick={onRefresh}
-          disabled={refreshing}
+          disabled={refreshing || Boolean(periodError)}
           aria-label="Actualiser les rapports"
-          title="Actualiser"
+          title={periodError ? 'Corrigez la période avant d’actualiser.' : 'Actualiser'}
         >
-          <RefreshIcon
-            spinning={refreshing}
-          />
+          <RefreshIcon spinning={refreshing} />
         </button>
 
         <button
           type="button"
           className="rv3-primary-button"
           onClick={onExport}
-          disabled={exportDisabled}
-          title={exportDisabled
-            ? 'Attendez le chargement du périmètre demandé avant d’exporter.'
+          disabled={exportDisabled || Boolean(periodError)}
+          title={exportDisabled || periodError
+            ? 'Attendez un périmètre valide et chargé avant d’exporter.'
             : undefined}
         >
           <ExportIcon />
@@ -149,6 +176,5 @@ const ReportsHeader = memo(function ReportsHeader({
     </header>
   );
 });
-
 
 export default ReportsHeader;
