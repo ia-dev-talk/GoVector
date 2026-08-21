@@ -97,10 +97,6 @@ function nextOrder(items) {
   ) + 10;
 }
 
-function systemItems(items) {
-  return items.filter((item) => !isCustomCatalogItem(item));
-}
-
 function newCatalogItem(section, items) {
   const canonical = section.canonicalized
     ? activeCanonicalOptions(items)[0]?.code || ''
