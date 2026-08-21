@@ -2,6 +2,7 @@ const DEFAULT_PAGE_SIZE = 500;
 const DEFAULT_MAX_PAGES = 100;
 const DEFAULT_STABILITY_ATTEMPTS = 3;
 const INSTALL_FLAG = Symbol.for('bluevector.exhaustiveCollectionsInstalled');
+export const INTERVENTION_SCOPE_EVENT = 'bluevector:interventions-scope';
 const BUSINESS_REVISION_FIELDS = [
   'updated_at',
   'status',
@@ -60,6 +61,175 @@ function collectionSignature(items) {
       return `index:${index}`;
     }
   }).join('|');
+}
+
+function normalizeScopeDate(value) {
+  return typeof value === 'string'
+    ? value.trim()
+    : '';
+}
+
+function dispatchInterventionScope(detail) {
+  if (
+    typeof window === 'undefined' ||
+    typeof window.dispatchEvent !== 'function' ||
+    typeof CustomEvent === 'undefined'
+  ) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(INTERVENTION_SCOPE_EVENT, {
+      detail,
+    }),
+  );
+}
+
+export function createInterventionScopeCoordinator(
+  notify = () => {},
+) {
+  let nextCycleId = 0;
+  let latestCycle = null;
+  let pendingTechnicianPromise = null;
+
+  const settle = (
+    cycle,
+    surface,
+    status,
+    error = null,
+  ) => {
+    if (
+      !cycle ||
+      cycle !== latestCycle ||
+      cycle.failed ||
+      cycle.ready
+    ) {
+      return;
+    }
+
+    if (status === 'failed') {
+      cycle.failed = true;
+      notify({
+        status: 'error',
+        date: cycle.date,
+        requestId: cycle.id,
+        code: error?.code || null,
+      });
+      return;
+    }
+
+    cycle[surface] = 'ready';
+
+    if (
+      cycle.jobs === 'ready' &&
+      cycle.summary === 'ready' &&
+      cycle.technicians === 'ready'
+    ) {
+      cycle.ready = true;
+      notify({
+        status: 'ready',
+        date: cycle.date,
+        requestId: cycle.id,
+      });
+    }
+  };
+
+  const observePromise = (
+    cycle,
+    surface,
+    promise,
+  ) => {
+    Promise.resolve(promise).then(
+      () => settle(
+        cycle,
+        surface,
+        'ready',
+      ),
+      (error) => settle(
+        cycle,
+        surface,
+        'failed',
+        error,
+      ),
+    );
+  };
+
+  return {
+    observeTechnicians(promise) {
+      const request = {
+        promise,
+      };
+      pendingTechnicianPromise = request;
+
+      queueMicrotask(() => {
+        if (pendingTechnicianPromise === request) {
+          pendingTechnicianPromise = null;
+        }
+      });
+    },
+
+    observeJobs(dateValue, promise) {
+      const date = normalizeScopeDate(dateValue);
+      if (!date) {
+        return;
+      }
+
+      const technicianRequest = pendingTechnicianPromise;
+      pendingTechnicianPromise = null;
+
+      const cycle = {
+        id: ++nextCycleId,
+        date,
+        jobs: 'pending',
+        summary: 'pending',
+        technicians: technicianRequest
+          ? 'pending'
+          : 'ready',
+        failed: false,
+        ready: false,
+      };
+      latestCycle = cycle;
+
+      notify({
+        status: 'loading',
+        date,
+        requestId: cycle.id,
+      });
+
+      observePromise(
+        cycle,
+        'jobs',
+        promise,
+      );
+
+      if (technicianRequest) {
+        observePromise(
+          cycle,
+          'technicians',
+          technicianRequest.promise,
+        );
+      }
+    },
+
+    observeSummary(dateValue, promise) {
+      const date = normalizeScopeDate(dateValue);
+      const cycle = latestCycle;
+
+      if (
+        !date ||
+        !cycle ||
+        cycle.date !== date
+      ) {
+        return;
+      }
+
+      observePromise(
+        cycle,
+        'summary',
+        promise,
+      );
+    },
+  };
 }
 
 async function collectSinglePass(
@@ -177,21 +347,61 @@ export function installExhaustiveCollectionFetching(api) {
 
   const originalGetJobs = api.getJobs?.bind(api);
   const originalGetTechnicians = api.getTechnicians?.bind(api);
-
-  if (originalGetJobs) {
-    api.getJobs = (params = {}) => (
-      isExplicitlyPaginated(params)
-        ? originalGetJobs(params)
-        : collectAllPages(originalGetJobs, params)
-    );
-  }
+  const originalGetJobsSummary = api.getJobsSummary?.bind(api);
+  const scopeCoordinator = createInterventionScopeCoordinator(
+    dispatchInterventionScope,
+  );
 
   if (originalGetTechnicians) {
-    api.getTechnicians = (params = {}) => (
-      isExplicitlyPaginated(params)
+    api.getTechnicians = (params = {}) => {
+      const promise = isExplicitlyPaginated(params)
         ? originalGetTechnicians(params)
-        : collectAllPages(originalGetTechnicians, params)
-    );
+        : collectAllPages(originalGetTechnicians, params);
+
+      if (!isExplicitlyPaginated(params)) {
+        scopeCoordinator.observeTechnicians(promise);
+      }
+
+      return promise;
+    };
+  }
+
+  if (originalGetJobs) {
+    api.getJobs = (params = {}) => {
+      const promise = isExplicitlyPaginated(params)
+        ? originalGetJobs(params)
+        : collectAllPages(originalGetJobs, params);
+
+      if (
+        !isExplicitlyPaginated(params) &&
+        normalizeScopeDate(params?.scheduled_date)
+      ) {
+        scopeCoordinator.observeJobs(
+          params.scheduled_date,
+          promise,
+        );
+      }
+
+      return promise;
+    };
+  }
+
+  if (originalGetJobsSummary) {
+    api.getJobsSummary = (params = {}) => {
+      const promise = originalGetJobsSummary(params);
+      const targetDate = normalizeScopeDate(
+        params?.target_date,
+      );
+
+      if (targetDate) {
+        scopeCoordinator.observeSummary(
+          targetDate,
+          promise,
+        );
+      }
+
+      return promise;
+    };
   }
 
   Object.defineProperty(api, INSTALL_FLAG, {

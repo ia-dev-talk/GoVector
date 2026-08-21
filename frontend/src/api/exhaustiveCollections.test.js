@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   collectAllPages,
+  createInterventionScopeCoordinator,
   installExhaustiveCollectionFetching,
 } from './exhaustiveCollections.js';
 
@@ -14,6 +15,21 @@ function rows(start, count) {
 
 function sliceDataset(dataset, params) {
   return dataset.slice(params.skip, params.skip + params.limit);
+}
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 test('collectAllPages verifies a stable paged collection before returning it', async () => {
@@ -153,6 +169,78 @@ test('collectAllPages fails explicitly when a paged collection never stabilizes'
       assert.match(error.message, /modifiée pendant le chargement/i);
       return true;
     },
+  );
+});
+
+test('scope coordinator blocks a requested date until all workspace surfaces are ready', async () => {
+  const events = [];
+  const coordinator = createInterventionScopeCoordinator((event) => events.push(event));
+  const technicians = deferred();
+  const jobs = deferred();
+  const summary = deferred();
+
+  coordinator.observeTechnicians(technicians.promise);
+  coordinator.observeJobs('2026-08-20', jobs.promise);
+  coordinator.observeSummary('2026-08-20', summary.promise);
+
+  assert.deepEqual(events.map((event) => event.status), ['loading']);
+
+  technicians.resolve({ data: [] });
+  jobs.resolve({ data: [] });
+  await flushMicrotasks();
+  assert.deepEqual(events.map((event) => event.status), ['loading']);
+
+  summary.resolve({ data: {} });
+  await flushMicrotasks();
+  assert.deepEqual(events.map((event) => event.status), ['loading', 'ready']);
+});
+
+test('scope coordinator reports collection instability as a blocking date error', async () => {
+  const events = [];
+  const coordinator = createInterventionScopeCoordinator((event) => events.push(event));
+  const technicians = deferred();
+  const jobs = deferred();
+  const summary = deferred();
+
+  coordinator.observeTechnicians(technicians.promise);
+  coordinator.observeJobs('2026-08-19', jobs.promise);
+  coordinator.observeSummary('2026-08-19', summary.promise);
+
+  const error = new Error('unstable');
+  error.code = 'BLUEVECTOR_COLLECTION_UNSTABLE';
+  jobs.reject(error);
+  technicians.resolve({ data: [] });
+  summary.resolve({ data: {} });
+  await flushMicrotasks();
+
+  assert.equal(events.at(-1).status, 'error');
+  assert.equal(events.at(-1).date, '2026-08-19');
+  assert.equal(events.at(-1).code, 'BLUEVECTOR_COLLECTION_UNSTABLE');
+});
+
+test('scope coordinator ignores a late failure from an older date generation', async () => {
+  const events = [];
+  const coordinator = createInterventionScopeCoordinator((event) => events.push(event));
+  const oldJobs = deferred();
+  const newJobs = deferred();
+  const newSummary = deferred();
+
+  coordinator.observeJobs('2026-08-18', oldJobs.promise);
+  coordinator.observeJobs('2026-08-19', newJobs.promise);
+  coordinator.observeSummary('2026-08-19', newSummary.promise);
+
+  oldJobs.reject(new Error('late old failure'));
+  newJobs.resolve({ data: [] });
+  newSummary.resolve({ data: {} });
+  await flushMicrotasks();
+
+  assert.deepEqual(
+    events.map((event) => [event.status, event.date]),
+    [
+      ['loading', '2026-08-18'],
+      ['loading', '2026-08-19'],
+      ['ready', '2026-08-19'],
+    ],
   );
 });
 
