@@ -504,7 +504,8 @@ class FieldOptExportService:
         # Filtre par opérateur
         operator = filters.get("operator")
         if operator and operator != "TOUS":
-            query = query.where(Job.operator.ilike(f"%{operator}%"))
+            normalized_operator = str(operator).strip().upper()
+            query = query.where(func.upper(func.trim(Job.operator)) == normalized_operator)
 
         # Filtre par statut
         status_filter = filters.get("status")
@@ -517,7 +518,7 @@ class FieldOptExportService:
         # Filtre par secteur
         sector_id = filters.get("sector_id")
         if sector_id:
-            query = query.where(Job.route_criteria == str(sector_id))
+            query = query.where(Job.sector_id == sector_id)
 
         # Filtre par technicien
         technician_id = filters.get("technician_id")
@@ -640,7 +641,6 @@ class FieldOptExportService:
 
         # En-têtes
         if not rows:
-            # Aucune donnée, on écrit juste les en-têtes
             headers = [EXPORT_COLUMNS[c]["label"] for c in columns]
             for col_idx, header in enumerate(headers, 1):
                 cell = ws.cell(row=1, column=col_idx, value=header)
@@ -658,7 +658,6 @@ class FieldOptExportService:
                 cell.alignment = _center_align()
                 cell.border = _thin_border()
 
-            # Données
             for row_idx, row in enumerate(rows, 2):
                 for col_idx, header in enumerate(headers, 1):
                     value = row.get(header, "")
@@ -670,7 +669,6 @@ class FieldOptExportService:
 
         _autofit_columns(ws)
 
-        # Feuille Résumé
         ws_summary = wb.create_sheet("Résumé")
         summary = await FieldOptExportService.get_export_summary(db, filters)
         ws_summary.cell(row=1, column=1, value="Résumé de l'export").font = Font(bold=True, size=14, color=BLEU_NAVY)
@@ -689,7 +687,6 @@ class FieldOptExportService:
             ws_summary.cell(row=i, column=2, value=value)
         _autofit_columns(ws_summary)
 
-        # Sauvegarde en mémoire
         output = io.BytesIO()
         wb.save(output)
         return output.getvalue()
@@ -734,10 +731,8 @@ class FieldOptExportService:
         """
         rows = await FieldOptExportService.get_jobs_data(db, filters, columns)
 
-        # Construction du HTML du rapport
         html_parts = []
 
-        # En-tête du rapport
         html_parts.append("""
         <!DOCTYPE html>
         <html>
@@ -764,7 +759,6 @@ class FieldOptExportService:
         <body>
         """)
 
-        # En-tête du document
         settings = get_settings()
         html_parts.append(f"""
         <div class="header">
@@ -774,7 +768,6 @@ class FieldOptExportService:
         </div>
         """)
 
-        # Résumé
         summary = await FieldOptExportService.get_export_summary(db, filters)
         html_parts.append(f"""
         <div class="summary">
@@ -808,7 +801,6 @@ class FieldOptExportService:
         </div>
         """)
 
-        # Tableau des données
         if rows:
             html_parts.append("<table>")
             html_parts.append("<thead><tr>")
@@ -835,7 +827,6 @@ class FieldOptExportService:
 
         html_content = "".join(html_parts)
 
-        # Tentative de conversion HTML -> PDF
         try:
             import weasyprint
             pdf_bytes = weasyprint.HTML(string=html_content).write_pdf()
@@ -862,7 +853,6 @@ class FieldOptExportService:
         with ZipFile(zip_buffer, "w") as zf:
             zf.writestr("export_fieldopt.xlsx", excel_bytes)
 
-            # Récupérer les jobs avec photos
             query = await FieldOptExportService.build_job_query(db, filters)
             result = await db.execute(query)
             jobs = result.scalars().all()
