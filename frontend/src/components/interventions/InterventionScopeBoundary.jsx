@@ -27,6 +27,10 @@ function formatScopeDate(value) {
   }).format(date);
 }
 
+export function isInternalScopeRetryEvent(event, retryEvent) {
+  return Boolean(retryEvent) && event === retryEvent;
+}
+
 export default function InterventionScopeBoundary({
   children,
 }) {
@@ -34,6 +38,7 @@ export default function InterventionScopeBoundary({
   const cardRef = useRef(null);
   const retryButtonRef = useRef(null);
   const restoreFocusRef = useRef(null);
+  const retryKeyEventRef = useRef(null);
   const [scopeState, setScopeState] = useState({
     status: 'idle',
     date: null,
@@ -108,12 +113,17 @@ export default function InterventionScopeBoundary({
       code: null,
     }));
 
-    document.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'r',
-        bubbles: true,
-      }),
-    );
+    const retryEvent = new KeyboardEvent('keydown', {
+      key: 'r',
+      bubbles: true,
+    });
+
+    retryKeyEventRef.current = retryEvent;
+    try {
+      document.dispatchEvent(retryEvent);
+    } finally {
+      retryKeyEventRef.current = null;
+    }
   }, []);
 
   const isBlocking =
@@ -159,6 +169,15 @@ export default function InterventionScopeBoundary({
 
     const shield = cardRef.current?.closest('.intervention-scope-shield');
     const guardBlockedWorkspace = (event) => {
+      if (
+        isInternalScopeRetryEvent(
+          event,
+          retryKeyEventRef.current,
+        )
+      ) {
+        return;
+      }
+
       if (shield?.contains(event.target)) {
         if (event.key === 'Tab') {
           event.preventDefault();
