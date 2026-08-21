@@ -65,10 +65,6 @@ export default function RapportsPage({ onNavigate }) {
     customEnd,
   }), [customEnd, customStart, exactDate, period]);
   const range = periodSelection.range ?? displayedRange;
-  const priorRange = useMemo(
-    () => previousRange(range),
-    [range],
-  );
   const liveRelevant = periodSelection.ok && reportIncludesCivilDate(range);
   const scopeMatches = periodSelection.ok && reportScopesMatch(range, displayedRange);
   const scopeTransition = !periodSelection.ok || (hasSnapshot && !scopeMatches);
@@ -154,15 +150,16 @@ export default function RapportsPage({ onNavigate }) {
   }, [periodSelection]);
 
   useEffect(() => {
-    if (!periodSelection.ok) {
-      setError(periodSelection.error);
-      setLoading(false);
-      setRefreshing(false);
-      return undefined;
-    }
-
-    const timer = window.setTimeout(() => loadData(), 0);
-    const interval = liveRelevant
+    const timer = window.setTimeout(() => {
+      if (!periodSelection.ok) {
+        setError(periodSelection.error);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+      loadData();
+    }, 0);
+    const interval = liveRelevant && periodSelection.ok
       ? window.setInterval(() => loadData({ silent: true }), POLLING_INTERVAL_MS)
       : null;
     return () => {
