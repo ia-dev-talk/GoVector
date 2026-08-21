@@ -1,4 +1,4 @@
-import { localDateKey, periodRange } from './reportUtils';
+import { localDateKey, periodRange } from './reportUtils.js';
 
 function parseCivilDate(value) {
   const normalized = String(value ?? '').trim();
