@@ -1,5 +1,9 @@
-import { memo } from 'react';
+import {
+  memo,
+  useLayoutEffect,
+} from 'react';
 import { getInterventionWorkspaceContextLabel } from '../../lib/interventionWorkspaceContext';
+import { registerInterventionRealtimeScope } from '../../lib/interventionRealtimeScope';
 
 
 function CalendarIcon() {
@@ -82,6 +86,14 @@ const InterventionWorkspaceHeader = memo(
     technicianCount = 0,
     interventionCount = 0,
   }) {
+    useLayoutEffect(
+      () =>
+        registerInterventionRealtimeScope(
+          isToday && !isDemo,
+        ),
+      [isDemo, isToday],
+    );
+
     const dateLabel =
       isDemo
         ? 'Journée démo'
