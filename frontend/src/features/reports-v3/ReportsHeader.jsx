@@ -20,6 +20,7 @@ const ReportsHeader = memo(function ReportsHeader({
   refreshing,
   onRefresh,
   onExport,
+  exportDisabled = false,
 }) {
   return (
     <header className="rv3-header">
@@ -125,6 +126,10 @@ const ReportsHeader = memo(function ReportsHeader({
           type="button"
           className="rv3-primary-button"
           onClick={onExport}
+          disabled={exportDisabled}
+          title={exportDisabled
+            ? 'Attendez le chargement du périmètre demandé avant d’exporter.'
+            : undefined}
         >
           <ExportIcon />
           Nouvel export

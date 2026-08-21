@@ -8,14 +8,16 @@ import ReportsKpiStrip from '../features/reports-v3/ReportsKpiStrip';
 import ReportsOverview from '../features/reports-v3/ReportsOverview';
 import ReportsQualityPanel from '../features/reports-v3/ReportsQualityPanel';
 import ReportsRankings from '../features/reports-v3/ReportsRankings';
+import {
+  reportScopesMatch,
+  resolveReportSnapshot,
+} from '../features/reports-v3/reportSnapshot';
 import { buildTrendAnalytics } from '../features/reports-v3/reportTrendUtils';
 import {
   activeTechnicianCount,
-  apiError,
-  asRecords,
   buildAnalytics,
   compareAnalytics,
-  isRecord,
+  formatRange,
   localDateKey,
   periodRange,
   previousRange,
@@ -34,6 +36,8 @@ export default function RapportsPage({ onNavigate }) {
   const [jobs, setJobs] = useState([]);
   const [previousJobs, setPreviousJobs] = useState([]);
   const [technicians, setTechnicians] = useState({});
+  const [displayedRange, setDisplayedRange] = useState(() => periodRange('today'));
+  const [hasSnapshot, setHasSnapshot] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -48,6 +52,8 @@ export default function RapportsPage({ onNavigate }) {
 
   const range = useMemo(() => periodRange(period), [period]);
   const priorRange = useMemo(() => previousRange(range), [range]);
+  const scopeMatches = reportScopesMatch(range, displayedRange);
+  const scopeTransition = hasSnapshot && !scopeMatches;
 
   const toast = useCallback((message, type = 'info') => {
     const id = ++toastIdRef.current;
@@ -87,43 +93,32 @@ export default function RapportsPage({ onNavigate }) {
     ]);
     if (requestId !== requestRef.current) return;
 
-    const failures = [];
-    let successful = 0;
-    const current = results[0];
-    if (current.status === 'fulfilled' && Array.isArray(current.value?.data)) {
-      const records = asRecords(current.value.data);
-      setJobs(records);
-      setResultLimitReached(records.length >= SEARCH_LIMIT);
-      successful += 1;
-    } else {
-      failures.push(current.status === 'rejected'
-        ? apiError(current.reason, 'Interventions indisponibles.')
-        : 'Interventions : réponse invalide.');
+    const resolution = resolveReportSnapshot(results, {
+      limit: SEARCH_LIMIT,
+    });
+
+    if (!resolution.ok) {
+      setError([
+        ...resolution.errors,
+        'Le dernier snapshot cohérent est conservé et n’est pas présenté comme mis à jour.',
+      ].join(' · '));
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
 
-    const previous = results[1];
-    if (previous.status === 'fulfilled' && Array.isArray(previous.value?.data)) {
-      setPreviousJobs(asRecords(previous.value.data));
-      successful += 1;
-    } else {
-      setPreviousJobs([]);
-      failures.push(previous.status === 'rejected'
-        ? apiError(previous.reason, 'Comparaison indisponible.')
-        : 'Comparaison : réponse invalide.');
-    }
-
-    const tech = results[2];
-    if (tech.status === 'fulfilled' && isRecord(tech.value?.data)) {
-      setTechnicians(tech.value.data);
-      successful += 1;
-    } else {
-      failures.push(tech.status === 'rejected'
-        ? apiError(tech.reason, 'Techniciens indisponibles.')
-        : 'Techniciens : réponse invalide.');
-    }
-
-    if (successful > 0) setLastUpdatedAt(new Date());
-    setError(failures.join(' · '));
+    const snapshot = resolution.snapshot;
+    setJobs(snapshot.jobs);
+    setPreviousJobs(snapshot.previousJobs);
+    setTechnicians(snapshot.technicians);
+    setResultLimitReached(snapshot.resultLimitReached);
+    setDisplayedRange({
+      start: new Date(range.start),
+      end: new Date(range.end),
+    });
+    setHasSnapshot(true);
+    setLastUpdatedAt(new Date());
+    setError('');
     setLoading(false);
     setRefreshing(false);
   }, [priorRange.end, priorRange.start, range.end, range.start]);
@@ -159,8 +154,8 @@ export default function RapportsPage({ onNavigate }) {
     [analytics, previousAnalytics],
   );
   const trendAnalytics = useMemo(
-    () => buildTrendAnalytics(jobs, range),
-    [jobs, range],
+    () => buildTrendAnalytics(jobs, displayedRange),
+    [displayedRange, jobs],
   );
   const activeTechnicians = activeTechnicianCount(technicians);
   const totalTechnicians = totalTechnicianCount(technicians);
@@ -176,7 +171,7 @@ export default function RapportsPage({ onNavigate }) {
     onNavigate('interventions', intent);
   }, [onNavigate]);
 
-  if (loading && jobs.length === 0 && Object.keys(technicians).length === 0) {
+  if (loading && !hasSnapshot) {
     return (
       <div className="rv3-loading-screen" role="status" aria-live="polite">
         <div className="rv3-loading-spinner" />
@@ -196,7 +191,17 @@ export default function RapportsPage({ onNavigate }) {
         refreshing={refreshing}
         onRefresh={() => loadData()}
         onExport={() => setExportOpen(true)}
+        exportDisabled={!hasSnapshot || scopeTransition}
       />
+
+      {scopeTransition && refreshing && (
+        <div className="rv3-notice" role="status" aria-live="polite">
+          <span>
+            Chargement de {formatRange(range)}… Les chiffres du dernier snapshot
+            sont temporairement masqués pour éviter de mélanger deux périodes.
+          </span>
+        </div>
+      )}
 
       {error && (
         <div className="rv3-notice" role="alert">
@@ -205,27 +210,29 @@ export default function RapportsPage({ onNavigate }) {
         </div>
       )}
 
-      <div className="rv3-content">
-        <ReportsKpiStrip
-          analytics={analytics}
-          comparison={comparison}
-          onOpenInterventions={openInterventions}
-        />
-        <ReportsOverview
-          analytics={analytics}
-          trendAnalytics={trendAnalytics}
-          activeTechnicians={activeTechnicians}
-          totalTechnicians={totalTechnicians}
-        />
-        <ReportsRankings analytics={analytics} />
-        <ReportsQualityPanel
-          analytics={analytics}
-          resultLimitReached={resultLimitReached}
-          onExport={() => setExportOpen(true)}
-        />
-      </div>
+      {hasSnapshot && scopeMatches && (
+        <div className="rv3-content">
+          <ReportsKpiStrip
+            analytics={analytics}
+            comparison={comparison}
+            onOpenInterventions={openInterventions}
+          />
+          <ReportsOverview
+            analytics={analytics}
+            trendAnalytics={trendAnalytics}
+            activeTechnicians={activeTechnicians}
+            totalTechnicians={totalTechnicians}
+          />
+          <ReportsRankings analytics={analytics} />
+          <ReportsQualityPanel
+            analytics={analytics}
+            resultLimitReached={resultLimitReached}
+            onExport={() => setExportOpen(true)}
+          />
+        </div>
+      )}
 
-      {exportOpen && (
+      {exportOpen && hasSnapshot && scopeMatches && (
         <ExportCenter
           onClose={() => setExportOpen(false)}
           onGenerated={({ filename }) => toast(
