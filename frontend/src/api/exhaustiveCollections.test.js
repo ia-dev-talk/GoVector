@@ -35,26 +35,10 @@ test('collectAllPages verifies a stable paged collection before returning it', a
   assert.equal(response.data[0].id, 1);
   assert.equal(response.data.at(-1).id, 620);
   assert.deepEqual(calls, [
-    {
-      scheduled_date: '2026-08-20',
-      skip: 0,
-      limit: 500,
-    },
-    {
-      scheduled_date: '2026-08-20',
-      skip: 500,
-      limit: 500,
-    },
-    {
-      scheduled_date: '2026-08-20',
-      skip: 0,
-      limit: 500,
-    },
-    {
-      scheduled_date: '2026-08-20',
-      skip: 500,
-      limit: 500,
-    },
+    { scheduled_date: '2026-08-20', skip: 0, limit: 500 },
+    { scheduled_date: '2026-08-20', skip: 500, limit: 500 },
+    { scheduled_date: '2026-08-20', skip: 0, limit: 500 },
+    { scheduled_date: '2026-08-20', skip: 500, limit: 500 },
   ]);
 });
 
@@ -102,6 +86,54 @@ test('collectAllPages stabilizes after a deletion between offset pages without l
   for (let id = 2; id <= 620; id += 1) {
     assert.equal(ids.has(id), true, `id ${id} doit rester présent`);
   }
+});
+
+test('collectAllPages does not accept stable ids when a job status changed between passes', async () => {
+  let dataset = rows(1, 620).map((item) => ({
+    ...item,
+    status: 'ASSIGNED',
+    technician_id: 12,
+  }));
+  let calls = 0;
+
+  const response = await collectAllPages(async (params) => {
+    calls += 1;
+    if (calls === 3) {
+      dataset = dataset.map((item) => (
+        item.id === 100
+          ? { ...item, status: 'IN_PROGRESS', updated_at: '2026-08-21T01:00:00Z' }
+          : item
+      ));
+    }
+    return { data: sliceDataset(dataset, params) };
+  });
+
+  assert.equal(calls, 6);
+  assert.equal(response.data.find((item) => item.id === 100)?.status, 'IN_PROGRESS');
+});
+
+test('collectAllPages does not accept stable ids when an assignment changed between passes', async () => {
+  let dataset = rows(1, 620).map((item) => ({
+    ...item,
+    status: 'ASSIGNED',
+    technician_id: 12,
+  }));
+  let calls = 0;
+
+  const response = await collectAllPages(async (params) => {
+    calls += 1;
+    if (calls === 3) {
+      dataset = dataset.map((item) => (
+        item.id === 250
+          ? { ...item, technician_id: 44, updated_at: '2026-08-21T01:05:00Z' }
+          : item
+      ));
+    }
+    return { data: sliceDataset(dataset, params) };
+  });
+
+  assert.equal(calls, 6);
+  assert.equal(response.data.find((item) => item.id === 250)?.technician_id, 44);
 });
 
 test('collectAllPages fails explicitly when a paged collection never stabilizes', async () => {

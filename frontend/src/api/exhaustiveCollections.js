@@ -2,6 +2,20 @@ const DEFAULT_PAGE_SIZE = 500;
 const DEFAULT_MAX_PAGES = 100;
 const DEFAULT_STABILITY_ATTEMPTS = 3;
 const INSTALL_FLAG = Symbol.for('bluevector.exhaustiveCollectionsInstalled');
+const BUSINESS_REVISION_FIELDS = [
+  'updated_at',
+  'status',
+  'technician_id',
+  'assigned_technician_id',
+  'priority',
+  'scheduled_date',
+  'sector_id',
+  'orienteur_id',
+  'is_active',
+  'availability',
+  'availability_status',
+  'work_status',
+];
 
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object ?? {}, key);
@@ -22,11 +36,22 @@ function stableItemKey(item) {
   return null;
 }
 
+function businessRevisionKey(item) {
+  if (!item || typeof item !== 'object') {
+    return '';
+  }
+
+  return BUSINESS_REVISION_FIELDS
+    .filter((field) => hasOwn(item, field))
+    .map((field) => `${field}:${JSON.stringify(item[field] ?? null)}`)
+    .join(',');
+}
+
 function collectionSignature(items) {
   return items.map((item, index) => {
     const stableKey = stableItemKey(item);
     if (stableKey) {
-      return stableKey;
+      return `${stableKey}[${businessRevisionKey(item)}]`;
     }
 
     try {
