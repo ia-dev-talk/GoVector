@@ -7,11 +7,10 @@ import {
 } from 'react';
 
 import {
-  captureWizardState,
+  createWizardStateTracker,
   isPersistedWizardCounterText,
   isWizardMutatingButtonLabel,
   shouldWarnBeforeWizardClose,
-  wizardStateChanged,
 } from '../lib/jobWizardUnsavedChanges';
 import JobWizard from './JobWizard';
 
@@ -33,43 +32,17 @@ export default function GuardedJobWizard({
   const confirmationRef = useRef(null);
   const keepEditingRef = useRef(null);
   const previousFocusRef = useRef(null);
-  const initialStateRef = useRef(null);
-  const interactionStartedRef = useRef(false);
+  const stateTrackerRef = useRef(createWizardStateTracker());
   const dirtyRef = useRef(false);
   const persistedRef = useRef(false);
   const dirtyFrameRef = useRef(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const captureCurrentState = useCallback(() => {
-    return captureWizardState(wizardBoundaryRef.current);
-  }, []);
-
-  const freezeInitialState = useCallback(() => {
-    if (interactionStartedRef.current) {
-      return;
-    }
-
-    initialStateRef.current = captureCurrentState();
-    interactionStartedRef.current = true;
-  }, [captureCurrentState]);
-
-  const reconcileDirtyState = useCallback(() => {
-    if (persistedRef.current) {
-      dirtyRef.current = false;
-      return;
-    }
-
-    if (!interactionStartedRef.current) {
-      initialStateRef.current = captureCurrentState();
-      dirtyRef.current = false;
-      return;
-    }
-
-    dirtyRef.current = wizardStateChanged(
-      initialStateRef.current,
-      captureCurrentState(),
+  const observeCurrentFields = useCallback(() => {
+    dirtyRef.current = stateTrackerRef.current.observe(
+      wizardBoundaryRef.current,
     );
-  }, [captureCurrentState]);
+  }, []);
 
   const scheduleDirtyReconciliation = useCallback(() => {
     if (dirtyFrameRef.current !== null) {
@@ -78,9 +51,13 @@ export default function GuardedJobWizard({
 
     dirtyFrameRef.current = window.requestAnimationFrame(() => {
       dirtyFrameRef.current = null;
-      reconcileDirtyState();
+      if (persistedRef.current) {
+        dirtyRef.current = false;
+        return;
+      }
+      observeCurrentFields();
     });
-  }, [reconcileDirtyState]);
+  }, [observeCurrentFields]);
 
   const hasPersistedOutcome = useCallback(() => {
     const counterText =
@@ -115,7 +92,7 @@ export default function GuardedJobWizard({
   }, [onClose]);
 
   const requestClose = useCallback(() => {
-    reconcileDirtyState();
+    observeCurrentFields();
     const persisted = hasPersistedOutcome();
 
     if (
@@ -132,14 +109,10 @@ export default function GuardedJobWizard({
 
     previousFocusRef.current = document.activeElement;
     setConfirmOpen(true);
-  }, [hasPersistedOutcome, onClose, reconcileDirtyState]);
+  }, [hasPersistedOutcome, observeCurrentFields, onClose]);
 
   const handleCreated = useCallback(
     async (savedJob) => {
-      // JobWizard appelle onCreated uniquement après la sauvegarde du job et
-      // la synchronisation d'affectation. À partir de ce point, fermer ne doit
-      // jamais présenter le formulaire comme non enregistré, même si le
-      // callback de rafraîchissement parent échoue ensuite.
       persistedRef.current = true;
       dirtyRef.current = false;
 
@@ -159,7 +132,7 @@ export default function GuardedJobWizard({
       }
 
       if (target.closest('.step-client-map')) {
-        freezeInitialState();
+        observeCurrentFields();
         scheduleDirtyReconciliation();
         return;
       }
@@ -176,24 +149,23 @@ export default function GuardedJobWizard({
         actionable.getAttribute('role') === 'radio' ||
         isWizardMutatingButtonLabel(actionable.textContent)
       ) {
-        freezeInitialState();
+        observeCurrentFields();
         scheduleDirtyReconciliation();
       }
     },
-    [freezeInitialState, scheduleDirtyReconciliation],
+    [observeCurrentFields, scheduleDirtyReconciliation],
   );
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      if (!interactionStartedRef.current) {
-        initialStateRef.current = captureCurrentState();
-      }
+      stateTrackerRef.current.reset(wizardBoundaryRef.current);
+      dirtyRef.current = false;
     });
 
     const observer = typeof MutationObserver === 'function'
       ? new MutationObserver(() => {
-          if (!interactionStartedRef.current) {
-            initialStateRef.current = captureCurrentState();
+          if (!persistedRef.current) {
+            observeCurrentFields();
           }
         })
       : null;
@@ -202,8 +174,6 @@ export default function GuardedJobWizard({
       observer.observe(wizardBoundaryRef.current, {
         childList: true,
         subtree: true,
-        attributes: true,
-        attributeFilter: ['value', 'checked', 'aria-checked', 'disabled'],
       });
     }
 
@@ -215,7 +185,7 @@ export default function GuardedJobWizard({
         dirtyFrameRef.current = null;
       }
     };
-  }, [captureCurrentState]);
+  }, [observeCurrentFields]);
 
   useEffect(() => {
     if (!confirmOpen) {
@@ -286,9 +256,9 @@ export default function GuardedJobWizard({
         style={{ display: 'contents' }}
         inert={confirmOpen ? true : undefined}
         aria-hidden={confirmOpen ? true : undefined}
-        onPointerDownCapture={freezeInitialState}
-        onKeyDownCapture={freezeInitialState}
-        onBeforeInputCapture={freezeInitialState}
+        onPointerDownCapture={observeCurrentFields}
+        onKeyDownCapture={observeCurrentFields}
+        onBeforeInputCapture={observeCurrentFields}
         onInputCapture={scheduleDirtyReconciliation}
         onChangeCapture={scheduleDirtyReconciliation}
         onClickCapture={handleClickCapture}

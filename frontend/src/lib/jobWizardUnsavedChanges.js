@@ -33,31 +33,73 @@ function normalizeControlValue(control) {
   return normalizeText(control.value);
 }
 
-export function captureWizardState(root) {
-  if (!root?.querySelectorAll) {
-    return '';
+function controlKey(control, index) {
+  const type = normalizeText(
+    control?.type || control?.getAttribute?.('role') || control?.tagName,
+  ).toLocaleLowerCase('fr');
+  const id = normalizeText(control?.id);
+  const dataField = normalizeText(control?.getAttribute?.('data-field'));
+  const name = normalizeText(control?.name);
+
+  if (id) return `id:${id}`;
+  if (dataField) return `field:${dataField}`;
+  if (name) {
+    const optionValue = type === 'radio' || type === 'checkbox'
+      ? `:${normalizeText(control?.value)}`
+      : '';
+    return `name:${name}:${type}${optionValue}`;
   }
 
-  const controls = Array.from(
+  return `anonymous:${normalizeText(control?.tagName) || 'control'}:${type}:${index}`;
+}
+
+export function captureWizardFields(root) {
+  if (!root?.querySelectorAll) {
+    return [];
+  }
+
+  return Array.from(
     root.querySelectorAll('input, select, textarea, [role="radio"]'),
-  );
+  ).map((control, index) => ({
+    key: controlKey(control, index),
+    value: normalizeControlValue(control),
+  }));
+}
 
-  return controls
-    .map((control, index) => {
-      const key = normalizeText(
-        control.name ||
-          control.id ||
-          control.getAttribute?.('data-field') ||
-          `${control.tagName || 'control'}-${index}`,
-      );
-      const type = normalizeText(
-        control.type || control.getAttribute?.('role') || control.tagName,
-      ).toLocaleLowerCase('fr');
-      const value = normalizeControlValue(control);
-
-      return `${key}\u001e${type}\u001e${value}`;
-    })
+export function captureWizardState(root) {
+  return captureWizardFields(root)
+    .map(({ key, value }) => `${key}\u001e${value}`)
     .join('\u001d');
+}
+
+export function createWizardStateTracker() {
+  const baseline = new Map();
+  const current = new Map();
+
+  return {
+    observe(root) {
+      captureWizardFields(root).forEach(({ key, value }) => {
+        if (!baseline.has(key)) {
+          baseline.set(key, value);
+        }
+        current.set(key, value);
+      });
+      return this.isChanged();
+    },
+    isChanged() {
+      for (const [key, initialValue] of baseline.entries()) {
+        if (current.get(key) !== initialValue) {
+          return true;
+        }
+      }
+      return false;
+    },
+    reset(root) {
+      baseline.clear();
+      current.clear();
+      this.observe(root);
+    },
+  };
 }
 
 export function wizardStateChanged(initialState, currentState) {

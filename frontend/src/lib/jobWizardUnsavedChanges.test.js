@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import {
   captureWizardState,
+  createWizardStateTracker,
   isPersistedWizardCounterText,
   isWizardMutatingButtonLabel,
   shouldWarnBeforeWizardClose,
@@ -19,6 +20,7 @@ function readSource(relativePath) {
 
 function control({
   id,
+  name = '',
   type = 'text',
   value = '',
   checked = false,
@@ -27,14 +29,15 @@ function control({
 }) {
   return {
     id,
+    name,
     type,
     value,
     checked,
     tagName: type === 'select-one' ? 'SELECT' : 'INPUT',
-    getAttribute(name) {
-      if (name === 'role') return role || null;
-      if (name === 'aria-checked') return ariaChecked || null;
-      if (name === 'data-field') return null;
+    getAttribute(attribute) {
+      if (attribute === 'role') return role || null;
+      if (attribute === 'aria-checked') return ariaChecked || null;
+      if (attribute === 'data-field') return null;
       return null;
     },
   };
@@ -96,6 +99,49 @@ test('wizard state fingerprint includes checked choices', () => {
   assert.equal(wizardStateChanged(unchecked, checked), true);
 });
 
+test('step navigation discovers fields without making the wizard dirty', () => {
+  const tracker = createWizardStateTracker();
+
+  assert.equal(
+    tracker.observe(fakeRoot([
+      control({ id: 'customer-name', value: 'Alice' }),
+    ])),
+    false,
+  );
+  assert.equal(
+    tracker.observe(fakeRoot([
+      control({ id: 'scheduled-date', type: 'date', value: '2026-08-21' }),
+    ])),
+    false,
+  );
+  assert.equal(tracker.isChanged(), false);
+});
+
+test('a real edit remains dirty across steps and clears after exact restoration', () => {
+  const tracker = createWizardStateTracker();
+  const initialCustomer = fakeRoot([
+    control({ id: 'customer-name', value: 'Alice' }),
+  ]);
+
+  tracker.observe(initialCustomer);
+  assert.equal(
+    tracker.observe(fakeRoot([
+      control({ id: 'customer-name', value: 'Bob' }),
+    ])),
+    true,
+  );
+
+  assert.equal(
+    tracker.observe(fakeRoot([
+      control({ id: 'scheduled-date', type: 'date', value: '2026-08-21' }),
+    ])),
+    true,
+  );
+
+  assert.equal(tracker.observe(initialCustomer), false);
+  assert.equal(tracker.isChanged(), false);
+});
+
 test('programmatic location actions are classified without flagging read-only map search', () => {
   assert.equal(
     isWizardMutatingButtonLabel('Localiser cette adresse sur la carte'),
@@ -122,15 +168,16 @@ test('persisted partial outcomes bypass the unsaved warning', () => {
   );
 });
 
-test('guard boundary protects all dismissal paths and reconciles the baseline', () => {
+test('guard boundary protects dismissal paths without treating step DOM as the baseline', () => {
   const source = readSource('../components/GuardedJobWizard.jsx');
 
-  assert.match(source, /onPointerDownCapture=\{freezeInitialState\}/);
-  assert.match(source, /onKeyDownCapture=\{freezeInitialState\}/);
-  assert.match(source, /onBeforeInputCapture=\{freezeInitialState\}/);
+  assert.match(source, /createWizardStateTracker\(\)/);
+  assert.match(source, /onPointerDownCapture=\{observeCurrentFields\}/);
+  assert.match(source, /onKeyDownCapture=\{observeCurrentFields\}/);
+  assert.match(source, /onBeforeInputCapture=\{observeCurrentFields\}/);
   assert.match(source, /onInputCapture=\{scheduleDirtyReconciliation\}/);
   assert.match(source, /onChangeCapture=\{scheduleDirtyReconciliation\}/);
-  assert.match(source, /wizardStateChanged\(/);
+  assert.doesNotMatch(source, /initialStateRef/);
   assert.match(source, /role="alertdialog"/);
   assert.match(source, /aria-modal="true"/);
   assert.match(source, /inert=\{confirmOpen \? true : undefined\}/);
