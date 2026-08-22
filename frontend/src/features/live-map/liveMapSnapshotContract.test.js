@@ -112,3 +112,24 @@ test('Carte live rail reconciles hidden filters before switching tabs', () => {
     /onClick=\{\(\) => onTabChange\('(technicians|jobs)'\)\}/,
   );
 });
+
+test('Carte live clears stale selection before filters can hide it', () => {
+  const filterHandler = pageSource.match(
+    /const handleFilterChange =[\s\S]*?useCallback\([\s\S]*?\n\s*\);\n\n\s*const handleSearchChange/,
+  )?.[0] ?? '';
+
+  assert.match(filterHandler, /setFilters\(/);
+  assert.match(filterHandler, /setSelected\(null\)/);
+});
+
+test('Carte live search clears selection so rail, map and inspector cannot diverge', () => {
+  const searchHandler = pageSource.match(
+    /const handleSearchChange =[\s\S]*?useCallback\([\s\S]*?setSearchQuery\(value\);[\s\S]*?setSelected\(null\)/,
+  )?.[0] ?? '';
+
+  assert.ok(searchHandler);
+  assert.match(
+    pageSource,
+    /onSearchChange=\{handleSearchChange\}/,
+  );
+});

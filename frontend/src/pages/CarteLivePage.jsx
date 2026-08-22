@@ -704,9 +704,16 @@ export default function CarteLivePage({
           ...current,
           [key]: value,
         }));
+        setSelected(null);
       },
       [],
     );
+
+  const handleSearchChange =
+    useCallback((value) => {
+      setSearchQuery(value);
+      setSelected(null);
+    }, []);
 
   const hasActiveFilters =
     Boolean(
@@ -775,7 +782,7 @@ export default function CarteLivePage({
     <div className="lm-page">
       <LiveMapHeader
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         onRefresh={() =>
           loadData({
             manual: true,
