@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -158,4 +159,23 @@ test('a failed stock cohort is released so the next refresh can recover', async 
   assert.equal(await reader.items(), 'items-1');
   assert.equal(reader.isStale(), false);
   assert.equal(reader.isWritable(), true);
+});
+
+test('all visible stock mutation entry points respect snapshot writability', () => {
+  const warehouseRail = readFileSync(
+    new URL('./WarehouseRail.jsx', import.meta.url),
+    'utf8',
+  );
+  const inspector = readFileSync(
+    new URL('./StockInspector.jsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(warehouseRail, /const snapshotWritable = stockV3Api\.isSnapshotWritable\(\)/);
+  assert.match(warehouseRail, /disabled=!\{snapshotWritable\}|disabled=\{!snapshotWritable\}/);
+
+  assert.match(inspector, /const snapshotWritable = stockV3Api\.isSnapshotWritable\(\)/);
+  assert.match(inspector, /disabled=\{!snapshotWritable\}/);
+  assert.match(inspector, /disabled=\{!snapshotWritable \|\| !hasAvailableStock\}/);
+  assert.match(inspector, /disabled=\{!snapshotWritable \|\| !canReceive\}/);
 });
