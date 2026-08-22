@@ -151,6 +151,20 @@ const ReportsOverview = memo(function ReportsOverview({
             <StatusRow key={item.key} label={item.label} value={item.value} total={analytics.total} tone={item.tone} />
           ))}
         </div>
+      </article>
+
+      <article
+        className="rv3-panel rv3-status-panel"
+        aria-label="Contexte live hors périmètre analytique"
+      >
+        <header className="rv3-panel-header">
+          <span className="rv3-panel-icon rv3-panel-icon--primary"><SignalIcon /></span>
+          <div><span>Contexte live</span><strong>Capacité terrain actuelle</strong></div>
+        </header>
+
+        <div className="rv3-empty">
+          Instantané courant selon votre périmètre d’accès. Cette capacité n’est pas filtrée par la période ni les filtres analytiques.
+        </div>
 
         <footer className="rv3-field-capacity">
           <span>Techniciens actifs maintenant</span>
