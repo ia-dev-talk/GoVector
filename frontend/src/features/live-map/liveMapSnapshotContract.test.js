@@ -2,9 +2,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import {
+  hiddenLiveMapFilterKeys,
+  reconcileLiveMapFiltersForTab,
+} from './liveMapFilterScope.js';
 
 const pageSource = fs.readFileSync(
   fileURLToPath(new URL('../../pages/CarteLivePage.jsx', import.meta.url)),
+  'utf8',
+);
+
+const railSource = fs.readFileSync(
+  fileURLToPath(new URL('./LiveMapRail.jsx', import.meta.url)),
   'utf8',
 );
 
@@ -39,5 +48,67 @@ test('Carte live keeps stale warning visible until a complete retry succeeds', (
   assert.ok(
     successClear > publishTimestamp,
     'stale warning should clear only after the fresh snapshot is published',
+  );
+});
+
+test('Carte live exposes only filters that affect the active tab', () => {
+  assert.deepEqual(
+    hiddenLiveMapFilterKeys('technicians'),
+    ['operator'],
+  );
+  assert.deepEqual(
+    hiddenLiveMapFilterKeys('jobs'),
+    ['team', 'status'],
+  );
+});
+
+test('Carte live clears hidden tab filters while preserving shared scope', () => {
+  const sourceFilters = {
+    sector: 'Sidi Maarouf',
+    team: 'Équipe A',
+    status: 'AVAILABLE',
+    operator: 'Orange',
+  };
+
+  assert.deepEqual(
+    reconcileLiveMapFiltersForTab(sourceFilters, 'jobs'),
+    {
+      sector: 'Sidi Maarouf',
+      team: '',
+      status: '',
+      operator: 'Orange',
+    },
+  );
+
+  assert.deepEqual(
+    reconcileLiveMapFiltersForTab(sourceFilters, 'technicians'),
+    {
+      sector: 'Sidi Maarouf',
+      team: 'Équipe A',
+      status: 'AVAILABLE',
+      operator: '',
+    },
+  );
+
+  assert.deepEqual(sourceFilters, {
+    sector: 'Sidi Maarouf',
+    team: 'Équipe A',
+    status: 'AVAILABLE',
+    operator: 'Orange',
+  });
+});
+
+test('Carte live rail reconciles hidden filters before switching tabs', () => {
+  assert.match(
+    railSource,
+    /hiddenLiveMapFilterKeys\(nextTab\)\.forEach/,
+  );
+  assert.match(
+    railSource,
+    /onFilterChange\(key, ''\)[\s\S]*onTabChange\(nextTab\)/,
+  );
+  assert.doesNotMatch(
+    railSource,
+    /onClick=\{\(\) => onTabChange\('(technicians|jobs)'\)\}/,
   );
 });

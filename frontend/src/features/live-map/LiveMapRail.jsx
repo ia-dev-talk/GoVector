@@ -6,6 +6,7 @@ import {
   FilterIcon,
   UsersIcon,
 } from './LiveMapIcons';
+import { hiddenLiveMapFilterKeys } from './liveMapFilterScope';
 import {
   GPS_LABELS,
   GPS_TONES,
@@ -182,6 +183,20 @@ const LiveMapRail = memo(function LiveMapRail({
   staleAfterMinutes,
   hasActiveFilters,
 }) {
+  const handleTabChange = (nextTab) => {
+    if (nextTab === activeTab) {
+      return;
+    }
+
+    hiddenLiveMapFilterKeys(nextTab).forEach((key) => {
+      if (filters[key]) {
+        onFilterChange(key, '');
+      }
+    });
+
+    onTabChange(nextTab);
+  };
+
   if (collapsed) {
     return (
       <aside className="lm-rail lm-rail--collapsed">
@@ -198,7 +213,7 @@ const LiveMapRail = memo(function LiveMapRail({
         <button
           type="button"
           className={activeTab === 'technicians' ? 'active' : ''}
-          onClick={() => onTabChange('technicians')}
+          onClick={() => handleTabChange('technicians')}
           title="Techniciens"
         >
           <UsersIcon />
@@ -208,7 +223,7 @@ const LiveMapRail = memo(function LiveMapRail({
         <button
           type="button"
           className={activeTab === 'jobs' ? 'active' : ''}
-          onClick={() => onTabChange('jobs')}
+          onClick={() => handleTabChange('jobs')}
           title="Interventions"
         >
           <ClipboardIcon />
@@ -250,7 +265,7 @@ const LiveMapRail = memo(function LiveMapRail({
         <button
           type="button"
           className={activeTab === 'technicians' ? 'active' : ''}
-          onClick={() => onTabChange('technicians')}
+          onClick={() => handleTabChange('technicians')}
         >
           <UsersIcon />
           Techniciens
@@ -260,7 +275,7 @@ const LiveMapRail = memo(function LiveMapRail({
         <button
           type="button"
           className={activeTab === 'jobs' ? 'active' : ''}
-          onClick={() => onTabChange('jobs')}
+          onClick={() => handleTabChange('jobs')}
         >
           <ClipboardIcon />
           Interventions
