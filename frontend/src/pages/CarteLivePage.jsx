@@ -645,10 +645,19 @@ export default function CarteLivePage({
         return null;
       }
 
+      const matchesActiveTab =
+        selected.type === 'technician'
+          ? activeTab === 'technicians'
+          : activeTab === 'jobs';
+
+      if (!matchesActiveTab) {
+        return null;
+      }
+
       const collection =
         selected.type === 'technician'
-          ? technicians
-          : jobs;
+          ? filteredTechnicians
+          : filteredJobs;
 
       const data = collection.find(
         (item) =>
@@ -667,10 +676,14 @@ export default function CarteLivePage({
           }
         : null;
     }, [
-      jobs,
+      activeTab,
+      filteredJobs,
+      filteredTechnicians,
       selected,
-      technicians,
     ]);
+
+  const visibleSelection =
+    selectedData ? selected : null;
 
   const handleSelect =
     useCallback(
@@ -712,6 +725,12 @@ export default function CarteLivePage({
   const handleSearchChange =
     useCallback((value) => {
       setSearchQuery(value);
+      setSelected(null);
+    }, []);
+
+  const handleTabChange =
+    useCallback((nextTab) => {
+      setActiveTab(nextTab);
       setSelected(null);
     }, []);
 
@@ -888,6 +907,7 @@ export default function CarteLivePage({
             onClick={() => {
               setFilters(EMPTY_FILTERS);
               setSearchQuery('');
+              setSelected(null);
             }}
           >
             Effacer les filtres
@@ -914,10 +934,10 @@ export default function CarteLivePage({
             )
           }
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           technicians={filteredTechnicians}
           jobs={filteredJobs}
-          selected={selected}
+          selected={visibleSelection}
           onSelect={handleSelect}
           filters={filters}
           onFilterChange={handleFilterChange}
@@ -933,7 +953,7 @@ export default function CarteLivePage({
           }
           jobs={geolocatedJobs}
           layers={layers}
-          selected={selected}
+          selected={visibleSelection}
           onSelect={handleSelect}
           referenceNow={referenceNow}
           staleAfterMinutes={
