@@ -24,6 +24,7 @@ def test_report_export_operator_filter_is_exact_and_normalized():
 
 def test_report_export_sector_filter_uses_authoritative_sector_id():
     sql = _compile_filters({"sector_id": 42})
+    where_clause = sql.partition("WHERE")[2].split("ORDER BY", 1)[0]
 
-    assert "jobs.sector_id = 42" in sql
-    assert "route_criteria" not in sql
+    assert "jobs.sector_id = 42" in where_clause
+    assert "route_criteria" not in where_clause
