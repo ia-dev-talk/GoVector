@@ -2,17 +2,27 @@ import {
   api,
   apiClient,
 } from '../../api/client';
+import { createAtomicSnapshotReader } from './stockSnapshotReader.js';
+
+
+const stockSnapshotReader = createAtomicSnapshotReader({
+  items: () => api.getStockItems(),
+  warehouses: () => api.getWarehouses(),
+  lines: () => apiClient.get('/stock-ftth/lines'),
+  movements: () => apiClient.get('/stock-ftth/movements'),
+  technicians: () => api.getTechnicians(),
+});
 
 
 export const stockV3Api = Object.freeze({
-  getItems: () =>
-    api.getStockItems(),
+  // StocksPage reads these five resources together. They intentionally share
+  // one all-or-nothing cohort so Promise.allSettled cannot publish a mixture
+  // of fresh and stale stock generations after a partial refresh failure.
+  getItems: stockSnapshotReader.items,
 
-  getWarehouses: () =>
-    api.getWarehouses(),
+  getWarehouses: stockSnapshotReader.warehouses,
 
-  getTechnicians: () =>
-    api.getTechnicians(),
+  getTechnicians: stockSnapshotReader.technicians,
 
   createWarehouse: (document) =>
     apiClient.post(
@@ -31,19 +41,9 @@ export const stockV3Api = Object.freeze({
       `/stock-ftth/warehouses/${encodeURIComponent(warehouseId)}`,
     ),
 
-  getLines: (params = {}) =>
-    apiClient.get(
-      '/stock-ftth/lines',
-      { params },
-    ),
+  getLines: stockSnapshotReader.lines,
 
-  getMovements: (params = {}) =>
-    apiClient.get(
-      '/stock-ftth/movements',
-      {
-        params,
-      },
-    ),
+  getMovements: stockSnapshotReader.movements,
 
   getHistory: (params = {}) =>
     apiClient.get(
