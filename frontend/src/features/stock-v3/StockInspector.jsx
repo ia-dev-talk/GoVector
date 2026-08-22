@@ -10,6 +10,7 @@ import {
   ReceptionIcon,
   WarehouseIcon,
 } from './StockIcons';
+import { stockV3Api } from './stockV3Api';
 import {
   formatDateTime,
   formatMoney,
@@ -149,6 +150,7 @@ const StockInspector = memo(function StockInspector({
   onIssue,
 }) {
   const [tab, setTab] = useState('overview');
+  const snapshotWritable = stockV3Api.isSnapshotWritable();
 
   if (!item) {
     return (
@@ -163,6 +165,7 @@ const StockInspector = memo(function StockInspector({
   }
 
   const hasAvailableStock = Number(item?.totals?.available ?? 0) > 0;
+  const staleActionTitle = 'Snapshot stock non frais — actualisez avant modification';
 
   return (
     <aside className="st3-inspector">
@@ -178,7 +181,8 @@ const StockInspector = memo(function StockInspector({
             type="button"
             className="st3-icon-button"
             onClick={() => onEdit(item)}
-            title="Modifier"
+            disabled={!snapshotWritable}
+            title={snapshotWritable ? 'Modifier' : staleActionTitle}
             aria-label="Modifier l’article"
           >
             <EditIcon />
@@ -307,11 +311,13 @@ const StockInspector = memo(function StockInspector({
               type="button"
               className="st3-primary-button"
               onClick={() => onIssue(item)}
-              disabled={!hasAvailableStock}
+              disabled={!snapshotWritable || !hasAvailableStock}
               title={
-                hasAvailableStock
-                  ? 'Affecter une quantité à un technicien'
-                  : 'Aucun stock disponible à affecter'
+                !snapshotWritable
+                  ? staleActionTitle
+                  : hasAvailableStock
+                    ? 'Affecter une quantité à un technicien'
+                    : 'Aucun stock disponible à affecter'
               }
             >
               <BoxIcon />
@@ -322,11 +328,13 @@ const StockInspector = memo(function StockInspector({
             type="button"
             className="st3-secondary-button"
             onClick={() => onReceive(item)}
-            disabled={!canReceive}
+            disabled={!snapshotWritable || !canReceive}
             title={
-              canReceive
-                ? 'Enregistrer une réception'
-                : 'Créez d’abord un dépôt'
+              !snapshotWritable
+                ? staleActionTitle
+                : canReceive
+                  ? 'Enregistrer une réception'
+                  : 'Créez d’abord un dépôt'
             }
           >
             <ReceptionIcon />
