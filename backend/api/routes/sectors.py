@@ -23,7 +23,7 @@ from backend.auth.dependencies import (
     require_chef_orienteur,
 )
 from backend.database.connection import get_db
-from backend.database.models import User
+from backend.database.models import User, UserRole
 from backend.logic.sectors import (
     create_sector,
     delete_sector,
@@ -94,6 +94,28 @@ def _validate_assignment_sector_rows(requested_ids, rows) -> None:
         )
 
 
+def _assignment_orienteur_scope(current_user: User) -> Optional[int]:
+    """Return the server-side team scope allowed for assignment reads."""
+    if current_user.role in {
+        UserRole.ADMIN,
+        UserRole.CHEF_ORIENTEUR,
+    }:
+        return None
+
+    if current_user.role == UserRole.ORIENTEUR:
+        if not current_user.orienteur_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Orienteur non affilié à une équipe.",
+            )
+        return int(current_user.orienteur_id)
+
+    raise HTTPException(
+        status_code=403,
+        detail="Accès insuffisant pour voir les affectations secteurs techniciens.",
+    )
+
+
 _ASSIGNMENT_QUERY = text(
     """
     SELECT
@@ -106,10 +128,16 @@ _ASSIGNMENT_QUERY = text(
     FROM technician_sectors AS ts
     JOIN sectors AS s
       ON s.id = ts.sector_id
+    JOIN technicians AS t
+      ON t.id = ts.technician_id
     WHERE (
         CAST(:technician_id AS INTEGER) IS NULL
         OR ts.technician_id = :technician_id
     )
+      AND (
+        CAST(:orienteur_id AS INTEGER) IS NULL
+        OR t.orienteur_id = :orienteur_id
+      )
     ORDER BY
         ts.technician_id,
         ts.is_primary DESC,
@@ -169,11 +197,13 @@ def _assignment_from_rows(
 async def _read_assignments(
     db: AsyncSession,
     technician_id: Optional[int] = None,
+    orienteur_id: Optional[int] = None,
 ) -> List[TechnicianSectorAssignment]:
     result = await db.execute(
         _ASSIGNMENT_QUERY,
         {
             "technician_id": technician_id,
+            "orienteur_id": orienteur_id,
         },
     )
 
@@ -211,9 +241,12 @@ async def get_technician_sector_assignments(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return the relational sector assignments for all technicians."""
-    del current_user
-    return await _read_assignments(db)
+    """Return technician-sector assignments inside the caller's RBAC scope."""
+    orienteur_id = _assignment_orienteur_scope(current_user)
+    return await _read_assignments(
+        db,
+        orienteur_id=orienteur_id,
+    )
 
 
 @router.put(
