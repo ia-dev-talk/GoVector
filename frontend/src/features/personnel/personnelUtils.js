@@ -69,6 +69,43 @@ export function normalizeStatus(value) {
   return normalizeSearchText(value);
 }
 
+export function getPersonnelStatusTargetCount(selectedIds, technicianId) {
+  const targetId = normalizeIdentifier(technicianId);
+  const uniqueSelectedIds = [
+    ...new Set(
+      (Array.isArray(selectedIds) ? selectedIds : [])
+        .map(normalizeIdentifier)
+        .filter(Boolean),
+    ),
+  ];
+
+  if (
+    targetId &&
+    uniqueSelectedIds.length > 1 &&
+    uniqueSelectedIds.includes(targetId)
+  ) {
+    return uniqueSelectedIds.length;
+  }
+
+  return 1;
+}
+
+export function buildPersonnelStatusConfirmation(status, targetCount) {
+  if (normalizeStatus(status) !== 'hors_service') {
+    return '';
+  }
+
+  const count = Number.isInteger(targetCount) && targetCount > 0
+    ? targetCount
+    : 1;
+
+  if (count === 1) {
+    return 'Mettre ce technicien hors service ? Cette action modifie immédiatement sa disponibilité terrain.';
+  }
+
+  return `Mettre ${count} techniciens hors service ? Cette action modifie immédiatement leur disponibilité terrain.`;
+}
+
 export function getStringList(value) {
   const values = Array.isArray(value)
     ? value

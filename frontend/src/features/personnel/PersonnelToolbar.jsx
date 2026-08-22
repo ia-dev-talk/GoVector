@@ -5,6 +5,7 @@ import {
   UserCheckIcon,
 } from './PersonnelIcons';
 import {
+  buildPersonnelStatusConfirmation,
   getStringList,
   normalizeSearchText,
 } from './personnelUtils';
@@ -58,6 +59,17 @@ export default function PersonnelToolbar({
     .filter(Boolean)
     .length;
 
+  const requestBulkStatus = (status) => {
+    const confirmation = buildPersonnelStatusConfirmation(
+      status,
+      selectedCount,
+    );
+    if (confirmation && !window.confirm(confirmation)) {
+      return;
+    }
+    onBulkStatus?.(status);
+  };
+
   return (
     <section className="personnel-v3-toolbar-shell">
       <div className="personnel-v3-toolbar">
@@ -99,7 +111,7 @@ export default function PersonnelToolbar({
 
             <button
               type="button"
-              onClick={() => onBulkStatus?.('disponible')}
+              onClick={() => requestBulkStatus('disponible')}
               disabled={busy}
             >
               <UserCheckIcon />
@@ -108,7 +120,7 @@ export default function PersonnelToolbar({
 
             <button
               type="button"
-              onClick={() => onBulkStatus?.('pause')}
+              onClick={() => requestBulkStatus('pause')}
               disabled={busy}
             >
               <PauseIcon />
@@ -118,7 +130,7 @@ export default function PersonnelToolbar({
             <button
               type="button"
               className="personnel-v3-bulk-action--danger"
-              onClick={() => onBulkStatus?.('hors_service')}
+              onClick={() => requestBulkStatus('hors_service')}
               disabled={busy}
             >
               <OfflineIcon />

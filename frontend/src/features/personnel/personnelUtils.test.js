@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildPersonnelStatusConfirmation,
+  getPersonnelStatusTargetCount,
   getTechGpsState,
   partitionTechnicianSelection,
 } from './personnelUtils.js';
@@ -102,4 +104,34 @@ test('invalid or missing personnel rows cannot remain silently selected', () => 
       hidden: [7],
     },
   );
+});
+
+
+test('off-duty confirmation reports the exact bulk target count', () => {
+  assert.equal(
+    getPersonnelStatusTargetCount([1, '2', 3, 3], 2),
+    3,
+  );
+  assert.equal(
+    buildPersonnelStatusConfirmation('hors_service', 3),
+    'Mettre 3 techniciens hors service ? Cette action modifie immédiatement leur disponibilité terrain.',
+  );
+});
+
+
+test('context action targets only the clicked technician outside the current selection', () => {
+  assert.equal(
+    getPersonnelStatusTargetCount([1, 2, 3], 9),
+    1,
+  );
+  assert.equal(
+    buildPersonnelStatusConfirmation('hors_service', 1),
+    'Mettre ce technicien hors service ? Cette action modifie immédiatement sa disponibilité terrain.',
+  );
+});
+
+
+test('non destructive personnel status changes require no confirmation message', () => {
+  assert.equal(buildPersonnelStatusConfirmation('disponible', 4), '');
+  assert.equal(buildPersonnelStatusConfirmation('pause', 4), '');
 });

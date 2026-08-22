@@ -1,5 +1,9 @@
 import ContextMenuView from './ContextMenuView';
 import { useInterventionPermissions } from '../features/interventions/interventionPermissionsContext';
+import {
+  buildPersonnelStatusConfirmation,
+  getPersonnelStatusTargetCount,
+} from '../features/personnel/personnelUtils';
 
 function normalizeStatus(value) {
   return String(value ?? '').trim().toLowerCase();
@@ -14,6 +18,30 @@ export default function ContextMenu(props) {
     isCancelledJob && !permissions.canDeleteIntervention
       ? undefined
       : props.onJobAction;
+  const techAction = typeof props.onTechAction === 'function'
+    ? (action, tech) => {
+        if (action === 'set_off_duty') {
+          const targetCount = getPersonnelStatusTargetCount(
+            props.selectedTechIds,
+            tech?.id,
+          );
+          const confirmation = buildPersonnelStatusConfirmation(
+            'hors_service',
+            targetCount,
+          );
+          if (confirmation && !window.confirm(confirmation)) {
+            return;
+          }
+        }
+        props.onTechAction(action, tech);
+      }
+    : undefined;
 
-  return <ContextMenuView {...props} onJobAction={jobAction} />;
+  return (
+    <ContextMenuView
+      {...props}
+      onJobAction={jobAction}
+      onTechAction={techAction}
+    />
+  );
 }
