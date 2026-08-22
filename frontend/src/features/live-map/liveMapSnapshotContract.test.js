@@ -23,3 +23,21 @@ test('Carte live keeps the previous timestamp when a snapshot refresh fails', ()
   assert.doesNotMatch(catchBlock, /setLastUpdatedAt\(/);
   assert.doesNotMatch(catchBlock, /setTechnicians\(|setJobs\(|setSectors\(/);
 });
+
+test('Carte live keeps stale warning visible until a complete retry succeeds', () => {
+  const loadBlock = pageSource.match(/const loadData = useCallback\(([\s\S]*?)\n\s*useEffect\(\(\) => \{/)?.[1] ?? '';
+  const tryStart = loadBlock.indexOf('try {');
+  const successClear = loadBlock.indexOf("setLoadError('');", tryStart);
+  const publishTimestamp = loadBlock.indexOf('setLastUpdatedAt(new Date());', tryStart);
+
+  assert.equal(
+    loadBlock.slice(0, tryStart).includes("setLoadError('');"),
+    false,
+    'a retry must not clear the stale warning before the snapshot succeeds',
+  );
+  assert.ok(publishTimestamp >= 0, 'successful snapshot must publish a fresh timestamp');
+  assert.ok(
+    successClear > publishTimestamp,
+    'stale warning should clear only after the fresh snapshot is published',
+  );
+});

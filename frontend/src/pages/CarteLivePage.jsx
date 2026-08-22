@@ -281,8 +281,6 @@ export default function CarteLivePage({
         setRefreshing(true);
       }
 
-      setLoadError('');
-
       try {
         const [
           techniciansResponse,
@@ -331,6 +329,7 @@ export default function CarteLivePage({
           asRecords(sectorsResponse?.data),
         );
         setLastUpdatedAt(new Date());
+        setLoadError('');
       } catch (error) {
         if (
           requestId !==
