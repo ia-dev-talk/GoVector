@@ -57,6 +57,56 @@ test('old, missing and unconfigured GPS are never presented as live', () => {
 });
 
 
+test('offline fallback status cannot be presented as active GPS', () => {
+  const coordinates = {
+    current_latitude: 33.5731,
+    current_longitude: -7.5898,
+    last_location_update: '2026-08-07T11:58:00Z',
+  };
+
+  assert.equal(
+    getTechGpsState(
+      {
+        ...coordinates,
+        status: 'hors_service',
+      },
+      NOW,
+      5,
+    ),
+    'offline',
+  );
+  assert.equal(
+    getTechGpsState(
+      {
+        ...coordinates,
+        status: 'deconnecte',
+      },
+      NOW,
+      5,
+    ),
+    'offline',
+  );
+});
+
+
+test('live status remains authoritative when both status fields are present', () => {
+  assert.equal(
+    getTechGpsState(
+      {
+        live_status: 'en_intervention',
+        status: 'hors_service',
+        current_latitude: 33.5731,
+        current_longitude: -7.5898,
+        last_location_update: '2026-08-07T11:58:00Z',
+      },
+      NOW,
+      5,
+    ),
+    'active',
+  );
+});
+
+
 test('field observation never becomes the planned job map position', () => {
   assert.equal(
     hasValidJobCoordinates({

@@ -203,7 +203,7 @@ export function getTechGpsState(
   staleAfterMinutes,
 ) {
   const status = normalizeStatus(
-    tech?.live_status,
+    tech?.live_status ?? tech?.status,
   );
 
   if (OFFLINE_TECH_STATUSES.has(status)) {
