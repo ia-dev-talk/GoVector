@@ -2,8 +2,10 @@ import {
   api,
   apiClient,
 } from '../../api/client';
-import { createAtomicSnapshotReader } from './stockSnapshotReader.js';
-
+import {
+  assertWritableStockSnapshot,
+  createAtomicSnapshotReader,
+} from './stockSnapshotReader.js';
 
 const stockSnapshotReader = createAtomicSnapshotReader({
   items: () => api.getStockItems(),
@@ -13,6 +15,10 @@ const stockSnapshotReader = createAtomicSnapshotReader({
   technicians: () => api.getTechnicians(),
 });
 
+function guardedStockMutation(action, run) {
+  assertWritableStockSnapshot(stockSnapshotReader, action);
+  return run();
+}
 
 export const stockV3Api = Object.freeze({
   // StocksPage reads these five resources together. They intentionally share
@@ -24,22 +30,33 @@ export const stockV3Api = Object.freeze({
 
   getTechnicians: stockSnapshotReader.technicians,
 
-  createWarehouse: (document) =>
-    apiClient.post(
+  isSnapshotReady: stockSnapshotReader.isReady,
+  isSnapshotStale: stockSnapshotReader.isStale,
+  isSnapshotRefreshing: stockSnapshotReader.isRefreshing,
+  isSnapshotWritable: stockSnapshotReader.isWritable,
+
+  createWarehouse: (document) => guardedStockMutation(
+    'créer un dépôt',
+    () => apiClient.post(
       '/stock-ftth/warehouses',
       document,
     ),
+  ),
 
-  updateWarehouse: (warehouseId, document) =>
-    apiClient.put(
+  updateWarehouse: (warehouseId, document) => guardedStockMutation(
+    'modifier un dépôt',
+    () => apiClient.put(
       `/stock-ftth/warehouses/${encodeURIComponent(warehouseId)}`,
       document,
     ),
+  ),
 
-  retireWarehouse: (warehouseId) =>
-    apiClient.delete(
+  retireWarehouse: (warehouseId) => guardedStockMutation(
+    'retirer un dépôt',
+    () => apiClient.delete(
       `/stock-ftth/warehouses/${encodeURIComponent(warehouseId)}`,
     ),
+  ),
 
   getLines: stockSnapshotReader.lines,
 
@@ -51,36 +68,46 @@ export const stockV3Api = Object.freeze({
       { params },
     ),
 
-  createItem: (document) =>
-    apiClient.post(
+  createItem: (document) => guardedStockMutation(
+    'créer un article',
+    () => apiClient.post(
       '/stock-ftth/items',
       document,
     ),
+  ),
 
   updateItem: (
     itemId,
     document,
-  ) =>
-    apiClient.put(
+  ) => guardedStockMutation(
+    'modifier un article',
+    () => apiClient.put(
       `/stock-ftth/items/${encodeURIComponent(
         itemId,
       )}`,
       document,
     ),
+  ),
 
-  receive: (params) =>
-    api.addReception(params),
+  receive: (params) => guardedStockMutation(
+    'enregistrer une réception',
+    () => api.addReception(params),
+  ),
 
-  createIssue: (document) =>
-    apiClient.post(
+  createIssue: (document) => guardedStockMutation(
+    'affecter du stock à un technicien',
+    () => apiClient.post(
       '/stock-ftth/technician-allocations',
       document,
     ),
+  ),
 
-  validateIssue: (issueId) =>
-    apiClient.post(
+  validateIssue: (issueId) => guardedStockMutation(
+    'valider une dotation',
+    () => apiClient.post(
       `/stock-ftth/issues/${encodeURIComponent(
         issueId,
       )}/validate-v2`,
     ),
+  ),
 });

@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createAtomicSnapshotReader } from './stockSnapshotReader.js';
+import {
+  assertWritableStockSnapshot,
+  createAtomicSnapshotReader,
+} from './stockSnapshotReader.js';
 
 function deferred() {
   let resolve;
@@ -42,6 +45,10 @@ test('stock snapshot readers share one coherent request cohort', async () => {
     'technicians-snapshot-a',
   ]);
   for (const key of Object.keys(loaders)) assert.equal(calls.get(key), 1);
+  assert.equal(reader.isReady(), true);
+  assert.equal(reader.isStale(), false);
+  assert.equal(reader.isRefreshing(), false);
+  assert.equal(reader.isWritable(), true);
 });
 
 test('one failed stock dependency rejects the entire published cohort', async () => {
@@ -61,6 +68,9 @@ test('one failed stock dependency rejects the entire published cohort', async ()
     reader.movements(),
     reader.technicians(),
   ];
+  assert.equal(reader.isRefreshing(), true);
+  assert.equal(reader.isWritable(), false);
+
   lines.reject(new Error('Quantités indisponibles'));
 
   const results = await Promise.allSettled(reads);
@@ -68,6 +78,58 @@ test('one failed stock dependency rejects the entire published cohort', async ()
   for (const result of results) {
     assert.match(result.reason.message, /Quantités indisponibles/);
   }
+  assert.equal(reader.isStale(), true);
+  assert.equal(reader.isWritable(), false);
+});
+
+test('stale state survives a retry until a complete cohort is published', async () => {
+  let generation = 0;
+  const retryLines = deferred();
+  const reader = createAtomicSnapshotReader({
+    items: () => Promise.resolve(`items-${generation}`),
+    warehouses: () => Promise.resolve(`warehouses-${generation}`),
+    lines: () => generation === 0
+      ? Promise.reject(new Error('temporary failure'))
+      : retryLines.promise,
+    movements: () => Promise.resolve(`movements-${generation}`),
+    technicians: () => Promise.resolve(`technicians-${generation}`),
+  });
+
+  const failed = await Promise.allSettled([
+    reader.items(),
+    reader.warehouses(),
+    reader.lines(),
+    reader.movements(),
+    reader.technicians(),
+  ]);
+  assert.equal(failed.every((result) => result.status === 'rejected'), true);
+  assert.equal(reader.isStale(), true);
+  assert.equal(reader.isWritable(), false);
+
+  generation = 1;
+  const retry = Promise.all([
+    reader.items(),
+    reader.warehouses(),
+    reader.lines(),
+    reader.movements(),
+    reader.technicians(),
+  ]);
+
+  assert.equal(reader.isRefreshing(), true);
+  assert.equal(reader.isStale(), true);
+  assert.equal(reader.isWritable(), false);
+  assert.throws(
+    () => assertWritableStockSnapshot(reader, 'enregistrer une réception'),
+    (error) => error?.code === 'BLUEVECTOR_STOCK_SNAPSHOT_NOT_WRITABLE',
+  );
+
+  retryLines.resolve('lines-1');
+  await retry;
+
+  assert.equal(reader.isRefreshing(), false);
+  assert.equal(reader.isStale(), false);
+  assert.equal(reader.isWritable(), true);
+  assert.doesNotThrow(() => assertWritableStockSnapshot(reader));
 });
 
 test('a failed stock cohort is released so the next refresh can recover', async () => {
@@ -94,4 +156,6 @@ test('a failed stock cohort is released so the next refresh can recover', async 
   generation = 1;
   assert.equal(await reader.lines(), 'lines-1');
   assert.equal(await reader.items(), 'items-1');
+  assert.equal(reader.isStale(), false);
+  assert.equal(reader.isWritable(), true);
 });

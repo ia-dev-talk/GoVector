@@ -10,6 +10,7 @@ import {
 } from './StockIcons';
 import SerializedEquipmentRegistry from './SerializedEquipmentRegistry';
 import StockHistoryPanel from './StockHistoryPanel';
+import { stockV3Api } from './stockV3Api';
 import './stock-scope-v08.css';
 
 const StockHeader = memo(function StockHeader({
@@ -32,6 +33,11 @@ const StockHeader = memo(function StockHeader({
 }) {
   const [registryOpen, setRegistryOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const snapshotStale = stockV3Api.isSnapshotStale();
+  const snapshotWritable = stockV3Api.isSnapshotWritable();
+  const mutationBlockedTitle = snapshotWritable
+    ? undefined
+    : 'Actions d’écriture suspendues jusqu’à validation d’un snapshot stock complet et frais';
 
   return (
     <>
@@ -74,23 +80,50 @@ const StockHeader = memo(function StockHeader({
             <ExportIcon /> Exporter
           </button>
           {canMoveStock ? (
-            <button type="button" className="st3-secondary-button" onClick={onReceive} disabled={!hasWarehouses} title={hasWarehouses ? 'Enregistrer une réception' : 'Créez d’abord un dépôt'}>
+            <button
+              type="button"
+              className="st3-secondary-button"
+              onClick={onReceive}
+              disabled={!hasWarehouses || !snapshotWritable}
+              title={!snapshotWritable ? mutationBlockedTitle : hasWarehouses ? 'Enregistrer une réception' : 'Créez d’abord un dépôt'}
+            >
               <ReceptionIcon /> Réception
             </button>
           ) : null}
           {canManageCatalog ? (
-            <button type="button" className="st3-secondary-button" onClick={() => setRegistryOpen(true)} title="Gérer les numéros de série, MAC, opérateurs et modèles">
+            <button
+              type="button"
+              className="st3-secondary-button"
+              onClick={() => setRegistryOpen(true)}
+              disabled={!snapshotWritable}
+              title={snapshotWritable ? 'Gérer les numéros de série, MAC, opérateurs et modèles' : mutationBlockedTitle}
+            >
               <span aria-hidden="true" style={{ fontFamily: 'var(--font-mono)', fontWeight: 850 }}>SN</span>
               Registre SN
             </button>
           ) : null}
           {canManageCatalog ? (
-            <button type="button" className="st3-primary-button" onClick={onCreate}>
+            <button
+              type="button"
+              className="st3-primary-button"
+              onClick={onCreate}
+              disabled={!snapshotWritable}
+              title={mutationBlockedTitle}
+            >
               <PlusIcon /> Nouvel article
             </button>
           ) : null}
         </div>
       </header>
+
+      {snapshotStale ? (
+        <div className="st3-notice" role="alert">
+          <span>
+            <strong>Snapshot stock non frais.</strong>{' '}
+            Le dernier état cohérent reste affiché. Réception, dotation et modifications sont suspendues jusqu’à la réussite complète d’une actualisation.
+          </span>
+        </div>
+      ) : null}
 
       {registryOpen ? <SerializedEquipmentRegistry onClose={() => setRegistryOpen(false)} /> : null}
       {historyOpen ? (
