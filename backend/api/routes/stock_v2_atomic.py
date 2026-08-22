@@ -29,6 +29,7 @@ from backend.database.models import (
     User,
     Warehouse,
 )
+from backend.logic.stock_allocation_policy import enforce_technician_allocation_scope
 
 
 def _issue_number() -> str:
@@ -57,6 +58,10 @@ async def create_technician_allocation(
         technician = await db.get(Technician, payload.technician_id)
         if technician is None or not technician.is_active:
             raise HTTPException(status_code=422, detail="Technicien destinataire indisponible.")
+        enforce_technician_allocation_scope(
+            current_user=current_user,
+            technician=technician,
+        )
 
         destination = await _technician_warehouse(db, technician)
         if source.id == destination.id:

@@ -26,6 +26,7 @@ from backend.database.models import (
     Warehouse,
 )
 from backend.api.routes import stock_ftth
+from backend.logic.stock_allocation_policy import enforce_technician_allocation_scope
 
 
 def _allocation_payload(issue: StockIssue, destination: Warehouse) -> dict:
@@ -236,6 +237,10 @@ async def validate_issue_to_technician_custody(
         technician = await db.get(Technician, issue.technician_id)
         if technician is None or not technician.is_active:
             raise HTTPException(status_code=422, detail="Technicien destinataire indisponible.")
+        enforce_technician_allocation_scope(
+            current_user=current_user,
+            technician=technician,
+        )
 
         destination = await _technician_warehouse(db, technician)
         if issue.warehouse_id == destination.id:
