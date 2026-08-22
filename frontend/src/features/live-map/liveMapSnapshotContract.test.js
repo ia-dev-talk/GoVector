@@ -133,3 +133,29 @@ test('Carte live search clears selection so rail, map and inspector cannot diver
     /onSearchChange=\{handleSearchChange\}/,
   );
 });
+
+test('Carte live tab changes clear the prior resource selection', () => {
+  const tabHandler = pageSource.match(
+    /const handleTabChange =[\s\S]*?useCallback\(\(nextTab\) => \{[\s\S]*?\}, \[\]\);/,
+  )?.[0] ?? '';
+
+  assert.match(tabHandler, /setActiveTab\(nextTab\)/);
+  assert.match(tabHandler, /setSelected\(null\)/);
+  assert.match(pageSource, /onTabChange=\{handleTabChange\}/);
+  assert.doesNotMatch(pageSource, /onTabChange=\{setActiveTab\}/);
+});
+
+test('Carte live resolves inspector selection only from the visible active scope', () => {
+  const selectedBlock = pageSource.match(
+    /const selectedData =[\s\S]*?const visibleSelection =/,
+  )?.[0] ?? '';
+
+  assert.match(selectedBlock, /activeTab === 'technicians'/);
+  assert.match(selectedBlock, /activeTab === 'jobs'/);
+  assert.match(selectedBlock, /\? filteredTechnicians[\s\S]*: filteredJobs/);
+  assert.doesNotMatch(
+    selectedBlock,
+    /\? technicians[\s\S]*: jobs/,
+  );
+  assert.match(pageSource, /selected=\{visibleSelection\}/g);
+});
