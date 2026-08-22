@@ -5,6 +5,7 @@ import {
   PlusIcon,
   WarehouseIcon,
 } from './StockIcons';
+import { stockV3Api } from './stockV3Api';
 import {
   normalizeIdentifier,
   numeric,
@@ -72,6 +73,7 @@ const WarehouseRail = memo(function WarehouseRail({
   onCreateWarehouse,
   onEditWarehouse,
 }) {
+  const snapshotWritable = stockV3Api.isSnapshotWritable();
   const summaries = warehouses.map((warehouse) => {
     const id = normalizeIdentifier(warehouse?.id);
     const stockLines = lines.filter(
@@ -132,14 +134,21 @@ const WarehouseRail = memo(function WarehouseRail({
             <button
               type="button"
               onClick={() => onEditWarehouse(selectedWarehouse)}
-              title="Modifier le dépôt sélectionné"
+              disabled={!snapshotWritable}
+              title={snapshotWritable ? 'Modifier le dépôt sélectionné' : 'Snapshot stock non frais — actualisez avant modification'}
               aria-label="Modifier le dépôt sélectionné"
             >
               <EditIcon />
             </button>
           )}
           {canCreateWarehouse && (
-            <button type="button" onClick={onCreateWarehouse} title="Créer un dépôt physique" aria-label="Créer un dépôt physique">
+            <button
+              type="button"
+              onClick={onCreateWarehouse}
+              disabled={!snapshotWritable}
+              title={snapshotWritable ? 'Créer un dépôt physique' : 'Snapshot stock non frais — actualisez avant création'}
+              aria-label="Créer un dépôt physique"
+            >
               <PlusIcon />
             </button>
           )}
