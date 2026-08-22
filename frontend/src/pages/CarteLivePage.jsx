@@ -283,8 +283,13 @@ export default function CarteLivePage({
 
       setLoadError('');
 
-      const results =
-        await Promise.allSettled([
+      try {
+        const [
+          techniciansResponse,
+          jobsResponse,
+          sectorsResponse,
+          assignmentsResponse,
+        ] = await Promise.all([
           api.getTechnicians(),
           api.getJobs({
             scheduled_date:
@@ -297,38 +302,21 @@ export default function CarteLivePage({
             .getAssignments(),
         ]);
 
-      if (
-        requestId !==
-        requestRef.current
-      ) {
-        return;
-      }
+        if (
+          requestId !==
+          requestRef.current
+        ) {
+          return;
+        }
 
-      const [
-        techniciansResult,
-        jobsResult,
-        sectorsResult,
-        assignmentsResult,
-      ] = results;
-
-      const errors = [];
-
-      if (
-        techniciansResult.status ===
-        'fulfilled'
-      ) {
         const rawTechnicians =
           asRecords(
-            techniciansResult.value?.data,
+            techniciansResponse?.data,
           );
-
         const assignments =
-          assignmentsResult.status ===
-          'fulfilled'
-            ? asRecords(
-                assignmentsResult.value?.data,
-              )
-            : [];
+          asRecords(
+            assignmentsResponse?.data,
+          );
 
         setTechnicians(
           mergeSectorAssignments(
@@ -336,67 +324,28 @@ export default function CarteLivePage({
             assignments,
           ),
         );
-      } else {
-        errors.push(
-          errorMessage(
-            techniciansResult.reason,
-            'Techniciens indisponibles',
-          ),
-        );
-      }
-
-      if (
-        jobsResult.status ===
-        'fulfilled'
-      ) {
         setJobs(
-          asRecords(
-            jobsResult.value?.data,
-          ),
+          asRecords(jobsResponse?.data),
         );
-      } else {
-        errors.push(
-          errorMessage(
-            jobsResult.reason,
-            'Interventions indisponibles',
-          ),
-        );
-      }
-
-      if (
-        sectorsResult.status ===
-        'fulfilled'
-      ) {
         setSectors(
-          asRecords(
-            sectorsResult.value?.data,
-          ),
+          asRecords(sectorsResponse?.data),
         );
-      } else {
-        errors.push(
+        setLastUpdatedAt(new Date());
+      } catch (error) {
+        if (
+          requestId !==
+          requestRef.current
+        ) {
+          return;
+        }
+
+        setLoadError(
           errorMessage(
-            sectorsResult.reason,
-            'Référentiel secteurs indisponible',
+            error,
+            'Mise à jour Carte live incomplète — dernier snapshot cohérent conservé',
           ),
         );
       }
-
-      if (
-        assignmentsResult.status ===
-        'rejected'
-      ) {
-        errors.push(
-          'Liaisons technicien-secteur indisponibles',
-        );
-      }
-
-      setLoadError(
-        errors.join(' · '),
-      );
-
-      setLastUpdatedAt(
-        new Date(),
-      );
 
       setLoading(false);
       setRefreshing(false);
