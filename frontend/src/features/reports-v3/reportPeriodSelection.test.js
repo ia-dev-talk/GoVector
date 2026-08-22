@@ -7,17 +7,58 @@ import { localDateKey } from './reportUtils.js';
 const now = new Date(2026, 7, 21, 12, 0, 0);
 
 test('resolveReportPeriodSelection conserve les presets existants', () => {
-  const result = resolveReportPeriodSelection({ period: 'today', now });
+  const result = resolveReportPeriodSelection({
+    period: 'today',
+    now,
+    timeZone: 'Africa/Casablanca',
+  });
   assert.equal(result.ok, true);
   assert.equal(localDateKey(result.range.start), '2026-08-21');
   assert.equal(localDateKey(result.range.end), '2026-08-21');
 });
 
-test('resolveReportPeriodSelection accepte un jour exact', () => {
+test('same instant keeps the organization civil day independent from browser timezone', () => {
+  const instant = new Date('2026-08-21T23:30:00.000Z');
+  const casablanca = resolveReportPeriodSelection({
+    period: 'today',
+    now: instant,
+    timeZone: 'Africa/Casablanca',
+  });
+  const newYorkBrowserUsingSameOrganization = resolveReportPeriodSelection({
+    period: 'today',
+    now: instant,
+    timeZone: 'Africa/Casablanca',
+  });
+
+  assert.equal(localDateKey(casablanca.range.start), '2026-08-22');
+  assert.equal(
+    localDateKey(newYorkBrowserUsingSameOrganization.range.start),
+    '2026-08-22',
+  );
+});
+
+test('operational midnight controls today instead of the observer timezone', () => {
+  const beforeMidnight = resolveReportPeriodSelection({
+    period: 'today',
+    now: new Date('2026-08-21T22:59:59.000Z'),
+    timeZone: 'Africa/Casablanca',
+  });
+  const afterMidnight = resolveReportPeriodSelection({
+    period: 'today',
+    now: new Date('2026-08-21T23:00:01.000Z'),
+    timeZone: 'Africa/Casablanca',
+  });
+
+  assert.equal(localDateKey(beforeMidnight.range.start), '2026-08-21');
+  assert.equal(localDateKey(afterMidnight.range.start), '2026-08-22');
+});
+
+test('resolveReportPeriodSelection accepte un jour exact sans conversion de fuseau', () => {
   const result = resolveReportPeriodSelection({
     period: 'exact',
     exactDate: '2026-08-12',
     now,
+    timeZone: 'America/New_York',
   });
   assert.equal(result.ok, true);
   assert.equal(localDateKey(result.range.start), '2026-08-12');
@@ -40,6 +81,7 @@ test('resolveReportPeriodSelection accepte une période personnalisée inclusive
     customStart: '2026-08-01',
     customEnd: '2026-08-21',
     now,
+    timeZone: 'Asia/Tokyo',
   });
   assert.equal(result.ok, true);
   assert.equal(localDateKey(result.range.start), '2026-08-01');

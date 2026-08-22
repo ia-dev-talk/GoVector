@@ -1,24 +1,11 @@
-import { localDateKey, periodRange } from './reportUtils.js';
+import {
+  civilDateFromKey,
+  localCivilDateKey,
+  operationalPeriodRange,
+} from './operationalTime.js';
 
 function parseCivilDate(value) {
-  const normalized = String(value ?? '').trim();
-  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(year, month - 1, day);
-
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-
-  return date;
+  return civilDateFromKey(value);
 }
 
 export function resolveReportPeriodSelection({
@@ -27,6 +14,7 @@ export function resolveReportPeriodSelection({
   customStart,
   customEnd,
   now = new Date(),
+  timeZone,
 }) {
   if (period === 'exact') {
     const date = parseCivilDate(exactDate);
@@ -50,7 +38,7 @@ export function resolveReportPeriodSelection({
         error: 'Choisissez une date de début et une date de fin valides.',
       };
     }
-    if (localDateKey(start) > localDateKey(end)) {
+    if (localCivilDateKey(start) > localCivilDateKey(end)) {
       return {
         ok: false,
         range: null,
@@ -62,7 +50,7 @@ export function resolveReportPeriodSelection({
 
   return {
     ok: true,
-    range: periodRange(period, now),
+    range: operationalPeriodRange(period, now, timeZone),
     error: '',
   };
 }

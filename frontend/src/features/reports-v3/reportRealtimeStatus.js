@@ -1,17 +1,16 @@
-function civilDateKey(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+import {
+  civilDateKeyInTimeZone,
+  localCivilDateKey,
+} from './operationalTime.js';
 
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-  ].join('-');
-}
-
-export function reportIncludesCivilDate(range, date = new Date()) {
-  const start = civilDateKey(range?.start);
-  const end = civilDateKey(range?.end);
-  const target = civilDateKey(date);
+export function reportIncludesCivilDate(
+  range,
+  date = new Date(),
+  timeZone,
+) {
+  const start = localCivilDateKey(range?.start);
+  const end = localCivilDateKey(range?.end);
+  const target = civilDateKeyInTimeZone(date, timeZone);
 
   return Boolean(start && end && target && start <= target && target <= end);
 }
@@ -20,10 +19,11 @@ export function resolveReportRealtimeStatus(
   range,
   connected,
   now = new Date(),
+  timeZone,
 ) {
-  const start = civilDateKey(range?.start);
-  const end = civilDateKey(range?.end);
-  const today = civilDateKey(now);
+  const start = localCivilDateKey(range?.start);
+  const end = localCivilDateKey(range?.end);
+  const today = civilDateKeyInTimeZone(now, timeZone);
 
   if (!start || !end || !today || start > end) {
     return {
@@ -33,7 +33,7 @@ export function resolveReportRealtimeStatus(
     };
   }
 
-  if (reportIncludesCivilDate(range, now)) {
+  if (reportIncludesCivilDate(range, now, timeZone)) {
     return connected
       ? {
           label: 'TEMPS RÉEL',
