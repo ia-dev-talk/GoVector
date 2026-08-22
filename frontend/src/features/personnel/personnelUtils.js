@@ -38,6 +38,26 @@ export function normalizeIdentifier(value) {
   return normalized || null;
 }
 
+export function partitionTechnicianSelection(selectedIds, technicians) {
+  const visibleIdentifiers = new Set(
+    (Array.isArray(technicians) ? technicians : [])
+      .map((technician) => normalizeIdentifier(technician?.id))
+      .filter(Boolean),
+  );
+  const knownIdentifiers = new Set();
+  const visible = [];
+  const hidden = [];
+
+  (Array.isArray(selectedIds) ? selectedIds : []).forEach((id) => {
+    const identifier = normalizeIdentifier(id);
+    if (!identifier || knownIdentifiers.has(identifier)) return;
+    knownIdentifiers.add(identifier);
+    (visibleIdentifiers.has(identifier) ? visible : hidden).push(id);
+  });
+
+  return { visible, hidden };
+}
+
 export function normalizeSearchText(value) {
   return text(value)
     .normalize('NFD')

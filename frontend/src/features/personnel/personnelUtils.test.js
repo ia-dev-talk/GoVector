@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getTechGpsState } from './personnelUtils.js';
+import {
+  getTechGpsState,
+  partitionTechnicianSelection,
+} from './personnelUtils.js';
 import { hasValidJobCoordinates } from '../live-map/liveMapUtils.js';
 
 
@@ -70,5 +73,33 @@ test('field observation never becomes the planned job map position', () => {
       gps_longitude: -7.5898,
     }),
     true,
+  );
+});
+
+
+test('personnel selection is reconciled to the currently visible technicians', () => {
+  assert.deepEqual(
+    partitionTechnicianSelection(
+      [1, 2, '3', 2],
+      [{ id: 1 }, { id: '3' }],
+    ),
+    {
+      visible: [1, '3'],
+      hidden: [2],
+    },
+  );
+});
+
+
+test('invalid or missing personnel rows cannot remain silently selected', () => {
+  assert.deepEqual(
+    partitionTechnicianSelection(
+      [null, '', 7, '8'],
+      [{ id: 8 }, null, {}],
+    ),
+    {
+      visible: ['8'],
+      hidden: [7],
+    },
   );
 });
