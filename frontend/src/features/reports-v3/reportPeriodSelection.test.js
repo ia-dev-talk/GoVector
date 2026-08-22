@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { civilDateKeyInTimeZone } from './operationalTime.js';
 import { resolveReportPeriodSelection } from './reportPeriodSelection.js';
 import { localDateKey } from './reportUtils.js';
 
@@ -35,6 +36,34 @@ test('same instant keeps the organization civil day independent from browser tim
     localDateKey(newYorkBrowserUsingSameOrganization.range.start),
     '2026-08-22',
   );
+});
+
+test('operational date key seeds exact and custom defaults on the same civil day', () => {
+  const instant = new Date('2026-08-21T23:30:00.000Z');
+  const operationalDefault = civilDateKeyInTimeZone(
+    instant,
+    'Africa/Casablanca',
+  );
+
+  assert.equal(operationalDefault, '2026-08-22');
+  assert.equal(
+    civilDateKeyInTimeZone(instant, 'America/New_York'),
+    '2026-08-21',
+  );
+
+  const exact = resolveReportPeriodSelection({
+    period: 'exact',
+    exactDate: operationalDefault,
+  });
+  const custom = resolveReportPeriodSelection({
+    period: 'custom',
+    customStart: operationalDefault,
+    customEnd: operationalDefault,
+  });
+
+  assert.equal(localDateKey(exact.range.start), '2026-08-22');
+  assert.equal(localDateKey(custom.range.start), '2026-08-22');
+  assert.equal(localDateKey(custom.range.end), '2026-08-22');
 });
 
 test('operational midnight controls today instead of the observer timezone', () => {

@@ -16,6 +16,7 @@ import {
   reportBusinessFilterCount,
 } from '../features/reports-v3/reportBusinessScope';
 import { fetchCompleteReportJobs } from '../features/reports-v3/reportJobLoader';
+import { civilDateKeyInTimeZone } from '../features/reports-v3/operationalTime';
 import { resolveReportPeriodSelection } from '../features/reports-v3/reportPeriodSelection';
 import {
   reportScopesMatch,
@@ -65,7 +66,7 @@ function ReportFilterSelect({ label, value, options, onChange, emptyLabel }) {
 }
 
 export default function RapportsPage({ onNavigate }) {
-  const todayKey = useMemo(() => localDateKey(), []);
+  const todayKey = useMemo(() => civilDateKeyInTimeZone(), []);
   const [period, setPeriod] = useState('today');
   const [exactDate, setExactDate] = useState(todayKey);
   const [customStart, setCustomStart] = useState(todayKey);
