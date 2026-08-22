@@ -18,6 +18,7 @@ import Card from '../ui/Card';
 import {
   OPERATIONAL_RELOAD_CONFIRMATION,
   buildOperationalSavePayload,
+  isOperationalRuleDirty,
   operationalConnectionLabel,
   shouldConfirmOperationalReload,
 } from './operationalSettingsPolicy';
@@ -173,12 +174,16 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
     (!retentionEnabled || (
       parsedRetentionDays !== null && parsedRetentionDays <= 3650
     ));
-  const staleDirty = enabled
-    ? parsedMinutes !== loadedMinutes
-    : loadedMinutes !== null;
-  const retentionDirty = retentionEnabled
-    ? parsedRetentionDays !== loadedRetentionDays
-    : loadedRetentionDays !== null;
+  const staleDirty = isOperationalRuleDirty({
+    enabled,
+    parsedValue: parsedMinutes,
+    loadedValue: loadedMinutes,
+  });
+  const retentionDirty = isOperationalRuleDirty({
+    enabled: retentionEnabled,
+    parsedValue: parsedRetentionDays,
+    loadedValue: loadedRetentionDays,
+  });
   const dirty = staleDirty || retentionDirty;
 
   useEffect(() => {

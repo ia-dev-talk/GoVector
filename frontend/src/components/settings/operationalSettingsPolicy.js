@@ -5,6 +5,17 @@ export function shouldConfirmOperationalReload(dirty) {
   return dirty === true;
 }
 
+export function isOperationalRuleDirty({
+  enabled,
+  parsedValue,
+  loadedValue,
+}) {
+  const wasEnabled = loadedValue !== null;
+  if (Boolean(enabled) !== wasEnabled) return true;
+  if (!enabled) return false;
+  return parsedValue !== loadedValue;
+}
+
 export function buildOperationalSavePayload(
   currentValues,
   {
