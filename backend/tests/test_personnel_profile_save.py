@@ -3,13 +3,14 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi import HTTPException
 
+import backend.api.routes.technicians as technicians_route
 from backend.api.routes.technicians import (
     TechnicianProfileSave,
     _revision_key,
     save_technician_profile,
 )
 from backend.api.schemas import TechnicianUpdate
-from backend.database.models import Technician
+from backend.database.models import Technician, TechnicianLiveStatus
 
 
 class _ScalarResult:
@@ -55,6 +56,7 @@ def _technician(updated_at):
         home_latitude=33.57,
         home_longitude=-7.59,
         updated_at=updated_at,
+        live_status=TechnicianLiveStatus.DISPONIBLE,
     )
 
 
@@ -123,3 +125,92 @@ async def test_profile_save_rolls_back_when_assignment_mutation_fails():
 
     assert db.commit_count == 0
     assert db.rollback_count == 1
+
+
+@pytest.mark.asyncio
+async def test_profile_save_broadcasts_status_change_only_after_commit(monkeypatch):
+    current = datetime(2026, 8, 23, 18, 30, tzinfo=timezone.utc)
+    technician = _technician(current)
+    db = _FakeDb(technician)
+    observed = []
+
+    async def fake_broadcast(event, payload, room):
+        assert db.commit_count == 1
+        observed.append(("ws", event, payload, room))
+
+    class FakeDashboardService:
+        def __init__(self, service_db):
+            assert service_db is db
+
+        async def broadcast_dashboard_update(self):
+            assert db.commit_count == 1
+            observed.append(("dashboard",))
+
+    monkeypatch.setattr(technicians_route.ws_manager, "broadcast", fake_broadcast)
+    monkeypatch.setattr(technicians_route, "DashboardService", FakeDashboardService)
+
+    payload = TechnicianProfileSave(
+        expected_updated_at=current,
+        updates=TechnicianUpdate(name="Nadia Mise à jour"),
+        sector_ids=[],
+        live_status=TechnicianLiveStatus.HORS_SERVICE,
+    )
+
+    await save_technician_profile(7, payload, db=db, current_user=object())
+
+    assert technician.live_status == TechnicianLiveStatus.HORS_SERVICE
+    assert observed[0][0] == "ws"
+    assert observed[0][2]["technician_id"] == 7
+    assert observed[0][2]["old_status"] == "disponible"
+    assert observed[0][2]["new_status"] == "hors_service"
+    assert observed[0][3] == "supervision"
+    assert observed[1] == ("dashboard",)
+
+
+@pytest.mark.asyncio
+async def test_profile_save_does_not_broadcast_when_status_is_unchanged(monkeypatch):
+    current = datetime(2026, 8, 23, 18, 30, tzinfo=timezone.utc)
+    db = _FakeDb(_technician(current))
+    calls = []
+
+    async def fake_broadcast(*args, **kwargs):
+        calls.append((args, kwargs))
+
+    monkeypatch.setattr(technicians_route.ws_manager, "broadcast", fake_broadcast)
+
+    payload = TechnicianProfileSave(
+        expected_updated_at=current,
+        updates=TechnicianUpdate(name="Nadia Mise à jour"),
+        sector_ids=[],
+        live_status=TechnicianLiveStatus.DISPONIBLE,
+    )
+
+    await save_technician_profile(7, payload, db=db, current_user=object())
+
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_profile_save_never_broadcasts_status_when_transaction_rolls_back(monkeypatch):
+    current = datetime(2026, 8, 23, 18, 30, tzinfo=timezone.utc)
+    db = _FakeDb(_technician(current), fail_mutation=True)
+    calls = []
+
+    async def fake_broadcast(*args, **kwargs):
+        calls.append((args, kwargs))
+
+    monkeypatch.setattr(technicians_route.ws_manager, "broadcast", fake_broadcast)
+
+    payload = TechnicianProfileSave(
+        expected_updated_at=current,
+        updates=TechnicianUpdate(name="Ne doit pas être partiel"),
+        sector_ids=[],
+        live_status=TechnicianLiveStatus.HORS_SERVICE,
+    )
+
+    with pytest.raises(RuntimeError, match="forced mutation failure"):
+        await save_technician_profile(7, payload, db=db, current_user=object())
+
+    assert db.commit_count == 0
+    assert db.rollback_count == 1
+    assert calls == []
