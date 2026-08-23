@@ -20,7 +20,10 @@ import SettingsModules from '../features/settings-v3/SettingsModules';
 import SettingsNavigation from '../features/settings-v3/SettingsNavigation';
 import SettingsOverview from '../features/settings-v3/SettingsOverview';
 import SettingsRoadmap from '../features/settings-v3/SettingsRoadmap';
-import { shouldGuardSettingsLeave } from '../features/settings-v3/settingsLeaveGuard';
+import {
+  hasOrganizationDraft,
+  shouldGuardSettingsLeave,
+} from '../features/settings-v3/settingsLeaveGuard';
 import {
   INTEGRATION_CAPABILITIES,
   MODULE_SHORTCUTS,
@@ -53,6 +56,7 @@ export default function ParametresPage({ userRole, onNavigate }) {
   const [toasts, setToasts] = useState([]);
   const nextToastIdRef = useRef(0);
   const toastTimeoutsRef = useRef(new Set());
+  const organizationRootRef = useRef(null);
 
   useEffect(() => {
     const timeouts = toastTimeoutsRef.current;
@@ -76,8 +80,15 @@ export default function ParametresPage({ userRole, onNavigate }) {
   const environment = import.meta.env.MODE === 'production' ? 'Production' : 'Développement';
   const navigationItems = useMemo(() => flattenNavigation(), []);
 
+  const hasUnsavedSettings = useCallback(() => (
+    settingsDirty || (
+      activeSection === 'organization-admin' &&
+      hasOrganizationDraft(organizationRootRef.current)
+    )
+  ), [activeSection, settingsDirty]);
+
   const confirmSettingsDiscard = useCallback(() => {
-    if (!settingsDirty) return true;
+    if (!hasUnsavedSettings()) return true;
     const confirmed = window.confirm(
       'Cette section contient des modifications non enregistrées. Les abandonner ?',
     );
@@ -85,18 +96,16 @@ export default function ParametresPage({ userRole, onNavigate }) {
       toast('Navigation annulée : enregistrez ou annulez les modifications de la section.', 'warning');
     }
     return confirmed;
-  }, [settingsDirty, toast]);
+  }, [hasUnsavedSettings, toast]);
 
   useEffect(() => {
-    if (!settingsDirty) return undefined;
-
     const handleGlobalLeaveClick = (event) => {
       const button = event.target instanceof Element
         ? event.target.closest('button')
         : null;
       if (!button) return;
       if (!shouldGuardSettingsLeave({
-        dirty: true,
+        dirty: hasUnsavedSettings(),
         className: button.className,
         ariaCurrent: button.getAttribute('aria-current'),
       })) return;
@@ -110,6 +119,7 @@ export default function ParametresPage({ userRole, onNavigate }) {
     };
 
     const handleBeforeUnload = (event) => {
+      if (!hasUnsavedSettings()) return;
       event.preventDefault();
       event.returnValue = '';
     };
@@ -120,7 +130,7 @@ export default function ParametresPage({ userRole, onNavigate }) {
       document.removeEventListener('click', handleGlobalLeaveClick, true);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [confirmSettingsDiscard, settingsDirty]);
+  }, [confirmSettingsDiscard, hasUnsavedSettings]);
 
   const selectSection = useCallback((sectionId) => {
     if (sectionId === activeSection) return true;
@@ -172,7 +182,11 @@ export default function ParametresPage({ userRole, onNavigate }) {
   const sectionContent = useMemo(() => {
     switch (activeSection) {
       case 'organization-admin':
-        return <AdminOrganizationSection toast={toast} userRole={userRole} refreshRevision={refreshRevision} surface="settings" />;
+        return (
+          <div ref={organizationRootRef}>
+            <AdminOrganizationSection toast={toast} userRole={userRole} refreshRevision={refreshRevision} surface="settings" />
+          </div>
+        );
       case 'business-catalog':
         return <BusinessCatalogSection toast={toast} userRole={userRole} refreshRevision={refreshRevision} onDirtyChange={setSettingsDirty} />;
       case 'operational':
