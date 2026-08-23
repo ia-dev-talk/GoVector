@@ -83,6 +83,23 @@ def _parse_stock_items(raw_items: str) -> list[dict]:
     return parsed
 
 
+def _ensure_direct_reception_warehouse(
+    warehouse: Optional[Warehouse],
+    warehouse_id: int,
+) -> Warehouse:
+    """Keep external receptions out of technician custody warehouses."""
+    if warehouse is None:
+        raise ValueError(f"Warehouse not found: {warehouse_id}")
+    if not warehouse.is_active:
+        raise ValueError(f"Warehouse is inactive: {warehouse_id}")
+    warehouse_type = str(warehouse.type or "").strip().upper()
+    if warehouse_type == "TECHNICIEN":
+        raise ValueError(
+            "Direct reception cannot target a technician allocation warehouse"
+        )
+    return warehouse
+
+
 def _stock_item_payload(item: StockItem) -> dict:
     return {
         "id": item.id,
@@ -404,6 +421,15 @@ async def add_reception(
     ),
 ):
     try:
+        warehouse_result = await db.execute(
+            select(Warehouse)
+            .where(Warehouse.id == warehouse_id)
+            .with_for_update()
+        )
+        _ensure_direct_reception_warehouse(
+            warehouse_result.scalar_one_or_none(),
+            warehouse_id,
+        )
         line = await _svc(db).add_stock(
             item_id=item_id,
             warehouse_id=warehouse_id,
