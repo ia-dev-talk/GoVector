@@ -23,7 +23,10 @@ import SectorHeader from '../features/sectors/SectorHeader';
 import SectorInspector from '../features/sectors/SectorInspector';
 import SectorKpiStrip from '../features/sectors/SectorKpiStrip';
 import SectorRegistry from '../features/sectors/SectorRegistry';
-import { buildSectorSnapshotFromSettled } from '../features/sectors/sectorSnapshot';
+import {
+  buildSectorSnapshotFromSettled,
+  canMutateSectorSnapshot,
+} from '../features/sectors/sectorSnapshot';
 import {
   asRecords,
   buildSectorMetrics,
@@ -77,13 +80,23 @@ export default function SecteursPage({ userRole, onNavigate }) {
   const [toasts, setToasts] = useState([]);
 
   const requestRef = useRef(0);
+  const refreshInFlightRef = useRef(false);
   const reloadTimerRef = useRef(null);
   const toastIdRef = useRef(0);
 
   const role = text(userRole).toUpperCase();
   const canManage = ['ADMIN', 'CHEF_ORIENTEUR'].includes(role);
   const snapshotStale = Boolean(loadError);
-  const canMutateCurrentSnapshot = canManage && !snapshotStale && !loading;
+  const canMutateCurrentSnapshot = canMutateSectorSnapshot({
+    canManage,
+    loading,
+    refreshing,
+    stale: snapshotStale,
+  });
+
+  const mutationAllowedNow = useCallback(() => (
+    canMutateCurrentSnapshot && !refreshInFlightRef.current
+  ), [canMutateCurrentSnapshot]);
 
   const toast = useCallback((message, type = 'info') => {
     const id = ++toastIdRef.current;
@@ -98,11 +111,11 @@ export default function SecteursPage({ userRole, onNavigate }) {
     return () => window.clearInterval(interval);
   }, []);
 
-  const loadData = useCallback(async ({ manual = false } = {}) => {
+  const loadData = useCallback(async () => {
     const requestId = requestRef.current + 1;
     requestRef.current = requestId;
-
-    if (manual) setRefreshing(true);
+    refreshInFlightRef.current = true;
+    setRefreshing(true);
 
     const results = await Promise.allSettled([
       api.getSectors({ limit: 500 }),
@@ -125,6 +138,7 @@ export default function SecteursPage({ userRole, onNavigate }) {
       setLoadError(`Dernier snapshot cohérent conservé · ${errors.join(' · ')}`);
     }
 
+    refreshInFlightRef.current = false;
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -134,6 +148,7 @@ export default function SecteursPage({ userRole, onNavigate }) {
     return () => {
       window.clearTimeout(timer);
       requestRef.current += 1;
+      refreshInFlightRef.current = false;
     };
   }, [loadData]);
 
@@ -207,18 +222,18 @@ export default function SecteursPage({ userRole, onNavigate }) {
   ) || null, [enrichedSectors, selectedSectorId]);
 
   const openCreate = useCallback(() => {
-    if (!canMutateCurrentSnapshot) return;
+    if (!mutationAllowedNow()) return;
     setEditorSector(null);
     setEditorError('');
     setEditorOpen(true);
-  }, [canMutateCurrentSnapshot]);
+  }, [mutationAllowedNow]);
 
   const openEdit = useCallback((sector) => {
-    if (!canMutateCurrentSnapshot) return;
+    if (!mutationAllowedNow()) return;
     setEditorSector(sector);
     setEditorError('');
     setEditorOpen(true);
-  }, [canMutateCurrentSnapshot]);
+  }, [mutationAllowedNow]);
 
   const closeEditor = useCallback(() => {
     if (saving) return;
@@ -228,7 +243,7 @@ export default function SecteursPage({ userRole, onNavigate }) {
   }, [saving]);
 
   const handleSave = useCallback(async (document) => {
-    if (!canMutateCurrentSnapshot) {
+    if (!mutationAllowedNow()) {
       setEditorError('Actualisez les secteurs avant toute modification.');
       return;
     }
@@ -243,16 +258,16 @@ export default function SecteursPage({ userRole, onNavigate }) {
       setEditorSector(undefined);
       if (saved?.id) setSelectedSectorId(normalizeIdentifier(saved.id));
       toast(editorSector?.id ? 'Secteur mis à jour.' : 'Secteur créé.', 'success');
-      await loadData({ manual: true });
+      await loadData();
     } catch (error) {
       setEditorError(errorMessage(error, 'Impossible d’enregistrer le secteur.'));
     } finally {
       setSaving(false);
     }
-  }, [canMutateCurrentSnapshot, editorSector, loadData, toast]);
+  }, [editorSector, loadData, mutationAllowedNow, toast]);
 
   const handleToggleActive = useCallback(async (sector) => {
-    if (!canMutateCurrentSnapshot) {
+    if (!mutationAllowedNow()) {
       toast('Actualisez les secteurs avant toute modification.', 'error');
       return;
     }
@@ -268,11 +283,11 @@ export default function SecteursPage({ userRole, onNavigate }) {
       if (activate) await api.updateSector(sector.id, { is_active: true });
       else await api.deleteSector(sector.id);
       toast(activate ? 'Secteur réactivé.' : 'Secteur désactivé.', 'success');
-      await loadData({ manual: true });
+      await loadData();
     } catch (error) {
       toast(errorMessage(error, 'Impossible de modifier l’état du secteur.'), 'error');
     }
-  }, [canMutateCurrentSnapshot, loadData, toast]);
+  }, [loadData, mutationAllowedNow, toast]);
 
   return (
     <div className="sv3-page">
@@ -283,7 +298,7 @@ export default function SecteursPage({ userRole, onNavigate }) {
         jobCount={summary.jobsToday}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onRefresh={() => loadData({ manual: true })}
+        onRefresh={loadData}
         refreshing={refreshing}
         onExport={() => setExportOpen(true)}
         onCreate={openCreate}
@@ -295,7 +310,7 @@ export default function SecteursPage({ userRole, onNavigate }) {
           <span>{loadError}</span>
           <button
             type="button"
-            onClick={() => loadData({ manual: true })}
+            onClick={loadData}
             disabled={refreshing}
           >
             Réessayer

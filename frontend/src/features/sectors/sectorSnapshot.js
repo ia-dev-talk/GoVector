@@ -5,6 +5,15 @@ export const SECTOR_SNAPSHOT_KEYS = [
   'assignments',
 ];
 
+export function canMutateSectorSnapshot({
+  canManage = false,
+  loading = false,
+  refreshing = false,
+  stale = false,
+} = {}) {
+  return Boolean(canManage) && !loading && !refreshing && !stale;
+}
+
 export function buildSectorSnapshotFromSettled(results, toRecords) {
   if (!Array.isArray(results) || results.length !== SECTOR_SNAPSHOT_KEYS.length) {
     throw new Error('Invalid sector snapshot result set');

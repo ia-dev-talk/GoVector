@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildSectorSnapshotFromSettled } from './sectorSnapshot.js';
+import {
+  buildSectorSnapshotFromSettled,
+  canMutateSectorSnapshot,
+} from './sectorSnapshot.js';
 
 const fulfilled = (data) => ({ status: 'fulfilled', value: { data } });
 const rejected = (message) => ({ status: 'rejected', reason: new Error(message) });
@@ -49,4 +52,18 @@ test('sector snapshot rejects symmetric technician failure even if assignments a
   assert.equal(result.ok, false);
   assert.deepEqual(result.failedIndexes, [1]);
   assert.equal(result.snapshot, null);
+});
+
+test('sector mutations are writable only on a fresh settled snapshot', () => {
+  assert.equal(canMutateSectorSnapshot({ canManage: true }), true);
+  assert.equal(canMutateSectorSnapshot({ canManage: false }), false);
+  assert.equal(canMutateSectorSnapshot({ canManage: true, loading: true }), false);
+  assert.equal(canMutateSectorSnapshot({ canManage: true, refreshing: true }), false);
+  assert.equal(canMutateSectorSnapshot({ canManage: true, stale: true }), false);
+  assert.equal(canMutateSectorSnapshot({
+    canManage: true,
+    loading: false,
+    refreshing: false,
+    stale: false,
+  }), true);
 });
