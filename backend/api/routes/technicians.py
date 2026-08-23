@@ -2,6 +2,7 @@
 API routes for technician operations
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import logging
@@ -15,13 +16,95 @@ from backend.api.schemas import (
 )
 from backend.logic import technicians as tech_logic
 from backend.logic.technician_details import get_technician_full_details
-from backend.database.models import User, UserRole, Technician
+from backend.database.models import User, UserRole, Technician, TechnicianLiveStatus
 from backend.auth.dependencies import get_current_user, require_chef_orienteur, require_orienteur, require_orienteur_or_above
-from sqlalchemy import select
+from sqlalchemy import select, text
 from backend.services.realtime.dashboard_service import DashboardService
 from backend.services.realtime.websocket_manager import ws_manager, WSEvent
 
 router = APIRouter()
+
+
+class TechnicianProfileSave(BaseModel):
+    """Atomic Personnel save payload guarded by the technician snapshot revision."""
+
+    expected_updated_at: datetime
+    updates: TechnicianUpdate = Field(default_factory=TechnicianUpdate)
+    primary_sector_id: Optional[int] = Field(default=None, gt=0)
+    sector_ids: List[int] = Field(default_factory=list)
+    live_status: Optional[TechnicianLiveStatus] = None
+
+
+def _revision_key(value: datetime) -> str:
+    """Normalize naive/aware database timestamps into one optimistic-lock key."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat(timespec="microseconds")
+
+
+def _normalize_profile_sector_ids(
+    primary_sector_id: Optional[int],
+    sector_ids: List[int],
+) -> List[int]:
+    normalized = []
+    seen = set()
+    for raw_sector_id in sector_ids:
+        sector_id = int(raw_sector_id)
+        if sector_id <= 0:
+            raise HTTPException(
+                status_code=422,
+                detail="Chaque identifiant secteur doit être positif.",
+            )
+        if sector_id not in seen:
+            seen.add(sector_id)
+            normalized.append(sector_id)
+
+    if primary_sector_id is not None and primary_sector_id not in seen:
+        normalized.insert(0, int(primary_sector_id))
+
+    return normalized
+
+
+async def _validate_profile_sector_ids(
+    db: AsyncSession,
+    sector_ids: List[int],
+) -> None:
+    if not sector_ids:
+        return
+
+    placeholders = ", ".join(
+        f":sector_{index}" for index in range(len(sector_ids))
+    )
+    params = {
+        f"sector_{index}": sector_id
+        for index, sector_id in enumerate(sector_ids)
+    }
+    result = await db.execute(
+        text(
+            f"""
+            SELECT id, is_active
+            FROM sectors
+            WHERE id IN ({placeholders})
+            """
+        ),
+        params,
+    )
+    states = {
+        int(row["id"]): bool(row["is_active"])
+        for row in result.mappings().all()
+    }
+    missing = [sector_id for sector_id in sector_ids if sector_id not in states]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail="Secteur introuvable : " + ", ".join(str(value) for value in missing),
+        )
+    inactive = [sector_id for sector_id in sector_ids if not states[sector_id]]
+    if inactive:
+        raise HTTPException(
+            status_code=409,
+            detail="Secteur inactif non assignable : " + ", ".join(str(value) for value in inactive),
+        )
 
 
 @router.get("/me", response_model=TechnicianResponse)
@@ -104,6 +187,97 @@ async def get_available_technicians(
 	else:
 		raise HTTPException(status_code=403, detail="Accès insuffisant pour voir les techniciens disponibles.")
 	return [TechnicianResponse.from_orm_with_counts(t) for t in techs]
+
+
+@router.post("/{tech_id}/profile-save")
+async def save_technician_profile(
+    tech_id: int,
+    payload: TechnicianProfileSave,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_chef_orienteur),
+):
+    """Persist Personnel profile + sectors + optional live status in one transaction."""
+    del current_user
+
+    result = await db.execute(
+        select(Technician)
+        .where(Technician.id == tech_id)
+        .with_for_update()
+    )
+    technician = result.scalar_one_or_none()
+    if technician is None:
+        raise HTTPException(status_code=404, detail=f"Technicien {tech_id} non trouvé")
+
+    if _revision_key(payload.expected_updated_at) != _revision_key(technician.updated_at):
+        raise HTTPException(
+            status_code=409,
+            detail="La fiche technicien a été modifiée depuis son chargement. Rechargez-la avant d’enregistrer.",
+        )
+
+    normalized_sector_ids = _normalize_profile_sector_ids(
+        payload.primary_sector_id,
+        payload.sector_ids,
+    )
+    await _validate_profile_sector_ids(db, normalized_sector_ids)
+
+    update_data = payload.updates.model_dump(exclude_unset=True)
+    field_map = {"address": "home_address"}
+
+    try:
+        for field, value in update_data.items():
+            model_field = field_map.get(field, field)
+            if hasattr(technician, model_field):
+                setattr(technician, model_field, value)
+
+        if payload.live_status is not None:
+            technician.live_status = payload.live_status
+
+        await db.execute(
+            text(
+                """
+                DELETE FROM technician_sectors
+                WHERE technician_id = :technician_id
+                """
+            ),
+            {"technician_id": tech_id},
+        )
+
+        for sector_id in normalized_sector_ids:
+            await db.execute(
+                text(
+                    """
+                    INSERT INTO technician_sectors (
+                        technician_id,
+                        sector_id,
+                        is_primary
+                    )
+                    VALUES (
+                        :technician_id,
+                        :sector_id,
+                        :is_primary
+                    )
+                    """
+                ),
+                {
+                    "technician_id": tech_id,
+                    "sector_id": sector_id,
+                    "is_primary": sector_id == payload.primary_sector_id,
+                },
+            )
+
+        technician.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    return {
+        "success": True,
+        "technician_id": tech_id,
+        "updated_at": technician.updated_at.isoformat(),
+        "primary_sector_id": payload.primary_sector_id,
+        "sector_ids": normalized_sector_ids,
+    }
 
 
 @router.get("/{tech_id}", response_model=TechnicianResponse)
