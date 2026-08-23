@@ -2,7 +2,6 @@ import {
   memo,
   useCallback,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 
@@ -110,16 +109,12 @@ const StockIssueModal = memo(function StockIssueModal({
     ),
     [technicians],
   );
-  const baselineRef = useRef(null);
-  if (!baselineRef.current) {
-    baselineRef.current = initialIssueDraft({
-      item,
-      warehouseOptions,
-      initialWarehouseId,
-      initialTechnicianId,
-    });
-  }
-  const baseline = baselineRef.current;
+  const [baseline] = useState(() => initialIssueDraft({
+    item,
+    warehouseOptions,
+    initialWarehouseId,
+    initialTechnicianId,
+  }));
 
   const [warehouseId, setWarehouseId] = useState(baseline.warehouseId);
   const [technicianId, setTechnicianId] = useState(baseline.technicianId);
