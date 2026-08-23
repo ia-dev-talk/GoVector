@@ -20,6 +20,7 @@ import SettingsModules from '../features/settings-v3/SettingsModules';
 import SettingsNavigation from '../features/settings-v3/SettingsNavigation';
 import SettingsOverview from '../features/settings-v3/SettingsOverview';
 import SettingsRoadmap from '../features/settings-v3/SettingsRoadmap';
+import { shouldGuardSettingsLeave } from '../features/settings-v3/settingsLeaveGuard';
 import {
   INTEGRATION_CAPABILITIES,
   MODULE_SHORTCUTS,
@@ -86,6 +87,41 @@ export default function ParametresPage({ userRole, onNavigate }) {
     return confirmed;
   }, [settingsDirty, toast]);
 
+  useEffect(() => {
+    if (!settingsDirty) return undefined;
+
+    const handleGlobalLeaveClick = (event) => {
+      const button = event.target instanceof Element
+        ? event.target.closest('button')
+        : null;
+      if (!button) return;
+      if (!shouldGuardSettingsLeave({
+        dirty: true,
+        className: button.className,
+        ariaCurrent: button.getAttribute('aria-current'),
+      })) return;
+      if (confirmSettingsDiscard()) {
+        setSettingsDirty(false);
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+    };
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    document.addEventListener('click', handleGlobalLeaveClick, true);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      document.removeEventListener('click', handleGlobalLeaveClick, true);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [confirmSettingsDiscard, settingsDirty]);
+
   const selectSection = useCallback((sectionId) => {
     if (sectionId === activeSection) return true;
     if (!confirmSettingsDiscard()) return false;
@@ -127,9 +163,11 @@ export default function ParametresPage({ userRole, onNavigate }) {
   }, [navigationItems, query, selectSection, toast]);
 
   const navigateToModule = useCallback((page) => {
+    if (!confirmSettingsDiscard()) return;
+    setSettingsDirty(false);
     const navigated = typeof onNavigate === 'function' ? onNavigate(page) : false;
     if (!navigated) toast('Navigation indisponible pour ce module.', 'error');
-  }, [onNavigate, toast]);
+  }, [confirmSettingsDiscard, onNavigate, toast]);
 
   const sectionContent = useMemo(() => {
     switch (activeSection) {
