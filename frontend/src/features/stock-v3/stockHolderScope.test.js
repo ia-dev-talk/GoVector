@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildHolderOptions,
   filterHolderOptions,
+  nextHolderActiveIndex,
   scopeForWarehouseSelection,
 } from './stockHolderScope.js';
 
@@ -61,4 +62,22 @@ test('rail physical warehouse and all-stock selection keep technician scope clea
     scopeForWarehouseSelection(null, warehouses, technicians),
     { kind: 'all', warehouseId: null, technicianId: null },
   );
+});
+
+test('holder keyboard navigation walks options with bounded arrows and Home/End', () => {
+  assert.equal(nextHolderActiveIndex(-1, 4, 'ArrowDown'), 0);
+  assert.equal(nextHolderActiveIndex(0, 4, 'ArrowDown'), 1);
+  assert.equal(nextHolderActiveIndex(3, 4, 'ArrowDown'), 3);
+  assert.equal(nextHolderActiveIndex(-1, 4, 'ArrowUp'), 3);
+  assert.equal(nextHolderActiveIndex(3, 4, 'ArrowUp'), 2);
+  assert.equal(nextHolderActiveIndex(0, 4, 'ArrowUp'), 0);
+  assert.equal(nextHolderActiveIndex(2, 4, 'Home'), 0);
+  assert.equal(nextHolderActiveIndex(1, 4, 'End'), 3);
+});
+
+test('holder keyboard navigation is safe for empty and stale option indexes', () => {
+  assert.equal(nextHolderActiveIndex(2, 0, 'ArrowDown'), -1);
+  assert.equal(nextHolderActiveIndex(99, 3, 'ArrowDown'), 0);
+  assert.equal(nextHolderActiveIndex(99, 3, 'ArrowUp'), 2);
+  assert.equal(nextHolderActiveIndex(1, 3, 'Escape'), 1);
 });

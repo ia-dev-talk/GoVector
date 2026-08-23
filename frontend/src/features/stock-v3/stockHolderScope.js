@@ -122,3 +122,23 @@ export function filterHolderOptions(groups, query) {
     technicians: groups.technicians.filter(matches),
   };
 }
+
+export function nextHolderActiveIndex(currentIndex, optionCount, key) {
+  if (!Number.isInteger(optionCount) || optionCount <= 0) return -1;
+  const lastIndex = optionCount - 1;
+  const boundedCurrent = Number.isInteger(currentIndex)
+    && currentIndex >= 0
+    && currentIndex <= lastIndex
+    ? currentIndex
+    : -1;
+
+  if (key === 'Home') return 0;
+  if (key === 'End') return lastIndex;
+  if (key === 'ArrowDown') {
+    return boundedCurrent < 0 ? 0 : Math.min(boundedCurrent + 1, lastIndex);
+  }
+  if (key === 'ArrowUp') {
+    return boundedCurrent < 0 ? lastIndex : Math.max(boundedCurrent - 1, 0);
+  }
+  return boundedCurrent;
+}

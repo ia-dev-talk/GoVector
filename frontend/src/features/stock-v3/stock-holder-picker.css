@@ -97,9 +97,14 @@
 
 .st3-holder-option:hover,
 .st3-holder-option:focus-visible,
-.st3-holder-option--selected {
+.st3-holder-option--selected,
+.st3-holder-option--active {
   outline: none;
   background: rgba(59, 130, 246, 0.14);
+}
+
+.st3-holder-option--active {
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.52);
 }
 
 .st3-holder-option span {
