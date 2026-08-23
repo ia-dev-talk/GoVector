@@ -16,6 +16,7 @@ import {
 import Toast from '../components/Toast';
 import StockEditorModal from '../features/stock-v3/StockEditorModal';
 import StockHeader from '../features/stock-v3/StockHeader';
+import StockHolderPicker from '../features/stock-v3/StockHolderPicker';
 import StockInspector from '../features/stock-v3/StockInspector';
 import StockIssueModal from '../features/stock-v3/StockIssueModal';
 import StockKpiStrip from '../features/stock-v3/StockKpiStrip';
@@ -23,6 +24,7 @@ import StockReceptionModal from '../features/stock-v3/StockReceptionModal';
 import StockTable from '../features/stock-v3/StockTable';
 import WarehouseEditorModal from '../features/stock-v3/WarehouseEditorModal';
 import WarehouseRail from '../features/stock-v3/WarehouseRail';
+import { scopeForWarehouseSelection } from '../features/stock-v3/stockHolderScope';
 import { stockV3Api } from '../features/stock-v3/stockV3Api';
 import {
   aggregateItems,
@@ -164,22 +166,6 @@ function StockScopeBar({
   onSelect,
   summary,
 }) {
-  const physicalWarehouses = warehouses.filter(
-    (warehouse) => warehouseType(warehouse) !== 'TECHNICIEN',
-  );
-  const technicianOptions = technicians
-    .map((technician) => ({
-      technician,
-      warehouse: technicianWarehouse(technician, warehouses),
-    }))
-    .sort((first, second) =>
-      text(first.technician?.name).localeCompare(
-        text(second.technician?.name),
-        'fr',
-        { sensitivity: 'base' },
-      ),
-    );
-
   const selectedWarehouse = selectedTechnicianId === null
     ? warehouses.find(
         (warehouse) => normalizeIdentifier(warehouse?.id) === selectedWarehouseId,
@@ -193,12 +179,6 @@ function StockScopeBar({
   const selectedTechnicianWarehouse = selectedTechnician
     ? technicianWarehouse(selectedTechnician, warehouses)
     : null;
-
-  const value = selectedTechnicianId !== null
-    ? `technician:${selectedTechnicianId}`
-    : selectedWarehouseId !== null
-      ? `warehouse:${selectedWarehouseId}`
-      : 'all';
 
   const title = selectedTechnician
     ? text(selectedTechnician?.name, 'Technicien')
@@ -214,37 +194,6 @@ function StockScopeBar({
       ? `${text(selectedWarehouse?.city, 'Localisation non renseignée')} · ${warehouseType(selectedWarehouse) || 'DÉPÔT'}`
       : 'Tous les dépôts et toutes les dotations techniciens';
 
-  const handleChange = (event) => {
-    const nextValue = event.target.value;
-    if (nextValue === 'all') {
-      onSelect({ kind: 'all', warehouseId: null, technicianId: null });
-      return;
-    }
-
-    const [kind, rawIdentifier] = nextValue.split(':');
-    const parsedIdentifier = Number(rawIdentifier);
-    if (!Number.isInteger(parsedIdentifier) || parsedIdentifier <= 0) return;
-
-    if (kind === 'technician') {
-      const technician = technicians.find(
-        (candidate) => normalizeIdentifier(candidate?.id) === parsedIdentifier,
-      );
-      const warehouse = technicianWarehouse(technician, warehouses);
-      onSelect({
-        kind,
-        technicianId: parsedIdentifier,
-        warehouseId: normalizeIdentifier(warehouse?.id),
-      });
-      return;
-    }
-
-    onSelect({
-      kind: 'warehouse',
-      technicianId: null,
-      warehouseId: parsedIdentifier,
-    });
-  };
-
   return (
     <section className="st3-scopebar" aria-label="Périmètre du stock">
       <div className="st3-scopebar__identity">
@@ -253,33 +202,13 @@ function StockScopeBar({
         <small>{subtitle}</small>
       </div>
 
-      <label className="st3-scopebar__selector">
-        <span>Filtrer par détenteur</span>
-        <select value={value} onChange={handleChange}>
-          <option value="all">Stock général — vue consolidée</option>
-          {physicalWarehouses.length ? (
-            <optgroup label="Dépôts">
-              {physicalWarehouses.map((warehouse) => (
-                <option key={warehouse.id} value={`warehouse:${warehouse.id}`}>
-                  {text(warehouse.name, `Dépôt #${warehouse.id}`)}
-                  {warehouse.code ? ` · ${warehouse.code}` : ''}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-          {technicianOptions.length ? (
-            <optgroup label="Techniciens">
-              {technicianOptions.map(({ technician, warehouse }) => (
-                <option key={technician.id} value={`technician:${technician.id}`}>
-                  {text(technician.name, `Technicien #${technician.id}`)}
-                  {technician.employee_id ? ` · ${technician.employee_id}` : ''}
-                  {!warehouse ? ' · aucun stock' : ''}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-        </select>
-      </label>
+      <StockHolderPicker
+        warehouses={warehouses}
+        technicians={technicians}
+        selectedWarehouseId={selectedWarehouseId}
+        selectedTechnicianId={selectedTechnicianId}
+        onSelect={onSelect}
+      />
 
       <div className="st3-scopebar__metrics">
         <div><strong>{summary.catalog}</strong><span>articles</span></div>
@@ -875,8 +804,13 @@ export default function StocksPage({
             lines={lines}
             selectedWarehouseId={selectedWarehouseId}
             onSelect={(warehouseId) => {
-              setSelectedTechnicianScopeId(null);
-              setSelectedWarehouseId(warehouseId);
+              const scope = scopeForWarehouseSelection(
+                warehouseId,
+                warehouses,
+                technicians,
+              );
+              setSelectedTechnicianScopeId(scope.technicianId);
+              setSelectedWarehouseId(scope.warehouseId);
               setSelectedItemId(null);
             }}
             canCreateWarehouse={canManageCatalog}
