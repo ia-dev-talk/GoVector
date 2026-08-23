@@ -5,6 +5,7 @@ import {
   buildOperationalAccountProfilePayload,
   canMutateOrganizationSnapshot,
   resolveOperationalAccountProfilePolicy,
+  resolveOrganizationAvailability,
   resolveOrganizationSnapshot,
 } from './accountProfilePolicy';
 import '../../styles/settings-v1-admin.css';
@@ -37,6 +38,11 @@ export default function AdminOrganizationSection({
   const [hasSnapshot, setHasSnapshot] = useState(false);
   const [loadWarnings, setLoadWarnings] = useState([]);
   const accountProfilePolicy = resolveOperationalAccountProfilePolicy(accountRole);
+  const availability = resolveOrganizationAvailability({
+    loading,
+    hasSnapshot,
+    warnings: loadWarnings,
+  });
   const mutationsLocked = !canMutateOrganizationSnapshot({
     loading,
     hasSnapshot,
@@ -281,11 +287,29 @@ export default function AdminOrganizationSection({
   );
 
   if (!enabled) return null;
-  if (loading && !hasSnapshot) return <div className="v1-admin-loading">Chargement de l’organisation réelle…</div>;
+  if (availability === 'loading') {
+    return <div className="v1-admin-loading">Chargement de l’organisation réelle…</div>;
+  }
+  if (availability === 'unavailable') {
+    return (
+      <div className="v1-admin-load-warning" role="alert" aria-busy={loading}>
+        <div>
+          <strong>Organisation indisponible</strong>
+          <span>
+            Impossible de charger un snapshot métier fiable : {loadWarnings.join(', ')}.
+            Aucune donnée d’organisation n’est présentée comme autoritative et les modifications sont suspendues.
+          </span>
+        </div>
+        <button type="button" onClick={load} disabled={loading}>
+          {loading ? 'Nouvelle tentative…' : 'Réessayer'}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="v1-admin-grid" aria-busy={loading}>
-      {loadWarnings.length > 0 ? (
+      {availability === 'stale' ? (
         <div className="v1-admin-load-warning" role="alert">
           <div>
             <strong>Organisation non synchronisée</strong>

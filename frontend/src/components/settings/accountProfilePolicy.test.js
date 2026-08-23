@@ -5,6 +5,7 @@ import {
   buildOperationalAccountProfilePayload,
   canMutateOrganizationSnapshot,
   resolveOperationalAccountProfilePolicy,
+  resolveOrganizationAvailability,
   resolveOrganizationSnapshot,
 } from './accountProfilePolicy.js';
 
@@ -112,6 +113,25 @@ test('organization snapshot never converts a failed source into a business empty
   assert.equal(snapshot.complete, false);
   assert.deepEqual(snapshot.warnings, ['secteurs']);
   assert.equal(snapshot.values, null);
+});
+
+test('organization availability distinguishes first-load failure from stale snapshot', () => {
+  assert.equal(
+    resolveOrganizationAvailability({ loading: true, hasSnapshot: false }),
+    'loading',
+  );
+  assert.equal(
+    resolveOrganizationAvailability({ hasSnapshot: false, warnings: ['secteurs'] }),
+    'unavailable',
+  );
+  assert.equal(
+    resolveOrganizationAvailability({ hasSnapshot: true, warnings: ['secteurs'] }),
+    'stale',
+  );
+  assert.equal(
+    resolveOrganizationAvailability({ hasSnapshot: true, warnings: [] }),
+    'ready',
+  );
 });
 
 test('organization mutations require a fresh complete snapshot', () => {

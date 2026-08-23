@@ -49,6 +49,18 @@ export function resolveOrganizationSnapshot(results) {
   };
 }
 
+export function resolveOrganizationAvailability({
+  loading = false,
+  hasSnapshot = false,
+  warnings = [],
+} = {}) {
+  const hasWarnings = Array.isArray(warnings) && warnings.length > 0;
+  if (loading && !hasSnapshot) return 'loading';
+  if (!hasSnapshot) return hasWarnings ? 'unavailable' : 'idle';
+  if (hasWarnings) return 'stale';
+  return 'ready';
+}
+
 export function canMutateOrganizationSnapshot({
   loading = false,
   hasSnapshot = false,
