@@ -506,9 +506,9 @@ async def delete_existing_sector(
 async def get_sector_statistics(
     sector_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_chef_orienteur),
 ):
-    """Récupérer les statistiques d'un secteur."""
+    """Récupérer les statistiques d'un secteur pour Chef Orienteur/Admin."""
     del current_user
     stats = await get_stats_by_sector(
         db,
@@ -528,9 +528,9 @@ async def get_sector_statistics(
 )
 async def get_global_sector_statistics(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_chef_orienteur),
 ):
-    """Récupérer les statistiques globales de tous les secteurs."""
+    """Récupérer les statistiques globales pour Chef Orienteur/Admin."""
     del current_user
     all_sectors = await get_all_sectors(
         db,
