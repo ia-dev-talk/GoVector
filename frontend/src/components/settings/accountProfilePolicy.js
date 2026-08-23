@@ -5,6 +5,16 @@ const PROFILE_POLICIES = Object.freeze({
   TECHNICIAN: Object.freeze({ field: 'technician_id', label: 'profil technicien' }),
 });
 
+export const ORGANIZATION_SOURCE_LABELS = Object.freeze([
+  'entreprises clientes',
+  'équipes',
+  'orienteurs',
+  'secteurs',
+  'techniciens',
+  'référentiel des grades',
+  'comptes opérationnels',
+]);
+
 function normalizeRole(role) {
   return String(role ?? '').trim().toUpperCase();
 }
@@ -13,6 +23,38 @@ function positiveInteger(value) {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+export function resolveOrganizationSnapshot(results) {
+  if (!Array.isArray(results) || results.length !== ORGANIZATION_SOURCE_LABELS.length) {
+    return {
+      complete: false,
+      warnings: ['configuration organisation'],
+      values: null,
+    };
+  }
+
+  const warnings = results.flatMap((result, index) => (
+    result?.status === 'fulfilled' ? [] : [ORGANIZATION_SOURCE_LABELS[index]]
+  ));
+
+  if (warnings.length > 0) {
+    return { complete: false, warnings, values: null };
+  }
+
+  return {
+    complete: true,
+    warnings: [],
+    values: results.map((result) => result.value?.data),
+  };
+}
+
+export function canMutateOrganizationSnapshot({
+  loading = false,
+  hasSnapshot = false,
+  warnings = [],
+} = {}) {
+  return Boolean(hasSnapshot) && !loading && (!Array.isArray(warnings) || warnings.length === 0);
 }
 
 export function resolveOperationalAccountProfilePolicy(role) {

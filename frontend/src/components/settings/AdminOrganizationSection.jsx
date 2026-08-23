@@ -3,7 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import {
   buildOperationalAccountProfilePayload,
+  canMutateOrganizationSnapshot,
   resolveOperationalAccountProfilePolicy,
+  resolveOrganizationSnapshot,
 } from './accountProfilePolicy';
 import '../../styles/settings-v1-admin.css';
 
@@ -32,8 +34,23 @@ export default function AdminOrganizationSection({
   const [teamDrafts, setTeamDrafts] = useState({});
   const [accountRole, setAccountRole] = useState('');
   const [loading, setLoading] = useState(enabled);
+  const [hasSnapshot, setHasSnapshot] = useState(false);
   const [loadWarnings, setLoadWarnings] = useState([]);
   const accountProfilePolicy = resolveOperationalAccountProfilePolicy(accountRole);
+  const mutationsLocked = !canMutateOrganizationSnapshot({
+    loading,
+    hasSnapshot,
+    warnings: loadWarnings,
+  });
+
+  const ensureOrganizationWritable = () => {
+    if (!mutationsLocked) return true;
+    toast?.(
+      'Organisation non synchronisée. Actualisez jusqu’à obtenir un snapshot complet avant toute modification.',
+      'error',
+    );
+    return false;
+  };
 
   const load = useCallback(async () => {
     if (!enabled) {
@@ -41,33 +58,31 @@ export default function AdminOrganizationSection({
     }
 
     setLoading(true);
-    setLoadWarnings([]);
-    const sources = [
-      'entreprises clientes',
-      'équipes',
-      'orienteurs',
-      'secteurs',
-      'techniciens',
-      'référentiel des grades',
-      'comptes opérationnels',
-    ];
     const results = await Promise.allSettled([
       isAdmin ? api.getV1Clients() : Promise.resolve({ data: [] }),
       api.getV1Teams(), api.getOrienteurs(), api.getSectors(), api.getTechnicians(),
       api.getBusinessCatalog(),
       isAdmin ? api.getV1Accounts() : Promise.resolve({ data: [] }),
     ]);
-    setLoadWarnings(results.flatMap((result, index) => (
-      result.status === 'rejected' ? [sources[index]] : []
-    )));
-    const value = (index) => results[index].status === 'fulfilled' ? results[index].value?.data || [] : [];
-    setClients(value(0)); setTeams(value(1)); setOrienteurs(value(2)); setSectors(value(3)); setTechnicians(value(4));
-    if (results[5].status === 'fulfilled') {
-      const configured = (results[5].value?.data?.values?.technician_grades || [])
-        .filter((item) => item.active);
-      if (configured.length) setGrades(configured);
+    const snapshot = resolveOrganizationSnapshot(results);
+    if (!snapshot.complete) {
+      setLoadWarnings(snapshot.warnings);
+      setLoading(false);
+      return;
     }
+
+    const value = (index, fallback = []) => snapshot.values[index] ?? fallback;
+    setClients(value(0));
+    setTeams(value(1));
+    setOrienteurs(value(2));
+    setSectors(value(3));
+    setTechnicians(value(4));
+    const configured = (value(5, {})?.values?.technician_grades || [])
+      .filter((item) => item.active);
+    if (configured.length) setGrades(configured);
     setAccounts(value(6));
+    setLoadWarnings([]);
+    setHasSnapshot(true);
     setLoading(false);
   }, [enabled, isAdmin]);
 
@@ -82,6 +97,7 @@ export default function AdminOrganizationSection({
 
   const createClient = async (event) => {
     event.preventDefault();
+    if (!ensureOrganizationWritable()) return;
     const form = event.currentTarget;
     try {
       await api.createV1Client({
@@ -97,6 +113,7 @@ export default function AdminOrganizationSection({
 
   const createClientAccount = async (event) => {
     event.preventDefault();
+    if (!ensureOrganizationWritable()) return;
     const form = event.currentTarget;
     try {
       await api.createV1ClientAccount({
@@ -109,6 +126,7 @@ export default function AdminOrganizationSection({
 
   const createOfficeAccount = async (event) => {
     event.preventDefault();
+    if (!ensureOrganizationWritable()) return;
     const form = event.currentTarget;
     const profile = buildOperationalAccountProfilePayload(accountRole, {
       technicianId: form.elements.technician_id?.value,
@@ -135,6 +153,7 @@ export default function AdminOrganizationSection({
   };
 
   const toggleAccount = async (account) => {
+    if (!ensureOrganizationWritable()) return;
     try {
       await api.updateV1Account(account.id, { is_active: !account.is_active });
       await load(); toast?.('Accès du compte mis à jour.', 'success');
@@ -143,6 +162,7 @@ export default function AdminOrganizationSection({
 
   const resetAccountPassword = async (event, accountId) => {
     event.preventDefault();
+    if (!ensureOrganizationWritable()) return;
     const form = event.currentTarget;
     try {
       await api.resetV1AccountPassword(accountId, { password: form.password.value });
@@ -152,6 +172,7 @@ export default function AdminOrganizationSection({
 
   const updateClientConfiguration = async (event, clientId) => {
     event.preventDefault();
+    if (!ensureOrganizationWritable()) return;
     const form = event.currentTarget;
     try {
       await api.updateV1Client(clientId, {
@@ -165,6 +186,7 @@ export default function AdminOrganizationSection({
 
   const createTeam = async (event) => {
     event.preventDefault();
+    if (!ensureOrganizationWritable()) return;
     const form = event.currentTarget;
     const sectorIds = [...form.querySelectorAll('input[name="sector_ids"]:checked')].map((node) => Number(node.value));
     try {
@@ -180,6 +202,7 @@ export default function AdminOrganizationSection({
   };
 
   const assignTechnician = async (teamId, technicianId, grade) => {
+    if (!ensureOrganizationWritable()) return;
     try {
       await api.putV1TeamTechnician(teamId, technicianId, { grade });
       await load(); toast?.('Technicien déplacé dans l’équipe.', 'success');
@@ -198,6 +221,7 @@ export default function AdminOrganizationSection({
   };
 
   const submitTeamDraft = async (teamId) => {
+    if (!ensureOrganizationWritable()) return;
     const draft = teamDrafts[teamId] || {};
     const technicianId = Number(draft.technicianId);
     if (!Number.isInteger(technicianId) || technicianId <= 0) {
@@ -214,6 +238,7 @@ export default function AdminOrganizationSection({
 
   const updateTeamConfiguration = async (event, teamId) => {
     event.preventDefault();
+    if (!ensureOrganizationWritable()) return;
     const form = event.currentTarget;
     const sectorIds = [...form.querySelectorAll('input[name="sector_ids"]:checked')].map((node) => Number(node.value));
     try {
@@ -228,6 +253,7 @@ export default function AdminOrganizationSection({
   };
 
   const removeTechnician = async (teamId, technicianId) => {
+    if (!ensureOrganizationWritable()) return;
     try {
       await api.removeV1TeamTechnician(teamId, technicianId);
       await load(); toast?.('Technicien retiré de l’équipe.', 'success');
@@ -235,6 +261,7 @@ export default function AdminOrganizationSection({
   };
 
   const toggleClient = async (client) => {
+    if (!ensureOrganizationWritable()) return;
     try {
       await api.updateV1Client(client.id, { is_active: !client.is_active });
       await load(); toast?.('Entreprise mise à jour.', 'success');
@@ -242,6 +269,7 @@ export default function AdminOrganizationSection({
   };
 
   const toggleTeam = async (team) => {
+    if (!ensureOrganizationWritable()) return;
     try {
       await api.updateV1Team(team.id, { is_active: !team.is_active });
       await load(); toast?.('Équipe mise à jour.', 'success');
@@ -253,17 +281,22 @@ export default function AdminOrganizationSection({
   );
 
   if (!enabled) return null;
-  if (loading) return <div className="v1-admin-loading">Chargement de l’organisation réelle…</div>;
+  if (loading && !hasSnapshot) return <div className="v1-admin-loading">Chargement de l’organisation réelle…</div>;
 
   return (
-    <div className="v1-admin-grid">
+    <div className="v1-admin-grid" aria-busy={loading}>
       {loadWarnings.length > 0 ? (
         <div className="v1-admin-load-warning" role="alert">
           <div>
-            <strong>Configuration partiellement chargée</strong>
-            <span>Indisponible : {loadWarnings.join(', ')}. Les autres données restent utilisables.</span>
+            <strong>Organisation non synchronisée</strong>
+            <span>
+              Indisponible : {loadWarnings.join(', ')}. Dernier snapshot cohérent conservé ;
+              les modifications sont suspendues jusqu’à un chargement complet.
+            </span>
           </div>
-          <button type="button" onClick={load}>Réessayer</button>
+          <button type="button" onClick={load} disabled={loading}>
+            {loading ? 'Nouvelle tentative…' : 'Réessayer'}
+          </button>
         </div>
       ) : null}
       {isAdmin ? <section className="v1-admin-card">
@@ -272,7 +305,7 @@ export default function AdminOrganizationSection({
           <input name="name" required placeholder="Nom · Maroc Telecom" />
           <input name="code" required placeholder="Code · IAM" />
           <input name="operator" placeholder="Opérateur associé · IAM" />
-          <button type="submit">Ajouter l’entreprise</button>
+          <button type="submit" disabled={mutationsLocked}>Ajouter l’entreprise</button>
         </form>
         <div className="v1-admin-list">
           {clients.map((client) => <div key={client.id}>
@@ -283,10 +316,10 @@ export default function AdminOrganizationSection({
                 <input name="name" required defaultValue={client.name} aria-label="Nom de l’entreprise" />
                 <input name="code" required defaultValue={client.code} aria-label="Code de l’entreprise" />
                 <input name="operator" defaultValue={client.operator || ''} placeholder="Opérateur associé" aria-label="Opérateur associé" />
-                <button type="submit">Enregistrer</button>
+                <button type="submit" disabled={mutationsLocked}>Enregistrer</button>
               </form>
             </details>
-            <button type="button" onClick={() => toggleClient(client)}>{client.is_active ? 'Archiver / couper l’accès' : 'Réactiver'}</button>
+            <button type="button" disabled={mutationsLocked} onClick={() => toggleClient(client)}>{client.is_active ? 'Archiver / couper l’accès' : 'Réactiver'}</button>
           </div>)}
         </div>
       </section> : null}
@@ -311,13 +344,13 @@ export default function AdminOrganizationSection({
             <option value="TECHNICIAN">Technicien</option>
           </select>
           {accountProfilePolicy.field === 'orienteur_id' ? (
-            <select name="orienteur_id" required defaultValue="">
+            <select name="orienteur_id" required defaultValue="" disabled={mutationsLocked}>
               <option value="" disabled>Profil orienteur requis</option>
               {orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           ) : null}
           {accountProfilePolicy.field === 'technician_id' ? (
-            <select name="technician_id" required defaultValue="">
+            <select name="technician_id" required defaultValue="" disabled={mutationsLocked}>
               <option value="" disabled>Profil technicien requis</option>
               {technicians.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
@@ -325,13 +358,13 @@ export default function AdminOrganizationSection({
           {accountProfilePolicy.supported && accountProfilePolicy.field === null ? (
             <p className="v1-admin-help">Ce rôle n’est lié à aucun profil terrain.</p>
           ) : null}
-          <button type="submit">Créer le compte</button>
+          <button type="submit" disabled={mutationsLocked}>Créer le compte</button>
         </form>
         <div className="v1-admin-account-grid">
           {accounts.map((account) => <article key={account.id} className={account.is_active ? '' : 'is-archived'}>
             <div><strong>{account.username}</strong><span>{account.role} · {account.email}</span></div>
-            <button type="button" onClick={() => toggleAccount(account)}>{account.is_active ? 'Désactiver' : 'Réactiver'}</button>
-            <details><summary>Réinitialiser le mot de passe</summary><form onSubmit={(event) => resetAccountPassword(event, account.id)}><input name="password" type="password" minLength="12" required placeholder="Nouveau mot de passe" /><button type="submit">Remplacer</button></form></details>
+            <button type="button" disabled={mutationsLocked} onClick={() => toggleAccount(account)}>{account.is_active ? 'Désactiver' : 'Réactiver'}</button>
+            <details><summary>Réinitialiser le mot de passe</summary><form onSubmit={(event) => resetAccountPassword(event, account.id)}><input name="password" type="password" minLength="12" required placeholder="Nouveau mot de passe" /><button type="submit" disabled={mutationsLocked}>Remplacer</button></form></details>
           </article>)}
         </div>
       </section> : null}
@@ -339,11 +372,11 @@ export default function AdminOrganizationSection({
       {isAdmin ? <section className="v1-admin-card">
         <header><span>Accès externe</span><h2>Compte client lecture seule</h2></header>
         <form onSubmit={createClientAccount} className="v1-admin-form">
-          <select name="organization_id" required defaultValue=""><option value="" disabled>Entreprise</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select>
+          <select name="organization_id" required defaultValue="" disabled={mutationsLocked}><option value="" disabled>Entreprise</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select>
           <input name="username" required placeholder="Identifiant" />
           <input name="email" type="email" required placeholder="Email" />
           <input name="password" type="password" minLength="12" required placeholder="Mot de passe initial · 12 caractères" />
-          <button type="submit">Créer le compte</button>
+          <button type="submit" disabled={mutationsLocked}>Créer le compte</button>
         </form>
       </section> : null}
 
@@ -355,11 +388,11 @@ export default function AdminOrganizationSection({
         <form onSubmit={createTeam} className="v1-admin-form v1-admin-form--team">
           <input name="name" required placeholder="Nom de l’équipe" />
           <input name="code" placeholder="Code (optionnel)" />
-          <select name="orienteur_id" required defaultValue=""><option value="" disabled>Orienteur unique</option>{orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-          <select name="initial_technician_id" required defaultValue=""><option value="" disabled>Premier technicien</option>{technicians.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-          <select name="initial_grade" required defaultValue={grades[0]?.code || 'junior'}>{grades.map((grade) => <option key={grade.code} value={grade.code}>{grade.label}</option>)}</select>
-          <fieldset><legend>Un ou plusieurs secteurs</legend>{sectors.map((sector) => <label key={sector.id}><input type="checkbox" name="sector_ids" value={sector.id} />{sector.name}</label>)}</fieldset>
-          <button type="submit">Créer l’équipe</button>
+          <select name="orienteur_id" required defaultValue="" disabled={mutationsLocked}><option value="" disabled>Orienteur unique</option>{orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+          <select name="initial_technician_id" required defaultValue="" disabled={mutationsLocked}><option value="" disabled>Premier technicien</option>{technicians.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+          <select name="initial_grade" required defaultValue={grades[0]?.code || 'junior'} disabled={mutationsLocked}>{grades.map((grade) => <option key={grade.code} value={grade.code}>{grade.label}</option>)}</select>
+          <fieldset disabled={mutationsLocked}><legend>Un ou plusieurs secteurs</legend>{sectors.map((sector) => <label key={sector.id}><input type="checkbox" name="sector_ids" value={sector.id} />{sector.name}</label>)}</fieldset>
+          <button type="submit" disabled={mutationsLocked}>Créer l’équipe</button>
         </form>
         <div className="v1-admin-team-grid">
           {teams.map((team) => {
@@ -373,22 +406,22 @@ export default function AdminOrganizationSection({
                   <form onSubmit={(event) => updateTeamConfiguration(event, team.id)} className="v1-admin-form v1-admin-form--team-edit">
                     <input name="name" required defaultValue={team.name} aria-label="Nom de l’équipe" />
                     <input name="code" defaultValue={team.code || ''} placeholder="Code (optionnel)" aria-label="Code de l’équipe" />
-                    <select name="orienteur_id" required defaultValue={String(team.orienteur_id)} aria-label="Orienteur de l’équipe">{orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-                    <fieldset><legend>Secteurs de l’équipe</legend>{sectors.map((sector) => <label key={`${team.id}-${sector.id}`}><input type="checkbox" name="sector_ids" value={sector.id} defaultChecked={team.sector_ids.includes(sector.id)} />{sector.name}</label>)}</fieldset>
-                    <button type="submit">Enregistrer l’équipe</button>
+                    <select name="orienteur_id" required defaultValue={String(team.orienteur_id)} aria-label="Orienteur de l’équipe" disabled={mutationsLocked}>{orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+                    <fieldset disabled={mutationsLocked}><legend>Secteurs de l’équipe</legend>{sectors.map((sector) => <label key={`${team.id}-${sector.id}`}><input type="checkbox" name="sector_ids" value={sector.id} defaultChecked={team.sector_ids.includes(sector.id)} />{sector.name}</label>)}</fieldset>
+                    <button type="submit" disabled={mutationsLocked}>Enregistrer l’équipe</button>
                   </form>
                 </details>
                 <div className="v1-admin-chip-row">
                   {team.technicians.length ? team.technicians.map((tech) => (
                     <span key={tech.id}>
                       {tech.name} · {gradeLabel(tech.grade)}
-                      <button type="button" aria-label={`Retirer ${tech.name}`} onClick={() => removeTechnician(team.id, tech.id)}>×</button>
+                      <button type="button" disabled={mutationsLocked} aria-label={`Retirer ${tech.name}`} onClick={() => removeTechnician(team.id, tech.id)}>×</button>
                     </span>
                   )) : <small>Aucun technicien dans cette équipe.</small>}
                 </div>
                 <div className="v1-admin-team-add v1-admin-team-add--explicit">
                   <select
-                    disabled={!team.is_active}
+                    disabled={mutationsLocked || !team.is_active}
                     value={draft.technicianId || ''}
                     aria-label={`Technicien à ajouter à ${team.name}`}
                     onChange={(event) => updateTeamDraft(team.id, { technicianId: event.target.value })}
@@ -404,7 +437,7 @@ export default function AdminOrganizationSection({
                     })}
                   </select>
                   <select
-                    disabled={!team.is_active}
+                    disabled={mutationsLocked || !team.is_active}
                     value={draft.grade || grades[0]?.code || 'junior'}
                     aria-label={`Grade dans ${team.name}`}
                     onChange={(event) => updateTeamDraft(team.id, { grade: event.target.value })}
@@ -413,12 +446,12 @@ export default function AdminOrganizationSection({
                   </select>
                   <button
                     type="button"
-                    disabled={!team.is_active || !draft.technicianId}
+                    disabled={mutationsLocked || !team.is_active || !draft.technicianId}
                     onClick={() => submitTeamDraft(team.id)}
                   >
                     Affecter à l’équipe
                   </button>
-                  <button type="button" className="v1-admin-quiet-button" onClick={() => toggleTeam(team)}>{team.is_active ? 'Archiver l’équipe' : 'Réactiver l’équipe'}</button>
+                  <button type="button" className="v1-admin-quiet-button" disabled={mutationsLocked} onClick={() => toggleTeam(team)}>{team.is_active ? 'Archiver l’équipe' : 'Réactiver l’équipe'}</button>
                 </div>
               </article>
             );

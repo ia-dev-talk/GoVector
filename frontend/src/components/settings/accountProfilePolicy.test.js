@@ -3,7 +3,9 @@ import test from 'node:test';
 
 import {
   buildOperationalAccountProfilePayload,
+  canMutateOrganizationSnapshot,
   resolveOperationalAccountProfilePolicy,
+  resolveOrganizationSnapshot,
 } from './accountProfilePolicy.js';
 
 test('account profile policy mirrors backend role requirements', () => {
@@ -86,4 +88,35 @@ test('unsupported roles fail closed', () => {
   assert.equal(result.valid, false);
   assert.equal(result.technician_id, null);
   assert.equal(result.orienteur_id, null);
+});
+
+test('organization snapshot publishes only when every source succeeds', () => {
+  const results = Array.from({ length: 7 }, (_, index) => ({
+    status: 'fulfilled',
+    value: { data: index === 5 ? { values: {} } : [{ id: index + 1 }] },
+  }));
+  const snapshot = resolveOrganizationSnapshot(results);
+  assert.equal(snapshot.complete, true);
+  assert.deepEqual(snapshot.warnings, []);
+  assert.deepEqual(snapshot.values[3], [{ id: 4 }]);
+});
+
+test('organization snapshot never converts a failed source into a business empty list', () => {
+  const results = Array.from({ length: 7 }, (_, index) => ({
+    status: 'fulfilled',
+    value: { data: [{ id: index + 1 }] },
+  }));
+  results[3] = { status: 'rejected', reason: new Error('sectors unavailable') };
+
+  const snapshot = resolveOrganizationSnapshot(results);
+  assert.equal(snapshot.complete, false);
+  assert.deepEqual(snapshot.warnings, ['secteurs']);
+  assert.equal(snapshot.values, null);
+});
+
+test('organization mutations require a fresh complete snapshot', () => {
+  assert.equal(canMutateOrganizationSnapshot({ hasSnapshot: true }), true);
+  assert.equal(canMutateOrganizationSnapshot({ hasSnapshot: false }), false);
+  assert.equal(canMutateOrganizationSnapshot({ hasSnapshot: true, loading: true }), false);
+  assert.equal(canMutateOrganizationSnapshot({ hasSnapshot: true, warnings: ['secteurs'] }), false);
 });
