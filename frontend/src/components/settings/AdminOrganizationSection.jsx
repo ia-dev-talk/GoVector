@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { api } from '../../api/client';
+import {
+  buildOperationalAccountProfilePayload,
+  resolveOperationalAccountProfilePolicy,
+} from './accountProfilePolicy';
 import '../../styles/settings-v1-admin.css';
 
 function message(error) {
@@ -26,8 +30,10 @@ export default function AdminOrganizationSection({
     { code: 'senior', label: 'Technicien senior' },
   ]);
   const [teamDrafts, setTeamDrafts] = useState({});
+  const [accountRole, setAccountRole] = useState('');
   const [loading, setLoading] = useState(enabled);
   const [loadWarnings, setLoadWarnings] = useState([]);
+  const accountProfilePolicy = resolveOperationalAccountProfilePolicy(accountRole);
 
   const load = useCallback(async () => {
     if (!enabled) {
@@ -104,16 +110,27 @@ export default function AdminOrganizationSection({
   const createOfficeAccount = async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
+    const profile = buildOperationalAccountProfilePayload(accountRole, {
+      technicianId: form.elements.technician_id?.value,
+      orienteurId: form.elements.orienteur_id?.value,
+    });
+    if (!profile.valid) {
+      toast?.(profile.error, 'error');
+      return;
+    }
     try {
       await api.createV1Account({
         username: form.username.value.trim(),
         email: form.email.value.trim(),
         password: form.password.value,
-        role: form.role.value,
-        technician_id: form.technician_id.value ? Number(form.technician_id.value) : null,
-        orienteur_id: form.orienteur_id.value ? Number(form.orienteur_id.value) : null,
+        role: accountRole,
+        technician_id: profile.technician_id,
+        orienteur_id: profile.orienteur_id,
       });
-      form.reset(); await load(); toast?.('Compte opérationnel créé.', 'success');
+      form.reset();
+      setAccountRole('');
+      await load();
+      toast?.('Compte opérationnel créé.', 'success');
     } catch (error) { toast?.(message(error), 'error'); }
   };
 
@@ -281,9 +298,33 @@ export default function AdminOrganizationSection({
           <input name="username" required minLength="3" placeholder="Identifiant de connexion" />
           <input name="email" required type="email" placeholder="Email" />
           <input name="password" required type="password" minLength="12" placeholder="Mot de passe initial · 12 caractères" />
-          <select name="role" required defaultValue=""><option value="" disabled>Rôle</option><option value="ADMIN">Administrateur</option><option value="CHEF_ORIENTEUR">Chef orienteur</option><option value="ORIENTEUR">Orienteur</option><option value="TECHNICIAN">Technicien</option></select>
-          <select name="orienteur_id" defaultValue=""><option value="">Profil orienteur si nécessaire</option>{orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-          <select name="technician_id" defaultValue=""><option value="">Profil technicien si nécessaire</option>{technicians.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+          <select
+            name="role"
+            required
+            value={accountRole}
+            onChange={(event) => setAccountRole(event.target.value)}
+          >
+            <option value="" disabled>Rôle</option>
+            <option value="ADMIN">Administrateur</option>
+            <option value="CHEF_ORIENTEUR">Chef orienteur</option>
+            <option value="ORIENTEUR">Orienteur</option>
+            <option value="TECHNICIAN">Technicien</option>
+          </select>
+          {accountProfilePolicy.field === 'orienteur_id' ? (
+            <select name="orienteur_id" required defaultValue="">
+              <option value="" disabled>Profil orienteur requis</option>
+              {orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          ) : null}
+          {accountProfilePolicy.field === 'technician_id' ? (
+            <select name="technician_id" required defaultValue="">
+              <option value="" disabled>Profil technicien requis</option>
+              {technicians.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          ) : null}
+          {accountProfilePolicy.supported && accountProfilePolicy.field === null ? (
+            <p className="v1-admin-help">Ce rôle n’est lié à aucun profil terrain.</p>
+          ) : null}
           <button type="submit">Créer le compte</button>
         </form>
         <div className="v1-admin-account-grid">
