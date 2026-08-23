@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildSectorSnapshotFromSettled,
   canMutateSectorSnapshot,
+  reconcileVisibleSectorSelection,
 } from './sectorSnapshot.js';
 
 const fulfilled = (data) => ({ status: 'fulfilled', value: { data } });
@@ -66,4 +67,19 @@ test('sector mutations are writable only on a fresh settled snapshot', () => {
     refreshing: false,
     stale: false,
   }), true);
+});
+
+test('sector selection is cleared when filters remove the selected sector', () => {
+  const visible = [{ id: 2 }, { id: 3 }];
+  assert.equal(reconcileVisibleSectorSelection(visible, 2), 2);
+  assert.equal(reconcileVisibleSectorSelection(visible, 1), null);
+  assert.equal(reconcileVisibleSectorSelection([], 2), null);
+  assert.equal(reconcileVisibleSectorSelection(visible, null), null);
+});
+
+test('sector selection supports the normalized id contract used by the registry', () => {
+  const visible = [{ rawId: '42' }];
+  const getId = (sector) => Number(sector.rawId);
+  assert.equal(reconcileVisibleSectorSelection(visible, 42, getId), 42);
+  assert.equal(reconcileVisibleSectorSelection(visible, 7, getId), null);
 });

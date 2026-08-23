@@ -1,8 +1,9 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import {
   FilterIcon,
   SortIcon,
 } from './SectorIcons';
+import { reconcileVisibleSectorSelection } from './sectorSnapshot';
 import { sectorId } from './sectorUtils';
 
 
@@ -113,6 +114,17 @@ const SectorRegistry = memo(function SectorRegistry({
   onSortBy,
   totalCount,
 }) {
+  useEffect(() => {
+    const nextSelectedId = reconcileVisibleSectorSelection(
+      sectors,
+      selectedId,
+      sectorId,
+    );
+    if (selectedId !== null && nextSelectedId === null) {
+      onSelect(null);
+    }
+  }, [onSelect, sectors, selectedId]);
+
   return (
     <section className="sv3-registry">
       <header className="sv3-panel-header">

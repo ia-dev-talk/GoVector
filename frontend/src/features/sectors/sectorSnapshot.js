@@ -14,6 +14,13 @@ export function canMutateSectorSnapshot({
   return Boolean(canManage) && !loading && !refreshing && !stale;
 }
 
+export function reconcileVisibleSectorSelection(sectors, selectedId, getId = (sector) => sector?.id) {
+  if (selectedId === null || selectedId === undefined) return null;
+  const visible = Array.isArray(sectors)
+    && sectors.some((sector) => getId(sector) === selectedId);
+  return visible ? selectedId : null;
+}
+
 export function buildSectorSnapshotFromSettled(results, toRecords) {
   if (!Array.isArray(results) || results.length !== SECTOR_SNAPSHOT_KEYS.length) {
     throw new Error('Invalid sector snapshot result set');
