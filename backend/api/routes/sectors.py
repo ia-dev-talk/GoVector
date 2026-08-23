@@ -274,6 +274,7 @@ async def replace_technician_sector_assignment(
             SELECT id
             FROM technicians
             WHERE id = :technician_id
+            FOR UPDATE
             """
         ),
         {
@@ -379,6 +380,18 @@ async def replace_technician_sector_assignment(
                 },
             )
 
+        await db.execute(
+            text(
+                """
+                UPDATE technicians
+                SET updated_at = CURRENT_TIMESTAMP
+                WHERE id = :technician_id
+                """
+            ),
+            {
+                "technician_id": technician_id,
+            },
+        )
         await db.commit()
     except Exception:
         await db.rollback()
