@@ -1,0 +1,140 @@
+.st3-holder-picker {
+  position: relative;
+  min-width: 260px;
+  max-width: 420px;
+  width: 100%;
+}
+
+.st3-holder-picker > label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted, #8fa0b8);
+}
+
+.st3-holder-picker__control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  align-items: center;
+  min-height: 40px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.72);
+  overflow: hidden;
+}
+
+.st3-holder-picker__control:focus-within {
+  border-color: rgba(96, 165, 250, 0.72);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16);
+}
+
+.st3-holder-picker__control input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+}
+
+.st3-holder-picker__toggle {
+  height: 38px;
+  border: 0;
+  border-left: 1px solid rgba(148, 163, 184, 0.18);
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.st3-holder-picker__menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: min(360px, 46vh);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  background: #111827;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+}
+
+.st3-holder-picker__group {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  padding: 8px 8px 5px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8291a8;
+  background: #111827;
+}
+
+.st3-holder-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.st3-holder-option:hover,
+.st3-holder-option:focus-visible,
+.st3-holder-option--selected {
+  outline: none;
+  background: rgba(59, 130, 246, 0.14);
+}
+
+.st3-holder-option span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.st3-holder-option strong,
+.st3-holder-option small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st3-holder-option small {
+  color: #91a0b5;
+}
+
+.st3-holder-option em {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-style: normal;
+  color: #91a0b5;
+}
+
+.st3-holder-picker__empty {
+  padding: 14px 10px;
+  color: #91a0b5;
+  text-align: center;
+  font-size: 12px;
+}
+
+@media (max-width: 960px) {
+  .st3-holder-picker {
+    max-width: none;
+  }
+}
