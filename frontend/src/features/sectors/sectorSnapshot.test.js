@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { buildSectorSnapshotFromSettled } from './sectorSnapshot.js';
+
+const fulfilled = (data) => ({ status: 'fulfilled', value: { data } });
+const rejected = (message) => ({ status: 'rejected', reason: new Error(message) });
+const normalize = (value) => (Array.isArray(value) ? value : []);
+
+test('sector snapshot publishes all four business slices together', () => {
+  const result = buildSectorSnapshotFromSettled([
+    fulfilled([{ id: 1 }]),
+    fulfilled([{ id: 2 }]),
+    fulfilled([{ id: 3 }]),
+    fulfilled([{ id: 4 }]),
+  ], normalize);
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.failedIndexes, []);
+  assert.deepEqual(result.snapshot, {
+    sectors: [{ id: 1 }],
+    technicians: [{ id: 2 }],
+    jobs: [{ id: 3 }],
+    assignments: [{ id: 4 }],
+  });
+});
+
+test('sector snapshot rejects partial refresh instead of mixing generations', () => {
+  const result = buildSectorSnapshotFromSettled([
+    fulfilled([{ id: 'sector-b' }]),
+    fulfilled([{ id: 'tech-b' }]),
+    fulfilled([{ id: 'job-b' }]),
+    rejected('assignments unavailable'),
+  ], normalize);
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.failedIndexes, [3]);
+  assert.equal(result.snapshot, null);
+});
+
+test('sector snapshot rejects symmetric technician failure even if assignments are fresh', () => {
+  const result = buildSectorSnapshotFromSettled([
+    fulfilled([{ id: 'sector-c' }]),
+    rejected('technicians unavailable'),
+    fulfilled([{ id: 'job-c' }]),
+    fulfilled([{ id: 'assignment-c' }]),
+  ], normalize);
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.failedIndexes, [1]);
+  assert.equal(result.snapshot, null);
+});
