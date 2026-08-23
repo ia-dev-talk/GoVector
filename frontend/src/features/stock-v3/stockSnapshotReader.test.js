@@ -6,6 +6,11 @@ import {
   assertWritableStockSnapshot,
   createAtomicSnapshotReader,
 } from './stockSnapshotReader.js';
+import {
+  STOCK_DISCARD_MESSAGE,
+  canCloseStockDraft,
+  isStockDraftDirty,
+} from './stockUnsavedChanges.js';
 
 function deferred() {
   let resolve;
@@ -178,4 +183,34 @@ test('all visible stock mutation entry points respect snapshot writability', () 
   assert.match(inspector, /disabled=\{!snapshotWritable\}/);
   assert.match(inspector, /disabled=\{!snapshotWritable \|\| !hasAvailableStock\}/);
   assert.match(inspector, /disabled=\{!snapshotWritable \|\| !canReceive\}/);
+});
+
+test('stock draft dirty policy only confirms destructive closes when needed', () => {
+  const baseline = { reference: 'ONT-1', is_active: true };
+  assert.equal(isStockDraftDirty(baseline, baseline), false);
+  assert.equal(isStockDraftDirty({ ...baseline, reference: 'ONT-2' }, baseline), true);
+
+  let prompts = 0;
+  const confirmDiscard = (message) => {
+    prompts += 1;
+    assert.equal(message, STOCK_DISCARD_MESSAGE);
+    return true;
+  };
+
+  assert.equal(canCloseStockDraft({ dirty: false, saving: false, confirmDiscard }), true);
+  assert.equal(prompts, 0);
+  assert.equal(canCloseStockDraft({ dirty: true, saving: false, confirmDiscard }), true);
+  assert.equal(prompts, 1);
+  assert.equal(canCloseStockDraft({ dirty: true, saving: true, confirmDiscard }), false);
+  assert.equal(prompts, 1);
+});
+
+test('stock editor, warehouse and issue modals route destructive exits through the shared guard', () => {
+  for (const filename of ['StockEditorModal.jsx', 'WarehouseEditorModal.jsx', 'StockIssueModal.jsx']) {
+    const source = readFileSync(new URL(`./${filename}`, import.meta.url), 'utf8');
+    assert.match(source, /canCloseStockDraft/);
+    assert.match(source, /requestClose/);
+    assert.match(source, /event\.key !== 'Escape'/);
+    assert.doesNotMatch(source, /onClick=\{onClose\}/);
+  }
 });

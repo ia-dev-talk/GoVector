@@ -1,5 +1,7 @@
 import {
   memo,
+  useCallback,
+  useMemo,
   useState,
 } from 'react';
 import {
@@ -7,6 +9,10 @@ import {
   WarehouseIcon,
 } from './StockIcons';
 import { text } from './stockUtils';
+import {
+  canCloseStockDraft,
+  isStockDraftDirty,
+} from './stockUnsavedChanges';
 
 
 const INITIAL_FORM = Object.freeze({
@@ -50,9 +56,21 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
   onClose,
   onSave,
 }) {
+  const baseline = useMemo(() => initialForm(warehouse), [warehouse]);
   const [form, setForm] = useState(() => initialForm(warehouse));
   const [localError, setLocalError] = useState('');
   const editing = Boolean(warehouse?.id);
+  const dirty = isStockDraftDirty(form, baseline);
+
+  const requestClose = useCallback(() => {
+    if (canCloseStockDraft({
+      dirty,
+      saving,
+      confirmDiscard: window.confirm,
+    })) {
+      onClose();
+    }
+  }, [dirty, onClose, saving]);
 
   const update = (key, value) => {
     setForm((current) => ({
@@ -98,7 +116,7 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
       className="st3-modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) requestClose();
       }}
     >
       <section
@@ -106,6 +124,12 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="st3-warehouse-title"
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          event.stopPropagation();
+          requestClose();
+        }}
       >
         <header>
           <span className="st3-modal-icon"><WarehouseIcon /></span>
@@ -115,7 +139,7 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
               {editing ? 'Modifier le dépôt' : 'Créer un dépôt'}
             </strong>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer">
+          <button type="button" onClick={requestClose} disabled={saving} aria-label="Fermer">
             <CloseIcon />
           </button>
         </header>
@@ -180,7 +204,7 @@ const WarehouseEditorModal = memo(function WarehouseEditorModal({
         </div>
 
         <footer>
-          <button type="button" className="st3-secondary-button" onClick={onClose} disabled={saving}>
+          <button type="button" className="st3-secondary-button" onClick={requestClose} disabled={saving}>
             Annuler
           </button>
           <button type="button" className="st3-primary-button" onClick={submit} disabled={saving}>

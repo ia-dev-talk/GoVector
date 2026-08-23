@@ -1,6 +1,8 @@
 import {
   memo,
+  useCallback,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -13,6 +15,10 @@ import {
   numeric,
   text,
 } from './stockUtils';
+import {
+  canCloseStockDraft,
+  isStockDraftDirty,
+} from './stockUnsavedChanges';
 
 function technicianLabel(technician) {
   const name = text(technician?.name, `Technicien #${technician?.id ?? '—'}`);
@@ -56,6 +62,28 @@ function money(value) {
   }).format(amount);
 }
 
+function initialIssueDraft({
+  item,
+  warehouseOptions,
+  initialWarehouseId,
+  initialTechnicianId,
+}) {
+  const requested = warehouseOptions.find(
+    (warehouse) => String(warehouse.id) === String(initialWarehouseId),
+  );
+  const firstWithStock = requested && availableForWarehouse(item, requested.id) > 0
+    ? requested
+    : warehouseOptions.find(
+      (warehouse) => availableForWarehouse(item, warehouse?.id) > 0,
+    );
+  return {
+    warehouseId: firstWithStock ? String(firstWithStock.id) : '',
+    technicianId: initialTechnicianId ? String(initialTechnicianId) : '',
+    quantity: '1',
+    notes: '',
+  };
+}
+
 const StockIssueModal = memo(function StockIssueModal({
   item,
   warehouses,
@@ -82,25 +110,39 @@ const StockIssueModal = memo(function StockIssueModal({
     ),
     [technicians],
   );
+  const baselineRef = useRef(null);
+  if (!baselineRef.current) {
+    baselineRef.current = initialIssueDraft({
+      item,
+      warehouseOptions,
+      initialWarehouseId,
+      initialTechnicianId,
+    });
+  }
+  const baseline = baselineRef.current;
 
-  const [warehouseId, setWarehouseId] = useState(() => {
-    const requested = warehouseOptions.find(
-      (warehouse) => String(warehouse.id) === String(initialWarehouseId),
-    );
-    if (requested && availableForWarehouse(item, requested.id) > 0) {
-      return String(requested.id);
-    }
-    const firstWithStock = warehouseOptions.find(
-      (warehouse) => availableForWarehouse(item, warehouse?.id) > 0,
-    );
-    return firstWithStock ? String(firstWithStock.id) : '';
-  });
-  const [technicianId, setTechnicianId] = useState(
-    initialTechnicianId ? String(initialTechnicianId) : '',
-  );
-  const [quantity, setQuantity] = useState('1');
-  const [notes, setNotes] = useState('');
+  const [warehouseId, setWarehouseId] = useState(baseline.warehouseId);
+  const [technicianId, setTechnicianId] = useState(baseline.technicianId);
+  const [quantity, setQuantity] = useState(baseline.quantity);
+  const [notes, setNotes] = useState(baseline.notes);
   const [localError, setLocalError] = useState('');
+
+  const currentDraft = {
+    warehouseId,
+    technicianId,
+    quantity,
+    notes,
+  };
+  const dirty = isStockDraftDirty(currentDraft, baseline);
+  const requestClose = useCallback(() => {
+    if (canCloseStockDraft({
+      dirty,
+      saving,
+      confirmDiscard: window.confirm,
+    })) {
+      onClose();
+    }
+  }, [dirty, onClose, saving]);
 
   const available = availableForWarehouse(item, warehouseId);
   const selectedWarehouse = warehouseOptions.find(
@@ -157,7 +199,7 @@ const StockIssueModal = memo(function StockIssueModal({
       className="st3-modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) onClose();
+        if (event.target === event.currentTarget) requestClose();
       }}
     >
       <section
@@ -165,6 +207,12 @@ const StockIssueModal = memo(function StockIssueModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="st3-issue-title"
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          event.stopPropagation();
+          requestClose();
+        }}
       >
         <header>
           <span className="st3-modal-icon"><BoxIcon /></span>
@@ -177,7 +225,7 @@ const StockIssueModal = memo(function StockIssueModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={saving}
             aria-label="Fermer"
           >
@@ -285,7 +333,7 @@ const StockIssueModal = memo(function StockIssueModal({
           <button
             type="button"
             className="st3-secondary-button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={saving}
           >
             Annuler

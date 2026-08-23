@@ -1,6 +1,8 @@
 import {
   memo,
+  useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
 import {
@@ -11,6 +13,10 @@ import {
   buildItemDocument,
   text,
 } from './stockUtils';
+import {
+  canCloseStockDraft,
+  isStockDraftDirty,
+} from './stockUnsavedChanges';
 
 
 const EMPTY_FORM = Object.freeze({
@@ -77,6 +83,10 @@ const StockEditorModal = memo(function StockEditorModal({
   onClose,
   onSave,
 }) {
+  const baseline = useMemo(
+    () => initialForm(item),
+    [item],
+  );
   const [form, setForm] =
     useState(() =>
       initialForm(item),
@@ -97,6 +107,17 @@ const StockEditorModal = memo(function StockEditorModal({
     return () =>
       window.clearTimeout(timer);
   }, [item]);
+
+  const dirty = isStockDraftDirty(form, baseline);
+  const requestClose = useCallback(() => {
+    if (canCloseStockDraft({
+      dirty,
+      saving,
+      confirmDiscard: window.confirm,
+    })) {
+      onClose();
+    }
+  }, [dirty, onClose, saving]);
 
   const update =
     (key, value) => {
@@ -128,7 +149,7 @@ const StockEditorModal = memo(function StockEditorModal({
           event.target ===
           event.currentTarget
         ) {
-          onClose();
+          requestClose();
         }
       }}
     >
@@ -137,6 +158,12 @@ const StockEditorModal = memo(function StockEditorModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="st3-item-title"
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          event.preventDefault();
+          event.stopPropagation();
+          requestClose();
+        }}
       >
         <header>
           <span className="st3-modal-icon">
@@ -154,7 +181,8 @@ const StockEditorModal = memo(function StockEditorModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
+            disabled={saving}
             aria-label="Fermer"
           >
             <CloseIcon />
@@ -338,7 +366,7 @@ const StockEditorModal = memo(function StockEditorModal({
           <button
             type="button"
             className="st3-secondary-button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={saving}
           >
             Annuler
