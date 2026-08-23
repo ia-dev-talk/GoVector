@@ -6,7 +6,7 @@ import {
   useState,
 } from 'react';
 
-import { api } from '../api/client';
+import { api, apiClient } from '../api/client';
 import ContextMenu from '../components/ContextMenu';
 import TechGrid from '../components/TechGrid';
 import Toast from '../components/Toast';
@@ -48,9 +48,6 @@ const EMPTY_FILTERS = Object.freeze({
 
 const DISCARD_TECHNICIAN_CHANGES_MESSAGE =
   'Abandonner les modifications de cette fiche technicien ?';
-
-const OVERWRITE_TECHNICIAN_CHANGES_MESSAGE =
-  'Cette fiche a été mise à jour depuis le serveur pendant votre édition. Enregistrer quand même vos modifications locales ?';
 
 function apiErrorMessage(error, fallback) {
   const detail = error?.response?.data?.detail;
@@ -651,6 +648,23 @@ export default function PersonnelPage({
     setDetailRevision(0);
   }, [allowDiscardDetail]);
 
+  const reloadConflictedDetail = useCallback(async () => {
+    if (
+      detailDirtyRef.current &&
+      !window.confirm(DISCARD_TECHNICIAN_CHANGES_MESSAGE)
+    ) {
+      return;
+    }
+    detailDirtyRef.current = false;
+    inspectorBaselineRef.current = '';
+    serverBaselineRef.current = '';
+    conflictToastRef.current = '';
+    setDetailDirty(false);
+    setDetailConflict(false);
+    await loadData({ manual: true });
+    setDetailRevision((current) => current + 1);
+  }, [loadData]);
+
   const handleTechClick = useCallback((id, event, displayedIds) => {
     setSelectedIds((current) => {
       if (event.metaKey || event.ctrlKey) {
@@ -693,22 +707,43 @@ export default function PersonnelPage({
         nextStatus !== currentStatus;
 
       if (!canEditGeneral && !statusChanged) return false;
+      if (canEditGeneral && !text(tech?.updated_at)) {
+        toast(
+          'Révision technicien absente. Rechargez la fiche avant d’enregistrer.',
+          'error',
+        );
+        return false;
+      }
+
       setBusy(true);
       try {
         if (canEditGeneral) {
-          await api.updateTechnician(tech.id, generalUpdates);
-          await personnelSectorApi.updateAssignment(tech.id, {
-            primary_sector_id: primarySectorId || null,
-            sector_ids: Array.isArray(sectorIds) ? sectorIds : [],
-          });
-        }
-        if (statusChanged) {
+          await apiClient.post(
+            `/technicians/${encodeURIComponent(String(tech.id))}/profile-save`,
+            {
+              expected_updated_at: tech.updated_at,
+              updates: generalUpdates,
+              primary_sector_id: primarySectorId || null,
+              sector_ids: Array.isArray(sectorIds) ? sectorIds : [],
+              live_status: statusChanged ? nextStatus : null,
+            },
+          );
+        } else if (statusChanged) {
           await api.updateTechStatus(tech.id, nextStatus);
         }
+
         await loadData({ manual: true });
         toast('Technicien et secteurs enregistrés', 'success');
         return true;
       } catch (error) {
+        if (error?.response?.status === 409 && canEditGeneral) {
+          setDetailConflict(true);
+          toast(
+            'Cette fiche a changé côté serveur. Vos modifications locales sont conservées ; rechargez la fiche pour arbitrer avant une nouvelle sauvegarde.',
+            'warning',
+          );
+          return false;
+        }
         toast(
           apiErrorMessage(error, 'Impossible d’enregistrer le technicien.'),
           'error',
@@ -723,12 +758,6 @@ export default function PersonnelPage({
 
   const handleInspectorSave = useCallback(
     async (tech, updates) => {
-      if (
-        detailConflict &&
-        !window.confirm(OVERWRITE_TECHNICIAN_CHANGES_MESSAGE)
-      ) {
-        return false;
-      }
       const saved = await handleSaveTech(tech, updates);
       if (!saved) return false;
       detailDirtyRef.current = false;
@@ -740,7 +769,7 @@ export default function PersonnelPage({
       setDetailRevision((current) => current + 1);
       return true;
     },
-    [detailConflict, handleSaveTech],
+    [handleSaveTech],
   );
 
   const updateTechnicianStatuses = useCallback(
@@ -864,9 +893,16 @@ export default function PersonnelPage({
           <div>
             <strong>Fiche modifiée côté serveur</strong>
             <span>
-              Vos changements locaux sont conservés. Enregistrer demandera une confirmation explicite afin d’éviter un écrasement silencieux.
+              Vos changements locaux sont conservés. La sauvegarde est protégée par la révision serveur : rechargez la fiche pour arbitrer avant de réessayer.
             </span>
           </div>
+          <button
+            type="button"
+            onClick={reloadConflictedDetail}
+            disabled={refreshing || busy}
+          >
+            Recharger la fiche
+          </button>
         </div>
       ) : null}
 

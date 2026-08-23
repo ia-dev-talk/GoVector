@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import {
   hasPersonnelServerConflict,
@@ -64,4 +65,22 @@ test('server conflict is reported only while a dirty draft exists', () => {
     baselineFingerprint: baseline,
     currentFingerprint: baseline,
   }), false);
+});
+
+test('Personnel general save uses the revision-guarded atomic profile endpoint', () => {
+  const source = readFileSync(
+    new URL('../../pages/PersonnelPage.jsx', import.meta.url),
+    'utf8',
+  );
+  const saveStart = source.indexOf('const handleSaveTech = useCallback');
+  const saveEnd = source.indexOf('const handleInspectorSave = useCallback', saveStart);
+  assert.ok(saveStart >= 0 && saveEnd > saveStart);
+
+  const saveBlock = source.slice(saveStart, saveEnd);
+  assert.match(saveBlock, /profile-save/);
+  assert.match(saveBlock, /expected_updated_at/);
+  assert.doesNotMatch(saveBlock, /api\.updateTechnician\(/);
+  assert.doesNotMatch(saveBlock, /personnelSectorApi\.updateAssignment\(/);
+  assert.match(saveBlock, /error\?\.response\?\.status === 409/);
+  assert.doesNotMatch(source, /OVERWRITE_TECHNICIAN_CHANGES_MESSAGE/);
 });
