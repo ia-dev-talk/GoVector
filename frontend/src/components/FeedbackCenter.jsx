@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 
 import { feedbackApi } from '../api/feedback';
+import {
+  filterFeedbackTickets,
+  reconcileFeedbackSelection,
+} from './feedbackSelection';
 import './feedback-center.css';
 
 const STATUS_OPTIONS = [
@@ -47,6 +51,7 @@ export default function FeedbackCenter({ userRole = 'ADMIN' }) {
   const [selectedId, setSelectedId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [query, setQuery] = useState('');
+  const queryRef = useRef('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -59,11 +64,9 @@ export default function FeedbackCenter({ userRole = 'ADMIN' }) {
       const response = await feedbackApi.list(statusFilter ? { status: statusFilter } : {});
       const data = response?.data;
       const rows = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+      const scopedRows = filterFeedbackTickets(rows, queryRef.current);
       setTickets(rows);
-      setSelectedId((current) => {
-        if (current && rows.some((ticket) => ticketKey(ticket) === current)) return current;
-        return rows.length ? ticketKey(rows[0]) : null;
-      });
+      setSelectedId((current) => reconcileFeedbackSelection(scopedRows, current));
     } catch (loadError) {
       setError(messageFrom(loadError, 'Impossible de charger les tickets.'));
     } finally {
@@ -75,23 +78,23 @@ export default function FeedbackCenter({ userRole = 'ADMIN' }) {
     load();
   }, [load]);
 
-  const visibleTickets = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return tickets;
-    return tickets.filter((ticket) => [
-      ticket?.public_id,
-      ticket?.title,
-      ticket?.description,
-      ticket?.page,
-      ticket?.ticket_type,
-      ticket?.status,
-    ].some((value) => text(value).toLowerCase().includes(needle)));
-  }, [query, tickets]);
+  const visibleTickets = useMemo(
+    () => filterFeedbackTickets(tickets, query),
+    [query, tickets],
+  );
 
   const selected = useMemo(
-    () => tickets.find((ticket) => ticketKey(ticket) === selectedId) || null,
-    [selectedId, tickets],
+    () => visibleTickets.find((ticket) => ticketKey(ticket) === selectedId) || null,
+    [selectedId, visibleTickets],
   );
+
+  const handleQueryChange = (event) => {
+    const nextQuery = event.target.value;
+    const nextVisibleTickets = filterFeedbackTickets(tickets, nextQuery);
+    queryRef.current = nextQuery;
+    setQuery(nextQuery);
+    setSelectedId((current) => reconcileFeedbackSelection(nextVisibleTickets, current));
+  };
 
   const patchSelected = async (document) => {
     if (!selected?.id || !isAdmin || saving) return;
@@ -147,7 +150,7 @@ export default function FeedbackCenter({ userRole = 'ADMIN' }) {
       <div className="feedback-center__toolbar">
         <input
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={handleQueryChange}
           placeholder="Rechercher un ticket, une page, un problème…"
           aria-label="Rechercher dans les tickets"
         />
@@ -182,7 +185,7 @@ export default function FeedbackCenter({ userRole = 'ADMIN' }) {
         </aside>
 
         <article className="feedback-center__detail">
-          {!selected ? <div className="feedback-center__empty">Sélectionnez un ticket pour afficher son détail.</div> : (
+          {!selected ? <div className="feedback-center__empty">Sélectionnez un ticket parmi les résultats pour afficher son détail.</div> : (
             <>
               <header>
                 <div>
