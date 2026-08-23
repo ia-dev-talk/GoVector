@@ -14,6 +14,12 @@ import PersonnelHeader from '../features/personnel/PersonnelHeader';
 import PersonnelInspector from '../features/personnel/PersonnelInspector';
 import PersonnelKpiStrip from '../features/personnel/PersonnelKpiStrip';
 import PersonnelToolbar from '../features/personnel/PersonnelToolbar';
+import {
+  hasPersonnelServerConflict,
+  isPersonnelDraftDirty,
+  personnelDraftFingerprint,
+  personnelServerFingerprint,
+} from '../features/personnel/personnelDraftGuard';
 import { personnelSectorApi } from '../features/personnel/personnelSectorApi';
 import {
   OFFLINE_TECH_STATUSES,
@@ -39,6 +45,12 @@ const EMPTY_FILTERS = Object.freeze({
   skill: null,
   gps: null,
 });
+
+const DISCARD_TECHNICIAN_CHANGES_MESSAGE =
+  'Abandonner les modifications de cette fiche technicien ?';
+
+const OVERWRITE_TECHNICIAN_CHANGES_MESSAGE =
+  'Cette fiche a été mise à jour depuis le serveur pendant votre édition. Enregistrer quand même vos modifications locales ?';
 
 function apiErrorMessage(error, fallback) {
   const detail = error?.response?.data?.detail;
@@ -147,6 +159,9 @@ export default function PersonnelPage({
   const [dataError, setDataError] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [detailTechId, setDetailTechId] = useState(null);
+  const [detailDirty, setDetailDirty] = useState(false);
+  const [detailConflict, setDetailConflict] = useState(false);
+  const [detailRevision, setDetailRevision] = useState(0);
   const [contextMenu, setContextMenu] = useState(null);
   const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -157,6 +172,11 @@ export default function PersonnelPage({
 
   const toastSequence = useRef(0);
   const loadDataRef = useRef(null);
+  const inspectorHostRef = useRef(null);
+  const inspectorBaselineRef = useRef('');
+  const serverBaselineRef = useRef('');
+  const detailDirtyRef = useRef(false);
+  const conflictToastRef = useRef('');
 
   const canEditGeneral =
     userRole === 'ADMIN' || userRole === 'CHEF_ORIENTEUR';
@@ -169,6 +189,54 @@ export default function PersonnelPage({
       setToasts((current) => current.filter((item) => item.id !== id));
     }, 3500);
   }, []);
+
+  const readInspectorDraft = useCallback(() => {
+    const root = inspectorHostRef.current;
+    if (!root) return '';
+    const controls = root.querySelectorAll(
+      '.personnel-v3-inspector input:not(:disabled), .personnel-v3-inspector select:not(:disabled), .personnel-v3-inspector textarea:not(:disabled)',
+    );
+    return personnelDraftFingerprint(
+      Array.from(controls).map((control) => ({
+        type: control.type || control.tagName,
+        value: control.value,
+        checked: control.checked,
+      })),
+    );
+  }, []);
+
+  const markDetailClean = useCallback(() => {
+    const snapshot = readInspectorDraft();
+    inspectorBaselineRef.current = snapshot;
+    detailDirtyRef.current = false;
+    setDetailDirty(false);
+  }, [readInspectorDraft]);
+
+  const allowDiscardDetail = useCallback(() => {
+    if (!detailDirtyRef.current) return true;
+    if (!window.confirm(DISCARD_TECHNICIAN_CHANGES_MESSAGE)) return false;
+    detailDirtyRef.current = false;
+    inspectorBaselineRef.current = '';
+    serverBaselineRef.current = '';
+    conflictToastRef.current = '';
+    setDetailDirty(false);
+    setDetailConflict(false);
+    return true;
+  }, []);
+
+  const handleInspectorEdit = useCallback(() => {
+    const currentFingerprint = readInspectorDraft();
+    const dirty = isPersonnelDraftDirty(
+      inspectorBaselineRef.current,
+      currentFingerprint,
+    );
+    detailDirtyRef.current = dirty;
+    setDetailDirty(dirty);
+    if (!dirty) {
+      setDetailConflict(false);
+      conflictToastRef.current = '';
+    }
+  }, [readInspectorDraft]);
 
   const loadData = useCallback(
     async ({ manual = false, silent = false } = {}) => {
@@ -298,6 +366,40 @@ export default function PersonnelPage({
     return () => document.removeEventListener('click', closeMenu);
   }, []);
 
+  useEffect(() => {
+    if (!detailDirty) return undefined;
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    const handleSidebarLeave = (event) => {
+      const target = event.target instanceof Element
+        ? event.target.closest('.sidebar-nav-item')
+        : null;
+      if (!target || target.getAttribute('aria-current') === 'page') return;
+      if (window.confirm(DISCARD_TECHNICIAN_CHANGES_MESSAGE)) {
+        detailDirtyRef.current = false;
+        setDetailDirty(false);
+        setDetailConflict(false);
+        inspectorBaselineRef.current = '';
+        serverBaselineRef.current = '';
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleSidebarLeave, true);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleSidebarLeave, true);
+    };
+  }, [detailDirty]);
+
   const filteredTechnicians = useMemo(() => {
     const normalizedQuery = normalizeSearchText(query);
     return technicians.filter((tech) => {
@@ -409,6 +511,56 @@ export default function PersonnelPage({
     ) ?? null;
   }, [detailTechId, technicians]);
 
+  const detailServerFingerprint = useMemo(
+    () => personnelServerFingerprint(detailTech),
+    [detailTech],
+  );
+
+  useEffect(() => {
+    if (!detailTechId || !detailTech) {
+      inspectorBaselineRef.current = '';
+      serverBaselineRef.current = '';
+      detailDirtyRef.current = false;
+      setDetailDirty(false);
+      setDetailConflict(false);
+      return undefined;
+    }
+
+    serverBaselineRef.current = detailServerFingerprint;
+    conflictToastRef.current = '';
+    const frameId = window.requestAnimationFrame(markDetailClean);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [detailRevision, detailTechId, markDetailClean]);
+
+  useEffect(() => {
+    if (!detailTech || !detailServerFingerprint) return;
+    if (!serverBaselineRef.current) {
+      serverBaselineRef.current = detailServerFingerprint;
+      return;
+    }
+    if (detailServerFingerprint === serverBaselineRef.current) return;
+
+    if (hasPersonnelServerConflict({
+      dirty: detailDirtyRef.current,
+      baselineFingerprint: serverBaselineRef.current,
+      currentFingerprint: detailServerFingerprint,
+    })) {
+      setDetailConflict(true);
+      if (conflictToastRef.current !== detailServerFingerprint) {
+        conflictToastRef.current = detailServerFingerprint;
+        toast(
+          'La fiche technicien a changé côté serveur. Vos modifications locales sont conservées tant que vous ne choisissez pas de les enregistrer ou de les abandonner.',
+          'warning',
+        );
+      }
+      return;
+    }
+
+    serverBaselineRef.current = detailServerFingerprint;
+    setDetailConflict(false);
+    setDetailRevision((current) => current + 1);
+  }, [detailServerFingerprint, detailTech, toast]);
+
   useEffect(() => {
     const target = normalizeIdentifier(
       navigationPayload?.technicianId ??
@@ -420,10 +572,25 @@ export default function PersonnelPage({
       (tech) => normalizeIdentifier(tech.id) === target,
     );
     if (match) {
+      const currentId = normalizeIdentifier(detailTechId);
+      if (
+        currentId &&
+        currentId !== target &&
+        detailDirtyRef.current &&
+        !window.confirm(DISCARD_TECHNICIAN_CHANGES_MESSAGE)
+      ) {
+        return;
+      }
+      detailDirtyRef.current = false;
+      setDetailDirty(false);
+      setDetailConflict(false);
+      inspectorBaselineRef.current = '';
+      serverBaselineRef.current = '';
       setDetailTechId(match.id);
+      setDetailRevision(0);
       setSelectedIds([match.id]);
     }
-  }, [navigationPayload, technicians]);
+  }, [detailTechId, navigationPayload, technicians]);
 
   const detailTodayJobs = useMemo(
     () => detailTech
@@ -432,35 +599,57 @@ export default function PersonnelPage({
     [detailTech, jobs],
   );
 
+  const guardedNavigate = useCallback(
+    (page, payload) => {
+      if (!allowDiscardDetail()) return false;
+      if (typeof onNavigate !== 'function') return false;
+      return onNavigate(page, payload);
+    },
+    [allowDiscardDetail, onNavigate],
+  );
+
   const openIntervention = useCallback(
     (job) => {
       const id = Number(job?.id);
-      if (
-        !Number.isInteger(id) ||
-        id <= 0 ||
-        typeof onNavigate !== 'function'
-      ) return;
-      onNavigate('interventions', { id, from: 'personnel' });
+      if (!Number.isInteger(id) || id <= 0) return;
+      guardedNavigate('interventions', { id, from: 'personnel' });
     },
-    [onNavigate],
+    [guardedNavigate],
   );
 
   const openTechnicianStock = useCallback(
     (tech) => {
       const technicianId = Number(tech?.id);
-      if (
-        !Number.isInteger(technicianId) ||
-        technicianId <= 0 ||
-        typeof onNavigate !== 'function'
-      ) return;
-      onNavigate('stocks', {
+      if (!Number.isInteger(technicianId) || technicianId <= 0) return;
+      guardedNavigate('stocks', {
         technicianId,
         technicianName: text(tech?.name),
         from: 'personnel',
       });
     },
-    [onNavigate],
+    [guardedNavigate],
   );
+
+  const requestOpenTechnician = useCallback(
+    (tech) => {
+      const nextId = normalizeIdentifier(tech?.id);
+      if (!nextId) return;
+      if (normalizeIdentifier(detailTechId) === nextId) return;
+      if (!allowDiscardDetail()) return;
+      inspectorBaselineRef.current = '';
+      serverBaselineRef.current = '';
+      setDetailConflict(false);
+      setDetailRevision(0);
+      setDetailTechId(tech.id);
+    },
+    [allowDiscardDetail, detailTechId],
+  );
+
+  const requestCloseTechnician = useCallback(() => {
+    if (!allowDiscardDetail()) return;
+    setDetailTechId(null);
+    setDetailRevision(0);
+  }, [allowDiscardDetail]);
 
   const handleTechClick = useCallback((id, event, displayedIds) => {
     setSelectedIds((current) => {
@@ -503,7 +692,7 @@ export default function PersonnelPage({
         EDITABLE_LIVE_STATUSES.includes(nextStatus) &&
         nextStatus !== currentStatus;
 
-      if (!canEditGeneral && !statusChanged) return;
+      if (!canEditGeneral && !statusChanged) return false;
       setBusy(true);
       try {
         if (canEditGeneral) {
@@ -518,16 +707,40 @@ export default function PersonnelPage({
         }
         await loadData({ manual: true });
         toast('Technicien et secteurs enregistrés', 'success');
+        return true;
       } catch (error) {
         toast(
           apiErrorMessage(error, 'Impossible d’enregistrer le technicien.'),
           'error',
         );
+        return false;
       } finally {
         setBusy(false);
       }
     },
     [canEditGeneral, loadData, toast],
+  );
+
+  const handleInspectorSave = useCallback(
+    async (tech, updates) => {
+      if (
+        detailConflict &&
+        !window.confirm(OVERWRITE_TECHNICIAN_CHANGES_MESSAGE)
+      ) {
+        return false;
+      }
+      const saved = await handleSaveTech(tech, updates);
+      if (!saved) return false;
+      detailDirtyRef.current = false;
+      setDetailDirty(false);
+      setDetailConflict(false);
+      conflictToastRef.current = '';
+      serverBaselineRef.current = '';
+      inspectorBaselineRef.current = '';
+      setDetailRevision((current) => current + 1);
+      return true;
+    },
+    [detailConflict, handleSaveTech],
   );
 
   const updateTechnicianStatuses = useCallback(
@@ -646,6 +859,17 @@ export default function PersonnelPage({
         </div>
       ) : null}
 
+      {detailConflict ? (
+        <div className="personnel-v3-notice" role="alert">
+          <div>
+            <strong>Fiche modifiée côté serveur</strong>
+            <span>
+              Vos changements locaux sont conservés. Enregistrer demandera une confirmation explicite afin d’éviter un écrasement silencieux.
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       <div className="personnel-v3-content">
         <PersonnelKpiStrip
           counts={counts}
@@ -700,7 +924,7 @@ export default function PersonnelPage({
                 technicians={filteredTechnicians}
                 selectedIds={selectedIds}
                 onRowClicked={handleTechClick}
-                onRowDoubleClicked={(tech) => setDetailTechId(tech.id)}
+                onRowDoubleClicked={requestOpenTechnician}
                 onContextMenu={(event, tech) => {
                   event.preventDefault();
                   setContextMenu({
@@ -714,20 +938,27 @@ export default function PersonnelPage({
             </div>
           </section>
 
-          <PersonnelInspector
-            key={detailTech?.id ?? 'empty'}
-            tech={detailTech}
-            selectedCount={selectedIds.length}
-            todayJobs={detailTodayJobs}
-            canEditGeneral={canEditGeneral}
-            sectors={sectors}
-            referenceNow={referenceNow}
-            gpsStaleAfterMinutes={gpsStaleAfterMinutes}
-            onClose={() => setDetailTechId(null)}
-            onSave={handleSaveTech}
-            onOpenJob={openIntervention}
-            onOpenStock={openTechnicianStock}
-          />
+          <div
+            ref={inspectorHostRef}
+            onInputCapture={handleInspectorEdit}
+            onChangeCapture={handleInspectorEdit}
+            style={{ display: 'contents' }}
+          >
+            <PersonnelInspector
+              key={`${detailTech?.id ?? 'empty'}:${detailRevision}`}
+              tech={detailTech}
+              selectedCount={selectedIds.length}
+              todayJobs={detailTodayJobs}
+              canEditGeneral={canEditGeneral}
+              sectors={sectors}
+              referenceNow={referenceNow}
+              gpsStaleAfterMinutes={gpsStaleAfterMinutes}
+              onClose={requestCloseTechnician}
+              onSave={handleInspectorSave}
+              onOpenJob={openIntervention}
+              onOpenStock={openTechnicianStock}
+            />
+          </div>
         </main>
       </div>
 
