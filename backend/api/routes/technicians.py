@@ -222,6 +222,11 @@ async def save_technician_profile(
 
     update_data = payload.updates.model_dump(exclude_unset=True)
     field_map = {"address": "home_address"}
+    previous_live_status = technician.live_status
+    live_status_changed = (
+        payload.live_status is not None
+        and payload.live_status != previous_live_status
+    )
 
     try:
         for field, value in update_data.items():
@@ -270,6 +275,24 @@ async def save_technician_profile(
     except Exception:
         await db.rollback()
         raise
+
+    if live_status_changed:
+        try:
+            await ws_manager.broadcast(
+                WSEvent.TECH_STATUS_CHANGED,
+                {
+                    "technician_id": tech_id,
+                    "technician_name": technician.name,
+                    "old_status": previous_live_status.value if previous_live_status else None,
+                    "new_status": technician.live_status.value,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+                room="supervision",
+            )
+            await DashboardService(db).broadcast_dashboard_update()
+        except Exception as ws_err:
+            logger = logging.getLogger("uvicorn.error")
+            logger.warning(f"WebSocket broadcast error (atomic tech status): {ws_err}")
 
     return {
         "success": True,
