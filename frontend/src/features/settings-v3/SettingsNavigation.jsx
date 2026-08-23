@@ -8,6 +8,7 @@ import {
   PlugIcon,
   RoadmapIcon,
 } from './SettingsIcons';
+import { settingsStatusLabel } from './settingsStatusSemantics';
 
 
 const ICONS = {
@@ -20,17 +21,6 @@ const ICONS = {
 };
 
 
-function statusLabel(status) {
-  return {
-    active: 'Actif',
-    connected: 'Connecté',
-    available: 'Modules',
-    planned: 'Planifié',
-    readOnly: 'Lecture',
-  }[status] || '';
-}
-
-
 const SettingsNavigation = memo(
   function SettingsNavigation({
     groups,
@@ -41,10 +31,10 @@ const SettingsNavigation = memo(
       <aside className="sv3-navigation">
         <div className="sv3-navigation-copy">
           <span>Centre de configuration</span>
-          <strong>Source de vérité</strong>
+          <strong>État produit</strong>
           <p>
-            Seuls les contrôles raccordés à une persistance
-            réelle sont modifiables.
+            Les badges indiquent la disponibilité produit,
+            pas l’état temps réel des services.
           </p>
         </div>
 
@@ -98,7 +88,7 @@ const SettingsNavigation = memo(
                           `sv3-nav-status--${item.status}`,
                         ].join(' ')}
                       >
-                        {statusLabel(item.status)}
+                        {settingsStatusLabel(item.status)}
                       </span>
                     </button>
                   );
