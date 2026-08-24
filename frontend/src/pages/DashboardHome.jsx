@@ -20,6 +20,11 @@ import CockpitDataNotice from '../components/cockpit/CockpitDataNotice';
 import CockpitPilotageWorkspace from '../components/cockpit/CockpitPilotageWorkspace';
 import SimBar from '../components/SimBar';
 import Toast from '../components/Toast';
+import {
+  civilDateFromKey,
+  civilDateKeyInTimeZone,
+  resolveOperationalTimeZone,
+} from '../features/reports-v3/operationalTime';
 import { useSimEvents } from '../hooks/useSimEvents';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useRuntimeSettings } from '../contexts/RuntimeSettingsContext';
@@ -50,6 +55,11 @@ const MAX_ACTIVITIES = 100;
 const REFRESH_INTERVAL_MS = 30_000;
 const REALTIME_REFRESH_DELAY_MS = 700;
 const TOAST_DURATION_MS = 3_000;
+const OPERATIONAL_TIME_ZONE = resolveOperationalTimeZone();
+const OPERATIONAL_TIME_ZONE_LABEL = OPERATIONAL_TIME_ZONE
+  .split('/')
+  .at(-1)
+  .replace(/_/g, ' ');
 
 const ACTIVITY_CONFIG = Object.freeze({
   'job:created': {
@@ -134,19 +144,20 @@ function normalizeRole(value) {
   return text(value).toLocaleUpperCase('fr');
 }
 
-function formatClock(date = new Date()) {
-  return date.toLocaleTimeString('fr-FR', {
+function formatClock(date = new Date(), { includeZone = false } = {}) {
+  const value = new Intl.DateTimeFormat('fr-FR', {
+    timeZone: OPERATIONAL_TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit',
-  });
+  }).format(date);
+
+  return includeZone ? `${value} · ${OPERATIONAL_TIME_ZONE_LABEL}` : value;
 }
 
-function localDateKey(date = new Date()) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-  ].join('-');
+function currentOperationalDate(date = new Date()) {
+  return civilDateFromKey(
+    civilDateKeyInTimeZone(date, OPERATIONAL_TIME_ZONE),
+  ) ?? date;
 }
 
 function apiError(error, fallback) {
@@ -449,7 +460,7 @@ export default function DashboardHome({
   const [dataError, setDataError] = useState('');
   const [lastSync, setLastSync] = useState('--:--');
   const [userName, setUserName] = useState('Utilisateur');
-  const [realClock, setRealClock] = useState(() => formatClock());
+  const [realClock, setRealClock] = useState(() => formatClock(new Date(), { includeZone: true }));
   const [searchQuery, setSearchQuery] = useState('');
   const [activities, setActivities] = useState([]);
   const [toasts, setToasts] = useState([]);
@@ -464,7 +475,7 @@ export default function DashboardHome({
 
   useEffect(() => {
     const interval = window.setInterval(
-      () => setRealClock(formatClock()),
+      () => setRealClock(formatClock(new Date(), { includeZone: true })),
       10_000,
     );
 
@@ -535,7 +546,7 @@ export default function DashboardHome({
 
       if (manual) setRefreshing(true);
 
-      const date = localDateKey();
+      const date = civilDateKeyInTimeZone(new Date(), OPERATIONAL_TIME_ZONE);
       const results = await Promise.allSettled([
         api.getTechnicians(),
         api.getJobs({ scheduled_date: date }),
@@ -573,7 +584,7 @@ export default function DashboardHome({
       }
 
       if (successfulResources > 0) {
-        setLastSync(formatClock());
+        setLastSync(formatClock(new Date(), { includeZone: true }));
       }
 
       const nextError = failures.length
@@ -859,6 +870,7 @@ export default function DashboardHome({
       <CockpitHeader
         userName={userName}
         realClock={realClock}
+        currentDate={currentOperationalDate()}
         liveConnected={websocket.connected}
         onRefresh={
           demoLocked
