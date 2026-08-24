@@ -64,8 +64,13 @@ class OperationalSettingsValues(BaseModel):
     )
 
 
-class OperationalSettingsUpdate(OperationalSettingsValues):
-    """Remplacement complet du document opérationnel V1."""
+class OperationalSettingsUpdate(BaseModel):
+    """Remplacement complet du document opérationnel V1 sous révision."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: NonNegativeInt
+    values: OperationalSettingsValues
 
 
 class SettingsDocumentResponse(BaseModel):

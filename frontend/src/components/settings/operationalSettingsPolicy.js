@@ -38,6 +38,19 @@ export function buildOperationalSavePayload(
   };
 }
 
+export function buildOperationalUpdateRequest(revision, values) {
+  const normalizedRevision = Number(revision);
+  if (!Number.isInteger(normalizedRevision) || normalizedRevision < 0) {
+    throw new TypeError('Révision opérationnelle invalide');
+  }
+  return {
+    expected_revision: normalizedRevision,
+    values: values && typeof values === 'object' && !Array.isArray(values)
+      ? { ...values }
+      : {},
+  };
+}
+
 export function operationalConnectionLabel(loadError) {
   return loadError
     ? 'Configuration indisponible'

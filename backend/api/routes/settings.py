@@ -360,12 +360,15 @@ def _catalog_response(
 async def _get_document(
     db: AsyncSession,
     namespace: str,
+    *,
+    for_update: bool = False,
 ) -> ApplicationSetting | None:
-    result = await db.execute(
-        select(ApplicationSetting).where(
-            ApplicationSetting.namespace == namespace
-        )
+    statement = select(ApplicationSetting).where(
+        ApplicationSetting.namespace == namespace
     )
+    if for_update:
+        statement = statement.with_for_update()
+    result = await db.execute(statement)
     return result.scalar_one_or_none()
 
 
@@ -470,7 +473,7 @@ async def update_operational_settings(
     current_user: User = Depends(require_admin),
 ):
     """
-    Remplace le document opérationnel V1.
+    Remplace le document opérationnel V1 avec précondition de révision.
 
     ``null`` désactive ou laisse volontairement non configurée une règle.
     Aucune valeur métier implicite n'est ajoutée par le backend.
@@ -479,9 +482,22 @@ async def update_operational_settings(
     document = await _get_document(
         db,
         _OPERATIONAL_NAMESPACE,
+        for_update=True,
     )
     previous_values = dict(document.values or {}) if document is not None else None
-    previous_revision = int(document.revision or 0) if document is not None else 0
+    current_revision = int(document.revision or 0) if document is not None else 0
+
+    if payload.expected_revision != current_revision:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": (
+                    "La configuration opérationnelle a été modifiée depuis "
+                    "votre dernière lecture. Rechargez avant d'enregistrer."
+                ),
+                "revision": current_revision,
+            },
+        )
 
     if (
         document is not None
@@ -496,7 +512,7 @@ async def update_operational_settings(
             ),
         )
 
-    serialized_values = payload.model_dump(
+    serialized_values = payload.values.model_dump(
         mode="json",
     )
 
@@ -513,10 +529,7 @@ async def update_operational_settings(
         document.schema_version = (
             _OPERATIONAL_SCHEMA_VERSION
         )
-        document.revision = max(
-            int(document.revision or 0) + 1,
-            1,
-        )
+        document.revision = current_revision + 1
         document.values = serialized_values
         document.updated_by = current_user.id
 
@@ -527,7 +540,7 @@ async def update_operational_settings(
             action="settings.operational_updated",
             entity_type="application_setting",
             entity_id=_OPERATIONAL_NAMESPACE,
-            before={"revision": previous_revision, "values": previous_values},
+            before={"revision": current_revision, "values": previous_values},
             after={"revision": document.revision, "values": serialized_values},
         )
         await db.commit()

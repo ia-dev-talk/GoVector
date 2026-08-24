@@ -18,6 +18,7 @@ import Card from '../ui/Card';
 import {
   OPERATIONAL_RELOAD_CONFIRMATION,
   buildOperationalSavePayload,
+  buildOperationalUpdateRequest,
   isOperationalRuleDirty,
   operationalConnectionLabel,
   shouldConfirmOperationalReload,
@@ -46,6 +47,7 @@ function text(value) {
 function apiErrorMessage(error, fallback) {
   const detail = error?.response?.data?.detail;
   if (typeof detail === 'string' && detail.trim()) return detail.trim();
+  if (isRecord(detail) && text(detail.message)) return text(detail.message);
   if (Array.isArray(detail) && detail.length > 0) {
     const messages = detail.map((item) => text(item?.msg)).filter(Boolean);
     if (messages.length > 0) return messages.join(' ');
@@ -258,12 +260,16 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
       setSaveError('Saisissez une durée GPS comprise entre 1 et 3650 jours.');
       return;
     }
-    const intent = buildOperationalSavePayload(settingsDocument.values, {
+    const values = buildOperationalSavePayload(settingsDocument.values, {
       enabled,
       parsedMinutes,
       retentionEnabled,
       parsedRetentionDays,
     });
+    const intent = buildOperationalUpdateRequest(
+      settingsDocument.revision,
+      values,
+    );
     lastFailedSaveIntentRef.current = intent;
     await persistIntent(intent);
   }, [
@@ -272,6 +278,7 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
     parsedRetentionDays,
     persistIntent,
     retentionEnabled,
+    settingsDocument.revision,
     settingsDocument.values,
   ]);
 

@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   OPERATIONAL_RELOAD_CONFIRMATION,
   buildOperationalSavePayload,
+  buildOperationalUpdateRequest,
   isOperationalRuleDirty,
   operationalConnectionLabel,
   shouldConfirmOperationalReload,
@@ -81,6 +82,26 @@ test('operational save payload preserves unrelated persisted values', () => {
       gps_stale_after_minutes: 20,
       gps_history_retention_days: null,
     },
+  );
+});
+
+
+test('operational update request carries the exact loaded revision', () => {
+  const values = {
+    gps_stale_after_minutes: 20,
+    completion_policy: { default: { minimum_photos: 1 } },
+  };
+  assert.deepEqual(buildOperationalUpdateRequest(7, values), {
+    expected_revision: 7,
+    values,
+  });
+  assert.throws(
+    () => buildOperationalUpdateRequest(-1, values),
+    /Révision opérationnelle invalide/,
+  );
+  assert.throws(
+    () => buildOperationalUpdateRequest(1.5, values),
+    /Révision opérationnelle invalide/,
   );
 });
 

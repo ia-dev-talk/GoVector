@@ -42,6 +42,7 @@ function text(value) {
 function apiError(error, fallback) {
   const detail = error?.response?.data?.detail;
   if (typeof detail === 'string' && detail.trim()) return detail.trim();
+  if (isRecord(detail) && text(detail.message)) return text(detail.message);
   if (Array.isArray(detail)) {
     const messages = detail.map((item) => text(item?.msg ?? item?.message)).filter(Boolean);
     if (messages.length) return messages.join(' · ');
@@ -213,8 +214,11 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
     setError('');
     try {
       const response = await api.updateOperationalSettings({
-        ...loaded.values,
-        completion_policy: draft,
+        expected_revision: loaded.revision,
+        values: {
+          ...loaded.values,
+          completion_policy: draft,
+        },
       });
       const normalized = normalizePolicy(response?.data);
       setLoaded(normalized);
