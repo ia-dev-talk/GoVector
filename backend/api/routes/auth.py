@@ -62,6 +62,7 @@ class CockpitViewPreferences(BaseModel):
 
 class CockpitViewLayout(CockpitViewPreferences):
     order: list[str] = list(_COCKPIT_BLOCK_KEYS)
+    revision: int = 0
 
     @field_validator("order")
     @classmethod
@@ -75,6 +76,13 @@ class CockpitViewLayout(CockpitViewPreferences):
             raise ValueError("Ordre des blocs Cockpit invalide")
         return normalized
 
+    @field_validator("revision")
+    @classmethod
+    def validate_revision(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("Révision Cockpit invalide")
+        return value
+
 
 class CockpitViewUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -82,6 +90,7 @@ class CockpitViewUpdate(BaseModel):
     view: CockpitViewPreferences
     order: list[str] | None = None
     client_intent: str
+    expected_revision: int | None = None
 
     @field_validator("order")
     @classmethod
@@ -94,6 +103,13 @@ class CockpitViewUpdate(BaseModel):
     @classmethod
     def validate_client_intent(cls, value: str) -> str:
         _validate_cockpit_intent_clock(value)
+        return value
+
+    @field_validator("expected_revision")
+    @classmethod
+    def validate_expected_revision(cls, value: int | None) -> int | None:
+        if value is not None and value < 0:
+            raise ValueError("Révision Cockpit attendue invalide")
         return value
 
 
@@ -172,8 +188,13 @@ def _cockpit_stored_intent(values: object) -> str | None:
     return token if isinstance(token, str) and token.strip() else None
 
 
-def _cockpit_layout(view: CockpitViewPreferences, order: list[str]) -> CockpitViewLayout:
-    return CockpitViewLayout(**view.model_dump(), order=order)
+def _cockpit_layout(
+    view: CockpitViewPreferences,
+    order: list[str],
+    *,
+    revision: int = 0,
+) -> CockpitViewLayout:
+    return CockpitViewLayout(**view.model_dump(), order=order, revision=max(int(revision or 0), 0))
 
 
 def _cockpit_document_values(
@@ -213,6 +234,19 @@ def _ensure_fresh_cockpit_intent(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Une personnalisation Cockpit plus récente est déjà enregistrée.",
+        )
+
+
+def _ensure_cockpit_revision(expected_revision: int, current_revision: int) -> None:
+    expected = max(int(expected_revision), 0)
+    current = max(int(current_revision or 0), 0)
+    if expected != current:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Le profil Cockpit a été modifié depuis votre dernière lecture.",
+                "revision": current,
+            },
         )
 
 
@@ -311,19 +345,27 @@ async def get_my_cockpit_view(
     )
     document = result.scalar_one_or_none()
     if document is None:
-        return _cockpit_layout(_default_cockpit_view(), _default_cockpit_order())
+        return _cockpit_layout(_default_cockpit_view(), _default_cockpit_order(), revision=0)
 
     try:
         view = CockpitViewPreferences.model_validate(
             _cockpit_view_values(document.values or {})
         )
-        return _cockpit_layout(view, _cockpit_order_values(document.values or {}))
+        return _cockpit_layout(
+            view,
+            _cockpit_order_values(document.values or {}),
+            revision=document.revision,
+        )
     except ValidationError:
         logger.warning(
             "[AUTH] Invalid cockpit preferences ignored - user_id=%s",
             current_user.id,
         )
-        return _cockpit_layout(_default_cockpit_view(), _default_cockpit_order())
+        return _cockpit_layout(
+            _default_cockpit_view(),
+            _default_cockpit_order(),
+            revision=document.revision,
+        )
 
 
 async def _update_existing_cockpit_document(
@@ -333,15 +375,20 @@ async def _update_existing_cockpit_document(
     payload: CockpitViewUpdate,
     user_id: int,
 ) -> CockpitViewLayout:
-    _ensure_fresh_cockpit_intent(payload.client_intent, document.values)
+    current_revision = max(int(document.revision or 0), 0)
+    if payload.expected_revision is None:
+        _ensure_fresh_cockpit_intent(payload.client_intent, document.values)
+    else:
+        _ensure_cockpit_revision(payload.expected_revision, current_revision)
+
     previous_values = document.values
     order = payload.order or _cockpit_order_values(previous_values)
     document.schema_version = _COCKPIT_SCHEMA_VERSION
-    document.revision = max(int(document.revision or 0) + 1, 1)
+    document.revision = current_revision + 1
     document.values = _cockpit_document_values(payload, existing_values=previous_values)
     document.updated_by = user_id
     await db.commit()
-    return _cockpit_layout(payload.view, order)
+    return _cockpit_layout(payload.view, order, revision=document.revision)
 
 
 @router.put("/me/cockpit-view", response_model=CockpitViewLayout)
@@ -350,7 +397,7 @@ async def update_my_cockpit_view(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Persist only the newest authenticated user's cockpit intent."""
+    """Persist the authenticated user's cockpit layout with optimistic concurrency."""
     namespace = _cockpit_namespace(current_user.id)
     result = await db.execute(
         select(ApplicationSetting)
@@ -367,6 +414,9 @@ async def update_my_cockpit_view(
             user_id=current_user.id,
         )
 
+    if payload.expected_revision not in (None, 0):
+        _ensure_cockpit_revision(payload.expected_revision, 0)
+
     order = payload.order or _default_cockpit_order()
     document = ApplicationSetting(
         namespace=namespace,
@@ -379,7 +429,7 @@ async def update_my_cockpit_view(
 
     try:
         await db.commit()
-        return _cockpit_layout(payload.view, order)
+        return _cockpit_layout(payload.view, order, revision=document.revision)
     except IntegrityError:
         await db.rollback()
         result = await db.execute(

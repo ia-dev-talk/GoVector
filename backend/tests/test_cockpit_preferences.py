@@ -10,6 +10,7 @@ from backend.api.routes.auth import (
     _cockpit_order_values,
     _cockpit_stored_intent,
     _cockpit_view_values,
+    _ensure_cockpit_revision,
     _ensure_fresh_cockpit_intent,
     _validate_cockpit_intent_clock,
     CockpitViewLayout,
@@ -55,6 +56,7 @@ def test_cockpit_layout_requires_every_supported_block_exactly_once():
         ]
     )
     assert layout.order[0] == "quality"
+    assert layout.revision == 0
 
     with pytest.raises(ValidationError, match="Ordre"):
         CockpitViewLayout(
@@ -68,6 +70,11 @@ def test_cockpit_layout_requires_every_supported_block_exactly_once():
                 "quickAccess",
             ]
         )
+
+
+def test_cockpit_layout_rejects_negative_revision():
+    with pytest.raises(ValidationError, match="Révision"):
+        CockpitViewLayout(revision=-1)
 
 
 def test_cockpit_namespace_is_scoped_to_authenticated_user():
@@ -142,6 +149,49 @@ def test_cockpit_update_rejects_malformed_client_intent():
             view=_view(),
             client_intent="not-a-ranked-intent",
         )
+
+
+def test_cockpit_update_accepts_zero_or_positive_expected_revision():
+    assert CockpitViewUpdate(
+        view=_view(),
+        client_intent="1000000:1:first",
+        expected_revision=0,
+    ).expected_revision == 0
+    assert CockpitViewUpdate(
+        view=_view(),
+        client_intent="1000000:2:second",
+        expected_revision=7,
+    ).expected_revision == 7
+
+    with pytest.raises(ValidationError, match="Révision"):
+        CockpitViewUpdate(
+            view=_view(),
+            client_intent="1000000:3:invalid",
+            expected_revision=-1,
+        )
+
+
+def test_cockpit_expected_revision_is_server_authoritative():
+    _ensure_cockpit_revision(4, 4)
+
+    with pytest.raises(HTTPException) as exc_info:
+        _ensure_cockpit_revision(3, 4)
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail["revision"] == 4
+    assert "modifié" in exc_info.value.detail["message"]
+
+
+def test_revision_precondition_is_independent_from_client_wall_clock_rank():
+    # A legitimate client may be 30 minutes behind another device. The revision
+    # precondition, not the client wall clock, is authoritative for new clients.
+    behind_clock_intent = "1000000:1:behind-device"
+    ahead_clock_intent = "2800000:1:ahead-device"
+
+    assert _cockpit_intent_rank(behind_clock_intent) < _cockpit_intent_rank(
+        ahead_clock_intent
+    )
+    _ensure_cockpit_revision(9, 9)
 
 
 def test_cockpit_intent_rank_orders_newer_action_before_arrival_order():
