@@ -330,10 +330,16 @@ export function enqueueCockpitPreferenceSave(
   });
   const sequence = queue.latestSequence + 1;
   const intentToken = createIntentToken();
+  const layoutPayload = payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? payload
+    : {};
+  const viewPayload = layoutPayload.view && typeof layoutPayload.view === 'object' && !Array.isArray(layoutPayload.view)
+    ? layoutPayload.view
+    : layoutPayload;
   const requestPayload = {
-    view: normalizeCockpitView(payload),
-    ...(Array.isArray(payload?.order)
-      ? { order: normalizeCockpitOrder(payload.order) }
+    view: normalizeCockpitView(viewPayload),
+    ...(Array.isArray(layoutPayload.order)
+      ? { order: normalizeCockpitOrder(layoutPayload.order) }
       : {}),
     client_intent: intentToken,
   };
