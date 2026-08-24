@@ -2,6 +2,7 @@ import {
   cockpitLayoutFingerprint,
   normalizeCockpitLayout,
 } from './cockpitLayoutIdentity.js';
+import { rememberCockpitPreferenceRevision } from './cockpitViewPreferences.js';
 
 export function reconcileCockpitHydration({
   remoteLayout,
@@ -13,6 +14,8 @@ export function reconcileCockpitHydration({
   const remoteFingerprint = cockpitLayoutFingerprint(remote);
   const localFingerprint = cockpitLayoutFingerprint(local);
   const keepLocal = locallyModified === true;
+
+  rememberCockpitPreferenceRevision(remoteLayout?.revision);
 
   return {
     layout: keepLocal ? local : remote,

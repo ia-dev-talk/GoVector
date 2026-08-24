@@ -91,6 +91,7 @@ export const COCKPIT_VIEW_PRESETS = Object.freeze({
 
 const COCKPIT_PREFERENCE_LOCK = 'bluevector:cockpit-view:save:v1';
 const COCKPIT_PREFERENCE_INTENT = 'bluevector:cockpit-view:intent:v1';
+const cockpitRevisionByScope = new Map();
 let cockpitIntentCounter = 0;
 
 export function normalizeCockpitView(value) {
@@ -216,6 +217,24 @@ function normalizePreferenceScope(value) {
     : String(value).trim();
 }
 
+function normalizePreferenceRevision(value) {
+  const revision = Number(value);
+  return Number.isInteger(revision) && revision >= 0 ? revision : null;
+}
+
+function revisionFromConflict(error) {
+  if (error?.response?.status !== 409) {
+    return null;
+  }
+
+  const detail = error?.response?.data?.detail;
+  return normalizePreferenceRevision(
+    detail && typeof detail === 'object' && !Array.isArray(detail)
+      ? detail.revision
+      : null,
+  );
+}
+
 export function resolveCockpitPreferenceScope({ storage } = {}) {
   const resolvedStorage = storage ?? (
     typeof globalThis !== 'undefined'
@@ -233,6 +252,32 @@ export function resolveCockpitPreferenceScope({ storage } = {}) {
   } catch {
     return '';
   }
+}
+
+export function rememberCockpitPreferenceRevision(revision, { scope } = {}) {
+  const normalizedRevision = normalizePreferenceRevision(revision);
+  const normalizedScope = normalizePreferenceScope(
+    scope ?? resolveCockpitPreferenceScope(),
+  );
+
+  if (!normalizedScope || normalizedRevision === null) {
+    return null;
+  }
+
+  cockpitRevisionByScope.set(normalizedScope, normalizedRevision);
+  return normalizedRevision;
+}
+
+export function cockpitPreferenceRevision({ scope } = {}) {
+  const normalizedScope = normalizePreferenceScope(
+    scope ?? resolveCockpitPreferenceScope(),
+  );
+
+  if (!normalizedScope) {
+    return null;
+  }
+
+  return cockpitRevisionByScope.get(normalizedScope) ?? null;
 }
 
 export function createBrowserPreferenceCoordinator({
@@ -297,13 +342,18 @@ export function createBrowserPreferenceCoordinator({
   };
 }
 
-export function createCockpitPreferenceSaveQueue({ coordinator } = {}) {
+export function createCockpitPreferenceSaveQueue({ coordinator, scope } = {}) {
+  const resolvedScope = normalizePreferenceScope(
+    scope ?? resolveCockpitPreferenceScope(),
+  );
+
   return {
     tail: Promise.resolve(),
     latestSequence: 0,
     pending: 0,
+    scope: resolvedScope,
     coordinator: coordinator ?? createBrowserPreferenceCoordinator({
-      scope: resolveCockpitPreferenceScope(),
+      scope: resolvedScope,
     }),
   };
 }
@@ -326,7 +376,7 @@ export function enqueueCockpitPreferenceSave(
   }
 
   const coordinator = queue.coordinator ?? createBrowserPreferenceCoordinator({
-    scope: resolveCockpitPreferenceScope(),
+    scope: queue.scope ?? resolveCockpitPreferenceScope(),
   });
   const sequence = queue.latestSequence + 1;
   const intentToken = createIntentToken();
@@ -336,7 +386,7 @@ export function enqueueCockpitPreferenceSave(
   const viewPayload = layoutPayload.view && typeof layoutPayload.view === 'object' && !Array.isArray(layoutPayload.view)
     ? layoutPayload.view
     : layoutPayload;
-  const requestPayload = {
+  const baseRequestPayload = {
     view: normalizeCockpitView(viewPayload),
     ...(Array.isArray(layoutPayload.order)
       ? { order: normalizeCockpitOrder(layoutPayload.order) }
@@ -352,7 +402,13 @@ export function enqueueCockpitPreferenceSave(
       return { status: 'superseded' };
     }
 
+    const revision = cockpitPreferenceRevision({ scope: queue.scope });
+    const requestPayload = {
+      ...baseRequestPayload,
+      ...(revision === null ? {} : { expected_revision: revision }),
+    };
     const result = await save(requestPayload);
+    rememberCockpitPreferenceRevision(result?.revision, { scope: queue.scope });
     return {
       status: coordinator.isLatestIntent(intentToken) ? 'saved' : 'superseded',
       result,
@@ -375,6 +431,10 @@ export function enqueueCockpitPreferenceSave(
       },
       (error) => {
         queue.pending = Math.max(0, queue.pending - 1);
+        const conflictRevision = revisionFromConflict(error);
+        if (conflictRevision !== null) {
+          rememberCockpitPreferenceRevision(conflictRevision, { scope: queue.scope });
+        }
         if (
           queue.latestSequence === sequence &&
           coordinator.isLatestIntent(intentToken)
