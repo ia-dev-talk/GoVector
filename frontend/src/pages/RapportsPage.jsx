@@ -233,6 +233,10 @@ export default function RapportsPage({ onNavigate }) {
     return () => {
       window.clearTimeout(timer);
       if (interval) window.clearInterval(interval);
+      if (realtimeTimerRef.current) {
+        window.clearTimeout(realtimeTimerRef.current);
+        realtimeTimerRef.current = null;
+      }
       requestRef.current += 1;
     };
   }, [liveRelevant, loadData, periodSelection.error, periodSelection.ok]);
