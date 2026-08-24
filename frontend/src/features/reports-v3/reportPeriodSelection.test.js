@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { civilDateKeyInTimeZone } from './operationalTime.js';
+import {
+  formatFrenchCivilDate,
+  parseFrenchCivilDate,
+  sanitizeFrenchDateDraft,
+} from './reportDateInput.js';
 import { resolveReportPeriodSelection } from './reportPeriodSelection.js';
 import { localDateKey } from './reportUtils.js';
 
@@ -190,4 +195,17 @@ test('resolveReportPeriodSelection refuse une période inversée ou incomplète'
   assert.match(inverted.error, /antérieure ou égale/);
   assert.equal(incomplete.ok, false);
   assert.match(incomplete.error, /date de début et une date de fin/);
+});
+
+test('les champs Rapports affichent et relisent les dates civiles en jj/mm/aaaa', () => {
+  assert.equal(formatFrenchCivilDate('2026-08-03'), '03/08/2026');
+  assert.equal(parseFrenchCivilDate('03/08/2026'), '2026-08-03');
+  assert.equal(parseFrenchCivilDate('24/08/2026'), '2026-08-24');
+});
+
+test('le format français refuse les dates impossibles et les saisies ambiguës US', () => {
+  assert.equal(parseFrenchCivilDate('31/02/2026'), null);
+  assert.equal(parseFrenchCivilDate('08/24/2026'), null);
+  assert.equal(formatFrenchCivilDate('2026-02-31'), '');
+  assert.equal(sanitizeFrenchDateDraft('03-08-2026abc'), '03/08/2026');
 });

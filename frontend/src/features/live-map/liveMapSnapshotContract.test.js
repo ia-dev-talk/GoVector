@@ -6,6 +6,7 @@ import {
   hiddenLiveMapFilterKeys,
   reconcileLiveMapFiltersForTab,
 } from './liveMapFilterScope.js';
+import { jobSector } from './liveMapUtils.js';
 
 const pageSource = fs.readFileSync(
   fileURLToPath(new URL('../../pages/CarteLivePage.jsx', import.meta.url)),
@@ -27,7 +28,7 @@ test('Carte live publishes its critical sources as one atomic snapshot', () => {
 });
 
 test('Carte live keeps the previous timestamp when a snapshot refresh fails', () => {
-  const catchBlock = pageSource.match(/catch \(error\) \{([\s\S]*?)\n\s*\}\n\n\s*setLoading\(false\)/)?.[1] ?? '';
+  const catchBlock = pageSource.match(/catch \(error\) \{([\s\S]*?)\r?\n\s*\}\r?\n\r?\n\s*setLoading\(false\)/)?.[1] ?? '';
   assert.match(catchBlock, /setLoadError\(/);
   assert.doesNotMatch(catchBlock, /setLastUpdatedAt\(/);
   assert.doesNotMatch(catchBlock, /setTechnicians\(|setJobs\(|setSectors\(/);
@@ -59,6 +60,18 @@ test('Carte live exposes only filters that affect the active tab', () => {
   assert.deepEqual(
     hiddenLiveMapFilterKeys('jobs'),
     ['team', 'status'],
+  );
+});
+
+test('Carte live displays the canonical operational sector before the raw district', () => {
+  assert.equal(
+    jobSector({
+      sector_id: 4,
+      sector_name: 'Secteur Sud',
+      sector_raw: 'Sidi Maârouf',
+      route_criteria: 'Sidi Maârouf',
+    }),
+    'Secteur Sud',
   );
 });
 
@@ -115,7 +128,7 @@ test('Carte live rail reconciles hidden filters before switching tabs', () => {
 
 test('Carte live clears stale selection before filters can hide it', () => {
   const filterHandler = pageSource.match(
-    /const handleFilterChange =[\s\S]*?useCallback\([\s\S]*?\n\s*\);\n\n\s*const handleSearchChange/,
+    /const handleFilterChange =[\s\S]*?useCallback\([\s\S]*?\r?\n\s*\);\r?\n\r?\n\s*const handleSearchChange/,
   )?.[0] ?? '';
 
   assert.match(filterHandler, /setFilters\(/);

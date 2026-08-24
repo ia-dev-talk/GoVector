@@ -82,23 +82,13 @@
   .intervention-detail-center {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 14px;
   }
 
   .intervention-detail-center > .intervention-detail-card:first-child,
   .intervention-detail-center > .intervention-detail-card:last-child {
     grid-column: auto;
-  }
-
-  .intervention-detail-timeline-rail,
-  .intervention-detail-evidence-rail {
-    position: sticky;
-    top: 14px;
-    align-self: start;
-    max-height: calc(100vh - 190px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
   }
 
   .intervention-detail-map-body {

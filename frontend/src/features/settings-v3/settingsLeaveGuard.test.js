@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -78,6 +79,22 @@ test('settings leave guard only blocks global leave controls while dirty', () =>
       className: 'sidebar-toggle',
     }),
     false,
+  );
+});
+
+test('Cockpit remains a visible global destination while Paramètres is active', () => {
+  const layoutSource = readFileSync(
+    new URL('../../components/layout/AppLayout.jsx', import.meta.url),
+    'utf8',
+  );
+  assert.match(
+    layoutSource,
+    /id: 'dashboard',[\s\S]*roles: \[[\s\S]*'ADMIN'/,
+  );
+  assert.match(layoutSource, /data-page-id=\{item\.id\}/);
+  assert.match(
+    layoutSource,
+    /NAV_ITEMS\.filter\(\(item\) =>[\s\S]*item\.roles\.includes\([\s\S]*normalizedRole/,
   );
 });
 

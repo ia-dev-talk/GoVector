@@ -183,6 +183,8 @@ async def generate_export(
 
     except HTTPException:
         raise
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Erreur lors de la génération de l'export : %s", exc)
         raise HTTPException(
@@ -208,10 +210,11 @@ async def preview_export(
         # Récupérer un échantillon (10 premiers)
         filters = request.filters or {}
 
-        query = await FieldOptExportService.build_job_query(db, filters)
-        query = query.limit(10)
-        result = await db.execute(query)
-        sample_jobs = result.scalars().all()
+        sample_jobs = await FieldOptExportService.get_filtered_jobs(
+            db,
+            filters,
+            limit=10,
+        )
 
         sample_data = []
         for job in sample_jobs:
@@ -226,6 +229,8 @@ async def preview_export(
             "filters": request.filters,
         }
 
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Erreur preview export : %s", exc)
         raise HTTPException(status_code=500, detail="Erreur de prévisualisation.")

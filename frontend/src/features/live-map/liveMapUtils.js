@@ -183,9 +183,9 @@ export function jobType(job) {
 
 export function jobSector(job) {
   return text(
-    job?.route_criteria ??
+    job?.sector_name ??
       job?.sector_raw ??
-      job?.sector_name ??
+      job?.route_criteria ??
       job?.sector,
   );
 }

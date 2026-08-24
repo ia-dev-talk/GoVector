@@ -15,6 +15,10 @@ from backend.database.models import (
     EquipmentType,
 )
 from backend.logic.job_contract import JOB_CREATE_UNSUPPORTED_FIELDS
+from backend.logic.job_planning import (
+    canonical_estimated_duration_minutes,
+    default_estimated_duration_minutes,
+)
 
 
 # ============================================================
@@ -92,6 +96,16 @@ class JobCreate(JobBase):
     route_criteria: Optional[str] = Field(
         default=None,
         max_length=50
+    )
+
+    sector_raw: Optional[str] = Field(
+        default=None,
+        max_length=100,
+    )
+
+    sector_id: Optional[int] = Field(
+        default=None,
+        gt=0,
     )
 
     priority: JobPriority = JobPriority.NORMALE
@@ -329,8 +343,30 @@ class JobCreate(JobBase):
         description="Anomalies constatées (Audit)"
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def apply_estimated_duration_default(cls, values):
+        if not isinstance(values, dict) or "estimated_duration" in values:
+            return values
+
+        job_type = values.get("job_type")
+        if job_type is None:
+            return values
+
+        return {
+            **values,
+            "estimated_duration": default_estimated_duration_minutes(job_type),
+        }
+
     @model_validator(mode="after")
     def reject_unpersisted_fields(self):
+        self.estimated_duration = canonical_estimated_duration_minutes(
+            job_type=self.job_type,
+            estimated_duration=self.estimated_duration,
+            time_slot_start=self.time_slot_start,
+            time_slot_end=self.time_slot_end,
+        )
+
         unsupported = sorted(
             field_name
             for field_name in self.model_fields_set & JOB_CREATE_UNSUPPORTED_FIELDS
@@ -421,6 +457,16 @@ class JobUpdate(BaseModel):
     route_criteria: Optional[str] = Field(
         default=None,
         max_length=50
+    )
+
+    sector_raw: Optional[str] = Field(
+        default=None,
+        max_length=100,
+    )
+
+    sector_id: Optional[int] = Field(
+        default=None,
+        gt=0,
     )
 
     priority: Optional[JobPriority] = None
@@ -518,6 +564,8 @@ class JobResponse(JobBase):
     sector_id: Optional[int] = None
 
     sector_raw: Optional[str] = None
+
+    sector_name: Optional[str] = None
 
     priority: JobPriority
 
@@ -627,13 +675,23 @@ class JobResponse(JobBase):
 
             "sector_id": getattr(
                 job,
-                "sector_id",
-                None,
+                "_canonical_sector_id",
+                getattr(job, "sector_id", None),
             ),
 
             "sector_raw": getattr(
                 job,
-                "sector_raw",
+                "_canonical_sector_raw",
+                getattr(job, "sector_raw", None),
+            ),
+
+            "sector_name": getattr(
+                job,
+                "_canonical_sector_name",
+                None,
+            ) or getattr(
+                job.__dict__.get("sector"),
+                "name",
                 None,
             ),
 
@@ -644,7 +702,12 @@ class JobResponse(JobBase):
             "time_slot_start": job.time_slot_start,
             "time_slot_end": job.time_slot_end,
 
-            "estimated_duration": job.estimated_duration,
+            "estimated_duration": canonical_estimated_duration_minutes(
+                job_type=job.job_type,
+                estimated_duration=job.estimated_duration,
+                time_slot_start=job.time_slot_start,
+                time_slot_end=job.time_slot_end,
+            ),
 
             "description": job.description,
             "notes": job.notes,

@@ -11,6 +11,7 @@ import {
   AllCommunityModule,
   ModuleRegistry,
 } from 'ag-grid-community';
+import { jobOperationalSector } from '../lib/job-sector.js';
 
 ModuleRegistry.registerModules([
   AllCommunityModule,
@@ -719,9 +720,10 @@ const JobGrid = forwardRef(function JobGrid(
                 normalizeText(params.value) || null,
             },
       {
-              field: 'route_criteria',
               headerName: 'Secteur',
               width: 100,
+              valueGetter: (params) =>
+                jobOperationalSector(params.data),
               cellStyle: {
                 fontFamily: 'var(--font-mono)',
                 fontSize: 'var(--font-size-xs)',

@@ -10,6 +10,7 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from backend.api.job_responses import job_responses
 from backend.api.schemas.jobs import JobResponse
 from backend.api.schemas.settings import OperationalSettingsValues
 from backend.auth.dependencies import require_client
@@ -243,7 +244,7 @@ async def client_overview(
             "total": filtered_total,
             "pages": max((filtered_total + page_size - 1) // page_size, 1),
         },
-        "jobs": [JobResponse.from_orm_with_assignment(job) for job in jobs],
+        "jobs": await job_responses(db, jobs),
         "map": {
             "planned_jobs": planned_markers,
             "live_operations": live_operations,

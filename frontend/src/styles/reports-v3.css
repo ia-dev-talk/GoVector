@@ -165,13 +165,38 @@
   height: 16px;
 }
 
-.rv3-period-controls select {
+.rv3-period-controls select,
+.rv3-period-controls input {
   width: 100%;
   color: var(--text-primary);
   background: transparent;
   border: 0;
   outline: 0;
   font-size: 10px;
+}
+
+.rv3-period-controls input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.rv3-status-reconciliation {
+  display: flex;
+  min-height: 30px;
+  margin-top: auto;
+  padding-top: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-light);
+  font-size: 8px;
+}
+
+.rv3-status-reconciliation strong {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 9px;
 }
 
 .rv3-range-pill,
@@ -613,6 +638,11 @@ button.rv3-kpi:hover {
   gap: 10px;
 }
 
+.rv3-status-panel {
+  display: flex;
+  flex-direction: column;
+}
+
 .rv3-status-row {
   display: grid;
   grid-template-columns:
@@ -655,6 +685,11 @@ button.rv3-kpi:hover {
 .rv3-dot--danger,
 .rv3-status-fill--danger {
   background: var(--color-danger);
+}
+
+.rv3-dot--info,
+.rv3-status-fill--info {
+  background: var(--color-info);
 }
 
 .rv3-status-track {

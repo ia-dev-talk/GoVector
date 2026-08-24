@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -8,6 +10,7 @@ from backend.api.routes.auth import (
     _cockpit_intent_rank,
     _cockpit_namespace,
     _cockpit_order_values,
+    _cockpit_server_clock_ms,
     _cockpit_stored_intent,
     _cockpit_view_values,
     _ensure_cockpit_revision,
@@ -16,6 +19,8 @@ from backend.api.routes.auth import (
     CockpitViewLayout,
     CockpitViewPreferences,
     CockpitViewUpdate,
+    get_my_cockpit_view,
+    update_my_cockpit_view,
 )
 
 
@@ -23,6 +28,32 @@ def _view(**overrides):
     values = CockpitViewPreferences().model_dump()
     values.update(overrides)
     return CockpitViewPreferences(**values)
+
+
+class _CockpitResult:
+    def __init__(self, document):
+        self.document = document
+
+    def scalar_one_or_none(self):
+        return self.document
+
+
+class _CockpitDb:
+    def __init__(self):
+        self.document = None
+        self.commit_count = 0
+
+    async def execute(self, _statement):
+        return _CockpitResult(self.document)
+
+    def add(self, document):
+        self.document = document
+
+    async def commit(self):
+        self.commit_count += 1
+
+    async def rollback(self):
+        pass
 
 
 def test_cockpit_preferences_default_keeps_all_recovery_surfaces_visible():
@@ -81,6 +112,58 @@ def test_cockpit_namespace_is_scoped_to_authenticated_user():
     assert _cockpit_namespace(7) == "cockpit_view:user:7"
     assert _cockpit_namespace(8) == "cockpit_view:user:8"
     assert _cockpit_namespace(7) != _cockpit_namespace(8)
+
+
+@pytest.mark.asyncio
+async def test_cockpit_save_reload_restores_dispatch_order_then_full_pilotage():
+    db = _CockpitDb()
+    user = SimpleNamespace(id=73)
+    custom_order = [
+        "quality",
+        "metrics",
+        "progression",
+        "decisions",
+        "capacity",
+        "activity",
+        "quickAccess",
+    ]
+
+    saved_dispatch = await update_my_cockpit_view(
+        CockpitViewUpdate(
+            view=_view(quality=False),
+            order=custom_order,
+            client_intent=f"{_cockpit_server_clock_ms()}:1:dispatch",
+            expected_revision=0,
+        ),
+        db=db,
+        current_user=user,
+    )
+    reloaded_dispatch = await get_my_cockpit_view(db=db, current_user=user)
+
+    assert saved_dispatch.quality is False
+    assert reloaded_dispatch.quality is False
+    assert reloaded_dispatch.order == custom_order
+    assert reloaded_dispatch.revision == 1
+
+    await update_my_cockpit_view(
+        CockpitViewUpdate(
+            view=_view(),
+            order=list(CockpitViewLayout().order),
+            client_intent=f"{_cockpit_server_clock_ms()}:2:pilotage",
+            expected_revision=1,
+        ),
+        db=db,
+        current_user=user,
+    )
+    reloaded_full = await get_my_cockpit_view(db=db, current_user=user)
+
+    assert all(
+        getattr(reloaded_full, key)
+        for key in CockpitViewPreferences.model_fields
+    )
+    assert reloaded_full.order == CockpitViewLayout().order
+    assert reloaded_full.revision == 2
+    assert db.commit_count == 2
 
 
 def test_cockpit_document_reads_legacy_flat_values_and_v2_nested_values():

@@ -118,6 +118,10 @@ const ReportsOverview = memo(function ReportsOverview({
   totalTechnicians,
 }) {
   const rate = Math.max(0, Math.min(100, Number(analytics?.successRate) || 0));
+  const distributedStatusTotal = analytics.statusDistribution.reduce(
+    (sum, item) => sum + item.value,
+    0,
+  );
 
   return (
     <section className="rv3-overview-grid">
@@ -147,10 +151,19 @@ const ReportsOverview = memo(function ReportsOverview({
         </header>
 
         <div className="rv3-status-list">
-          {analytics.statusDistribution.map((item) => (
-            <StatusRow key={item.key} label={item.label} value={item.value} total={analytics.total} tone={item.tone} />
-          ))}
+          {analytics.statusDistribution.length ? (
+            analytics.statusDistribution.map((item) => (
+              <StatusRow key={item.key} label={item.label} value={item.value} total={analytics.total} tone={item.tone} />
+            ))
+          ) : (
+            <div className="rv3-empty">Aucune intervention sur la période.</div>
+          )}
         </div>
+
+        <footer className="rv3-status-reconciliation">
+          <span>Statuts représentés</span>
+          <strong>{formatCount(distributedStatusTotal)} / {formatCount(analytics.total)}</strong>
+        </footer>
       </article>
 
       <article

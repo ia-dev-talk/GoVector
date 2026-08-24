@@ -305,3 +305,82 @@ async def test_postgres_preserves_each_visit_and_assignment_after_retry(
         assert assignments[1].id == second_assignment.id
         assert assignments[1].technician_id == second_technician.id
         assert assignments[1].ended_at is None
+
+
+@pytest.mark.asyncio
+async def test_reassignment_closes_old_visit_and_exposes_new_current_attempt(
+    postgres_session_factory,
+    monkeypatch,
+):
+    monkeypatch.setattr(WorkflowEngine, "_broadcast", AsyncMock())
+    async with postgres_session_factory() as db:
+        karim = Technician(
+            name="Karim Tazi",
+            employee_id="B1-REASSIGN-KARIM",
+            home_latitude=33.57,
+            home_longitude=-7.59,
+        )
+        khadija = Technician(
+            name="Khadija El Harti",
+            employee_id="B1-REASSIGN-KHADIJA",
+            home_latitude=33.58,
+            home_longitude=-7.60,
+        )
+        db.add_all([karim, khadija])
+        await db.flush()
+        admin = User(
+            username="visit.reassignment.admin",
+            email="visit.reassignment.admin@bluevector.test",
+            password_hash="not-used",
+            role=UserRole.ADMIN,
+        )
+        job = Job(
+            job_type=JobType.DEPANNAGE,
+            status=JobStatus.PENDING,
+            service_address="Intervention 31",
+        )
+        db.add_all([admin, job])
+        await db.commit()
+
+        await assignment_logic.create_assignment(
+            db,
+            job_id=job.id,
+            technician_id=karim.id,
+        )
+        await WorkflowEngine(db).transition_job(
+            job,
+            JobStatus.ACCEPTED,
+            technician_id=karim.id,
+            broadcast=False,
+        )
+        await db.commit()
+
+        await assignment_logic.reassign_job(
+            db,
+            job_id=job.id,
+            new_technician_id=khadija.id,
+        )
+
+        visits = (
+            await db.execute(
+                select(JobVisit)
+                .where(JobVisit.job_id == job.id)
+                .order_by(JobVisit.attempt_number.asc())
+            )
+        ).scalars().all()
+        assert len(visits) == 2
+        assert visits[0].primary_technician_id == karim.id
+        assert visits[0].outcome == "reassigned"
+        assert visits[0].ended_at is not None
+        assert visits[1].primary_technician_id == khadija.id
+        assert visits[1].ended_at is None
+
+        record = await job_context.get_field_record(
+            job.id,
+            db=db,
+            current_user=admin,
+        )
+        assert record["current_assignment"]["technician_name"] == "Khadija El Harti"
+        assert record["visits"][0]["is_historical"] is True
+        assert record["visits"][0]["status_label"] == "Réaffecté"
+        assert record["visits"][1]["is_current"] is True

@@ -100,7 +100,12 @@ export default function InterventionOverview({
           />
           <DetailField
             label="Secteur"
-            value={job?.route_criteria}
+            value={
+              text(
+                job?.sector_name,
+                text(job?.sector_raw, job?.route_criteria),
+              )
+            }
           />
           <DetailField
             label="Créneau"

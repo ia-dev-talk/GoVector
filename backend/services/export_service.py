@@ -9,6 +9,7 @@ import io
 import json
 import logging
 import os
+import re
 import tempfile
 import time
 from datetime import datetime, date, timedelta
@@ -27,8 +28,60 @@ from backend.database.models import (
     ExportTemplate, ExportHistory, User, JobActivityLog,
 )
 from backend.config import get_settings
+from backend.logic.job_sectors import hydrate_job_sector_identities
 
 logger = logging.getLogger(__name__)
+
+
+_CIVIL_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _civil_filter_boundary(value, *, end: bool = False):
+    """Normalize a civil date to an index-friendly datetime boundary.
+
+    Timestamp inputs keep their exact historical inclusive semantics. A
+    ``YYYY-MM-DD``/``date`` end bound becomes the exclusive start of the next
+    day so an export never drops records after midnight on its final day.
+    """
+
+    civil_date = None
+    if isinstance(value, datetime):
+        return value, False
+    if isinstance(value, date):
+        civil_date = value
+    elif isinstance(value, str) and _CIVIL_DATE_PATTERN.fullmatch(value.strip()):
+        try:
+            civil_date = date.fromisoformat(value.strip())
+        except ValueError:
+            civil_date = None
+
+    if civil_date is None:
+        return value, False
+
+    if end:
+        civil_date += timedelta(days=1)
+    return datetime.combine(civil_date, datetime.min.time()), True
+
+
+def _enum_filter_value(enum_type, value, *, label: str):
+    if isinstance(value, enum_type):
+        return value
+
+    token = str(value if value is not None else "").strip()
+    if not token:
+        raise ValueError(f"Filtre {label} vide.")
+
+    for candidate in (token, token.lower(), token.upper()):
+        try:
+            return enum_type(candidate)
+        except ValueError:
+            pass
+
+    member = enum_type.__members__.get(token.upper())
+    if member is not None:
+        return member
+
+    raise ValueError(f"Filtre {label} invalide : {token}.")
 
 # ── CHARTE GRAPHIQUE ─────────────────────────────────────────────
 BLEU_NAVY = "1F497D"
@@ -391,7 +444,11 @@ class FieldOptExportService:
     async def _extract_job_value(job: Job, field: str, db: AsyncSession = None) -> Any:
         """Extrait la valeur d'un champ du modèle Job pour l'export."""
         mapping = {
-            "secteur": lambda j: j.route_criteria or "",
+            "secteur": lambda j: (
+                getattr(j, "_canonical_sector_name", None)
+                or getattr(j.__dict__.get("sector"), "name", None)
+                or ""
+            ),
             "date": lambda j: j.scheduled_date.strftime("%d/%m/%Y") if j.scheduled_date else "",
             "commande": lambda j: j.job_number or "",
             "client": lambda j: j.customer_name or "",
@@ -463,6 +520,7 @@ class FieldOptExportService:
             )
             .outerjoin(Technician)
             .outerjoin(Orienteur)
+            .where(Job.deleted_at.is_(None))
         )
 
         if not filters:
@@ -472,9 +530,18 @@ class FieldOptExportService:
         start_date = filters.get("start_date")
         end_date = filters.get("end_date")
         if start_date:
-            query = query.where(Job.scheduled_date >= start_date)
+            normalized_start, _ = _civil_filter_boundary(start_date)
+            query = query.where(Job.scheduled_date >= normalized_start)
         if end_date:
-            query = query.where(Job.scheduled_date <= end_date)
+            normalized_end, end_is_civil = _civil_filter_boundary(
+                end_date,
+                end=True,
+            )
+            query = query.where(
+                Job.scheduled_date < normalized_end
+                if end_is_civil
+                else Job.scheduled_date <= normalized_end
+            )
 
         # Filtre par date relative
         date_preset = filters.get("date_preset")
@@ -511,14 +578,22 @@ class FieldOptExportService:
         status_filter = filters.get("status")
         if status_filter:
             if isinstance(status_filter, list) and len(status_filter) > 0:
-                query = query.where(Job.status.in_(status_filter))
-            elif isinstance(status_filter, str) and status_filter != "TOUTES":
-                query = query.where(Job.status == status_filter)
+                query = query.where(
+                    Job.status.in_([
+                        _enum_filter_value(JobStatus, value, label="statut")
+                        for value in status_filter
+                    ])
+                )
+            elif str(status_filter).strip().upper() != "TOUTES":
+                query = query.where(
+                    Job.status
+                    == _enum_filter_value(JobStatus, status_filter, label="statut")
+                )
 
-        # Filtre par secteur
-        sector_id = filters.get("sector_id")
-        if sector_id:
-            query = query.where(Job.sector_id == sector_id)
+        # ``sector_id`` is applied after the shared canonical hydration in
+        # ``get_filtered_jobs``.  Keeping that reconciliation out of ad-hoc
+        # SQL guarantees that legacy routing codes and structured territories
+        # follow exactly the same contract as Job API responses.
 
         # Filtre par technicien
         technician_id = filters.get("technician_id")
@@ -533,7 +608,10 @@ class FieldOptExportService:
         # Filtre par type d'intervention
         job_type = filters.get("job_type")
         if job_type:
-            query = query.where(Job.job_type == job_type)
+            query = query.where(
+                Job.job_type
+                == _enum_filter_value(JobType, job_type, label="type")
+            )
 
         # Recherche textuelle
         search = filters.get("search")
@@ -560,6 +638,45 @@ class FieldOptExportService:
         return query
 
     @staticmethod
+    async def get_filtered_jobs(
+        db: AsyncSession,
+        filters: dict = None,
+        *,
+        limit: int | None = None,
+    ) -> List[Job]:
+        """Return export jobs after applying the canonical sector contract."""
+
+        query_filters = dict(filters or {})
+        requested_sector_id = query_filters.pop("sector_id", None)
+        try:
+            requested_sector_id = (
+                int(requested_sector_id)
+                if requested_sector_id not in (None, "")
+                else None
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Filtre secteur invalide : {requested_sector_id}."
+            ) from exc
+        if requested_sector_id is not None and requested_sector_id <= 0:
+            raise ValueError(f"Filtre secteur invalide : {requested_sector_id}.")
+
+        query = await FieldOptExportService.build_job_query(db, query_filters)
+        result = await db.execute(query)
+        jobs = list(result.scalars().all())
+        await hydrate_job_sector_identities(db, jobs)
+
+        if requested_sector_id is not None:
+            jobs = [
+                job
+                for job in jobs
+                if getattr(job, "_canonical_sector_id", None)
+                == requested_sector_id
+            ]
+
+        return jobs[:limit] if limit is not None else jobs
+
+    @staticmethod
     async def build_job_dict(
         job: Job,
         columns: List[str],
@@ -583,9 +700,7 @@ class FieldOptExportService:
         if columns is None:
             columns = [k for k, v in EXPORT_COLUMNS.items() if v["default"]]
 
-        query = await FieldOptExportService.build_job_query(db, filters)
-        result = await db.execute(query)
-        jobs = result.scalars().all()
+        jobs = await FieldOptExportService.get_filtered_jobs(db, filters)
 
         rows = []
         for job in jobs:
@@ -600,9 +715,7 @@ class FieldOptExportService:
         filters: dict = None,
     ) -> dict:
         """Retourne un résumé des données à exporter."""
-        query = await FieldOptExportService.build_job_query(db, filters)
-        result = await db.execute(query)
-        jobs = result.scalars().all()
+        jobs = await FieldOptExportService.get_filtered_jobs(db, filters)
 
         total = len(jobs)
         completed = sum(1 for j in jobs if j.status == JobStatus.COMPLETED)
@@ -853,9 +966,7 @@ class FieldOptExportService:
         with ZipFile(zip_buffer, "w") as zf:
             zf.writestr("export_fieldopt.xlsx", excel_bytes)
 
-            query = await FieldOptExportService.build_job_query(db, filters)
-            result = await db.execute(query)
-            jobs = result.scalars().all()
+            jobs = await FieldOptExportService.get_filtered_jobs(db, filters)
 
             for job in jobs:
                 if job.before_photo:

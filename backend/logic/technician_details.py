@@ -27,6 +27,7 @@ from backend.database.models import (
     Sector,
     StockMovementType,
 )
+from backend.logic.job_planning import job_estimated_duration_minutes
 
 _logger = logging.getLogger("uvicorn.error")
 
@@ -271,7 +272,7 @@ async def get_technician_full_details(
                     if (visit and visit.scheduled_at) or job.scheduled_date
                     else None
                 ),
-                "estimated_duration": job.estimated_duration,
+                "estimated_duration": job_estimated_duration_minutes(job),
                 "actual_duration_minutes": assignment.actual_duration_minutes,
             }
         )

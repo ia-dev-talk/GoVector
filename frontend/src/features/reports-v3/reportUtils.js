@@ -341,7 +341,73 @@ function comparison(current, previous) {
   };
 }
 
-export function buildAnalytics(jobs) {
+function fallbackStatusLabel(value) {
+  if (value === 'missing') return 'Statut non renseigné';
+
+  const normalized = text(value).replace(/_/g, ' ');
+  return normalized
+    ? normalized.charAt(0).toLocaleUpperCase('fr') + normalized.slice(1)
+    : 'Statut non renseigné';
+}
+
+function statusTone(metadata, status) {
+  const category = normalizeToken(metadata?.category);
+
+  if (status === 'completed') return 'success';
+  if (['cancelled', 'failed'].includes(status)) return 'danger';
+  if (category === 'field_active') return 'purple';
+  if (['awaiting_validation', 'paused', 'interrupted', 'unassigned'].includes(category)) {
+    return 'warning';
+  }
+  return 'info';
+}
+
+function buildStatusDistribution(records, statusCapabilities) {
+  const capabilities = asRecords(statusCapabilities);
+  const byCode = new Map();
+
+  capabilities.forEach((metadata, index) => {
+    const code = normalizeToken(metadata?.code);
+    if (!code) return;
+    byCode.set(code, { ...metadata, index });
+  });
+
+  const counts = new Map();
+  records.forEach((job) => {
+    const rawStatus = normalizeToken(job?.status);
+    const rawMetadata = byCode.get(rawStatus);
+    const canonical = normalizeToken(rawMetadata?.canonical) || rawStatus || 'missing';
+    const metadata = byCode.get(canonical) ?? rawMetadata;
+    const current = counts.get(canonical);
+
+    if (current) {
+      current.value += 1;
+      return;
+    }
+
+    counts.set(canonical, {
+      key: canonical,
+      label: text(metadata?.label) || fallbackStatusLabel(canonical),
+      value: 1,
+      tone: statusTone(metadata, canonical),
+      order: Number.isFinite(metadata?.index) ? metadata.index : Number.MAX_SAFE_INTEGER,
+    });
+  });
+
+  return [...counts.values()]
+    .sort((first, second) => (
+      first.order - second.order ||
+      first.label.localeCompare(second.label, 'fr', { sensitivity: 'base' })
+    ))
+    .map((item) => ({
+      key: item.key,
+      label: item.label,
+      value: item.value,
+      tone: item.tone,
+    }));
+}
+
+export function buildAnalytics(jobs, { statusCapabilities = [] } = {}) {
   const records = asRecords(jobs);
   const statuses = records.map((job) => normalizeToken(job?.status));
 
@@ -380,13 +446,7 @@ export function buildAnalytics(jobs) {
     hourlyCounts.set(hour, (hourlyCounts.get(hour) || 0) + 1);
   });
 
-  const statusDistribution = [
-    { key: 'completed', label: 'Terminées', value: completed, tone: 'success' },
-    { key: 'in_progress', label: 'En cours', value: inProgress, tone: 'purple' },
-    { key: 'pending', label: 'En attente', value: pending, tone: 'warning' },
-    { key: 'cancelled', label: 'Annulées', value: cancelled, tone: 'danger' },
-    { key: 'failed', label: 'Échecs', value: failed, tone: 'danger' },
-  ];
+  const statusDistribution = buildStatusDistribution(records, statusCapabilities);
 
   return {
     total: records.length,

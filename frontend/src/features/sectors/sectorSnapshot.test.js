@@ -6,10 +6,40 @@ import {
   canMutateSectorSnapshot,
   reconcileVisibleSectorSelection,
 } from './sectorSnapshot.js';
+import { buildSectorMetrics } from './sectorUtils.js';
 
 const fulfilled = (data) => ({ status: 'fulfilled', value: { data } });
 const rejected = (message) => ({ status: 'rejected', reason: new Error(message) });
 const normalize = (value) => (Array.isArray(value) ? value : []);
+
+test('sector metrics count a Sidi Maârouf job in its canonical operational sector', () => {
+  const sectors = buildSectorMetrics({
+    sectors: [
+      { id: 3, name: 'Secteur Nord' },
+      { id: 4, name: 'Secteur Sud' },
+    ],
+    technicians: [],
+    assignments: [],
+    jobs: [{
+      id: 31,
+      sector_id: 4,
+      sector_name: 'Secteur Sud',
+      sector_raw: 'Sidi Maârouf',
+      route_criteria: 'Sidi Maârouf',
+      status: 'assigned',
+    }],
+    referenceNow: new Date('2026-08-24T12:00:00Z'),
+    staleAfterMinutes: 15,
+  });
+
+  const north = sectors.find((sector) => sector.name === 'Secteur Nord');
+  const south = sectors.find((sector) => sector.name === 'Secteur Sud');
+
+  assert.equal(north.jobs.length, 0);
+  assert.equal(south.jobs.length, 1);
+  assert.equal(south.statusCounts.assigned, 0);
+  assert.equal(south.statusCounts.active, 1);
+});
 
 test('sector snapshot publishes all four business slices together', () => {
   const result = buildSectorSnapshotFromSettled([

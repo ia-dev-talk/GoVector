@@ -19,6 +19,7 @@ from backend.api.schemas import (
     MessageResponse,
     JobActivityLogResponse,
 )
+from backend.api.job_responses import job_response, job_responses
 from backend.database.connection import get_db
 from backend.database.models import ClientOrganization, JobStatus, JobType, User, UserRole, Orienteur, Technician, Job, JobActivityLog
 from backend.logic import jobs as job_logic
@@ -96,7 +97,7 @@ async def create_job(
         except Exception as ws_err:
             logger.warning(f"WebSocket broadcast error (create_job): {ws_err}")
 
-        return JobResponse.from_orm_with_assignment(job)
+        return await job_response(db, job)
 
     except Exception as e:
         logger.error(
@@ -125,14 +126,14 @@ async def get_jobs(
     if current_user.role in [UserRole.CHEF_ORIENTEUR, UserRole.ADMIN]:
         jobs = await job_logic.get_all_jobs(db, status=status, scheduled_date=scheduled_date, skip=skip, limit=limit)
         logger.info(f"[TECH_JOBS] ADMIN/CHEF jobs count={len(jobs)}")
-        return [JobResponse.from_orm_with_assignment(j) for j in jobs]
+        return await job_responses(db, jobs)
 
     if current_user.role == UserRole.ORIENTEUR:
         if not current_user.orienteur_id:
             raise HTTPException(status_code=403, detail="Orienteur non affilié à un secteur.")
         jobs = await job_logic.get_jobs_by_orienteur_id(db, orienteur_id=current_user.orienteur_id, status=status, scheduled_date=scheduled_date, skip=skip, limit=limit)
         logger.info(f"[TECH_JOBS] ORIENTEUR orienteur_id={current_user.orienteur_id} jobs_count={len(jobs)}")
-        return [JobResponse.from_orm_with_assignment(j) for j in jobs]
+        return await job_responses(db, jobs)
 
     if current_user.role == UserRole.TECHNICIAN:
         technician_id = current_user.technician_id
@@ -164,7 +165,7 @@ async def get_jobs(
         jobs = result.scalars().all()
         logger.info(f"[TECH_JOBS] Jobs IDs retournés={[j.id for j in jobs]}")
         logger.info(f"[TECH_JOBS] Retour API = {len(jobs)} jobs")
-        return [JobResponse.from_orm_with_assignment(j) for j in jobs]
+        return await job_responses(db, jobs)
 
     raise HTTPException(status_code=403, detail="Accès insuffisant pour voir les interventions.")
 
@@ -204,7 +205,7 @@ async def get_pending_jobs(
         jobs = await job_logic.get_pending_jobs_by_orienteur_id(db, orienteur_id=current_user.orienteur_id, scheduled_date=scheduled_date)
     else:
         raise HTTPException(status_code=403, detail="Accès insuffisant pour voir les interventions en attente.")
-    return [JobResponse.from_orm_with_assignment(j) for j in jobs]
+    return await job_responses(db, jobs)
 
 
 @router.get("/summary", response_model=JobSummary)
@@ -287,7 +288,7 @@ async def search_jobs(
         )
     else:
         raise HTTPException(status_code=403, detail="Accès insuffisant pour rechercher des interventions.")
-    return [JobResponse.from_orm_with_assignment(j) for j in jobs]
+    return await job_responses(db, jobs)
 
 
 @router.get("/{job_id}", response_model=JobResponse)
@@ -307,7 +308,7 @@ async def get_job(
         current_user=current_user,
     )
 
-    return JobResponse.from_orm_with_assignment(job)
+    return await job_response(db, job)
 
 
 @router.patch("/{job_id}", response_model=JobResponse)
@@ -349,7 +350,10 @@ async def update_job(
             status_code=403,
             detail="Seul un chef orienteur ou un administrateur peut modifier l'entreprise cliente.",
         )
-    updated = await job_logic.update_job(db, job_id, **update_data)
+    try:
+        updated = await job_logic.update_job(db, job_id, **update_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # ✅ Temps réel : notifier Dashboard
     try:
@@ -359,7 +363,7 @@ async def update_job(
     except Exception as ws_err:
         logger.warning(f"WebSocket broadcast error (update_job): {ws_err}")
 
-    return JobResponse.from_orm_with_assignment(updated)
+    return await job_response(db, updated)
 
 
 @router.patch("/{job_id}/status", response_model=JobResponse)
@@ -378,7 +382,7 @@ async def update_job_status(
         job = await job_logic.update_job_status(db, job_id, status_data.status)
         if not job:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-        return JobResponse.from_orm_with_assignment(job)
+        return await job_response(db, job)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -398,7 +402,7 @@ async def start_job(
         job = await job_logic.start_job(db, job_id)
         if not job:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-        return JobResponse.from_orm_with_assignment(job)
+        return await job_response(db, job)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -420,7 +424,7 @@ async def complete_job(
         job = await job_logic.complete_job(db, job_id, wifi_box_serial=serial)
         if not job:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-        return JobResponse.from_orm_with_assignment(job)
+        return await job_response(db, job)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -451,7 +455,7 @@ async def cancel_job(
                 detail=f"Job {job_id} not found"
             )
 
-        return JobResponse.from_orm_with_assignment(job)
+        return await job_response(db, job)
 
 
     except ValueError as e:

@@ -70,10 +70,26 @@ _KINDS = {"plan", "photo", "document", "instruction"}
 def _visit_status_label(value: str | None) -> str | None:
     if not value:
         return None
+    history_labels = {
+        "reassigned": "Réaffecté",
+        "unassigned": "Désaffecté",
+    }
+    if value in history_labels:
+        return history_labels[value]
     try:
         return STATUS_METADATA[JobStatus(value)].label
     except (KeyError, ValueError):
         return value
+
+
+def _visit_is_current(item: JobVisit, current_assignment: Assignment | None) -> bool:
+    if item.ended_at is not None or current_assignment is None:
+        return False
+    if current_assignment.visit_id is not None:
+        return current_assignment.visit_id == item.id
+    # Compatibility for records created before assignments carried a visit_id:
+    # never make an old technician look currently active.
+    return item.primary_technician_id == current_assignment.technician_id
 
 
 class OfficeNotePayload(BaseModel):
@@ -311,6 +327,17 @@ async def get_field_record(
         ).scalars().all()
         technicians = {row.id: row.name for row in rows}
 
+    current_assignment = next(
+        (item for item in assignment_history if item.ended_at is None),
+        None,
+    )
+
+    assignment_end_reasons_by_visit = {
+        item.visit_id: item.end_reason
+        for item in assignment_history
+        if item.visit_id is not None and item.end_reason
+    }
+
     latest_site = next(
         (
             item
@@ -489,9 +516,23 @@ async def get_field_record(
                 "end_latitude": item.end_latitude,
                 "end_longitude": item.end_longitude,
                 "backfill_confidence": item.backfill_confidence,
+                "is_current": _visit_is_current(item, current_assignment),
+                "is_historical": not _visit_is_current(item, current_assignment),
+                "history_reason": assignment_end_reasons_by_visit.get(item.id),
             }
             for item in visits
         ],
+        "current_assignment": (
+            {
+                "id": current_assignment.id,
+                "visit_id": current_assignment.visit_id,
+                "technician_id": current_assignment.technician_id,
+                "technician_name": technicians.get(current_assignment.technician_id),
+                "assigned_at": current_assignment.assigned_at,
+            }
+            if current_assignment is not None
+            else None
+        ),
         "assignment_history": [
             {
                 "id": item.id,

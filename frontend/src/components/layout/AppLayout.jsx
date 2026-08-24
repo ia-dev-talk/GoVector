@@ -871,6 +871,7 @@ export default function AppLayout({
                   <button
                     key={item.id}
                     type="button"
+                    data-page-id={item.id}
                     className={[
                       'sidebar-nav-item',
                       active

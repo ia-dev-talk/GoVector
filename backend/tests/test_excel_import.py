@@ -1,5 +1,17 @@
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+
 from backend.database.models import JobStatus
-from backend.api.routes.import_confirm import _resolve_sector
+from backend.api.routes import import_confirm
+from backend.api.routes.import_confirm import (
+    _build_sector_index,
+    _create_job_from_dict,
+    _resolve_sector,
+    _update_job_from_dict,
+)
+from backend.logic.job_sectors import SectorIdentity
 from backend.services.excel.ftth_mapper import map_excel_row
 from backend.services.excel.job_factory import create_job
 from backend.services.excel import job_fields
@@ -188,6 +200,127 @@ def test_import_sector_inference_uses_unambiguous_known_name_inside_city_text():
 
     assert item["sector_id"] == 17
     assert item.get("import_warnings") in (None, [])
+
+
+def test_import_sector_inference_uses_operational_description_aliases():
+    sector_index = _build_sector_index([
+        (
+            4,
+            "Secteur Sud",
+            "Secteur Sud de Casablanca — Sidi Maârouf, Oasis, Val d'Anfa",
+        ),
+    ])
+    item = {"sector_raw": "Sidi Maarouf"}
+
+    _resolve_sector(item, sector_index)
+
+    assert item["sector_id"] == 4
+    assert item.get("import_warnings") in (None, [])
+
+
+@pytest.mark.asyncio
+async def test_update_import_preserves_existing_sector_on_unknown_raw_label(
+    monkeypatch,
+):
+    job = SimpleNamespace(
+        id=31,
+        sector_id=4,
+        sector_raw="Sidi Maârouf",
+        route_criteria="Sidi Maârouf",
+        latitude=None,
+        longitude=None,
+        updated_at=None,
+    )
+    db = SimpleNamespace(add=Mock())
+    monkeypatch.setattr(
+        import_confirm,
+        "resolve_sector_for_write",
+        AsyncMock(return_value=None),
+    )
+
+    updated = await _update_job_from_dict(
+        db,
+        job,
+        {"sector_raw": "Quartier inconnu", "sector_id": None},
+    )
+
+    assert updated.sector_id == 4
+    assert updated.sector_raw == "Sidi Maârouf"
+
+
+@pytest.mark.asyncio
+async def test_update_import_accepts_structured_territory_resolution(monkeypatch):
+    job = SimpleNamespace(
+        id=31,
+        sector_id=None,
+        sector_raw=None,
+        route_criteria=None,
+        latitude=None,
+        longitude=None,
+        updated_at=None,
+    )
+    db = SimpleNamespace(add=Mock())
+    monkeypatch.setattr(
+        import_confirm,
+        "resolve_sector_for_write",
+        AsyncMock(return_value=SectorIdentity(9, "Secteur structuré", "TERR-09")),
+    )
+
+    updated = await _update_job_from_dict(
+        db,
+        job,
+        {"sector_raw": "TERR-09", "sector_id": None},
+    )
+
+    assert updated.sector_id == 9
+    assert updated.sector_raw == "TERR-09"
+
+
+@pytest.mark.asyncio
+async def test_update_import_resolves_route_for_a_job_without_sector(monkeypatch):
+    job = SimpleNamespace(
+        id=31,
+        sector_id=None,
+        sector_raw=None,
+        route_criteria="Ancienne zone",
+        latitude=None,
+        longitude=None,
+        updated_at=None,
+    )
+    db = SimpleNamespace(add=Mock())
+    resolver = AsyncMock(
+        return_value=SectorIdentity(4, "Secteur Sud", "Sidi Maârouf")
+    )
+    monkeypatch.setattr(import_confirm, "resolve_sector_for_write", resolver)
+
+    updated = await _update_job_from_dict(
+        db,
+        job,
+        {"route_criteria": "Sidi Maârouf"},
+    )
+
+    assert updated.sector_id == 4
+    assert updated.sector_raw == "Sidi Maârouf"
+    resolver.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_import_without_duration_delegates_to_the_type_default(monkeypatch):
+    create = AsyncMock(return_value=SimpleNamespace(id=31))
+    monkeypatch.setattr(import_confirm.job_logic, "create_job", create)
+
+    await _create_job_from_dict(
+        SimpleNamespace(),
+        {
+            "_valid": True,
+            "customer_name": "Client QA",
+            "service_address": "Sidi Maârouf",
+            "job_type": "RACCORDEMENT",
+            "estimated_duration": None,
+        },
+    )
+
+    assert create.await_args.kwargs["estimated_duration"] is None
 
 
 def test_validator_marks_soft_warnings():

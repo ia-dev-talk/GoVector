@@ -31,6 +31,86 @@ test('valid coordinates are counted as GPS', () => {
   assert.equal(gpsQuality({ latitude: 33.5731, longitude: -7.5898 }), 100);
 });
 
+test('la répartition des statuts réconcilie chaque intervention du périmètre', () => {
+  const statusCapabilities = [
+    {
+      code: 'pending',
+      canonical: 'pending',
+      label: 'À affecter',
+      category: 'unassigned',
+    },
+    {
+      code: 'assigned',
+      canonical: 'assigned',
+      label: 'Affectée',
+      category: 'field_active',
+    },
+    {
+      code: 'accepted',
+      canonical: 'accepted',
+      label: 'Acceptée',
+      category: 'field_active',
+    },
+    {
+      code: 'in_progress',
+      canonical: 'in_progress',
+      label: 'Travaux en cours',
+      category: 'field_active',
+    },
+    {
+      code: 'work_in_progress',
+      canonical: 'in_progress',
+      label: 'Travaux en cours',
+      category: 'field_active',
+    },
+  ];
+  const analytics = buildAnalytics([
+    { id: 1, status: 'pending' },
+    { id: 2, status: 'assigned', assigned_tech_id: 7 },
+    { id: 3, status: 'accepted', assigned_tech_id: 8 },
+    { id: 4, status: 'in_progress', assigned_tech_id: 9 },
+    { id: 5, status: 'work_in_progress', assigned_tech_id: 10 },
+    { id: 6, status: null },
+  ], { statusCapabilities });
+
+  assert.equal(analytics.total, 6);
+  assert.equal(
+    analytics.statusDistribution.reduce((sum, item) => sum + item.value, 0),
+    analytics.total,
+  );
+  assert.deepEqual(
+    analytics.statusDistribution.map(({ key, label, value }) => ({ key, label, value })),
+    [
+      { key: 'pending', label: 'À affecter', value: 1 },
+      { key: 'assigned', label: 'Affectée', value: 1 },
+      { key: 'accepted', label: 'Acceptée', value: 1 },
+      { key: 'in_progress', label: 'Travaux en cours', value: 2 },
+      { key: 'missing', label: 'Statut non renseigné', value: 1 },
+    ],
+  );
+});
+
+test('une intervention seulement affectée est visible dans la répartition', () => {
+  const analytics = buildAnalytics(
+    [{ id: 31, status: 'assigned', assigned_tech_id: 12 }],
+    {
+      statusCapabilities: [{
+        code: 'assigned',
+        canonical: 'assigned',
+        label: 'Affectée',
+        category: 'field_active',
+      }],
+    },
+  );
+
+  assert.deepEqual(analytics.statusDistribution, [{
+    key: 'assigned',
+    label: 'Affectée',
+    value: 1,
+    tone: 'purple',
+  }]);
+});
+
 test('invalid coordinate ranges are rejected', () => {
   assert.equal(gpsQuality({ latitude: 95, longitude: -7.5898 }), 0);
   assert.equal(gpsQuality({ latitude: 33.5731, longitude: 200 }), 0);

@@ -1,4 +1,8 @@
-import { memo, useMemo } from 'react';
+import {
+  memo,
+  useMemo,
+  useState,
+} from 'react';
 import {
   CalendarIcon,
   ExportIcon,
@@ -6,6 +10,11 @@ import {
   ReportsIcon,
 } from './ReportIcons';
 import { resolveReportRealtimeStatus } from './reportRealtimeStatus';
+import {
+  formatFrenchCivilDate,
+  parseFrenchCivilDate,
+  sanitizeFrenchDateDraft,
+} from './reportDateInput';
 import {
   PERIOD_OPTIONS,
   formatRange,
@@ -16,6 +25,45 @@ const RANGE_OPTIONS = Object.freeze([
   { value: 'exact', label: 'Jour exact' },
   { value: 'custom', label: 'Période personnalisée' },
 ]);
+
+function FrenchCivilDateField({
+  value,
+  onChange,
+  label,
+  invalid = false,
+}) {
+  const [draft, setDraft] = useState(() => formatFrenchCivilDate(value));
+
+  const commit = (nextDraft) => {
+    const parsed = parseFrenchCivilDate(nextDraft);
+    onChange?.(parsed ?? '');
+    return parsed;
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      value={draft}
+      placeholder="jj/mm/aaaa"
+      aria-label={label}
+      aria-invalid={invalid || undefined}
+      onChange={(event) => {
+        const nextDraft = sanitizeFrenchDateDraft(event.target.value);
+        setDraft(nextDraft);
+
+        if (!nextDraft || nextDraft.length === 10) {
+          commit(nextDraft);
+        }
+      }}
+      onBlur={() => {
+        const parsed = commit(draft);
+        if (parsed) setDraft(formatFrenchCivilDate(parsed));
+      }}
+    />
+  );
+}
 
 const ReportsHeader = memo(function ReportsHeader({
   period,
@@ -92,12 +140,11 @@ const ReportsHeader = memo(function ReportsHeader({
         {period === 'exact' && (
           <label>
             <span>Jour</span>
-            <input
-              type="date"
+            <FrenchCivilDateField
               value={exactDate}
-              onChange={(event) => onExactDateChange?.(event.target.value)}
-              aria-label="Jour exact analysé"
-              aria-invalid={Boolean(periodError) || undefined}
+              onChange={onExactDateChange}
+              label="Jour exact analysé au format jj/mm/aaaa"
+              invalid={Boolean(periodError)}
             />
           </label>
         )}
@@ -106,24 +153,20 @@ const ReportsHeader = memo(function ReportsHeader({
           <>
             <label>
               <span>Début</span>
-              <input
-                type="date"
+              <FrenchCivilDateField
                 value={customStart}
-                max={customEnd || undefined}
-                onChange={(event) => onCustomStartChange?.(event.target.value)}
-                aria-label="Début de la période personnalisée"
-                aria-invalid={Boolean(periodError) || undefined}
+                onChange={onCustomStartChange}
+                label="Début de la période personnalisée au format jj/mm/aaaa"
+                invalid={Boolean(periodError)}
               />
             </label>
             <label>
               <span>Fin</span>
-              <input
-                type="date"
+              <FrenchCivilDateField
                 value={customEnd}
-                min={customStart || undefined}
-                onChange={(event) => onCustomEndChange?.(event.target.value)}
-                aria-label="Fin de la période personnalisée"
-                aria-invalid={Boolean(periodError) || undefined}
+                onChange={onCustomEndChange}
+                label="Fin de la période personnalisée au format jj/mm/aaaa"
+                invalid={Boolean(periodError)}
               />
             </label>
           </>

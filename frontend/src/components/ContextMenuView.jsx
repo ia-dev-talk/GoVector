@@ -7,6 +7,11 @@ import {
 	useState,
 } from 'react';
 
+import {
+	SUBMENU_CLOSE_DELAY_MS,
+	nextMenuItemIndex,
+} from './context-menu-interaction';
+
 const VIEWPORT_MARGIN = 8;
 
 const JOB_STATUS_LABELS = {
@@ -369,7 +374,9 @@ function getVisibleMenuButtons(
 		),
 	].filter(
 		(button) =>
-			button.offsetParent !== null,
+			button.offsetParent !== null &&
+			button.closest('[role="menu"]') ===
+				container,
 	);
 }
 
@@ -430,19 +437,19 @@ function MenuItem({
 				.join(' ')}
 			onClick={
 				hasSubmenu
-					? () =>
+					? (event) =>
 							onOpenSubmenu?.(
-								submenuOpen
-									? null
-									: submenuName,
+								submenuName,
+								event.currentTarget,
 							)
 					: onClick
 			}
 			onFocus={
 				hasSubmenu
-					? () =>
+					? (event) =>
 							onOpenSubmenu?.(
 								submenuName,
+								event.currentTarget,
 							)
 					: undefined
 			}
@@ -618,6 +625,8 @@ export default function ContextMenu({
 	const submenuRef = useRef(null);
 	const submenuTriggerRef =
 		useRef(null);
+	const submenuCloseTimerRef =
+		useRef(null);
 	const actionLockedRef =
 		useRef(false);
 
@@ -667,10 +676,33 @@ export default function ContextMenu({
 		getRequestedCoordinate(y),
 	].join(':');
 
+	const cancelSubmenuClose = useCallback(() => {
+		if (submenuCloseTimerRef.current === null) {
+			return;
+		}
+
+		window.clearTimeout(
+			submenuCloseTimerRef.current,
+		);
+		submenuCloseTimerRef.current = null;
+	}, []);
+
+	const scheduleSubmenuClose = useCallback(() => {
+		cancelSubmenuClose();
+		submenuCloseTimerRef.current = window.setTimeout(
+			() => {
+				submenuCloseTimerRef.current = null;
+				setSubmenu(null);
+			},
+			SUBMENU_CLOSE_DELAY_MS,
+		);
+	}, [cancelSubmenuClose]);
+
 	const dismissMenu = useCallback(() => {
+		cancelSubmenuClose();
 		setSubmenu(null);
 		setDismissed(true);
-	}, []);
+	}, [cancelSubmenuClose]);
 
 	const runAction = useCallback(
 		(callback, ...args) => {
@@ -682,6 +714,7 @@ export default function ContextMenu({
 			}
 
 			actionLockedRef.current = true;
+			cancelSubmenuClose();
 			setSubmenu(null);
 			setDismissed(true);
 
@@ -706,27 +739,34 @@ export default function ContextMenu({
 				);
 			}
 		},
-		[],
+		[cancelSubmenuClose],
 	);
 
 	const openSubmenu = useCallback(
 		(nextSubmenu, trigger) => {
+			cancelSubmenuClose();
 			submenuTriggerRef.current =
 				trigger || null;
 			setSubmenu(nextSubmenu);
 		},
-		[],
+		[cancelSubmenuClose],
+	);
+
+	useEffect(
+		() => cancelSubmenuClose,
+		[cancelSubmenuClose],
 	);
 
 	useEffect(() => {
 		const frameId = window.requestAnimationFrame(() => {
+			cancelSubmenuClose();
 			setDismissed(false);
 			setSubmenu(null);
 			actionLockedRef.current = false;
 			submenuTriggerRef.current = null;
 		});
 		return () => window.cancelAnimationFrame(frameId);
-	}, [menuInstanceKey]);
+	}, [cancelSubmenuClose, menuInstanceKey]);
 
 	useEffect(() => {
 		const frameId = window.requestAnimationFrame(() => {
@@ -1047,9 +1087,18 @@ export default function ContextMenu({
 				return;
 			}
 
+			const activeMenu =
+				submenu &&
+				isElementInside(
+					submenuRef.current,
+					document.activeElement,
+				)
+					? submenuRef.current
+					: menuRef.current;
+
 			const buttons =
 				getVisibleMenuButtons(
-					menuRef.current,
+					activeMenu,
 				);
 
 			if (buttons.length === 0) {
@@ -1063,30 +1112,11 @@ export default function ContextMenu({
 					document.activeElement,
 				);
 
-			let nextIndex = 0;
-
-			if (event.key === 'End') {
-				nextIndex =
-					buttons.length - 1;
-			} else if (
-				event.key === 'Home'
-			) {
-				nextIndex = 0;
-			} else if (
-				event.key === 'ArrowUp'
-			) {
-				nextIndex =
-					currentIndex <= 0
-						? buttons.length - 1
-						: currentIndex - 1;
-			} else {
-				nextIndex =
-					currentIndex < 0 ||
-					currentIndex ===
-						buttons.length - 1
-						? 0
-						: currentIndex + 1;
-			}
+			const nextIndex = nextMenuItemIndex(
+				event.key,
+				currentIndex,
+				buttons.length,
+			);
 
 			buttons[nextIndex]?.focus();
 		},
@@ -1144,6 +1174,8 @@ export default function ContextMenu({
 		ref: submenuRef,
 		className: 'ctx-submenu',
 		role: 'menu',
+		onPointerEnter: cancelSubmenuClose,
+		onPointerLeave: scheduleSubmenuClose,
 		style: {
 			left: submenuPosition.left,
 			right: submenuPosition.right,
@@ -1282,7 +1314,7 @@ export default function ContextMenu({
 
 						<div
 							className="ctx-menu-item--parent"
-							onMouseEnter={(event) =>
+							onPointerEnter={(event) =>
 								openSubmenu(
 									'assign_orienteur',
 									event.currentTarget.querySelector(
@@ -1290,9 +1322,7 @@ export default function ContextMenu({
 									),
 								)
 							}
-							onMouseLeave={() =>
-								setSubmenu(null)
-							}
+							onPointerLeave={scheduleSubmenuClose}
 							onBlur={
 								handleSubmenuBlur
 							}
@@ -1305,10 +1335,11 @@ export default function ContextMenu({
 								}
 								onOpenSubmenu={(
 									nextSubmenu,
+									trigger,
 								) =>
 									openSubmenu(
 										nextSubmenu,
-										document.activeElement,
+										trigger,
 									)
 								}
 							>
@@ -1699,7 +1730,7 @@ export default function ContextMenu({
 				{showAssignmentAction && (
 					<div
 						className="ctx-menu-item--parent"
-						onMouseEnter={(event) =>
+						onPointerEnter={(event) =>
 							openSubmenu(
 								'assign',
 								event.currentTarget.querySelector(
@@ -1707,9 +1738,7 @@ export default function ContextMenu({
 								),
 							)
 						}
-						onMouseLeave={() =>
-							setSubmenu(null)
-						}
+						onPointerLeave={scheduleSubmenuClose}
 						onBlur={
 							handleSubmenuBlur
 						}
@@ -1721,10 +1750,11 @@ export default function ContextMenu({
 							}
 							onOpenSubmenu={(
 								nextSubmenu,
+								trigger,
 							) =>
 								openSubmenu(
 									nextSubmenu,
-									document.activeElement,
+									trigger,
 								)
 							}
 						>

@@ -36,6 +36,35 @@ test('normalizes cockpit layout as visibility plus complete block order', () => 
 });
 
 
+test('normalizes the flat layout returned by the cockpit preference API', () => {
+  const order = [
+    'quality',
+    'metrics',
+    'progression',
+    'decisions',
+    'capacity',
+    'activity',
+    'quickAccess',
+  ];
+
+  assert.deepEqual(
+    normalizeCockpitLayout({
+      ...DEFAULT_COCKPIT_VIEW,
+      quality: false,
+      order,
+      revision: 8,
+    }),
+    {
+      view: {
+        ...DEFAULT_COCKPIT_VIEW,
+        quality: false,
+      },
+      order,
+    },
+  );
+});
+
+
 test('layout fingerprint changes when only block order changes', () => {
   const view = { ...DEFAULT_COCKPIT_VIEW };
   const orderA = [...DEFAULT_COCKPIT_ORDER];

@@ -7,7 +7,7 @@ import {
   getInterventionPermissions,
   isInterventionDeleteRequest,
 } from './interventionPermissions';
-import { InterventionPermissionsContext } from './interventionPermissionsContext';
+import { InterventionPermissionsContext } from './interventionPermissionsContext.js';
 
 export function InterventionPermissionsProvider({
   userRole,

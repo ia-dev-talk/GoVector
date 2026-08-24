@@ -57,6 +57,25 @@ test('clean hydration adopts the server layout without scheduling a rewrite', ()
   assert.equal(result.shouldPersistLocal, false);
 });
 
+test('save then reload restores the flat API visibility and custom order', () => {
+  const flatApiLayout = {
+    ...REMOTE_LAYOUT.view,
+    order: REMOTE_LAYOUT.order,
+    revision: 3,
+  };
+  const result = reconcileCockpitHydration({
+    remoteLayout: flatApiLayout,
+    localLayout: {
+      view: DEFAULT_COCKPIT_VIEW,
+      order: DEFAULT_COCKPIT_ORDER,
+    },
+    locallyModified: false,
+  });
+
+  assert.deepEqual(result.layout, REMOTE_LAYOUT);
+  assert.equal(result.shouldPersistLocal, false);
+});
+
 test('retry after initial load failure preserves local edits and schedules persistence', () => {
   const result = reconcileCockpitHydration({
     remoteLayout: REMOTE_LAYOUT,

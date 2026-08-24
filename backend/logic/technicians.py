@@ -8,6 +8,7 @@ from typing import List, Optional
 from datetime import datetime, date
 
 from backend.database.models import Technician, TechnicianStatus, TechnicianLiveStatus, Assignment, Job, JobStatus
+from backend.logic.job_planning import job_estimated_duration_minutes
 
 
 async def create_technician(
@@ -226,7 +227,7 @@ async def get_technician_workload(
 
 	assigned_jobs = len(assignments)
 	total_estimated_hours = sum(
-		a.job.estimated_duration for a in assignments if a.job
+		job_estimated_duration_minutes(a.job) for a in assignments if a.job
 	) / 60.0
 
 	return {

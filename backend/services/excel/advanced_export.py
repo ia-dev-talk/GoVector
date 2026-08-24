@@ -175,20 +175,21 @@ def _build_interventions_sheet(wb: Workbook, jobs: List[Dict]):
     """Feuille des interventions."""
     ws = wb.create_sheet(title="Interventions")
 
-    headers = ["ID", "Type", "Statut", "Client", "Adresse", "Priorité", "Technicien", "Date prévue", "Durée (min)"]
+    headers = ["ID", "Type", "Statut", "Secteur", "Client", "Adresse", "Priorité", "Technicien", "Date prévue", "Durée estimée (min)"]
     _apply_header_row(ws, 1, headers, fill_hex=BLEU_NAVY)
 
-    for idx, job in enumerate(jobs[:500], start=2):
+    for idx, job in enumerate(jobs, start=2):
         ws.cell(row=idx, column=1, value=job.get("id"))
         ws.cell(row=idx, column=2, value=job.get("job_type"))
         ws.cell(row=idx, column=3, value=job.get("status"))
-        ws.cell(row=idx, column=4, value=job.get("customer_name"))
-        ws.cell(row=idx, column=5, value=job.get("service_address"))
-        ws.cell(row=idx, column=6, value=job.get("priority"))
-        ws.cell(row=idx, column=7, value=job.get("assigned_technician_name"))
-        ws.cell(row=idx, column=8, value=str(job.get("scheduled_date", "")))
-        ws.cell(row=idx, column=9, value=job.get("real_duration_minutes", 0))
-        for c in range(1, 10):
+        ws.cell(row=idx, column=4, value=job.get("sector_name"))
+        ws.cell(row=idx, column=5, value=job.get("customer_name"))
+        ws.cell(row=idx, column=6, value=job.get("service_address"))
+        ws.cell(row=idx, column=7, value=job.get("priority"))
+        ws.cell(row=idx, column=8, value=job.get("assigned_technician_name"))
+        ws.cell(row=idx, column=9, value=str(job.get("scheduled_date", "")))
+        ws.cell(row=idx, column=10, value=job.get("estimated_duration", 0))
+        for c in range(1, 11):
             ws.cell(row=idx, column=c).border = _thin_border()
 
     _autofit_columns(ws)

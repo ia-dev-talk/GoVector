@@ -11,6 +11,7 @@ mean_duration    = job.estimated_duration * final_multiplier
 import numpy as np
 
 from backend.database.models import Job, Technician
+from backend.logic.job_planning import job_estimated_duration_minutes
 
 _SIGMA = 0.25  # log-normal spread — moderate real-world variability
 
@@ -26,7 +27,7 @@ def sample_duration(job: Job, tech: Technician) -> int:
 	"""
 	rng = np.random.default_rng(seed=_seed(job.id, tech.id))
 	multiplier = tech.speed_factor * tech.skill_bonuses.get(job.job_type.value, 1.0)
-	mean = job.estimated_duration * multiplier
+	mean = job_estimated_duration_minutes(job) * multiplier
 	mu = np.log(mean) - (_SIGMA ** 2) / 2
 	minutes = int(round(float(rng.lognormal(mu, _SIGMA))))
 	return max(1, minutes)

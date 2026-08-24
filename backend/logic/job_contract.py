@@ -25,6 +25,7 @@ JOB_CREATE_FIELD_MAPPING = {
     "planned_location_source": "planned_location_source",
     "planned_location_precision": "planned_location_precision",
     "required_skills": "required_skills", "route_criteria": "route_criteria",
+    "sector_raw": "sector_raw", "sector_id": "sector_id",
     "priority": "priority", "scheduled_date": "scheduled_date",
     "time_slot_start": "time_slot_start", "time_slot_end": "time_slot_end",
     "estimated_duration": "estimated_duration", "description": "description",

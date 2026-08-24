@@ -14,6 +14,7 @@ from backend.database.connection import get_db
 from backend.logic.tour.optimizer import TourOptimizer, TourStop
 from backend.database.models import Job, Technician
 from backend.auth.dependencies import require_orienteur
+from backend.logic.job_planning import job_estimated_duration_minutes
 
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ async def optimize_tour(
                 job_id=job.id,
                 lat=job.latitude,
                 lng=job.longitude,
-                estimated_duration=job.estimated_duration or 30,
+                estimated_duration=job_estimated_duration_minutes(job),
                 priority=job.priority or "normal",
                 operator=job.operator or "",
                 address=job.service_address or "",
@@ -115,7 +116,7 @@ async def reorder_tour(
                 job_id=job.id,
                 lat=job.latitude,
                 lng=job.longitude,
-                estimated_duration=job.estimated_duration or 30,
+                estimated_duration=job_estimated_duration_minutes(job),
                 priority=job.priority or "normal",
                 operator=job.operator or "",
                 address=job.service_address or "",
@@ -177,7 +178,7 @@ async def merge_tours(
                 job_id=job.id,
                 lat=job.latitude,
                 lng=job.longitude,
-                estimated_duration=job.estimated_duration or 30,
+                estimated_duration=job_estimated_duration_minutes(job),
                 priority=job.priority or "normal",
                 operator=job.operator or "",
                 address=job.service_address or "",
@@ -190,7 +191,7 @@ async def merge_tours(
                 job_id=job.id,
                 lat=job.latitude,
                 lng=job.longitude,
-                estimated_duration=job.estimated_duration or 30,
+                estimated_duration=job_estimated_duration_minutes(job),
                 priority=job.priority or "normal",
                 operator=job.operator or "",
                 address=job.service_address or "",
@@ -272,7 +273,7 @@ async def calculate_eta(
                 job_id=job.id,
                 lat=job.latitude,
                 lng=job.longitude,
-                estimated_duration=job.estimated_duration or 30,
+                estimated_duration=job_estimated_duration_minutes(job),
                 priority=job.priority or "normal",
                 operator=job.operator or "",
                 address=job.service_address or "",

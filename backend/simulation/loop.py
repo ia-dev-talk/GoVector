@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.connection import AsyncSessionLocal
 from backend.database.models import Assignment, Job, JobStatus, Technician, TechnicianStatus
+from backend.logic.job_planning import job_estimated_duration_minutes
 from backend.simulation.clock import clock, ClockMode
 from backend.simulation.strategy import DispatchStrategy, DispatchEvent
 
@@ -170,8 +171,8 @@ async def _tick(db: AsyncSession, now: datetime, strategy: DispatchStrategy, sim
 		job = assignment.job
 		tech = assignment.technician
 		elapsed_min = (now - job.started_at).total_seconds() / 60
-		actual = assignment.actual_duration_minutes or job.estimated_duration
-		est = job.estimated_duration or actual
+		est = job_estimated_duration_minutes(job)
+		actual = assignment.actual_duration_minutes or est
 
 		if elapsed_min >= actual:
 			for target in (

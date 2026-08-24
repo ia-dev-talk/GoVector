@@ -45,6 +45,7 @@ from backend.logic.technician_field_actions import (
     SUPPORTED_FIELD_ACTION_TYPES,
 )
 from backend.logic.operational_audit import record_operational_audit
+from backend.logic.job_planning import default_estimated_duration_minutes
 from backend.logic.workflow.capabilities import STATUS_METADATA
 
 
@@ -116,7 +117,16 @@ def _catalog_defaults() -> BusinessCatalogValues:
             _item("senior", "Technicien senior", 1, color="#A78BFA"),
         ],
         job_types=[
-            _item(value.value, job_labels.get(value.value, value.value.title()), index)
+            _item(
+                value.value,
+                job_labels.get(value.value, value.value.title()),
+                index,
+                metadata={
+                    "default_estimated_duration_minutes": (
+                        default_estimated_duration_minutes(value)
+                    ),
+                },
+            )
             for index, value in enumerate(JobType)
         ],
         priorities=[
@@ -341,11 +351,32 @@ async def _validated_catalog(
 def _catalog_response(
     document: ApplicationSetting | None,
 ) -> BusinessCatalogDocumentResponse:
+    defaults = _catalog_defaults()
     values = (
         BusinessCatalogValues.model_validate(document.values)
         if document is not None
-        else _catalog_defaults()
+        else defaults
     )
+
+    if document is not None:
+        default_job_types = {item.code: item for item in defaults.job_types}
+        values = values.model_copy(
+            update={
+                "job_types": [
+                    item.model_copy(
+                        update={
+                            "metadata": {
+                                **dict(item.metadata or {}),
+                                **dict(default_job_types[item.code].metadata or {}),
+                            }
+                        }
+                    )
+                    if item.code in default_job_types
+                    else item
+                    for item in values.job_types
+                ]
+            }
+        )
     return BusinessCatalogDocumentResponse(
         namespace=_CATALOG_NAMESPACE,
         schema_version=_CATALOG_SCHEMA_VERSION if document is None else document.schema_version,

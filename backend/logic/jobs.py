@@ -9,6 +9,12 @@ from typing import List, Optional
 from datetime import datetime, date, timedelta
 
 from backend.database.models import Job, JobStatus, JobType, JobPriority, Technician, Assignment
+from backend.logic.job_planning import (
+    canonical_estimated_duration_minutes,
+    default_estimated_duration_minutes,
+    job_estimated_duration_minutes,
+)
+from backend.logic.job_sectors import apply_sector_identity, resolve_sector_for_write
 from backend.logic.site_registry import find_existing_site_for_job
 
 
@@ -32,7 +38,7 @@ async def create_job(
     scheduled_date: Optional[datetime] = None,
     time_slot_start: Optional[str] = None,
     time_slot_end: Optional[str] = None,
-    estimated_duration: int = 60,
+    estimated_duration: Optional[int] = None,
     description: Optional[str] = None,
     notes: Optional[str] = None,
     special_instructions: Optional[str] = None,
@@ -69,6 +75,26 @@ async def create_job(
     from backend.database.models import JobPriority as JP
     if priority is None:
         priority = JP.NORMALE
+    if estimated_duration is None:
+        estimated_duration = default_estimated_duration_minutes(job_type)
+    estimated_duration = canonical_estimated_duration_minutes(
+        job_type=job_type,
+        estimated_duration=estimated_duration,
+        time_slot_start=time_slot_start,
+        time_slot_end=time_slot_end,
+    )
+
+    sector_identity = await resolve_sector_for_write(
+        db,
+        sector_id=sector_id,
+        sector_raw=sector_raw,
+        route_criteria=route_criteria,
+        latitude=latitude,
+        longitude=longitude,
+    )
+    if sector_identity is not None:
+        sector_id = sector_identity.id
+        sector_raw = sector_raw or sector_identity.raw
 
     job = Job(
         job_number=job_number,
@@ -130,6 +156,12 @@ async def create_job(
     if commit:
         await db.commit()
         await db.refresh(job)
+
+    apply_sector_identity(
+        job,
+        sector_identity,
+        sector_raw or route_criteria,
+    )
 
     return job
 
@@ -376,6 +408,61 @@ async def update_job(
 	if not job:
 		return None
 
+	sector_context_fields = {
+		"sector_id",
+		"sector_raw",
+		"route_criteria",
+		"latitude",
+		"longitude",
+	}
+	sector_identity = None
+	if sector_context_fields.intersection(kwargs):
+		route_label_changed = (
+			"route_criteria" in kwargs
+			and "sector_raw" not in kwargs
+		)
+		location_label_changed = bool(
+			{"sector_raw", "route_criteria"}.intersection(kwargs)
+		)
+		explicit_sector_id = kwargs.get(
+			"sector_id",
+			None if location_label_changed else job.sector_id,
+		)
+		final_sector_raw = kwargs.get(
+			"sector_raw",
+			None if route_label_changed else job.sector_raw,
+		)
+		final_route_criteria = kwargs.get("route_criteria", job.route_criteria)
+		sector_identity = await resolve_sector_for_write(
+			db,
+			sector_id=explicit_sector_id,
+			sector_raw=final_sector_raw,
+			route_criteria=final_route_criteria,
+			latitude=kwargs.get("latitude", job.latitude),
+			longitude=kwargs.get("longitude", job.longitude),
+		)
+		if route_label_changed and sector_identity is None:
+			# ``route_criteria`` is only a routing hint. An empty or unknown
+			# replacement must not erase an already canonical sector identity.
+			kwargs["sector_id"] = job.sector_id
+			kwargs["sector_raw"] = job.sector_raw
+		else:
+			kwargs["sector_id"] = (
+				sector_identity.id
+				if sector_identity is not None
+				else None
+			)
+		if route_label_changed and sector_identity is not None:
+			kwargs["sector_raw"] = (
+				sector_identity.raw
+			)
+		elif (
+			"sector_raw" not in kwargs
+			and sector_identity is not None
+			and sector_identity.raw
+		):
+			kwargs["sector_raw"] = sector_identity.raw
+
 	for field, value in kwargs.items():
 		if (
 			hasattr(job, field)
@@ -393,10 +480,26 @@ async def update_job(
 		):
 			setattr(job, field, value)
 
+	duration_context_fields = {
+		"job_type",
+		"estimated_duration",
+		"time_slot_start",
+		"time_slot_end",
+	}
+	if duration_context_fields.intersection(kwargs):
+		job.estimated_duration = job_estimated_duration_minutes(job)
+
 	job.updated_at = datetime.utcnow()
 
 	await db.commit()
 	await db.refresh(job)
+
+	if sector_context_fields.intersection(kwargs):
+		apply_sector_identity(
+			job,
+			sector_identity,
+			job.sector_raw or job.route_criteria,
+		)
 
 	return job
 
@@ -566,7 +669,8 @@ def can_technician_do_job(job: Job, technician: Technician) -> dict:
 
 	# Time check — does the tech have enough shift time remaining for this job?
 	has_time = True
-	if technician.shift_end and job.estimated_duration:
+	job_duration = job_estimated_duration_minutes(job)
+	if technician.shift_end and job_duration:
 		try:
 			end_h, end_m = map(int, technician.shift_end.split(':'))
 			shift_end_mins = end_h * 60 + end_m
@@ -579,11 +683,11 @@ def can_technician_do_job(job: Job, technician: Technician) -> dict:
 						and a.job
 						and a.job.status not in ('completed', 'cancelled')
 					):
-						assigned_mins += (a.job.estimated_duration or 0)
+						assigned_mins += job_estimated_duration_minutes(a.job)
 			start_h, start_m = map(int, technician.shift_start.split(':')) if technician.shift_start else (8, 0)
 			shift_start_mins = start_h * 60 + start_m
 			available_mins = (shift_end_mins - shift_start_mins) - assigned_mins
-			has_time = available_mins >= job.estimated_duration
+			has_time = available_mins >= job_duration
 		except (ValueError, TypeError):
 			has_time = True  # If we can't parse, don't block
 

@@ -9,6 +9,10 @@ import {
   text,
 } from './interventionDetailUtils';
 import ImageAnnotationDialog from './ImageAnnotationDialog';
+import {
+  fieldVisitPresentation,
+  hasCurrentFieldVisit,
+} from './visitPresentation';
 
 const PHOTO_FIELDS = [
   { field: 'before_photo', label: 'Avant' },
@@ -193,6 +197,8 @@ export default function InterventionEvidencePanel({
   const assignmentHistory = Array.isArray(fieldRecord?.assignment_history)
     ? fieldRecord.assignment_history
     : [];
+  const currentAssignment = fieldRecord?.current_assignment || null;
+  const hasCurrentVisit = hasCurrentFieldVisit(visits, currentAssignment);
 
   const actionMeasurements = useMemo(
     () => fieldActions.filter((item) =>
@@ -563,18 +569,32 @@ export default function InterventionEvidencePanel({
           title="Passages terrain"
           count={visits.length}
           emptyLabel="Aucun passage terrain enregistré"
-          hasContent={visits.length > 0}
-          defaultOpen={visits.length > 1}
+          hasContent={visits.length > 0 || Boolean(currentAssignment)}
+          defaultOpen={Boolean(currentAssignment && !hasCurrentVisit) || visits.length > 1}
         >
           <div className="intervention-detail-comment-list">
+            {currentAssignment && !hasCurrentVisit ? (
+              <div className="intervention-detail-current-visit-empty">
+                <strong>
+                  Affectation actuelle · {' '}
+                  {currentAssignment.technician_name
+                    || `Technicien #${currentAssignment.technician_id}`}
+                </strong>
+                <small>Aucun passage terrain actif pour cette affectation.</small>
+              </div>
+            ) : null}
             {visits.map((visit) => {
               const assignments = assignmentHistory.filter(
                 (assignment) => assignment.visit_id === visit.id,
               );
+              const presentation = fieldVisitPresentation(visit, currentAssignment);
               return (
-                <article key={`visit-${visit.id}`}>
+                <article
+                  key={`visit-${visit.id}`}
+                  className={presentation.isCurrent ? 'is-current' : 'is-historical'}
+                >
                   <span>
-                    Passage {visit.attempt_number} · {' '}
+                    {presentation.headingPrefix}Passage {visit.attempt_number} · {' '}
                     {visit.status_label
                       || visit.outcome
                       || visit.status}
@@ -582,7 +602,9 @@ export default function InterventionEvidencePanel({
                   <p>
                     {visit.primary_technician_name || 'Technicien non renseigné'}
                     {' · '}{formatVisitDate(visit.assigned_at || visit.scheduled_at)}
-                    {visit.ended_at ? ` → ${formatVisitDate(visit.ended_at)}` : ' · en cours'}
+                    {visit.ended_at
+                      ? ` → ${formatVisitDate(visit.ended_at)}`
+                      : ` · ${presentation.trailingState}`}
                   </p>
                   {assignments.length > 1 ? (
                     <small>

@@ -38,6 +38,10 @@ import InterventionInspector from '../components/interventions/InterventionInspe
 import InterventionEmptyState from '../components/interventions/InterventionEmptyState';
 import InterventionWorkspaceEmptyState from '../components/interventions/InterventionWorkspaceEmptyState';
 import InterventionDetailPage from '../features/intervention-detail/InterventionDetailPage';
+import {
+	filterTechniciansForInterventionScope,
+	jobOperationalSector,
+} from '../lib/job-sector.js';
 import '../styles/interventions-v3.css';
 
 /* ── Helpers ─────────────────────────────────────────── */
@@ -587,23 +591,10 @@ export default function InterventionsPage({
 			);
 		}
 
-		if (advFilters.team) {
-			result = result.filter(
-				(technician) =>
-					technician.team ===
-					advFilters.team
-			);
-		}
-
-		if (advFilters.sector) {
-			result = result.filter(
-				(technician) =>
-					technician.route_criteria ===
-					advFilters.sector
-			);
-		}
-
-		return result;
+		return filterTechniciansForInterventionScope(
+			result,
+			advFilters
+		);
 	}, [
 		techs,
 		displayFilter,
@@ -647,11 +638,10 @@ export default function InterventionsPage({
 					}
 
 					if (
-						job.route_criteria &&
 						displayFilter.routeCriteria
 							?.length > 0 &&
 						!displayFilter.routeCriteria.includes(
-							job.route_criteria
+							jobOperationalSector(job)
 						)
 					) {
 						return false;
@@ -718,7 +708,7 @@ export default function InterventionsPage({
 		if (advFilters.sector) {
 			result = result.filter(
 				(job) =>
-					job.route_criteria ===
+					jobOperationalSector(job) ===
 					advFilters.sector
 			);
 		}

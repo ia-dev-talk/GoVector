@@ -32,6 +32,12 @@ VISIT_CREATING_STATUSES = {
     JobStatus.CLIENT_VALIDATION,
 }
 
+PASSAGE_RESET_OUTCOMES = {
+    "reassignment": "reassigned",
+    "batch_reassignment": "reassigned",
+    "unassignment": "unassigned",
+}
+
 
 async def get_current_assignment(
     db: AsyncSession, job_id: int, *, for_update: bool = False
@@ -164,6 +170,18 @@ async def sync_job_visit_transition(
         )
     if visit is None:
         return None
+
+    reset_outcome = PASSAGE_RESET_OUTCOMES.get(
+        (metadata.get("extra") or {}).get("source")
+    )
+    if new_status == JobStatus.PENDING and reset_outcome:
+        # A dispatch change starts a new operational attempt. Keep the old
+        # passage as immutable history instead of projecting the new assignee
+        # onto a visit performed by the previous technician.
+        visit.outcome = reset_outcome
+        visit.ended_at = occurred_at
+        visit.updated_at = occurred_at
+        return visit
 
     visit.status = new_status.value
     if technician_id is not None and visit.primary_technician_id is None:

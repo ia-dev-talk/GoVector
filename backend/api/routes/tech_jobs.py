@@ -13,6 +13,7 @@ from backend.api.schemas import (
     JobPostponementCreate,
     JobActivityLogResponse,
 )
+from backend.api.job_responses import job_response
 from backend.database.connection import get_db
 from backend.database.models import (
     Job,
@@ -244,7 +245,7 @@ async def terminate_job_from_mobile(
             f"WebSocket broadcast error (terminate_job): {ws_err}"
         )
 
-    return JobResponse.from_orm_with_assignment(completed)
+    return await job_response(db, completed)
 
 
 # =============================================================================
@@ -307,7 +308,7 @@ async def update_job_mobile_status(
         except Exception as ws_err:
             logger.warning(f"WebSocket broadcast error (status): {ws_err}")
 
-    return JobResponse.from_orm_with_assignment(result.job)
+    return await job_response(db, result.job)
 
 
 @router.post("/{job_id}/start", response_model=JobResponse)
@@ -362,7 +363,7 @@ async def start_job_mobile(
         except Exception as ws_err:
             logger.warning(f"WebSocket broadcast error (start): {ws_err}")
 
-    return JobResponse.from_orm_with_assignment(result.job)
+    return await job_response(db, result.job)
 
 
 @router.post("/{job_id}/failure", response_model=dict)

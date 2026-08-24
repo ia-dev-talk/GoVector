@@ -158,7 +158,13 @@ export default function InterventionDetailHeader({
             <span aria-hidden="true">·</span>
             {text(job?.operator, 'Opérateur non renseigné')}
             <span aria-hidden="true">·</span>
-            {text(job?.route_criteria, 'Secteur non renseigné')}
+            {text(
+              job?.sector_name,
+              text(
+                job?.sector_raw,
+                text(job?.route_criteria, 'Secteur non renseigné'),
+              ),
+            )}
           </p>
         </div>
       </div>

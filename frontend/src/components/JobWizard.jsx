@@ -28,6 +28,12 @@ import {
   PANNE_TYPES,
   WIZARD_STEPS,
 } from '../lib/job-types';
+import {
+  FALLBACK_ESTIMATED_DURATION_MINUTES,
+  applyPlanningFieldChange,
+  catalogEstimatedDuration,
+  deriveTimeSlotEnd,
+} from '../lib/job-planning';
 import '../styles/wizard.css';
 
 const LAST_STEP_INDEX = 5;
@@ -286,12 +292,27 @@ function createInitialForm(data) {
   const initial = isRecord(data)
     ? data
     : {};
+  const initialJobType = inputValue(
+    initial.job_type,
+  );
+  const initialStart = inputValue(
+    initial.time_slot_start,
+    '08:00',
+  );
+  const initialDuration = inputValue(
+    initial.estimated_duration,
+    JOB_TYPES_CONFIG[initialJobType]
+      ?.avgDuration ??
+      FALLBACK_ESTIMATED_DURATION_MINUTES,
+  );
+  const derivedInitialEnd = deriveTimeSlotEnd(
+    initialStart,
+    initialDuration,
+  );
 
   return {
     job_type:
-      inputValue(
-        initial.job_type,
-      ),
+      initialJobType,
 
     customer_name:
       inputValue(
@@ -464,20 +485,14 @@ function createInitialForm(data) {
         initial.scheduled_date,
       ) || localDateString(),
     time_slot_start:
-      inputValue(
-        initial.time_slot_start,
-        '08:00',
-      ),
+      initialStart,
     time_slot_end:
       inputValue(
         initial.time_slot_end,
-        '10:00',
+        derivedInitialEnd || '09:00',
       ),
     estimated_duration:
-      inputValue(
-        initial.estimated_duration,
-        60,
-      ),
+      initialDuration,
     required_skills:
       uniqueStringList(
         initial.required_skills,
@@ -821,13 +836,6 @@ export default function JobWizard({
   const [sharedMapOutcome, setSharedMapOutcome] = useState(null);
   const [sharedMapError, setSharedMapError] = useState('');
 
-  const typeConfig =
-    form.job_type
-      ? JOB_TYPES_CONFIG[
-          form.job_type
-        ]
-      : null;
-
   const fieldId = useCallback(
     (name) =>
       `${wizardId}-${name}`,
@@ -938,11 +946,29 @@ export default function JobWizard({
           ...config,
           label: configured.get(code)?.label || config.label,
           color: configured.get(code)?.color || config.color,
+          avgDuration: catalogEstimatedDuration(
+            configured.get(code),
+            config.avgDuration,
+          ),
         },
         order: configured.get(code)?.sort_order ?? 10000,
       }))
       .sort((first, second) => first.order - second.order || first.code.localeCompare(second.code));
   }, [businessCatalog, form.job_type]);
+
+  const displayedJobTypesByCode = useMemo(
+    () =>
+      Object.fromEntries(
+        displayedJobTypes.map(({ code, config }) => [code, config]),
+      ),
+    [displayedJobTypes],
+  );
+
+  const typeConfig = form.job_type
+    ? displayedJobTypesByCode[form.job_type] ??
+      JOB_TYPES_CONFIG[form.job_type] ??
+      null
+    : null;
 
   const displayedPriorities = useMemo(() => {
     const defaults = [
@@ -1260,10 +1286,18 @@ export default function JobWizard({
         return;
       }
 
-      setForm((previous) => ({
-        ...previous,
-        [name]: value,
-      }));
+      setForm((previous) =>
+        applyPlanningFieldChange(
+          previous,
+          name,
+          value,
+          {
+            jobTypeDuration:
+              displayedJobTypesByCode[value]
+                ?.avgDuration,
+          },
+        ),
+      );
 
       setErrors((previous) => {
         if (!previous[name]) {
@@ -1291,6 +1325,7 @@ export default function JobWizard({
       }
     },
     [
+      displayedJobTypesByCode,
       savedOutcome,
       submitting,
     ],
@@ -1832,6 +1867,10 @@ export default function JobWizard({
           optionalText(
             form.route_criteria,
           ),
+        sector_raw:
+          optionalText(
+            form.route_criteria,
+          ),
         operator:
           optionalText(
             form.operator,
@@ -1888,7 +1927,8 @@ export default function JobWizard({
         estimated_duration:
           requiredNumber(
             form.estimated_duration,
-            60,
+            typeConfig?.avgDuration ??
+              FALLBACK_ESTIMATED_DURATION_MINUTES,
           ),
         required_skills:
           uniqueStringList(
@@ -1900,7 +1940,7 @@ export default function JobWizard({
         assigned_technician_name:
           null,
       };
-    }, [form]);
+    }, [form, typeConfig]);
 
   const buildUpdatePayload =
     useCallback(() => {
@@ -1959,6 +1999,10 @@ export default function JobWizard({
           optionalText(
             form.route_criteria,
           ),
+        sector_raw:
+          optionalText(
+            form.route_criteria,
+          ),
         notes:
           optionalText(
             form.notes,
@@ -1978,14 +2022,15 @@ export default function JobWizard({
         estimated_duration:
           requiredNumber(
             form.estimated_duration,
-            60,
+            typeConfig?.avgDuration ??
+              FALLBACK_ESTIMATED_DURATION_MINUTES,
           ),
         required_skills:
           uniqueStringList(
             form.required_skills,
           ),
       };
-    }, [form]);
+    }, [form, typeConfig]);
 
   const syncAssignment =
     useCallback(

@@ -6,6 +6,7 @@ import {
 } from 'react';
 
 import FloatingWindow from './FloatingWindow';
+import { jobOperationalSector } from '../lib/job-sector.js';
 
 const FILTER_FIELDS = {
 	timeSlots: 'timeSlots',
@@ -230,7 +231,7 @@ export default function FilterWindow({
 				job.job_type,
 			);
 			const route = normalizeText(
-				job.route_criteria,
+				jobOperationalSector(job),
 			);
 
 			if (start && end) {

@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import ExportCenter from '../components/export/ExportCenter';
 import { buildReportExportFilters } from '../components/export/exportScope';
 import Toast from '../components/Toast';
+import { useRuntimeSettings } from '../contexts/RuntimeSettingsContext';
 import ReportsHeader from '../features/reports-v3/ReportsHeader';
 import ReportsKpiStrip from '../features/reports-v3/ReportsKpiStrip';
 import ReportsOverview from '../features/reports-v3/ReportsOverview';
@@ -40,6 +41,7 @@ const REPORT_PAGE_SIZE = 500;
 const POLLING_INTERVAL_MS = 60_000;
 const REALTIME_DELAY_MS = 700;
 const TOAST_DURATION_MS = 3200;
+const EMPTY_STATUS_CAPABILITIES = Object.freeze([]);
 
 function hasOption(options, value) {
   if (!value) return true;
@@ -66,6 +68,7 @@ function ReportFilterSelect({ label, value, options, onChange, emptyLabel }) {
 }
 
 export default function RapportsPage({ onNavigate }) {
+  const { settings: runtimeSettings } = useRuntimeSettings();
   const todayKey = useMemo(() => civilDateKeyInTimeZone(), []);
   const [period, setPeriod] = useState('today');
   const [exactDate, setExactDate] = useState(todayKey);
@@ -256,10 +259,15 @@ export default function RapportsPage({ onNavigate }) {
     onTechEvent: scheduleRealtimeRefresh,
   });
 
-  const analytics = useMemo(() => buildAnalytics(filteredJobs), [filteredJobs]);
+  const statusCapabilities = runtimeSettings?.workflow?.statuses
+    ?? EMPTY_STATUS_CAPABILITIES;
+  const analytics = useMemo(
+    () => buildAnalytics(filteredJobs, { statusCapabilities }),
+    [filteredJobs, statusCapabilities],
+  );
   const previousAnalytics = useMemo(
-    () => buildAnalytics(filteredPreviousJobs),
-    [filteredPreviousJobs],
+    () => buildAnalytics(filteredPreviousJobs, { statusCapabilities }),
+    [filteredPreviousJobs, statusCapabilities],
   );
   const comparison = useMemo(
     () => compareAnalytics(analytics, previousAnalytics),

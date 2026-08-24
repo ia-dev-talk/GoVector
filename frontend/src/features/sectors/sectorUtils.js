@@ -7,7 +7,7 @@ import {
   statusLabel,
   technicianInitials,
   text,
-} from '../personnel/personnelUtils';
+} from '../personnel/personnelUtils.js';
 
 
 export {
@@ -78,8 +78,9 @@ export function jobSectorId(job) {
 
 export function legacyJobSectorName(job) {
   return text(
-    job?.route_criteria ??
-      job?.sector_name ??
+    job?.sector_name ??
+      job?.sector_raw ??
+      job?.route_criteria ??
       job?.sector,
   );
 }

@@ -3,6 +3,21 @@ import {
   statusMetadataIndex,
 } from '../../lib/workflow-capabilities.js';
 
+const IN_PROGRESS_STATUSES = new Set([
+  'en_route',
+  'on_site',
+  'in_progress',
+  'work_in_progress',
+]);
+
+const STARTED_STATUSES = new Set([
+  ...IN_PROGRESS_STATUSES,
+  'installation_done',
+  'client_validation',
+  'en_attente_validation',
+  'completed',
+]);
+
 export function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -28,6 +43,21 @@ export function normalizeStatus(value) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('fr')
     .replace(/[\s-]+/g, '_');
+}
+
+export function isCockpitInProgressStatus(value) {
+  return IN_PROGRESS_STATUSES.has(normalizeStatus(value));
+}
+
+export function isCockpitStartedStatus(value) {
+  return STARTED_STATUSES.has(normalizeStatus(value));
+}
+
+export function hasCockpitStartedEvidence(job) {
+  return Boolean(
+    isCockpitStartedStatus(job?.status) ||
+      text(job?.started_at ?? job?.work_started_at),
+  );
 }
 
 function normalizePriority(value) {
@@ -62,11 +92,11 @@ export function hasAssignment(job) {
   );
 }
 
-function jobSector(job) {
+export function cockpitJobSector(job) {
   return text(
-    job?.route_criteria ??
+    job?.sector_name ??
       job?.sector_raw ??
-      job?.sector_name ??
+      job?.route_criteria ??
       job?.sector,
   );
 }
@@ -111,6 +141,7 @@ function computedSummary(jobs, statusMetadata) {
     total: jobs.length,
     assigned: 0,
     in_progress: 0,
+    started: 0,
     completed: 0,
     urgent: 0,
     unassigned: 0,
@@ -122,7 +153,8 @@ function computedSummary(jobs, statusMetadata) {
     const assigned = hasAssignment(job);
 
     if (assigned) summary.assigned += 1;
-    if (lifecycle?.field_active === true) summary.in_progress += 1;
+    if (isCockpitInProgressStatus(status)) summary.in_progress += 1;
+    if (hasCockpitStartedEvidence(job)) summary.started += 1;
     if (lifecycle?.canonical === 'completed') summary.completed += 1;
     if (normalizePriority(job?.priority) === 'URGENT') summary.urgent += 1;
 
@@ -148,6 +180,7 @@ function resolveSummary(jobs, backendSummary, statusMetadata) {
       backendSummary.in_progress,
       fallback.in_progress,
     ),
+    started: fallback.started,
     completed: count(backendSummary.completed, fallback.completed),
     urgent: count(backendSummary.urgent, fallback.urgent),
     unassigned: count(backendSummary.unassigned, fallback.unassigned),
@@ -158,7 +191,7 @@ function buildQuality(jobs) {
   const total = jobs.length;
   const definitions = [
     ['operator', 'Opérateur', (job) => Boolean(text(job?.operator))],
-    ['sector', 'Secteur', (job) => Boolean(jobSector(job))],
+    ['sector', 'Secteur', (job) => Boolean(cockpitJobSector(job))],
     ['type', 'Type', (job) => Boolean(text(job?.job_type))],
     ['assignment', 'Affectation', hasAssignment],
     ['gps', 'Coordonnées GPS', hasGps],
@@ -284,10 +317,7 @@ export function buildCockpitPilotage({
     personnel.onBreak +
     personnel.offline;
 
-  const started = Math.min(
-    resolvedSummary.total,
-    resolvedSummary.in_progress + resolvedSummary.completed,
-  );
+  const started = Math.min(resolvedSummary.total, resolvedSummary.started);
 
   const stages = [
     {

@@ -242,6 +242,10 @@ async def test_start_route_commits_once_and_returns_success(monkeypatch):
         "from_orm_with_assignment",
         classmethod(lambda cls, value: {"id": value.id, "status": value.status}),
     )
+    monkeypatch.setattr(
+        "backend.api.job_responses.hydrate_job_sector_identities",
+        AsyncMock(side_effect=lambda _db, jobs: list(jobs)),
+    )
     dashboard = SimpleNamespace(
         broadcast_job_event=AsyncMock(),
         broadcast_dashboard_update=AsyncMock(),

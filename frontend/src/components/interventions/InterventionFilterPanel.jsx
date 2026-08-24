@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react';
+import { jobOperationalSector } from '../../lib/job-sector.js';
 
 function normalizePriority(value) {
   return String(value ?? '')
@@ -106,7 +107,7 @@ const InterventionFilterPanel = memo(
       () =>
         uniqueValues(
           jobs.map((job) =>
-            job.route_criteria,
+            jobOperationalSector(job),
           ),
         ),
       [jobs],

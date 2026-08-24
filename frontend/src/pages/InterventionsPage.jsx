@@ -1,6 +1,6 @@
 import InterventionsWorkspace from './InterventionsWorkspace';
 import InterventionScopeBoundary from '../components/interventions/InterventionScopeBoundary';
-import { InterventionPermissionsProvider } from '../features/interventions/InterventionPermissionsContext';
+import { InterventionPermissionsProvider } from '../features/interventions/InterventionPermissionsContext.jsx';
 
 export default function InterventionsPage(props) {
   return (

@@ -1,11 +1,13 @@
 """Logique métier pour les Secteurs."""
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, text
+from sqlalchemy import select, text
 from typing import List, Optional
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 
 from backend.database.models import Sector, Orienteur, Technician, Job, Assignment, JobStatus
+from backend.logic.job_sectors import hydrate_job_sector_identities
 
 
 async def get_all_sectors(db: AsyncSession, active_only: bool = True) -> List[Sector]:
@@ -105,52 +107,60 @@ async def get_stats_by_sector(db: AsyncSession, sector_id: int) -> dict:
     orienteurs = await get_orienteurs_by_sector(db, sector_id)
     technicians = await get_technicians_by_sector(db, sector_id)
 
-    # Jobs aujourd'hui
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = today_start.replace(hour=23, minute=59, second=59)
+    # The same Python resolver that hydrates Job API responses is also used for
+    # KPIs.  This keeps legacy routing codes (for example CAS-SIDI-MAAROUF) and
+    # structured territory links consistent without rewriting historical rows.
+    job_rows = (
+        await db.execute(
+            select(
+                Job.id,
+                Job.sector_id,
+                Job.sector_raw,
+                Job.route_criteria,
+                Job.latitude,
+                Job.longitude,
+                Job.scheduled_date,
+                Job.status,
+                Job.real_duration_minutes,
+            ).where(Job.deleted_at.is_(None))
+        )
+    ).mappings().all()
+    jobs = [SimpleNamespace(**row) for row in job_rows]
+    await hydrate_job_sector_identities(db, jobs)
+    sector_jobs = [
+        job
+        for job in jobs
+        if getattr(job, "_canonical_sector_id", None) == sector_id
+    ]
 
-    jobs_today_query = select(func.count(Job.id)).where(
-        Job.scheduled_date >= today_start,
-        Job.scheduled_date <= today_end,
-        Job.orienteur_id.in_([o.id for o in orienteurs]),
+    today = datetime.utcnow().date()
+    week_start = today - timedelta(days=today.weekday())
+    jobs_today = sum(
+        1
+        for job in sector_jobs
+        if job.scheduled_date is not None and job.scheduled_date.date() == today
     )
-    jobs_today_result = await db.execute(jobs_today_query)
-    jobs_today = jobs_today_result.scalar() or 0
+    jobs_week = sum(
+        1
+        for job in sector_jobs
+        if job.scheduled_date is not None
+        and week_start <= job.scheduled_date.date() <= today
+    )
 
-    # Jobs cette semaine
-    week_start = today_start - timedelta(days=today_start.weekday())
-    jobs_week_query = select(func.count(Job.id)).where(
-        Job.scheduled_date >= week_start,
-        Job.scheduled_date <= today_end,
-        Job.orienteur_id.in_([o.id for o in orienteurs]),
-    )
-    jobs_week_result = await db.execute(jobs_week_query)
-    jobs_week = jobs_week_result.scalar() or 0
-
-    # Taux de complétion
-    completed_query = select(func.count(Job.id)).where(
-        Job.status == JobStatus.COMPLETED,
-        Job.orienteur_id.in_([o.id for o in orienteurs]),
-    )
-    completed_result = await db.execute(completed_query)
-    completed = completed_result.scalar() or 0
-
-    total_jobs_query = select(func.count(Job.id)).where(
-        Job.orienteur_id.in_([o.id for o in orienteurs]),
-    )
-    total_jobs_result = await db.execute(total_jobs_query)
-    total_jobs = total_jobs_result.scalar() or 0
+    completed_jobs = [
+        job for job in sector_jobs if job.status == JobStatus.COMPLETED
+    ]
+    completed = len(completed_jobs)
+    total_jobs = len(sector_jobs)
 
     completion_rate = (completed / total_jobs * 100) if total_jobs > 0 else 0.0
 
-    # Durée moyenne
-    avg_duration_query = select(func.avg(Job.real_duration_minutes)).where(
-        Job.status == JobStatus.COMPLETED,
-        Job.orienteur_id.in_([o.id for o in orienteurs]),
-        Job.real_duration_minutes.is_not(None),
-    )
-    avg_duration_result = await db.execute(avg_duration_query)
-    avg_duration = avg_duration_result.scalar() or 0.0
+    durations = [
+        job.real_duration_minutes
+        for job in completed_jobs
+        if job.real_duration_minutes is not None
+    ]
+    avg_duration = sum(durations) / len(durations) if durations else 0.0
 
     return {
         "sector_id": sector.id,

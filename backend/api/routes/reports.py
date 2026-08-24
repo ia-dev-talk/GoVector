@@ -4,20 +4,30 @@ Inclut l'export Excel multi-onglets FTTH.
 """
 import logging
 from typing import Optional, List
-from datetime import datetime, date
-from fastapi import APIRouter, Depends, Query
+from datetime import datetime, date, time, timedelta
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from backend.database.connection import get_db
-from backend.database.models import Job, Technician, Incident, EquipmentInventory, ImportHistory, User
+from backend.database.models import (
+    Job,
+    JobStatus,
+    JobType,
+    Technician,
+    Incident,
+    EquipmentInventory,
+    ImportHistory,
+    User,
+)
 from backend.auth.dependencies import get_current_user, require_chef_orienteur
 from backend.services.excel.advanced_export import generate_advanced_excel_report
-from backend.logic import jobs as job_logic
 from backend.logic import technicians as tech_logic
 from backend.logic import orienteurs as orienteur_logic
 from backend.logic import sectors as sector_logic
+from backend.services.export_service import FieldOptExportService
+from backend.logic.job_planning import canonical_estimated_duration_minutes
 from backend.services.realtime.kpi_calculator import KPICalculator
 from backend.api.schemas.sectors import SectorStats, SectorStatsGlobal
 from backend.api.schemas.orienteurs import OrienteurListResponse
@@ -25,6 +35,85 @@ from backend.api.schemas.orienteurs import OrienteurListResponse
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Reports"])
+
+
+def _advanced_export_job_filters(
+    *,
+    start_date: Optional[date],
+    end_date: Optional[date],
+    sector_id: Optional[int],
+    orienteur_id: Optional[int],
+    technician_id: Optional[int],
+    job_type: Optional[str],
+    status: Optional[str],
+) -> dict:
+    filters = {
+        "start_date": datetime.combine(start_date, time.min) if start_date else None,
+        "end_date": datetime.combine(end_date, time.max) if end_date else None,
+        "sector_id": sector_id,
+        "orienteur_id": orienteur_id,
+        "technician_id": technician_id,
+        "job_type": job_type,
+        "status": status,
+    }
+    return {key: value for key, value in filters.items() if value is not None}
+
+
+def _filtered_job_dashboard_stats(base_stats: dict, jobs: list[Job]) -> dict:
+    """Reconcile job KPIs in the advanced dashboard with its filtered rows."""
+
+    records = list(jobs)
+    total = len(records)
+    today = datetime.utcnow().date()
+    week_start = today - timedelta(days=today.weekday())
+    month_start = today.replace(day=1)
+    completed = [job for job in records if job.status == JobStatus.COMPLETED]
+    failed = [job for job in records if job.status == JobStatus.FAILED]
+    durations = [
+        job.real_duration_minutes
+        for job in completed
+        if job.real_duration_minutes is not None
+    ]
+
+    def scheduled_between(job, start, end):
+        return (
+            job.scheduled_date is not None
+            and start <= job.scheduled_date.date() <= end
+        )
+
+    return {
+        **dict(base_stats or {}),
+        "totalJobs": total,
+        "jobsToday": sum(
+            1 for job in records if scheduled_between(job, today, today)
+        ),
+        "jobsWeek": sum(
+            1 for job in records if scheduled_between(job, week_start, today)
+        ),
+        "jobsMonth": sum(
+            1 for job in records if scheduled_between(job, month_start, today)
+        ),
+        "completedJobs": len(completed),
+        "pendingJobs": sum(1 for job in records if job.status == JobStatus.PENDING),
+        "inProgressJobs": sum(
+            1
+            for job in records
+            if job.status
+            in {
+                JobStatus.EN_ROUTE,
+                JobStatus.ON_SITE,
+                JobStatus.IN_PROGRESS,
+                JobStatus.WORK_IN_PROGRESS,
+            }
+        ),
+        "cancelledJobs": sum(
+            1 for job in records if job.status == JobStatus.CANCELLED
+        ),
+        "successRate": round(len(completed) / total * 100, 2) if total else 0,
+        "failureRate": round(len(failed) / total * 100, 2) if total else 0,
+        "completionRate": round(len(completed) / total * 100, 2) if total else 0,
+        "avgDuration": round(sum(durations) / len(durations), 2) if durations else 0,
+    }
 
 
 @router.get(
@@ -52,8 +141,8 @@ async def export_advanced_excel(
     sector_id: Optional[int] = Query(None, description="ID du secteur"),
     orienteur_id: Optional[int] = Query(None, description="ID de l'orienteur"),
     technician_id: Optional[int] = Query(None, description="ID du technicien"),
-    job_type: Optional[str] = Query(None, description="Type d'intervention"),
-    status: Optional[str] = Query(None, description="Statut d'intervention"),
+    job_type: Optional[JobType] = Query(None, description="Type d'intervention"),
+    status: Optional[JobStatus] = Query(None, description="Statut d'intervention"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_chef_orienteur), # Seuls Admin et Chef Orienteur
 ):
@@ -69,21 +158,37 @@ async def export_advanced_excel(
         "status": status,
     }
 
-    # Récupérer toutes les données nécessaires
-    all_jobs = await job_logic.get_all_jobs(db)
+    # Récupérer les interventions via le même filtre/hydrateur canonique que
+    # le Centre d'export (sans la limite historique de 100 lignes).
+    all_jobs = await FieldOptExportService.get_filtered_jobs(
+        db,
+        _advanced_export_job_filters(**filter_options),
+    )
     all_technicians = await tech_logic.get_all_technicians(db)
     all_orienteurs_db = await orienteur_logic.get_all_orienteurs(db)
     all_sectors_db = await sector_logic.get_all_sectors(db)
     kpi_calc = KPICalculator(db)
-    dashboard_stats = await kpi_calc.get_dashboard_summary()
+    dashboard_stats = _filtered_job_dashboard_stats(
+        await kpi_calc.get_dashboard_summary(),
+        all_jobs,
+    )
 
     # Convertir les objets SQLAlchemy en dictionnaires pour l'export Excel
     jobs_data = []
     for job in all_jobs:
-        job_dict = job.__dict__
+        job_dict = dict(job.__dict__)
         job_dict["job_type"] = job.job_type.value if job.job_type else None
         job_dict["status"] = job.status.value if job.status else None
         job_dict["priority"] = job.priority.value if job.priority else None
+        job_dict["sector_id"] = getattr(job, "_canonical_sector_id", job.sector_id)
+        job_dict["sector_name"] = getattr(job, "_canonical_sector_name", None)
+        job_dict["sector_raw"] = getattr(job, "_canonical_sector_raw", job.sector_raw)
+        job_dict["estimated_duration"] = canonical_estimated_duration_minutes(
+            job_type=job.job_type,
+            estimated_duration=job.estimated_duration,
+            time_slot_start=job.time_slot_start,
+            time_slot_end=job.time_slot_end,
+        )
         # Add technician name if available
         if job.assignment and job.assignment.technician:
             job_dict["assigned_technician_name"] = job.assignment.technician.name

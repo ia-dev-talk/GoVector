@@ -18,6 +18,10 @@ import { api } from '../api/client';
 import CockpitHeader from '../components/cockpit/CockpitHeader';
 import CockpitDataNotice from '../components/cockpit/CockpitDataNotice';
 import CockpitPilotageWorkspace from '../components/cockpit/CockpitPilotageWorkspace';
+import {
+  cockpitJobSector,
+  isCockpitInProgressStatus,
+} from '../components/cockpit/cockpitPilotageSelectors';
 import SimBar from '../components/SimBar';
 import Toast from '../components/Toast';
 import {
@@ -243,15 +247,6 @@ function technicianSectors(technician) {
   return [...new Set(values.map(text).filter(Boolean))];
 }
 
-function jobSector(job) {
-  return text(
-    job?.route_criteria ??
-      job?.sector_raw ??
-      job?.sector_name ??
-      job?.sector,
-  );
-}
-
 function assignedTechnicianName(job) {
   return text(
     job?.assigned_tech_name ??
@@ -295,7 +290,7 @@ function summarizeJobs(jobs, statusMetadata) {
       summary.pending += 1;
     }
     if (assigned) summary.assigned += 1;
-    if (lifecycle?.field_active === true) summary.in_progress += 1;
+    if (isCockpitInProgressStatus(status)) summary.in_progress += 1;
     if (lifecycle?.canonical === 'completed') {
       summary.completed += 1;
     }
@@ -754,7 +749,7 @@ export default function DashboardHome({
           job?.ont_serial,
           job?.router_serial,
           assignedTechnicianName(job),
-          jobSector(job),
+          cockpitJobSector(job),
         ],
         normalizedSearch,
       ),
@@ -792,7 +787,7 @@ export default function DashboardHome({
     const counts = new Map();
 
     jobs.forEach((job) => {
-      const sector = jobSector(job);
+      const sector = cockpitJobSector(job);
       if (!sector) return;
 
       counts.set(sector, (counts.get(sector) || 0) + 1);

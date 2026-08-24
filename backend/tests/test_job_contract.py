@@ -48,6 +48,8 @@ def test_supported_job_create_fields_are_mapped_without_loss():
         optical_power_dbm=-19.4,
         cable_length_m=245,
         operator="Orange",
+        sector_id=4,
+        sector_raw="Sidi Maârouf",
         planned_location_source="google_maps_shared_link",
         planned_location_precision="user_confirmed",
     )
@@ -59,6 +61,8 @@ def test_supported_job_create_fields_are_mapped_without_loss():
     assert mapped["splitter_raw"] == "SPL-A"
     assert mapped["splitter_port_raw"] == 7
     assert mapped["orienteur_id"] == 4
+    assert mapped["sector_id"] == 4
+    assert mapped["sector_raw"] == "Sidi Maârouf"
     assert mapped["planned_location_source"] == "google_maps_shared_link"
     assert mapped["planned_location_precision"] == "user_confirmed"
 

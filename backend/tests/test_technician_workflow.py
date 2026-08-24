@@ -307,6 +307,10 @@ async def test_technician_http_commands_cover_the_full_field_chain(
         "from_orm_with_assignment",
         classmethod(lambda cls, value: value),
     )
+    monkeypatch.setattr(
+        "backend.api.job_responses.hydrate_job_sector_identities",
+        AsyncMock(side_effect=lambda _db, jobs: list(jobs)),
+    )
     dashboard = SimpleNamespace(
         broadcast_job_event=AsyncMock(),
         broadcast_dashboard_update=AsyncMock(),

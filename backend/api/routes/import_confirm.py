@@ -29,6 +29,7 @@ from backend.database.models import (
     UserRole,
 )
 from backend.logic import jobs as job_logic
+from backend.logic.job_sectors import resolve_sector_for_write, sector_registry_aliases
 from backend.services.excel.import_history_service import ImportHistoryService
 
 logger = logging.getLogger(__name__)
@@ -72,21 +73,21 @@ def _normalize_sector_name(value: Any) -> str:
 
 
 def _build_sector_index(
-    sectors: list[tuple[int, str]],
+    sectors: list[tuple],
 ) -> dict[str, list[int]]:
     index: dict[str, list[int]] = {}
 
-    for sector_id, sector_name in sectors:
-        normalized_name = _normalize_sector_name(
-            sector_name
+    for row in sectors:
+        sector_id, sector_name = row[:2]
+        description = row[2] if len(row) > 2 else None
+        aliases = sector_registry_aliases(
+            {
+                "name": sector_name,
+                "description": description,
+            }
         )
-        if not normalized_name:
-            continue
-
-        index.setdefault(
-            normalized_name,
-            [],
-        ).append(sector_id)
+        for alias in aliases:
+            index.setdefault(alias, []).append(sector_id)
 
     return index
 
@@ -392,6 +393,7 @@ async def _persist_jobs(
         select(
             Sector.id,
             Sector.name,
+            Sector.description,
         ).where(
             Sector.is_active.is_(True)
         )
@@ -400,8 +402,9 @@ async def _persist_jobs(
         (
             sector_id,
             sector_name,
+            sector_description,
         )
-        for sector_id, sector_name
+        for sector_id, sector_name, sector_description
         in sector_result.all()
     ]
     sector_index = _build_sector_index(
@@ -580,7 +583,7 @@ async def _create_job_from_dict(db: AsyncSession, item: dict) -> Job:
         priority=priority,
         status=status,
         scheduled_date=scheduled_date,
-        estimated_duration=item.get("estimated_duration") or 60,
+        estimated_duration=item.get("estimated_duration"),
         description=item.get("description"),
         notes=item.get("notes"),
         assigned_technician_name=item.get("assigned_technician_name"),
@@ -630,11 +633,6 @@ async def _update_job_from_dict(db: AsyncSession, job: Job, item: dict) -> Job:
     if item.get("_client_organization_id") is not None:
         job.client_organization_id = item["_client_organization_id"]
 
-    sector_raw = item.get("sector_raw")
-    if _normalize_sector_name(sector_raw):
-        job.sector_raw = sector_raw
-        job.sector_id = item.get("sector_id")
-
     # Handle enum fields
     if item.get("job_type"):
         try:
@@ -659,6 +657,54 @@ async def _update_job_from_dict(db: AsyncSession, job: Job, item: dict) -> Job:
         job.latitude = float(item["latitude"])
     if item.get("longitude") is not None:
         job.longitude = float(item["longitude"])
+
+    supplied_sector_raw = item.get("sector_raw")
+    supplied_sector_id = item.get("sector_id")
+    has_sector_raw = bool(_normalize_sector_name(supplied_sector_raw))
+    location_context_changed = any(
+        key in item and item.get(key) is not None
+        for key in ("route_criteria", "latitude", "longitude")
+    )
+
+    if supplied_sector_id is not None:
+        identity = await resolve_sector_for_write(
+            db,
+            sector_id=supplied_sector_id,
+            sector_raw=supplied_sector_raw,
+            route_criteria=job.route_criteria,
+            latitude=job.latitude,
+            longitude=job.longitude,
+        )
+        job.sector_id = identity.id
+        job.sector_raw = supplied_sector_raw or identity.raw
+    elif has_sector_raw:
+        identity = await resolve_sector_for_write(
+            db,
+            sector_id=None,
+            sector_raw=supplied_sector_raw,
+            route_criteria=job.route_criteria,
+            latitude=job.latitude,
+            longitude=job.longitude,
+        )
+        if identity is not None:
+            job.sector_id = identity.id
+            job.sector_raw = supplied_sector_raw
+        # Preview may only know the operational-sector alias index while the
+        # canonical resolver also knows TerritoryNode links and geometry. If
+        # neither resolves, preserve the existing identity instead of NULLing
+        # historical data.
+    elif location_context_changed and job.sector_id is None:
+        identity = await resolve_sector_for_write(
+            db,
+            sector_id=None,
+            sector_raw=job.sector_raw,
+            route_criteria=job.route_criteria,
+            latitude=job.latitude,
+            longitude=job.longitude,
+        )
+        if identity is not None:
+            job.sector_id = identity.id
+            job.sector_raw = job.sector_raw or identity.raw
 
     # Handle scheduled_date
     scheduled_raw = item.get("scheduled_date")

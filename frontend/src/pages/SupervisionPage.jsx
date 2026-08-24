@@ -282,9 +282,9 @@ function jobId(job) {
 
 function jobSector(job) {
   return text(
-    job?.route_criteria ??
+    job?.sector_name ??
+      job?.route_criteria ??
       job?.sector_raw ??
-      job?.sector_name ??
       job?.sector,
   );
 }

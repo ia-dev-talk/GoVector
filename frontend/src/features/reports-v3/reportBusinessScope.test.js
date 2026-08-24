@@ -89,6 +89,26 @@ test('construit des options dédupliquées et lisibles depuis les données réel
   assert.deepEqual(options.operators.map((item) => item.value), ['IAM', 'ORANGE']);
 });
 
+test('le filtre Rapports utilise le secteur opérationnel canonique et non la micro-zone brute', () => {
+  const jobs = [{
+    id: 31,
+    sector_id: 4,
+    sector_name: 'Secteur Sud',
+    sector_raw: 'Sidi Maârouf',
+    route_criteria: 'Sidi Maârouf',
+    status: 'ASSIGNED',
+  }];
+
+  assert.deepEqual(buildReportBusinessFilterOptions(jobs).sectors, [
+    { value: 4, label: 'Secteur Sud' },
+  ]);
+  assert.deepEqual(
+    filterReportJobs(jobs, { sector_id: 4 }).map((job) => job.id),
+    [31],
+  );
+  assert.equal(filterReportJobs(jobs, { sector_id: 3 }).length, 0);
+});
+
 test('le scope export reprend exactement la période et les filtres métier normalisés', () => {
   const filters = normalizeReportBusinessFilters({
     sector_id: '7',

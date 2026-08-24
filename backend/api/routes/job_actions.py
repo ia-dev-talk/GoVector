@@ -23,6 +23,7 @@ from backend.api.schemas import (
     JobActivityLogResponse,
     MessageResponse,
 )
+from backend.api.job_responses import job_response
 from backend.database.connection import get_db
 from backend.database.models import (
     Job, JobStatus, JobType, User, UserRole,
@@ -30,6 +31,8 @@ from backend.database.models import (
     JobPostponement, EquipmentInventory,
 )
 from backend.logic import jobs as job_logic
+from backend.logic.job_planning import job_estimated_duration_minutes
+from backend.logic.job_sectors import resolve_sector_for_write
 from backend.logic import assignments as assignment_logic
 from backend.logic.activity_log import log_job_activity
 from backend.logic.job_access import require_job_operations_access, require_job_read_access
@@ -117,7 +120,7 @@ async def reassign_job(
     except Exception as e:
         logger.warning(f"WebSocket error (reassign): {e}")
 
-    return JobResponse.from_orm_with_assignment(job)
+    return await job_response(db, job)
 
 
 @router.post("/{job_id}/postpone", response_model=JobResponse)
@@ -192,7 +195,7 @@ async def postpone_job(
     except Exception as e:
         logger.warning(f"WebSocket error (postpone): {e}")
 
-    return JobResponse.from_orm_with_assignment(job)
+    return await job_response(db, job)
 
 
 @router.post("/{job_id}/duplicate", response_model=JobResponse, status_code=201)
@@ -210,6 +213,18 @@ async def duplicate_job(
         raise HTTPException(status_code=404, detail="Intervention source introuvable")
     require_job_operations_access(job=original, current_user=current_user)
 
+    try:
+        sector_identity = await resolve_sector_for_write(
+            db,
+            sector_id=original.sector_id,
+            sector_raw=original.sector_raw,
+            route_criteria=original.route_criteria,
+            latitude=original.latitude,
+            longitude=original.longitude,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     # Créer une copie
     new_job = Job(
         job_type=original.job_type,
@@ -220,13 +235,18 @@ async def duplicate_job(
         service_address=original.service_address,
         service_city=original.service_city,
         service_zip=original.service_zip,
+        sector_id=sector_identity.id if sector_identity is not None else None,
+        sector_raw=(
+            original.sector_raw
+            or (sector_identity.raw if sector_identity is not None else None)
+        ),
         latitude=original.latitude,
         longitude=original.longitude,
         required_skills=original.required_skills,
         route_criteria=original.route_criteria,
         operator=original.operator,
         priority=original.priority,
-        estimated_duration=original.estimated_duration,
+        estimated_duration=job_estimated_duration_minutes(original),
         description=original.description,
         notes=f"[DUPLICATE de #{original.id}] {original.notes or ''}",
         special_instructions=original.special_instructions,
@@ -239,7 +259,6 @@ async def duplicate_job(
         splitter_port_raw=original.splitter_port_raw,
         optical_power_dbm=original.optical_power_dbm,
         cable_length_m=original.cable_length_m,
-        type_cable=original.type_cable,
         # Équipement
         equipment_type=original.equipment_type,
         # Orienteur
@@ -273,7 +292,7 @@ async def duplicate_job(
     except Exception as e:
         logger.warning(f"WebSocket error (duplicate): {e}")
 
-    return JobResponse.from_orm_with_assignment(new_job)
+    return await job_response(db, new_job)
 
 
 @router.post("/{job_id}/cancel", response_model=JobResponse)
@@ -315,7 +334,7 @@ async def cancel_job_with_reason(
     await db.commit()
     await db.refresh(job)
 
-    return JobResponse.from_orm_with_assignment(job)
+    return await job_response(db, job)
 
 
 @router.post("/{job_id}/archive", response_model=MessageResponse)

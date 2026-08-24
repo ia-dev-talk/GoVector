@@ -73,6 +73,10 @@ async def test_jobs_my_returns_only_assignments_for_technician_three(monkeypatch
         "from_orm_with_assignment",
         classmethod(lambda cls, job: {"id": job.id}),
     )
+    monkeypatch.setattr(
+        "backend.api.job_responses.hydrate_job_sector_identities",
+        AsyncMock(side_effect=lambda _db, jobs: list(jobs)),
+    )
 
     response = await jobs_routes.get_my_jobs(
         status=None,
