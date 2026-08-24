@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { civilDateKeyInTimeZone } from './operationalTime.js';
 import { resolveReportPeriodSelection } from './reportPeriodSelection.js';
@@ -80,6 +81,61 @@ test('operational midnight controls today instead of the observer timezone', () 
 
   assert.equal(localDateKey(beforeMidnight.range.start), '2026-08-21');
   assert.equal(localDateKey(afterMidnight.range.start), '2026-08-22');
+});
+
+test('cockpit uses the same operational day for API scope and visible date', () => {
+  const instant = new Date('2026-08-21T23:30:00.000Z');
+  const operationalDay = civilDateKeyInTimeZone(
+    instant,
+    'Africa/Casablanca',
+  );
+  const observerDay = civilDateKeyInTimeZone(
+    instant,
+    'America/New_York',
+  );
+
+  assert.equal(operationalDay, '2026-08-22');
+  assert.equal(observerDay, '2026-08-21');
+
+  const dashboardSource = readFileSync(
+    new URL('../../pages/DashboardHome.jsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(
+    dashboardSource,
+    /const date = civilDateKeyInTimeZone\(new Date\(\), OPERATIONAL_TIME_ZONE\);/,
+  );
+  assert.match(
+    dashboardSource,
+    /api\.getJobs\(\{ scheduled_date: date \}\)/,
+  );
+  assert.match(
+    dashboardSource,
+    /currentDate=\{currentOperationalDate\(\)\}/,
+  );
+  assert.match(
+    dashboardSource,
+    /timeZone: OPERATIONAL_TIME_ZONE/,
+  );
+  assert.match(
+    dashboardSource,
+    /setLastSync\(formatClock\(new Date\(\), \{ includeZone: true \}\)\)/,
+  );
+});
+
+test('cockpit operational day flips exactly at Casablanca midnight', () => {
+  const beforeMidnight = new Date('2026-08-21T22:59:59.999Z');
+  const afterMidnight = new Date('2026-08-21T23:00:00.001Z');
+
+  assert.equal(
+    civilDateKeyInTimeZone(beforeMidnight, 'Africa/Casablanca'),
+    '2026-08-21',
+  );
+  assert.equal(
+    civilDateKeyInTimeZone(afterMidnight, 'Africa/Casablanca'),
+    '2026-08-22',
+  );
 });
 
 test('resolveReportPeriodSelection accepte un jour exact sans conversion de fuseau', () => {
