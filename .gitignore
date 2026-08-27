@@ -80,3 +80,6 @@ analytics/.Rhistory
 
 # Backups
 backup/
+
+# Local database backups
+backups/
