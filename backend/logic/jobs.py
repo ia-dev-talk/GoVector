@@ -167,14 +167,24 @@ async def create_job(
 
 
 async def get_job(db: AsyncSession, job_id: int) -> Optional[Job]:
-	"""Get a job by ID"""
-	result = await db.execute(select(Job).where(Job.id == job_id))
+	"""Get an active job by ID."""
+	result = await db.execute(
+		select(Job).where(
+			Job.id == job_id,
+			Job.deleted_at.is_(None),
+		)
+	)
 	return result.scalar_one_or_none()
 
 
 async def get_job_by_number(db: AsyncSession, job_number: str) -> Optional[Job]:
-	"""Get a job by job number"""
-	result = await db.execute(select(Job).where(Job.job_number == job_number))
+	"""Get an active job by job number."""
+	result = await db.execute(
+		select(Job).where(
+			Job.job_number == job_number,
+			Job.deleted_at.is_(None),
+		)
+	)
 	return result.scalar_one_or_none()
 
 
@@ -280,7 +290,10 @@ async def get_pending_jobs(
 	scheduled_date: Optional[date] = None,
 ) -> List[Job]:
 	"""Get all pending (unassigned) jobs, optionally filtered by scheduled date"""
-	query = select(Job).where(Job.status == JobStatus.PENDING)
+	query = select(Job).where(
+		Job.status == JobStatus.PENDING,
+		Job.deleted_at.is_(None),
+	)
 
 	if scheduled_date:
 		start_of_day = datetime.combine(scheduled_date, datetime.min.time())
@@ -300,7 +313,10 @@ async def get_assigned_jobs(
 	scheduled_date: Optional[date] = None,
 ) -> List[Job]:
 	"""Get all assigned jobs, optionally filtered by scheduled date"""
-	query = select(Job).where(Job.status == JobStatus.ASSIGNED)
+	query = select(Job).where(
+		Job.status == JobStatus.ASSIGNED,
+		Job.deleted_at.is_(None),
+	)
 
 	if scheduled_date:
 		start_of_day = datetime.combine(scheduled_date, datetime.min.time())
@@ -504,17 +520,26 @@ async def update_job(
 	return job
 
 
-async def delete_job(db: AsyncSession, job_id: int) -> bool:
-	"""Delete a job (hard delete)"""
+async def delete_job(
+	db: AsyncSession,
+	job_id: int,
+	deleted_by: Optional[int] = None,
+) -> bool:
+	"""Archive a cancelled job while preserving its audit history."""
 	job = await get_job(db, job_id)
 	if not job:
 		return False
 
-	if job.status in [JobStatus.IN_PROGRESS, JobStatus.COMPLETED]:
-		raise ValueError(f"Cannot delete job in {job.status} status. Cancel it instead.")
+	if job.status != JobStatus.CANCELLED:
+		raise ValueError(
+			"Only a cancelled intervention can be archived."
+		)
 
-	await db.delete(job)
+	job.deleted_at = datetime.utcnow()
+	job.deleted_by = deleted_by
+
 	await db.commit()
+	await db.refresh(job)
 
 	return True
 
@@ -735,7 +760,9 @@ async def search_jobs(
 	Mirrors WFX Job Search functionality.
 	"""
 	query = select(Job)
-	filters = []
+	filters = [
+		Job.deleted_at.is_(None),
+	]
 
 	if job_id:
 		filters.append(Job.id == job_id)

@@ -148,7 +148,10 @@ async def get_jobs(
         if not job_ids:
             return []
 
-        base_query = select(Job).where(Job.id.in_(job_ids))
+        base_query = select(Job).where(
+            Job.id.in_(job_ids),
+            Job.deleted_at.is_(None),
+        )
 
         if status:
             base_query = base_query.where(Job.status == status)
@@ -471,16 +474,20 @@ async def delete_job(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_chef_orienteur),
 ):
-    """Delete a job (hard delete — use with caution)"""
+    """Archive a cancelled job while preserving audit history."""
     job = await job_logic.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
     require_job_operations_access(job=job, current_user=current_user)
     try:
-        success = await job_logic.delete_job(db, job_id)
+        success = await job_logic.delete_job(
+            db,
+            job_id,
+            deleted_by=current_user.id,
+        )
         if not success:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-        return MessageResponse(success=True, message=f"Job {job_id} deleted")
+        return MessageResponse(success=True, message=f"Job {job_id} archived")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
