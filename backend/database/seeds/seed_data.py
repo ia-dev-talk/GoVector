@@ -100,7 +100,12 @@ def make_jobs():
     ]
 
 
-async def seed_all():
+def technician_seed_rows():
+    """Return fresh technician templates without mutating TECHNICIANS."""
+    return [dict(row) for row in TECHNICIANS]
+
+
+async def seed_all(*, include_jobs: bool = True):
     async with AsyncSessionLocal() as session:
         from sqlalchemy import text
         from backend.database.models import Orienteur
@@ -170,7 +175,7 @@ async def seed_all():
 
         # ── 3. Créer les techniciens avec leur orienteur ───────
         tech_ids = []
-        for tech_data in TECHNICIANS:
+        for tech_data in technician_seed_rows():
             orienteur_name = tech_data.pop("orienteur_name", None)
             tech_email = tech_data["email"]
             existing = await session.execute(
@@ -197,7 +202,7 @@ async def seed_all():
 
         # ── 4. Créer automatiquement les comptes mobiles pour chaque technicien ──
         tech_users_created = 0
-        for idx, tech_data in enumerate([{**t, "orienteur_name": t.get("orienteur_name", "")} for t in TECHNICIANS]):
+        for idx, tech_data in enumerate(technician_seed_rows()):
             if idx >= len(tech_ids):
                 break
             tech_id = tech_ids[idx]
@@ -279,6 +284,13 @@ async def seed_all():
 
         await session.commit()
         print(f"  {orienteur_accounts_created} comptes orienteurs créés (wahid, rachid, driss, hicham)")
+
+        if not include_jobs:
+            print(
+                "\n✅ Seed de référence terminé "
+                "(sans interventions ni affectations).\n"
+            )
+            return
 
         # ── 7. Créer les jobs ──────────────────────────────────
         jobs_data = make_jobs()
