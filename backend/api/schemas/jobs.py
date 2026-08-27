@@ -538,8 +538,20 @@ class JobStatusUpdate(BaseModel):
 # RESPONSE
 # ============================================================
 
+def _response_assignment(job):
+    current = getattr(job, "assignment", None)
+    if current is not None:
+        return current
+
+    return getattr(
+        job,
+        "_response_assignment",
+        None,
+    )
+
+
 def _current_assignment_assigned_at(job):
-    assignment = getattr(job, "assignment", None)
+    assignment = _response_assignment(job)
     if assignment is None:
         return None
     return getattr(assignment, "assigned_at", None)
@@ -770,26 +782,28 @@ class JobResponse(JobBase):
             "failure_reason": getattr(job, "failure_reason", None),
         }
 
-        if job.assignment:
+        response_assignment = _response_assignment(job)
+
+        if response_assignment:
 
             data["assigned_at"] = _current_assignment_assigned_at(job)
 
             data["assigned_tech_id"] = (
-                job.assignment.technician_id
+                response_assignment.technician_id
             )
 
             data["estimated_arrival"] = (
-                job.assignment.estimated_arrival
+                response_assignment.estimated_arrival
             )
 
             data["actual_duration_minutes"] = (
-                job.assignment.actual_duration_minutes
+                response_assignment.actual_duration_minutes
             )
 
-            if job.assignment.technician:
+            if response_assignment.technician:
 
                 data["assigned_tech_name"] = (
-                    job.assignment.technician.name
+                    response_assignment.technician.name
                 )
 
         return cls(**data)
