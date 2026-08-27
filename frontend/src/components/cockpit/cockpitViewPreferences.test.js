@@ -15,6 +15,7 @@ import {
   normalizeCockpitOrder,
   normalizeCockpitView,
   toggleCockpitSection,
+  visibleCockpitOrder,
 } from './cockpitViewPreferences.js';
 
 async function waitFor(predicate, message) {
@@ -105,6 +106,49 @@ test('normalizes cockpit order without duplicates or missing supported blocks', 
     ['quality', 'metrics', 'progression', 'decisions', 'capacity', 'activity', 'quickAccess'],
   );
   assert.deepEqual(normalizeCockpitOrder(null), [...DEFAULT_COCKPIT_ORDER]);
+});
+
+
+test('removes hidden cockpit blocks from the rendered layout order', () => {
+  const visibility = {
+    ...DEFAULT_COCKPIT_VIEW,
+    activity: false,
+  };
+
+  assert.deepEqual(
+    visibleCockpitOrder(DEFAULT_COCKPIT_ORDER, visibility),
+    [
+      'metrics',
+      'progression',
+      'decisions',
+      'capacity',
+      'quality',
+      'quickAccess',
+    ],
+  );
+
+  assert.deepEqual(
+    visibleCockpitOrder(
+      [
+        'metrics',
+        'quickAccess',
+        'activity',
+        'quality',
+        'capacity',
+        'progression',
+        'decisions',
+      ],
+      visibility,
+    ),
+    [
+      'metrics',
+      'quickAccess',
+      'quality',
+      'capacity',
+      'progression',
+      'decisions',
+    ],
+  );
 });
 
 

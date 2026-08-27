@@ -137,6 +137,13 @@ export function normalizeCockpitOrder(value) {
   return normalized;
 }
 
+export function visibleCockpitOrder(order, visibility) {
+  const normalizedOrder = normalizeCockpitOrder(order);
+  const normalizedView = normalizeCockpitView(visibility);
+
+  return normalizedOrder.filter((key) => normalizedView[key]);
+}
+
 export function moveCockpitSection(order, key, direction) {
   const normalized = normalizeCockpitOrder(order);
   const index = normalized.indexOf(key);

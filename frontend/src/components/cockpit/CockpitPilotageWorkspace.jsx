@@ -18,6 +18,7 @@ import {
   moveCockpitSection,
   normalizeCockpitOrder,
   toggleCockpitSection,
+  visibleCockpitOrder,
 } from './cockpitViewPreferences';
 import {
   cockpitLayoutFingerprint,
@@ -840,7 +841,7 @@ const CockpitPilotageWorkspace = memo(function CockpitPilotageWorkspace({
           alignItems: 'stretch',
         }}
       >
-        {normalizeCockpitOrder(order).map((key) => (
+        {visibleCockpitOrder(order, visibility).map((key) => (
           <div
             key={key}
             data-cockpit-block={key}
