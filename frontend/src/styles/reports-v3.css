@@ -147,7 +147,8 @@
   gap: 8px;
 }
 
-.rv3-period-controls label {
+.rv3-period-controls label,
+.rv3-period-field {
   display: flex;
   align-items: center;
   min-width: 170px;
@@ -178,6 +179,55 @@
 .rv3-period-controls input::placeholder {
   color: var(--text-muted);
   opacity: 0.8;
+}
+
+
+.rv3-date-field {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.rv3-date-text-input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.rv3-date-picker {
+  position: relative;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  color: var(--text-secondary);
+  border-left: 1px solid var(--border-light);
+  cursor: pointer;
+}
+
+.rv3-date-picker:hover,
+.rv3-date-picker:focus-within {
+  color: #ffffff;
+}
+
+.rv3-date-picker svg {
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+
+.rv3-date-native-input {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100% !important;
+  height: 100%;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+  color-scheme: dark;
 }
 
 .rv3-status-reconciliation {
@@ -1441,4 +1491,47 @@ button.rv3-kpi:hover {
   .rv3-kpi--rate {
     grid-column: auto;
   }
+}
+
+/* RV3_NATIVE_DATE_PICKER_FIX */
+.rv3-date-picker {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 54px;
+  width: 54px;
+}
+
+.rv3-date-picker-button {
+  width: 54px;
+  min-width: 54px;
+  height: 100%;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-left: 1px solid var(--rv3-border, rgba(148, 163, 184, 0.18));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rv3-date-picker-button:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.rv3-date-picker-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -3px;
+}
+
+.rv3-date-native-input {
+  position: fixed;
+  left: -10000px;
+  top: -10000px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }

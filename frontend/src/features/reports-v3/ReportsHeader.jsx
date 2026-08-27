@@ -1,6 +1,7 @@
 import {
   memo,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -33,6 +34,7 @@ function FrenchCivilDateField({
   invalid = false,
 }) {
   const [draft, setDraft] = useState(() => formatFrenchCivilDate(value));
+  const nativeDateRef = useRef(null);
 
   const commit = (nextDraft) => {
     const parsed = parseFrenchCivilDate(nextDraft);
@@ -40,28 +42,76 @@ function FrenchCivilDateField({
     return parsed;
   };
 
-  return (
-    <input
-      type="text"
-      inputMode="numeric"
-      autoComplete="off"
-      value={draft}
-      placeholder="jj/mm/aaaa"
-      aria-label={label}
-      aria-invalid={invalid || undefined}
-      onChange={(event) => {
-        const nextDraft = sanitizeFrenchDateDraft(event.target.value);
-        setDraft(nextDraft);
+  const handleCalendarChange = (event) => {
+    const nextValue = event.target.value;
+    setDraft(formatFrenchCivilDate(nextValue));
+    onChange?.(nextValue);
+  };
 
-        if (!nextDraft || nextDraft.length === 10) {
-          commit(nextDraft);
-        }
-      }}
-      onBlur={() => {
-        const parsed = commit(draft);
-        if (parsed) setDraft(formatFrenchCivilDate(parsed));
-      }}
-    />
+  return (
+    <div className="rv3-date-field">
+      <input
+        className="rv3-date-text-input"
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        value={draft}
+        placeholder="jj/mm/aaaa"
+        aria-label={label}
+        aria-invalid={invalid || undefined}
+        onChange={(event) => {
+          const nextDraft = sanitizeFrenchDateDraft(event.target.value);
+          setDraft(nextDraft);
+
+          if (!nextDraft || nextDraft.length === 10) {
+            commit(nextDraft);
+          }
+        }}
+        onBlur={() => {
+          const parsed = commit(draft);
+          if (parsed) setDraft(formatFrenchCivilDate(parsed));
+        }}
+      />
+
+      <div className="rv3-date-picker">
+        <button
+          type="button"
+          className="rv3-date-picker-button"
+          title="Choisir dans le calendrier"
+          aria-label={`Ouvrir le calendrier pour ${label}`}
+          onClick={() => {
+            const input = nativeDateRef.current;
+            if (!input) return;
+
+            input.focus({ preventScroll: true });
+
+            if (typeof input.showPicker === 'function') {
+              try {
+                input.showPicker();
+                return;
+              } catch {
+                // Fallback navigateur ci-dessous.
+              }
+            }
+
+            input.click();
+          }}
+        >
+          <CalendarIcon />
+        </button>
+
+        <input
+          ref={nativeDateRef}
+          className="rv3-date-native-input"
+          type="date"
+          value={value || ''}
+          tabIndex={-1}
+          aria-label={`${label} via calendrier`}
+          aria-invalid={invalid || undefined}
+          onChange={handleCalendarChange}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -138,7 +188,7 @@ const ReportsHeader = memo(function ReportsHeader({
         </label>
 
         {period === 'exact' && (
-          <label>
+          <div className="rv3-period-field">
             <span>Jour</span>
             <FrenchCivilDateField
               value={exactDate}
@@ -146,12 +196,12 @@ const ReportsHeader = memo(function ReportsHeader({
               label="Jour exact analysé au format jj/mm/aaaa"
               invalid={Boolean(periodError)}
             />
-          </label>
+          </div>
         )}
 
         {period === 'custom' && (
           <>
-            <label>
+            <div className="rv3-period-field">
               <span>Début</span>
               <FrenchCivilDateField
                 value={customStart}
@@ -159,8 +209,9 @@ const ReportsHeader = memo(function ReportsHeader({
                 label="Début de la période personnalisée au format jj/mm/aaaa"
                 invalid={Boolean(periodError)}
               />
-            </label>
-            <label>
+            </div>
+
+            <div className="rv3-period-field">
               <span>Fin</span>
               <FrenchCivilDateField
                 value={customEnd}
@@ -168,7 +219,7 @@ const ReportsHeader = memo(function ReportsHeader({
                 label="Fin de la période personnalisée au format jj/mm/aaaa"
                 invalid={Boolean(periodError)}
               />
-            </label>
+            </div>
           </>
         )}
 
