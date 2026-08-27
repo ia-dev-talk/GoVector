@@ -144,6 +144,24 @@ function MapController({ position, recenterRequest, onReady }) {
   return null;
 }
 
+function MapClickHandler({
+  disabled,
+  onPositionChange,
+}) {
+  useMapEvents({
+    click(event) {
+      if (disabled) return;
+
+      onPositionChange({
+        lat: event.latlng.lat,
+        lng: event.latlng.lng,
+      });
+    },
+  });
+
+  return null;
+}
+
 function PositionMarker({
   position,
   disabled,
@@ -166,17 +184,6 @@ function PositionMarker({
     () => (isRecord(externalHandlers) ? externalHandlers : {}),
     [externalHandlers],
   );
-
-  useMapEvents({
-    click(event) {
-      if (!disabled) {
-        onPositionChange({
-          lat: event.latlng.lat,
-          lng: event.latlng.lng,
-        });
-      }
-    },
-  });
 
   const eventHandlers = useMemo(
     () => ({
@@ -382,6 +389,11 @@ const MapPicker = forwardRef(function MapPicker(
           position={position}
           recenterRequest={recenterRequest}
           onReady={onReady}
+        />
+
+        <MapClickHandler
+          disabled={disabled}
+          onPositionChange={handlePositionChange}
         />
 
         {externalPosition ? (

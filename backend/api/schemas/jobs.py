@@ -538,6 +538,13 @@ class JobStatusUpdate(BaseModel):
 # RESPONSE
 # ============================================================
 
+def _current_assignment_assigned_at(job):
+    assignment = getattr(job, "assignment", None)
+    if assignment is None:
+        return None
+    return getattr(assignment, "assigned_at", None)
+
+
 class JobResponse(JobBase):
     """Schema returned to frontend"""
 
@@ -595,6 +602,8 @@ class JobResponse(JobBase):
     started_at: Optional[datetime]
 
     completed_at: Optional[datetime]
+
+    assigned_at: Optional[datetime] = None
 
     assigned_tech_id: Optional[int] = None
 
@@ -720,6 +729,8 @@ class JobResponse(JobBase):
             "started_at": job.started_at,
             "completed_at": job.completed_at,
 
+            "assigned_at": None,
+
             "assigned_tech_id": None,
             "assigned_tech_name": None,
 
@@ -760,6 +771,8 @@ class JobResponse(JobBase):
         }
 
         if job.assignment:
+
+            data["assigned_at"] = _current_assignment_assigned_at(job)
 
             data["assigned_tech_id"] = (
                 job.assignment.technician_id

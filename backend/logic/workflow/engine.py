@@ -98,6 +98,85 @@ REQUIRED_PHOTOS = {
 }
 
 
+ACTIVITY_STATUS_LABELS = {
+    JobStatus.PENDING: "Créée",
+    JobStatus.ASSIGNED: "Affectée",
+    JobStatus.ACCEPTED: "Acceptée",
+    JobStatus.EN_ROUTE: "En route",
+    JobStatus.ON_SITE: "Arrivé sur site",
+    JobStatus.WORK_IN_PROGRESS: "Travail en cours",
+    JobStatus.IN_PROGRESS: "Démarrée",
+    JobStatus.INSTALLATION_DONE: "Installation terminée",
+    JobStatus.CLIENT_VALIDATION: "Validation client",
+    JobStatus.EN_ATTENTE_VALIDATION: "En attente de validation",
+    JobStatus.COMPLETED: "Terminée",
+    JobStatus.CANCELLED: "Annulée",
+    JobStatus.FAILED: "En échec",
+    JobStatus.CLIENT_ABSENT: "Client absent",
+    JobStatus.POSTPONED: "Reportée",
+    JobStatus.SUSPENDED: "Suspendue",
+    JobStatus.ON_HOLD: "En attente",
+}
+
+
+def _activity_transition_source(metadata):
+    extra = (metadata or {}).get("extra") or {}
+    return extra.get("source")
+
+
+def _activity_action_for_transition(new_status, metadata=None):
+    source = _activity_transition_source(metadata)
+
+    if (
+        new_status == JobStatus.PENDING
+        and source in {
+            "unassignment",
+            "reassignment",
+            "batch_reassignment",
+        }
+    ):
+        return "unassigned"
+
+    if (
+        new_status == JobStatus.ASSIGNED
+        and source in {
+            "reassignment",
+            "batch_reassignment",
+        }
+    ):
+        return "reassigned"
+
+    return new_status.value
+
+
+def _activity_label_for_transition(new_status, metadata=None):
+    source = _activity_transition_source(metadata)
+
+    if new_status == JobStatus.PENDING:
+        if source == "unassignment":
+            return "Désaffectée"
+
+        if source in {
+            "reassignment",
+            "batch_reassignment",
+        }:
+            return "Désaffectée pour réaffectation"
+
+    if (
+        new_status == JobStatus.ASSIGNED
+        and source in {
+            "reassignment",
+            "batch_reassignment",
+        }
+    ):
+        return "Réaffectée"
+
+    return ACTIVITY_STATUS_LABELS.get(
+        new_status,
+        new_status.value,
+    )
+
+
 class WorkflowEngine:
     """Moteur métier central — orchestre les interventions FTTH"""
 
@@ -212,9 +291,9 @@ class WorkflowEngine:
             db=self.db,
             job_id=job.id,
             visit_id=visit_id,
-            action=job.status.value,
+            action=_activity_action_for_transition(new_status, metadata),
             technician_id=technician_id,
-            description=self._build_description(job, old_status, new_status),
+            description=self._build_description(job, old_status, new_status, metadata),
             old_status=old_status.value if old_status else None,
             new_status=new_status.value if new_status else None,
             latitude=metadata.get("latitude"),
@@ -227,31 +306,21 @@ class WorkflowEngine:
         )
 
     def _build_description(
-        self, job: Job, old_status: JobStatus, new_status: JobStatus
+        self,
+        job: Job,
+        old_status: JobStatus,
+        new_status: JobStatus,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
-        """Génère une description lisible de la transition."""
-        labels = {
-            JobStatus.PENDING: "Créée",
-            JobStatus.ASSIGNED: "Affectée",
-            JobStatus.ACCEPTED: "Acceptée",
-            JobStatus.EN_ROUTE: "En route",
-            JobStatus.ON_SITE: "Arrivé sur site",
-            JobStatus.WORK_IN_PROGRESS: "Travail en cours",
-            JobStatus.IN_PROGRESS: "Démarrée",
-            JobStatus.INSTALLATION_DONE: "Installation terminée",
-            JobStatus.CLIENT_VALIDATION: "Validation client",
-            JobStatus.EN_ATTENTE_VALIDATION: "En attente de validation",
-            JobStatus.COMPLETED: "Terminée",
-            JobStatus.CANCELLED: "Annulée",
-            JobStatus.FAILED: "En échec",
-            JobStatus.CLIENT_ABSENT: "Client absent",
-            JobStatus.POSTPONED: "Reportée",
-            JobStatus.SUSPENDED: "Suspendue",
-            JobStatus.ON_HOLD: "En attente",
-        }
-        old_label = labels.get(old_status, old_status.value if old_status else "N/A")
-        new_label = labels.get(new_status, new_status.value if new_status else "N/A")
-        return f"{new_label} ({job.job_type.value} — {job.customer_name})"
+        """Génère une description lisible et sémantique de la transition."""
+        new_label = _activity_label_for_transition(
+            new_status,
+            metadata,
+        )
+        return (
+            f"{new_label} "
+            f"({job.job_type.value} — {job.customer_name})"
+        )
 
     async def _broadcast(self, job: Job, old_status: JobStatus, new_status: JobStatus):
         """Diffuse les événements temps réel."""

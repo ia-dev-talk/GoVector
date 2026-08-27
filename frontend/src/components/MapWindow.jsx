@@ -24,10 +24,10 @@ const DEFAULT_CENTER = Object.freeze([
 ]);
 
 const DEFAULT_TILE_URL =
-  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 const DEFAULT_ATTRIBUTION =
-  '&copy; OpenStreetMap contributors &copy; CARTO';
+  '&copy; OpenStreetMap contributors';
 
 const STALE_POSITION_MS =
   30 * 60 * 1000;
@@ -1600,7 +1600,7 @@ function MapContent({
           subdomains={
             remainingTileProps
               .subdomains ??
-            'abcd'
+            'abc'
           }
           eventHandlers={
             tileEvents
