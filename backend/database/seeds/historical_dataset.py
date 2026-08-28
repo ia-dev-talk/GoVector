@@ -290,7 +290,17 @@ def generate_historical_job_specs(
                 "degraded",
             )[sequence % 4]
 
-            reassignments = 1 if sequence % 17 == 0 else 0
+            # A pending intervention has no current assignment.
+            # Do not advertise a synthetic reassignment that the
+            # PostgreSQL loader cannot coherently materialize.
+            reassignments = (
+                1
+                if (
+                    sequence % 17 == 0
+                    and status != JobStatus.PENDING
+                )
+                else 0
+            )
 
             evidence_count = (
                 rng.randint(2, 6)

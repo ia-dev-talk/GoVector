@@ -135,3 +135,36 @@ def test_generator_supports_explicit_days_and_daily_volume():
 
     assert len(specs) == 45
     assert len({spec.scheduled_day for spec in specs}) == 5
+
+
+def test_pending_jobs_never_claim_reassignment():
+    specs = generate_historical_job_specs(
+        date(2026, 8, 27),
+        profile="demo",
+        seed=20260827,
+    )
+
+    pending = [
+        spec
+        for spec in specs
+        if spec.status == JobStatus.PENDING
+    ]
+
+    assert pending
+    assert all(
+        spec.reassignments == 0
+        for spec in pending
+    )
+
+
+def test_demo_reassignment_count_is_stable():
+    specs = generate_historical_job_specs(
+        date(2026, 8, 27),
+        profile="demo",
+        seed=20260827,
+    )
+
+    assert sum(
+        spec.reassignments
+        for spec in specs
+    ) == 40
