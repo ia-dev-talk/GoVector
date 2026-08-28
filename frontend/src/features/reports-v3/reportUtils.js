@@ -512,6 +512,10 @@ export function compareAnalytics(current, previous) {
   };
 }
 
+export function reportHasAnalyticalData(analytics) {
+  return Number.isFinite(analytics?.total) && analytics.total > 0;
+}
+
 export function activeTechnicianCount(summary) {
   if (!isRecord(summary)) {
     return null;

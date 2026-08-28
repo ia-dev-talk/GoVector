@@ -4,7 +4,10 @@ import {
   reportScopesMatch,
   resolveReportSnapshot,
 } from './reportSnapshot.js';
-import { buildAnalytics } from './reportUtils.js';
+import {
+  buildAnalytics,
+  reportHasAnalyticalData,
+} from './reportUtils.js';
 
 const gpsQuality = (job) => buildAnalytics([job]).quality.find(
   (metric) => metric.key === 'gps',
@@ -17,6 +20,12 @@ function fulfilled(data) {
 function rejected(message) {
   return { status: 'rejected', reason: new Error(message) };
 }
+
+test('une période vide ne présente pas de comparaison trompeuse', () => {
+  assert.equal(reportHasAnalyticalData({ total: 0 }), false);
+  assert.equal(reportHasAnalyticalData({ total: 1 }), true);
+  assert.equal(reportHasAnalyticalData(null), false);
+});
 
 test('missing coordinates are not counted as GPS', () => {
   assert.equal(gpsQuality({ latitude: null, longitude: null }), 0);

@@ -81,6 +81,8 @@ async def test_jobs_my_returns_only_assignments_for_technician_three(monkeypatch
     response = await jobs_routes.get_my_jobs(
         status=None,
         scheduled_date=None,
+        scheduled_from=None,
+        scheduled_to=None,
         skip=0,
         limit=100,
         db=db,
@@ -120,6 +122,8 @@ async def test_jobs_my_with_no_assignments_returns_empty_list(monkeypatch):
     response = await jobs_routes.get_my_jobs(
         status=None,
         scheduled_date=None,
+        scheduled_from=None,
+        scheduled_to=None,
         skip=0,
         limit=100,
         db=db,

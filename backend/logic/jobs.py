@@ -192,6 +192,8 @@ def _build_jobs_list_query(
 	*,
 	status: Optional[JobStatus] = None,
 	scheduled_date: Optional[date] = None,
+	scheduled_from: Optional[date] = None,
+	scheduled_to: Optional[date] = None,
 	orienteur_id: Optional[int] = None,
 	skip: int = 0,
 	limit: int = 100,
@@ -223,6 +225,25 @@ def _build_jobs_list_query(
 			Job.scheduled_date >= start_of_day,
 			Job.scheduled_date < next_day,
 		)
+	else:
+		if scheduled_from is not None:
+			query = query.where(
+				Job.scheduled_date >= datetime.combine(
+					scheduled_from,
+					datetime.min.time(),
+				)
+			)
+
+		if scheduled_to is not None:
+			query = query.where(
+				Job.scheduled_date < (
+					datetime.combine(
+						scheduled_to,
+						datetime.min.time(),
+					)
+					+ timedelta(days=1)
+				)
+			)
 
 	if orienteur_id is not None:
 		query = query.where(
@@ -244,6 +265,8 @@ async def get_all_jobs(
 	db: AsyncSession,
 	status: Optional[JobStatus] = None,
 	scheduled_date: Optional[date] = None,
+	scheduled_from: Optional[date] = None,
+	scheduled_to: Optional[date] = None,
 	skip: int = 0,
 	limit: int = 100,
 ) -> List[Job]:
@@ -251,6 +274,8 @@ async def get_all_jobs(
 	query = _build_jobs_list_query(
 		status=status,
 		scheduled_date=scheduled_date,
+		scheduled_from=scheduled_from,
+		scheduled_to=scheduled_to,
 		skip=skip,
 		limit=limit,
 	)
@@ -263,6 +288,8 @@ async def get_jobs_by_orienteur_id(
 	orienteur_id: int,
 	status: Optional[JobStatus] = None,
 	scheduled_date: Optional[date] = None,
+	scheduled_from: Optional[date] = None,
+	scheduled_to: Optional[date] = None,
 	skip: int = 0,
 	limit: int = 100,
 ) -> List[Job]:
@@ -277,6 +304,8 @@ async def get_jobs_by_orienteur_id(
 	query = _build_jobs_list_query(
 		status=status,
 		scheduled_date=scheduled_date,
+		scheduled_from=scheduled_from,
+		scheduled_to=scheduled_to,
 		orienteur_id=orienteur_id,
 		skip=skip,
 		limit=limit,

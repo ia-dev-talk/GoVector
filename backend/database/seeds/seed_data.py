@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from backend.database.connection import AsyncSessionLocal
 from backend.database.models import (
     Technician, Job, Assignment, User, Sector,
+    FieldTeam, FieldTeamSector,
     TechnicianStatus, JobStatus, JobPriority, JobType, UserRole
 )
 from backend.auth.security import get_password_hash
@@ -173,8 +174,54 @@ async def seed_all(*, include_jobs: bool = True):
         await session.commit()
         print(f"  {len(ORIENTEURS)} orienteurs OK")
 
-        # ── 3. Créer les techniciens avec leur orienteur ───────
+        # ── 3. Initialiser les équipes et leur secteur canonique ─
+        team_map = {}
+        primary_sector_by_orienteur = {}
+        for o_data in ORIENTEURS:
+            orienteur_name = o_data["name"]
+            orienteur_id = orienteur_map[orienteur_name]
+            sector_id = sector_map[o_data["sector_name"]]
+
+            existing = await session.execute(
+                select(FieldTeam).where(
+                    FieldTeam.orienteur_id == orienteur_id
+                )
+            )
+            team = existing.scalar_one_or_none()
+
+            if team is None:
+                team = FieldTeam(
+                    name=f"Équipe {orienteur_name}",
+                    code=f"TEAM-{o_data['username'].upper()}",
+                    orienteur_id=orienteur_id,
+                    is_active=True,
+                )
+                session.add(team)
+                await session.flush()
+
+            team_map[orienteur_name] = team.id
+            primary_sector_by_orienteur[orienteur_name] = sector_id
+
+            sector_link = await session.execute(
+                select(FieldTeamSector).where(
+                    FieldTeamSector.team_id == team.id,
+                    FieldTeamSector.sector_id == sector_id,
+                )
+            )
+            if sector_link.scalar_one_or_none() is None:
+                session.add(
+                    FieldTeamSector(
+                        team_id=team.id,
+                        sector_id=sector_id,
+                    )
+                )
+
+        await session.commit()
+        print(f"  {len(team_map)} équipes opérationnelles OK")
+
+        # ── 4. Créer les techniciens avec leur équipe ──────────
         tech_ids = []
+        technician_primary_sector = {}
         for tech_data in technician_seed_rows():
             orienteur_name = tech_data.pop("orienteur_name", None)
             tech_email = tech_data["email"]
@@ -185,7 +232,14 @@ async def seed_all(*, include_jobs: bool = True):
             )
             tech = existing.scalar_one_or_none()
             if tech:
+                if orienteur_name:
+                    tech.orienteur_id = orienteur_map.get(orienteur_name)
+                    tech.team_id = team_map.get(orienteur_name)
                 tech_ids.append(tech.id)
+                if orienteur_name:
+                    technician_primary_sector[tech.id] = (
+                        primary_sector_by_orienteur[orienteur_name]
+                    )
                 print(f"    ⚠ Tech '{tech_data['name']}' existe déjà (id={tech.id}), ignoré")
                 continue
             tech = Technician(
@@ -193,14 +247,55 @@ async def seed_all(*, include_jobs: bool = True):
                 current_latitude=tech_data["home_latitude"],
                 current_longitude=tech_data["home_longitude"],
                 orienteur_id=orienteur_map.get(orienteur_name) if orienteur_name else None,
+                team_id=team_map.get(orienteur_name) if orienteur_name else None,
             )
             session.add(tech)
             await session.flush()
             tech_ids.append(tech.id)
+            if orienteur_name:
+                technician_primary_sector[tech.id] = (
+                    primary_sector_by_orienteur[orienteur_name]
+                )
         await session.commit()
         print(f"  {len(TECHNICIANS)} techniciens OK")
 
-        # ── 4. Créer automatiquement les comptes mobiles pour chaque technicien ──
+        # La table de compatibilité alimente les écrans Secteurs/Personnel.
+        # Préserver une configuration existante ; initialiser uniquement les
+        # techniciens qui n'ont encore aucun secteur explicite.
+        technician_sector_links_created = 0
+        for technician_id, sector_id in technician_primary_sector.items():
+            result = await session.execute(
+                text(
+                    """
+                    INSERT INTO technician_sectors (
+                        technician_id,
+                        sector_id,
+                        is_primary
+                    )
+                    SELECT :technician_id, :sector_id, TRUE
+                    WHERE NOT EXISTS (
+                        SELECT 1
+                        FROM technician_sectors
+                        WHERE technician_id = :technician_id
+                    )
+                    RETURNING id
+                    """
+                ),
+                {
+                    "technician_id": technician_id,
+                    "sector_id": sector_id,
+                },
+            )
+            if result.scalar_one_or_none() is not None:
+                technician_sector_links_created += 1
+
+        await session.commit()
+        print(
+            f"  {technician_sector_links_created} "
+            "affectations secteur technicien créées"
+        )
+
+        # ── 5. Créer automatiquement les comptes mobiles pour chaque technicien ──
         tech_users_created = 0
         for idx, tech_data in enumerate(technician_seed_rows()):
             if idx >= len(tech_ids):

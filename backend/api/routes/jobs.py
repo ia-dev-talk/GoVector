@@ -2,7 +2,7 @@
 API routes for job operations
 """
 import traceback
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import List, Optional, Dict, Any
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -114,6 +114,8 @@ async def create_job(
 async def get_jobs(
     status: Optional[JobStatus] = Query(None, description="Filter by job status"),
     scheduled_date: Optional[date] = Query(None, description="Filter by scheduled date"),
+    scheduled_from: Optional[date] = Query(None, description="Filter from scheduled date"),
+    scheduled_to: Optional[date] = Query(None, description="Filter through scheduled date"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
@@ -123,15 +125,53 @@ async def get_jobs(
     import logging
     logger = logging.getLogger("uvicorn.error")
 
+    if scheduled_date is not None and (
+        scheduled_from is not None or scheduled_to is not None
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "scheduled_date cannot be combined with "
+                "scheduled_from or scheduled_to."
+            ),
+        )
+
+    if (
+        scheduled_from is not None
+        and scheduled_to is not None
+        and scheduled_from > scheduled_to
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="scheduled_from cannot be after scheduled_to.",
+        )
+
     if current_user.role in [UserRole.CHEF_ORIENTEUR, UserRole.ADMIN]:
-        jobs = await job_logic.get_all_jobs(db, status=status, scheduled_date=scheduled_date, skip=skip, limit=limit)
+        jobs = await job_logic.get_all_jobs(
+            db,
+            status=status,
+            scheduled_date=scheduled_date,
+            scheduled_from=scheduled_from,
+            scheduled_to=scheduled_to,
+            skip=skip,
+            limit=limit,
+        )
         logger.info(f"[TECH_JOBS] ADMIN/CHEF jobs count={len(jobs)}")
         return await job_responses(db, jobs)
 
     if current_user.role == UserRole.ORIENTEUR:
         if not current_user.orienteur_id:
             raise HTTPException(status_code=403, detail="Orienteur non affilié à un secteur.")
-        jobs = await job_logic.get_jobs_by_orienteur_id(db, orienteur_id=current_user.orienteur_id, status=status, scheduled_date=scheduled_date, skip=skip, limit=limit)
+        jobs = await job_logic.get_jobs_by_orienteur_id(
+            db,
+            orienteur_id=current_user.orienteur_id,
+            status=status,
+            scheduled_date=scheduled_date,
+            scheduled_from=scheduled_from,
+            scheduled_to=scheduled_to,
+            skip=skip,
+            limit=limit,
+        )
         logger.info(f"[TECH_JOBS] ORIENTEUR orienteur_id={current_user.orienteur_id} jobs_count={len(jobs)}")
         return await job_responses(db, jobs)
 
@@ -162,6 +202,24 @@ async def get_jobs(
                 Job.scheduled_date >= start_of_day,
                 Job.scheduled_date <= end_of_day,
             )
+        else:
+            if scheduled_from is not None:
+                base_query = base_query.where(
+                    Job.scheduled_date >= datetime.combine(
+                        scheduled_from,
+                        datetime.min.time(),
+                    )
+                )
+            if scheduled_to is not None:
+                base_query = base_query.where(
+                    Job.scheduled_date < (
+                        datetime.combine(
+                            scheduled_to,
+                            datetime.min.time(),
+                        )
+                        + timedelta(days=1)
+                    )
+                )
 
         base_query = base_query.order_by(Job.created_at.desc()).offset(skip).limit(limit)
         result = await db.execute(base_query)
@@ -177,6 +235,8 @@ async def get_jobs(
 async def get_my_jobs(
     status: Optional[JobStatus] = Query(None, description="Filter by job status"),
     scheduled_date: Optional[date] = Query(None, description="Filter by scheduled date"),
+    scheduled_from: Optional[date] = Query(None, description="Filter from scheduled date"),
+    scheduled_to: Optional[date] = Query(None, description="Filter through scheduled date"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
@@ -186,6 +246,8 @@ async def get_my_jobs(
     return await get_jobs(
         status=status,
         scheduled_date=scheduled_date,
+        scheduled_from=scheduled_from,
+        scheduled_to=scheduled_to,
         skip=skip,
         limit=limit,
         db=db,

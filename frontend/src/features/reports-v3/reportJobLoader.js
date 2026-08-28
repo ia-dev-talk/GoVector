@@ -119,16 +119,66 @@ async function collectReportSnapshot({
   };
 }
 
+async function collectRangeReportSnapshot({
+  fetchRangePage,
+  dateFrom,
+  dateTo,
+  pageSize,
+  maxPages,
+}) {
+  const jobs = [];
+  const seenIds = new Set();
+  let paginated = false;
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const response = await fetchRangePage({
+      scheduled_from: dateFrom,
+      scheduled_to: dateTo,
+      skip: page * pageSize,
+      limit: pageSize,
+    });
+    const records = response?.data;
+    if (!Array.isArray(records)) {
+      throw new TypeError(`Réponse interventions invalide pour ${dateFrom} → ${dateTo}.`);
+    }
+    if (page > 0) paginated = true;
+
+    for (const record of records) {
+      const id = jobIdentity(record);
+      if (id === null) {
+        throw new TypeError(`Intervention sans identifiant valide pour ${dateFrom} → ${dateTo}.`);
+      }
+      if (seenIds.has(id)) throw unstableCollectionError();
+      seenIds.add(id);
+      jobs.push(record);
+    }
+
+    if (records.length < pageSize) break;
+    if (page === maxPages - 1) {
+      const error = new Error(`Trop d’interventions à charger pour ${dateFrom} → ${dateTo}.`);
+      error.code = 'BLUEVECTOR_REPORT_COLLECTION_TOO_LARGE';
+      throw error;
+    }
+  }
+
+  return {
+    jobs,
+    paginated,
+    fingerprint: snapshotFingerprint(jobs),
+  };
+}
+
 export async function fetchCompleteReportJobs({
   fetchPage,
+  fetchRangePage,
   dateFrom,
   dateTo,
   pageSize = 500,
   maxPagesPerDay = 200,
   maxSnapshotPasses = 3,
 }) {
-  if (typeof fetchPage !== 'function') {
-    throw new TypeError('fetchPage doit être une fonction.');
+  if (typeof fetchPage !== 'function' && typeof fetchRangePage !== 'function') {
+    throw new TypeError('fetchPage ou fetchRangePage doit être une fonction.');
   }
   if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 500) {
     throw new RangeError('pageSize doit être compris entre 1 et 500.');
@@ -140,23 +190,26 @@ export async function fetchCompleteReportJobs({
     throw new RangeError('maxSnapshotPasses doit être supérieur ou égal à 2.');
   }
 
-  const dates = enumerateCivilDateKeys(dateFrom, dateTo);
-  let previous = await collectReportSnapshot({
-    fetchPage,
-    dates,
-    pageSize,
-    maxPagesPerDay,
-  });
+  const collectSnapshot = typeof fetchRangePage === 'function'
+    ? () => collectRangeReportSnapshot({
+      fetchRangePage,
+      dateFrom,
+      dateTo,
+      pageSize,
+      maxPages: maxPagesPerDay,
+    })
+    : () => collectReportSnapshot({
+      fetchPage,
+      dates: enumerateCivilDateKeys(dateFrom, dateTo),
+      pageSize,
+      maxPagesPerDay,
+    });
+  let previous = await collectSnapshot();
 
   if (!previous.paginated) return previous.jobs;
 
   for (let pass = 1; pass < maxSnapshotPasses; pass += 1) {
-    const current = await collectReportSnapshot({
-      fetchPage,
-      dates,
-      pageSize,
-      maxPagesPerDay,
-    });
+    const current = await collectSnapshot();
     if (current.fingerprint === previous.fingerprint) return current.jobs;
     previous = current;
   }

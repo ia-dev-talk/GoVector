@@ -558,10 +558,10 @@ export const api = {
     ),
 
   // JOBS
-  getJobs: (params = {}) =>
+  getJobs: (params = {}, config = {}) =>
     apiClient.get(
       '/jobs/',
-      withParams(params),
+      withParams(params, config),
     ),
 
   getJob: (id) =>

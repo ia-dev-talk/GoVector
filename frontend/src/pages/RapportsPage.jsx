@@ -90,6 +90,7 @@ export default function RapportsPage({ onNavigate }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
   const requestRef = useRef(0);
+  const abortControllerRef = useRef(null);
   const realtimeTimerRef = useRef(null);
   const toastIdRef = useRef(0);
   const toastTimersRef = useRef(new Set());
@@ -151,6 +152,7 @@ export default function RapportsPage({ onNavigate }) {
   }, []);
 
   useEffect(() => () => {
+    abortControllerRef.current?.abort();
     toastTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     toastTimersRef.current.clear();
     if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current);
@@ -167,6 +169,9 @@ export default function RapportsPage({ onNavigate }) {
     const requestedRange = periodSelection.range;
     const requestedPriorRange = previousRange(requestedRange);
     const requestId = ++requestRef.current;
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
     if (!silent) setRefreshing(true);
     setError('');
 
@@ -179,7 +184,10 @@ export default function RapportsPage({ onNavigate }) {
       dateTo: localDateKey(requestedPriorRange.end),
     };
     const fetchJobs = ({ dateFrom, dateTo }) => fetchCompleteReportJobs({
-      fetchPage: (params) => api.getJobs(params),
+      fetchRangePage: (params) => api.getJobs(
+        params,
+        { signal: abortController.signal },
+      ),
       dateFrom,
       dateTo,
       pageSize: REPORT_PAGE_SIZE,
@@ -190,6 +198,9 @@ export default function RapportsPage({ onNavigate }) {
       api.getDashboardTechnicians(),
     ]);
     if (requestId !== requestRef.current) return;
+    if (abortControllerRef.current === abortController) {
+      abortControllerRef.current = null;
+    }
 
     const resolution = resolveReportSnapshot(results, {
       limit: Number.MAX_SAFE_INTEGER,
@@ -241,6 +252,8 @@ export default function RapportsPage({ onNavigate }) {
         realtimeTimerRef.current = null;
       }
       requestRef.current += 1;
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
     };
   }, [liveRelevant, loadData, periodSelection.error, periodSelection.ok]);
 

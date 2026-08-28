@@ -12,6 +12,7 @@ import {
 import {
   formatCount,
   formatPercentage,
+  reportHasAnalyticalData,
 } from './reportUtils';
 
 
@@ -124,6 +125,8 @@ const ReportsKpiStrip = memo(function ReportsKpiStrip({
   comparison,
   onOpenInterventions,
 }) {
+  const showComparison = reportHasAnalyticalData(analytics);
+
   return (
     <section
       className="rv3-kpis"
@@ -138,9 +141,10 @@ const ReportsKpiStrip = memo(function ReportsKpiStrip({
           Icon,
           intent,
         }) => {
-          const trend =
-            comparison?.[key] ||
-            null;
+          const trend = (
+            showComparison &&
+            comparison?.[key]
+          ) || null;
 
           const content = (
             <>
@@ -215,17 +219,19 @@ const ReportsKpiStrip = memo(function ReportsKpiStrip({
           <small>Taux de réussite</small>
         </span>
 
-        <Trend
-          value={
-            comparison?.successRate
-              ?.value
-          }
-          direction={
-            comparison?.successRate
-              ?.direction ||
-            'neutral'
-          }
-        />
+        {showComparison && (
+          <Trend
+            value={
+              comparison?.successRate
+                ?.value
+            }
+            direction={
+              comparison?.successRate
+                ?.direction ||
+              'neutral'
+            }
+          />
+        )}
       </div>
     </section>
   );

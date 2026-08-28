@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,6 +9,8 @@ from backend.database.seeds.historical_dataset import (
 )
 from backend.database.seeds.historical_loader import (
     CONFIRM_RESET_TOKEN,
+    _select_technician,
+    _technician_candidates,
     summarize_specs,
     validate_apply_guard,
 )
@@ -120,3 +123,101 @@ def test_technician_seed_templates_are_not_mutated():
 
     assert TECHNICIANS[0]["orienteur_name"] == original
     assert second[0]["orienteur_name"] == original
+
+
+def _technician(
+    technician_id,
+    *,
+    orienteur_id,
+    skills,
+    routes,
+):
+    return SimpleNamespace(
+        id=technician_id,
+        orienteur_id=orienteur_id,
+        skills=skills,
+        assigned_routes=routes,
+    )
+
+
+def test_historical_candidates_never_cross_orienteur_scope():
+    spec = generate_historical_job_specs(
+        ANCHOR,
+        days=1,
+        jobs_per_day=1,
+    )[0]
+    technicians = [
+        _technician(
+            1,
+            orienteur_id=10,
+            skills=list(spec.required_skills),
+            routes=[spec.route_criteria],
+        ),
+        _technician(
+            2,
+            orienteur_id=20,
+            skills=list(spec.required_skills),
+            routes=[spec.route_criteria],
+        ),
+    ]
+
+    candidates = _technician_candidates(
+        spec,
+        technicians,
+        orienteur_id=10,
+    )
+
+    assert [candidate.id for candidate in candidates] == [1]
+
+
+def test_historical_candidate_fallback_stays_inside_team():
+    spec = generate_historical_job_specs(
+        ANCHOR,
+        days=1,
+        jobs_per_day=1,
+    )[0]
+    technicians = [
+        _technician(
+            1,
+            orienteur_id=10,
+            skills=[],
+            routes=[],
+        ),
+        _technician(
+            2,
+            orienteur_id=20,
+            skills=list(spec.required_skills),
+            routes=[spec.route_criteria],
+        ),
+    ]
+
+    selected = _select_technician(
+        spec,
+        technicians,
+        1,
+        orienteur_id=10,
+    )
+
+    assert selected.id == 1
+
+
+def test_reference_seed_initializes_organization_projections():
+    source = Path(
+        "backend/database/seeds/seed_data.py"
+    ).read_text(encoding="utf-8")
+
+    assert "FieldTeam(" in source
+    assert "FieldTeamSector(" in source
+    assert "INSERT INTO technician_sectors" in source
+    assert "team_id=team_map.get(orienteur_name)" in source
+
+
+def test_historical_loader_materializes_stock_anomalies():
+    source = Path(
+        "backend/database/seeds/historical_loader.py"
+    ).read_text(encoding="utf-8")
+
+    assert "async def _load_stock_projection(" in source
+    assert "StockMovementType.CONSOMMATION" in source
+    assert 'reference_type="synthetic_stock_anomaly"' in source
+    assert "if not spec.stock_anomaly:" in source

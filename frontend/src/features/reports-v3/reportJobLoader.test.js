@@ -57,6 +57,29 @@ test('fetchCompleteReportJobs ne double pas les requêtes si aucune journée ne 
   assert.equal(calls.length, 2);
 });
 
+test('fetchCompleteReportJobs charge une plage paginée sans requête par journée', async () => {
+  const calls = [];
+  const records = Array.from({ length: 742 }, (_, index) => ({ id: index + 1 }));
+
+  const jobs = await fetchCompleteReportJobs({
+    dateFrom: '2026-07-30',
+    dateTo: '2026-08-28',
+    pageSize: 500,
+    fetchRangePage: async (params) => {
+      calls.push(params);
+      return { data: records.slice(params.skip, params.skip + params.limit) };
+    },
+  });
+
+  assert.equal(jobs.length, 742);
+  assert.deepEqual(calls, [
+    { scheduled_from: '2026-07-30', scheduled_to: '2026-08-28', skip: 0, limit: 500 },
+    { scheduled_from: '2026-07-30', scheduled_to: '2026-08-28', skip: 500, limit: 500 },
+    { scheduled_from: '2026-07-30', scheduled_to: '2026-08-28', skip: 0, limit: 500 },
+    { scheduled_from: '2026-07-30', scheduled_to: '2026-08-28', skip: 500, limit: 500 },
+  ]);
+});
+
 test('fetchCompleteReportJobs refuse un doublon révélant une pagination instable', async () => {
   await assert.rejects(
     fetchCompleteReportJobs({

@@ -20,7 +20,12 @@ from backend.database.models import (
     JobVisit,
     Orienteur,
     Sector,
+    Stock,
+    StockItem,
+    StockMovement,
+    StockMovementType,
     Technician,
+    Warehouse,
 )
 from backend.database.seeds.historical_dataset import (
     PROFILES,
@@ -46,6 +51,12 @@ TERMINAL_STATUSES = {
     JobStatus.FAILED,
     JobStatus.POSTPONED,
 }
+
+STOCK_OPERATORS = (
+    "IAM",
+    "ORANGE",
+    "INWI",
+)
 
 
 def validate_apply_guard(
@@ -185,12 +196,25 @@ def print_summary(
 def _technician_candidates(
     spec: SyntheticJobSpec,
     technicians: list[Technician],
+    *,
+    orienteur_id: int,
 ) -> list[Technician]:
     required = set(spec.required_skills)
+    team_technicians = [
+        technician
+        for technician in technicians
+        if technician.orienteur_id == orienteur_id
+    ]
+
+    if not team_technicians:
+        raise RuntimeError(
+            "Aucun technicien seedé pour l'orienteur "
+            f"{orienteur_id} ({spec.job_number})."
+        )
 
     exact = [
         technician
-        for technician in technicians
+        for technician in team_technicians
         if required.issubset(
             set(technician.skills or [])
         )
@@ -203,13 +227,13 @@ def _technician_candidates(
 
     skill_match = [
         technician
-        for technician in technicians
+        for technician in team_technicians
         if required.issubset(
             set(technician.skills or [])
         )
     ]
 
-    return skill_match or technicians
+    return skill_match or team_technicians
 
 
 def _select_technician(
@@ -217,11 +241,13 @@ def _select_technician(
     technicians: list[Technician],
     sequence: int,
     *,
+    orienteur_id: int,
     exclude_id: int | None = None,
 ) -> Technician:
     candidates = _technician_candidates(
         spec,
         technicians,
+        orienteur_id=orienteur_id,
     )
 
     if exclude_id is not None:
@@ -621,6 +647,201 @@ def _build_assignment(
     )
 
 
+async def _load_stock_projection(
+    session,
+    loaded_jobs: list[
+        tuple[
+            SyntheticJobSpec,
+            Job,
+            Technician | None,
+        ]
+    ],
+) -> dict:
+    """Materialize a small, auditable stock history for QA screens."""
+    warehouse = Warehouse(
+        name="Dépôt central synthétique Casablanca",
+        code="SYN-DEPOT-CASA",
+        type="ENTREPOT",
+        address="Adresse synthétique — Casablanca",
+        city="Casablanca",
+        is_active=True,
+        description=(
+            "Dépôt QA entièrement synthétique."
+        ),
+    )
+    session.add(warehouse)
+    await session.flush()
+
+    anomaly_count_by_operator = Counter(
+        spec.operator
+        for spec, _job, _technician in loaded_jobs
+        if spec.stock_anomaly
+    )
+    anomaly_item_by_operator = {}
+    stock_line_by_operator = {}
+    movement_count = 0
+
+    first_scheduled = min(
+        spec.scheduled_at
+        for spec, _job, _technician in loaded_jobs
+    )
+
+    for operator in STOCK_OPERATORS:
+        anomaly_count = anomaly_count_by_operator[operator]
+        min_threshold = 12
+        initial_quantity = (
+            min_threshold
+            + anomaly_count
+            - 2
+        )
+        final_quantity = (
+            initial_quantity
+            - anomaly_count
+        )
+
+        ont_item = StockItem(
+            reference=f"SYN-ONT-{operator}",
+            label=f"ONT FTTH synthétique {operator}",
+            equipment_type="ONT",
+            operator=operator,
+            manufacturer="BlueVector QA",
+            model="SYN-ONT-V1",
+            unit="unité",
+            unit_price=450.0,
+            category="Équipement actif",
+            is_active=True,
+            min_stock_threshold=min_threshold,
+            alert_enabled=True,
+        )
+        cable_item = StockItem(
+            reference=f"SYN-CABLE-DROP-{operator}",
+            label=f"Câble drop synthétique {operator}",
+            equipment_type="CABLE_DROP",
+            operator=operator,
+            manufacturer="BlueVector QA",
+            model="SYN-DROP-1F",
+            unit="mètre",
+            unit_price=4.5,
+            category="Câblage",
+            is_active=True,
+            min_stock_threshold=150,
+            alert_enabled=True,
+        )
+        session.add_all([
+            ont_item,
+            cable_item,
+        ])
+        await session.flush()
+
+        ont_line = Stock(
+            item_id=ont_item.id,
+            warehouse_id=warehouse.id,
+            quantity=final_quantity,
+            reserved_quantity=0,
+            available_quantity=final_quantity,
+            batch_number=f"SYN-LOT-ONT-{operator}",
+            created_at=first_scheduled - timedelta(days=2),
+            updated_at=first_scheduled,
+        )
+        cable_line = Stock(
+            item_id=cable_item.id,
+            warehouse_id=warehouse.id,
+            quantity=900,
+            reserved_quantity=80,
+            available_quantity=820,
+            batch_number=f"SYN-LOT-CABLE-{operator}",
+            created_at=first_scheduled - timedelta(days=2),
+            updated_at=first_scheduled,
+        )
+        session.add_all([
+            ont_line,
+            cable_line,
+        ])
+
+        session.add_all([
+            StockMovement(
+                item_id=ont_item.id,
+                warehouse_id=warehouse.id,
+                movement_type=StockMovementType.RECEPTION,
+                quantity=initial_quantity,
+                quantity_before=0,
+                quantity_after=initial_quantity,
+                reference_type="synthetic_initial_stock",
+                operator=operator,
+                notes="Réception initiale synthétique QA.",
+                created_at=first_scheduled - timedelta(days=2),
+            ),
+            StockMovement(
+                item_id=cable_item.id,
+                warehouse_id=warehouse.id,
+                movement_type=StockMovementType.RECEPTION,
+                quantity=900,
+                quantity_before=0,
+                quantity_after=900,
+                reference_type="synthetic_initial_stock",
+                operator=operator,
+                notes="Réception initiale synthétique QA.",
+                created_at=first_scheduled - timedelta(days=2),
+            ),
+        ])
+        movement_count += 2
+        anomaly_item_by_operator[operator] = ont_item
+        stock_line_by_operator[operator] = {
+            "remaining": initial_quantity,
+        }
+
+    for spec, job, technician in loaded_jobs:
+        if not spec.stock_anomaly:
+            continue
+
+        item = anomaly_item_by_operator[spec.operator]
+        state = stock_line_by_operator[spec.operator]
+        quantity_before = state["remaining"]
+        quantity_after = quantity_before - 1
+        state["remaining"] = quantity_after
+
+        session.add(
+            StockMovement(
+                item_id=item.id,
+                warehouse_id=warehouse.id,
+                movement_type=StockMovementType.CONSOMMATION,
+                quantity=-1,
+                quantity_before=quantity_before,
+                quantity_after=quantity_after,
+                reference_type="synthetic_stock_anomaly",
+                reference_id=job.id,
+                operator=spec.operator,
+                job_id=job.id,
+                technician_id=(
+                    technician.id
+                    if technician is not None
+                    else None
+                ),
+                notes=(
+                    "Anomalie QA synthétique : consommation "
+                    "à rapprocher de l'intervention."
+                ),
+                created_at=(
+                    spec.scheduled_at
+                    + timedelta(hours=2)
+                ),
+            )
+        )
+        movement_count += 1
+
+    await session.flush()
+
+    return {
+        "stock_items": len(STOCK_OPERATORS) * 2,
+        "warehouses": 1,
+        "stock_lines": len(STOCK_OPERATORS) * 2,
+        "stock_movements": movement_count,
+        "stock_anomalies": sum(
+            anomaly_count_by_operator.values()
+        ),
+    }
+
+
 
 async def _load_specs(
     specs: list[SyntheticJobSpec],
@@ -671,6 +892,8 @@ async def _load_specs(
                 "Aucun technicien seedé."
             )
 
+        loaded_jobs = []
+
         for sequence, spec in enumerate(
             specs,
             start=1,
@@ -686,6 +909,17 @@ async def _load_specs(
                 )
 
             final_technician = None
+            job_orienteur_id = (
+                orienteur_by_sector.get(
+                    sector.id
+                )
+            )
+
+            if job_orienteur_id is None:
+                raise RuntimeError(
+                    "Aucun orienteur seedé pour le secteur "
+                    f"{sector.name}."
+                )
 
             if spec.status != JobStatus.PENDING:
                 final_technician = (
@@ -693,23 +927,27 @@ async def _load_specs(
                         spec,
                         technicians,
                         sequence,
+                        orienteur_id=job_orienteur_id,
                     )
                 )
 
             job = _build_job(
                 spec=spec,
                 sector=sector,
-                orienteur_id=(
-                    orienteur_by_sector.get(
-                        sector.id
-                    )
-                ),
+                orienteur_id=job_orienteur_id,
                 technician=final_technician,
                 sequence=sequence,
             )
 
             session.add(job)
             await session.flush()
+            loaded_jobs.append(
+                (
+                    spec,
+                    job,
+                    final_technician,
+                )
+            )
 
             if final_technician is None:
                 continue
@@ -727,6 +965,7 @@ async def _load_specs(
                         spec,
                         technicians,
                         sequence + 1,
+                        orienteur_id=job_orienteur_id,
                         exclude_id=(
                             final_technician.id
                         ),
@@ -833,6 +1072,11 @@ async def _load_specs(
             if sequence % 100 == 0:
                 await session.flush()
 
+        stock_result = await _load_stock_projection(
+            session,
+            loaded_jobs,
+        )
+
         await session.commit()
 
         job_count = (
@@ -891,6 +1135,7 @@ async def _load_specs(
             "last_scheduled": (
                 last_scheduled
             ),
+            **stock_result,
         }
 
 
@@ -1051,6 +1296,16 @@ def main() -> int:
         "Période DB  : "
         f"{result['first_scheduled']} -> "
         f"{result['last_scheduled']}"
+    )
+    print(
+        "Stock QA    : "
+        f"{result['stock_items']} articles, "
+        f"{result['stock_lines']} lignes, "
+        f"{result['stock_movements']} mouvements"
+    )
+    print(
+        "Anomalies   : "
+        f"{result['stock_anomalies']} mouvements QA"
     )
 
     return 0
