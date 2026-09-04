@@ -108,6 +108,14 @@ def test_stock_actor_identity_cannot_be_supplied_by_clients(
         schema(**payload, **{actor_field: 999})
 
 
+def test_stock_consumption_visit_identity_is_server_owned():
+    with pytest.raises(ValidationError):
+        StockConsumptionCreate(
+            visit_id=999,
+            items=[{"item_id": 2, "quantity": 1}],
+        )
+
+
 @pytest.mark.parametrize(
     "payload",
     ["not-json", "{}", "[]", '[{"item_id": 1}, 2]'],

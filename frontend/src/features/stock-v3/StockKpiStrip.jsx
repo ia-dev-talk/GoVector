@@ -19,14 +19,14 @@ const CARDS = Object.freeze([
   },
   {
     key: 'available',
-    label: 'Disponibles',
+    label: 'Utilisables',
     metric: 'available',
     tone: 'success',
     Icon: BoxIcon,
   },
   {
     key: 'reserved',
-    label: 'Réservées',
+    label: 'Déjà réservées',
     metric: 'reserved',
     tone: 'info',
     Icon: ReservedIcon,

@@ -385,6 +385,7 @@ async def _build_history_detail(
             materials.append(
                 {
                     "consumption_id": consumption.id,
+                    "visit_id": consumption.visit_id,
                     "status": getattr(
                         consumption.status, "value", str(consumption.status)
                     ),

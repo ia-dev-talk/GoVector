@@ -41,12 +41,32 @@ class CompletionPolicyValues(BaseModel):
     by_operator: Dict[str, CompletionRequirementsValues] = Field(
         default_factory=dict
     )
+    by_client_organization: Dict[str, CompletionRequirementsValues] = Field(default_factory=dict)
+
+    @field_validator("by_client_organization")
+    @classmethod
+    def canonical_client_ids(cls, rules):
+        if any(len(key) > 10 or not key.isascii() or not key.isdigit() or str(int(key)) != key or not 0 < int(key) <= 2147483647 for key in rules):
+            raise ValueError("Chaque règle client doit utiliser un identifiant numérique positif canonique")
+        return rules
+
+
+class OrienteurObservationPolicy(BaseModel):
+    """Personalize observation only; never grant execution permissions."""
+
+    model_config = ConfigDict(extra="forbid")
+    appointment_grace_minutes: int = Field(default=30, ge=0, le=1440, strict=True)
+    flag_missing_sector: bool = True
 
 
 class OperationalSettingsValues(BaseModel):
     """Valeurs opérationnelles consommées par le web et le mobile."""
 
     model_config = ConfigDict(extra="forbid")
+
+    orienteur_observation: OrienteurObservationPolicy = Field(
+        default_factory=OrienteurObservationPolicy
+    )
 
     gps_stale_after_minutes: Optional[PositiveInt] = None
     gps_history_retention_days: Optional[int] = Field(

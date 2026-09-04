@@ -76,7 +76,30 @@ Validate on a physical Android device where possible:
 - completion workflow and history;
 - no cross-user outbox leakage after logout/login.
 
-### 4. Deployment safety
+### 4. KML/KMZ and geographic data journeys
+
+Validate with real KML/KMZ fixtures, not hand-built UI state:
+
+- safe preview rejects hostile archives/XML and reports per-feature errors;
+- points, lines and polygons are mapped, previewed and published as a version;
+- imported data never overwrites jobs, sites, territories or FTTH assets implicitly;
+- styles, custom fields, visibility and permissions remain configurable;
+- feature edits use optimistic revision checks and append-only audit history;
+- a published dataset can be archived, restored and exported;
+- the Web map loads by viewport on desktop/phone and the mobile client can read
+  the published operational subset offline.
+
+### 5. Documentation and training
+
+Before promotion:
+
+- administrator, dispatcher, technician and client guides match the candidate UI;
+- installation, configuration, backup, restore, rollback and incident procedures
+  have been executed by someone other than their author;
+- the V1 presentation and training material distinguish shipped capability from roadmap;
+- every artifact carries the V1 version/date and contains no real secret or client data.
+
+### 6. Deployment safety
 
 Before a public production deployment:
 
@@ -92,7 +115,7 @@ Before a public production deployment:
 
 The current pilot persists technician media in a Docker volume and the repository backup procedure archives both PostgreSQL and technician media with checksums. A public-production object-storage/durability decision remains a deployment gate rather than a code-complete claim.
 
-### 5. Web endpoint safety
+### 7. Web endpoint safety
 
 Before promotion, direct web/file URLs must never silently fall back to `localhost` in a production browser. Relative same-origin `/api` routing is the preferred default for the bundled web application; any explicit external API/files origin must be deployment-configured.
 

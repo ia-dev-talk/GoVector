@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html, body { height: auto !important; min-height: 100%; overflow: auto !important; }</style></head>
+<body><div id="qa-root"></div><script type="module">
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import OrienteurAssessment from '../src/features/intervention-detail/OrienteurAssessment.jsx';
+import OperationalSettingsSection from '../src/components/settings/OperationalSettingsSection.jsx';
+import CompletionPolicySettingsSection from '../src/components/settings/CompletionPolicySettingsSection.jsx';
+import ParametresPage from '../src/pages/ParametresPage.jsx';
+import GisDatasetWorkspace from '../src/features/sectors/GisDatasetWorkspace.jsx';
+import '../src/styles/index.css';
+import '../src/styles/public-v2.css';
+import '../src/styles/bluevector-v3.css';
+import '../src/styles/ux-readability-v2.css';
+import '../src/styles/sector-flow-v2.css';
+import '../src/styles/shell-v08.css';
+import '../src/styles/operations-final-v08.css';
+import '../src/styles/intervention-v08-layout.css';
+import '../src/styles/stock-responsive-v08.css';
+import '../src/styles/supervision-responsive-v08.css';
+import '../src/styles/cockpit-readability-v08.css';
+import '../src/styles/stock-scope-final-v08.css';
+import '../src/styles/intervention-detail.css';
+import '../src/styles/settings-v1-admin.css';
+const root = createRoot(document.getElementById('qa-root'));
+window.renderAssessment = (id) => root.render(React.createElement(OrienteurAssessment, {key: id, jobId: id}));
+window.renderSettings = () => root.render(React.createElement(OperationalSettingsSection));
+window.renderCompletion = () => root.render(React.createElement(CompletionPolicySettingsSection, {userRole: 'ADMIN'}));
+window.renderSettingsPage = () => root.render(React.createElement(ParametresPage, {userRole: 'ADMIN'}));
+window.renderGis = () => root.render(React.createElement(GisDatasetWorkspace));
+window.renderAssessment(1);
+</script></body></html>

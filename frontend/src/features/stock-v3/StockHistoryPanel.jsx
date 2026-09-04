@@ -41,6 +41,7 @@ function directionLabel(quantity) {
 
 function MovementRow({ row, onNavigate }) {
   const jobId = normalizeIdentifier(row?.job_id);
+  const visitId = normalizeIdentifier(row?.visit_id);
   const technicianId = normalizeIdentifier(row?.technician_id);
   const movementType = text(row?.movement_type).toUpperCase();
   const quantity = numeric(row?.quantity);
@@ -98,11 +99,23 @@ function MovementRow({ row, onNavigate }) {
             >
               Intervention {text(row?.job_number, `#${jobId}`)}
               <small>{text(row?.customer_name, row?.service_address || 'Ouvrir la fiche')}</small>
+              {visitId ? (
+                <small>
+                  Passage {text(row?.visit_attempt_number, `#${visitId}`)}
+                  {row?.visit_status ? ` · ${row.visit_status}` : ''}
+                </small>
+              ) : null}
             </button>
           ) : (
             <span>
               <strong>Intervention {text(row?.job_number, `#${jobId}`)}</strong>
               <small>{text(row?.customer_name, row?.service_address || 'Intervention liée')}</small>
+              {visitId ? (
+                <small>
+                  Passage {text(row?.visit_attempt_number, `#${visitId}`)}
+                  {row?.visit_status ? ` · ${row.visit_status}` : ''}
+                </small>
+              ) : null}
             </span>
           )
         ) : <span className="st3-history-muted">Hors intervention</span>}
@@ -182,6 +195,9 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
       ['Technicien', (row) => row?.technician_name],
       ['Matricule', (row) => row?.technician_employee_id],
       ['Intervention', (row) => row?.job_number || row?.job_id],
+      ['Passage', (row) => row?.visit_attempt_number || row?.visit_id],
+      ['Statut passage', (row) => row?.visit_status],
+      ['Issue passage', (row) => row?.visit_outcome],
       ['Client', (row) => row?.customer_name],
       ['Adresse', (row) => row?.service_address],
       ['Quantité absolue', (row) => Math.abs(numeric(row?.quantity))],

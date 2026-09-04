@@ -44,6 +44,7 @@ from backend.database.models import (
     StockConsumptionStatus,
     InventoryCountStatus,
 )
+from backend.logic.job_visits import resolve_visit_for_technician
 
 
 class StockService:
@@ -661,6 +662,7 @@ class StockService:
         quantity: int = 1,
         operator: Optional[str] = None,
         job_id: Optional[int] = None,
+        visit_id: Optional[int] = None,
         technician_id: Optional[int] = None,
         created_by: Optional[int] = None,
         notes: Optional[str] = None,
@@ -690,6 +692,7 @@ class StockService:
             reference_id=reference_id,
             operator=operator,
             job_id=job_id,
+            visit_id=visit_id,
             technician_id=technician_id,
             notes=notes,
             created_by=created_by,
@@ -1283,6 +1286,7 @@ class StockService:
         self,
         *,
         job_id: Optional[int] = None,
+        visit_id: Optional[int] = None,
         technician_id: Optional[int] = None,
         operator: Optional[str] = None,
         notes: Optional[str] = None,
@@ -1290,10 +1294,19 @@ class StockService:
         warehouse_id: Optional[int] = None,
         items: list[dict],
     ) -> StockConsumption:
+        if visit_id is None and job_id is not None and technician_id is not None:
+            visit = await resolve_visit_for_technician(
+                self.db,
+                job_id=job_id,
+                technician_id=technician_id,
+            )
+            visit_id = visit.id if visit is not None else None
+
         consumption_number = self.next_consumption_number()
         consumption = StockConsumption(
             consumption_number=consumption_number,
             job_id=job_id,
+            visit_id=visit_id,
             technician_id=technician_id,
             operator=operator,
             status=StockConsumptionStatus.BROUILLON,
@@ -1373,6 +1386,7 @@ class StockService:
                 quantity=it.quantity,
                 operator=consumption.operator,
                 job_id=consumption.job_id,
+                visit_id=consumption.visit_id,
                 technician_id=consumption.technician_id,
                 created_by=consumption.created_by,
                 notes=consumption.notes,

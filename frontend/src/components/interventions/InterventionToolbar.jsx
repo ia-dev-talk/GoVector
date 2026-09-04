@@ -340,6 +340,7 @@ const InterventionToolbar = memo(
             variant="secondary"
             onClick={onRefresh}
             disabled={refreshing}
+            className="intervention-toolbar-refresh"
             title="Actualiser les données"
           >
             <RefreshIcon spinning={refreshing} />

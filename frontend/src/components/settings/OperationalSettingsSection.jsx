@@ -99,6 +99,8 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
   const [loadedRetentionDays, setLoadedRetentionDays] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [graceInput, setGraceInput] = useState('30');
+  const [flagMissingSector, setFlagMissingSector] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [saveError, setSaveError] = useState('');
   const requestSequenceRef = useRef(0);
@@ -112,6 +114,8 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
   const applyLoadedDocument = useCallback((rawDocument) => {
     const normalized = normalizeDocument(rawDocument);
     setSettingsDocument(normalized);
+    setGraceInput(String(normalized.values.orienteur_observation?.appointment_grace_minutes ?? 30));
+    setFlagMissingSector(normalized.values.orienteur_observation?.flag_missing_sector ?? true);
     setLoadedMinutes(normalized.gpsStaleAfterMinutes);
     setEnabled(normalized.gpsStaleAfterMinutes !== null);
     setMinutesInput(
@@ -171,7 +175,11 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
     () => positiveIntegerOrNull(retentionDaysInput),
     [retentionDaysInput],
   );
-  const valid =
+  const graceMinutes = graceInput.trim() === '' ? NaN : Number(graceInput);
+  const graceValid = Number.isInteger(graceMinutes) && graceMinutes >= 0 && graceMinutes <= 1440;
+  const observationDirty = graceMinutes !== (settingsDocument.values.orienteur_observation?.appointment_grace_minutes ?? 30)
+    || flagMissingSector !== (settingsDocument.values.orienteur_observation?.flag_missing_sector ?? true);
+  const valid = graceValid &&
     (!enabled || parsedMinutes !== null) &&
     (!retentionEnabled || (
       parsedRetentionDays !== null && parsedRetentionDays <= 3650
@@ -186,7 +194,7 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
     parsedValue: parsedRetentionDays,
     loadedValue: loadedRetentionDays,
   });
-  const dirty = staleDirty || retentionDirty;
+  const dirty = staleDirty || retentionDirty || observationDirty;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -207,6 +215,8 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
   }, [dirty]);
 
   const handleReset = useCallback(() => {
+    setGraceInput(String(settingsDocument.values.orienteur_observation?.appointment_grace_minutes ?? 30));
+    setFlagMissingSector(settingsDocument.values.orienteur_observation?.flag_missing_sector ?? true);
     const configured = loadedMinutes !== null;
     setEnabled(configured);
     setMinutesInput(configured ? String(loadedMinutes) : '');
@@ -216,7 +226,7 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
       retentionConfigured ? String(loadedRetentionDays) : '',
     );
     clearSaveFailure();
-  }, [clearSaveFailure, loadedMinutes, loadedRetentionDays]);
+  }, [clearSaveFailure, loadedMinutes, loadedRetentionDays, settingsDocument.values]);
 
   const persistIntent = useCallback(async (intent) => {
     setSaving(true);
@@ -227,9 +237,7 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
       applyOperationalDocument(response?.data);
       if (typeof toast === 'function') {
         toast(
-          normalized.gpsStaleAfterMinutes === null
-            ? 'Détection GPS ancien désactivée.'
-            : `Seuil GPS ancien enregistré : ${normalized.gpsStaleAfterMinutes} minutes.`,
+          `Paramètres opérationnels enregistrés (révision ${normalized.revision}).`,
           'success',
         );
       }
@@ -249,6 +257,10 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
   }, [applyLoadedDocument, applyOperationalDocument, toast]);
 
   const handleSave = useCallback(async () => {
+    if (!graceValid) {
+      setSaveError('Saisissez une tolérance de rendez-vous entre 0 et 1440 minutes.');
+      return;
+    }
     if (enabled && parsedMinutes === null) {
       setSaveError('Saisissez un nombre entier de minutes supérieur à zéro.');
       return;
@@ -268,11 +280,17 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
     });
     const intent = buildOperationalUpdateRequest(
       settingsDocument.revision,
-      values,
+      { ...values, orienteur_observation: {
+        appointment_grace_minutes: graceMinutes,
+        flag_missing_sector: flagMissingSector,
+      } },
     );
     lastFailedSaveIntentRef.current = intent;
     await persistIntent(intent);
   }, [
+    graceValid,
+    graceMinutes,
+    flagMissingSector,
     enabled,
     parsedMinutes,
     parsedRetentionDays,
@@ -396,7 +414,7 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
       ) : null}
 
       <Card
-        title="Supervision GPS"
+        title="Supervision GPS et Agent Orienteur"
         className="admin-operational-card"
         footer={!loadError ? footer : null}
       >
@@ -410,6 +428,21 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
           </div>
         ) : (
           <>
+            <div className="admin-operational-rule">
+              <div className="admin-operational-rule-copy">
+                <strong>Agent Orienteur · règles d’observation</strong>
+                <span>Règles partagées par les analyses de dossiers. Elles n’activent aucune affectation automatique.</span>
+              </div>
+            </div>
+            <div className="admin-field">
+              <label className="admin-label" htmlFor="orienteur-grace">Tolérance après le rendez-vous (minutes)</label>
+              <input id="orienteur-grace" className="admin-input" type="number" min="0" max="1440" step="1"
+                value={graceInput} disabled={saving}
+                onChange={(event) => { setGraceInput(event.target.value); clearSaveFailure(); }} />
+              <p>De 0 à 1440 minutes avant de signaler un créneau dépassé hors passage actif.</p>
+              <label><input type="checkbox" checked={flagMissingSector} disabled={saving}
+                onChange={(event) => { setFlagMissingSector(event.target.checked); clearSaveFailure(); }} /> Signaler les dossiers sans secteur opérationnel</label>
+            </div>
             <div className="admin-operational-rule">
               <div className="admin-operational-rule-copy">
                 <strong>Détecter les positions GPS anciennes</strong>

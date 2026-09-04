@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import { api } from '../../api/client';
+import { useRuntimeSettings } from '../../contexts/RuntimeSettingsContext';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import './completion-policy-settings.css';
@@ -58,7 +59,7 @@ function normalizeRequirements(value = {}) {
     require_measurements: source.require_measurements === true,
     require_gps: source.require_gps === true,
     require_stock_consumption: source.require_stock_consumption === true,
-    minimum_photos: Math.max(0, Math.min(2, Number(source.minimum_photos) || 0)),
+    minimum_photos: Number(source.minimum_photos) || 0,
     required_field_keys: Array.isArray(source.required_field_keys)
       ? [...new Set(source.required_field_keys.map(text).filter(Boolean))]
       : [],
@@ -81,6 +82,7 @@ function normalizePolicy(document) {
       default: normalizeRequirements(rawPolicy.default),
       by_job_type: normalizeMap(rawPolicy.by_job_type),
       by_operator: normalizeMap(rawPolicy.by_operator),
+      by_client_organization: normalizeMap(rawPolicy.by_client_organization),
     },
   };
 }
@@ -117,17 +119,13 @@ function RuleEditor({ value, onChange, compact = false }) {
           <strong>Photos terrain minimum</strong>
           {!compact ? <small>Compte les anciennes photos et les médias mobile V2 sans double comptage.</small> : null}
         </span>
-        <select
+        <input type="number" min="0" step="1"
           value={value.minimum_photos}
           onChange={(event) => onChange({
             ...value,
             minimum_photos: Number(event.target.value),
           })}
-        >
-          <option value="0">Aucune</option>
-          <option value="1">1 photo</option>
-          <option value="2">2 photos</option>
-        </select>
+        />
       </label>
 
       <details className="completion-policy-advanced">
@@ -153,10 +151,16 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
   toast,
   refreshRevision = 0,
   onDirtyChange,
+  userRole,
 }) {
+  const { applyOperationalDocument } = useRuntimeSettings();
+  const canEdit = String(userRole).toUpperCase() === 'ADMIN';
+  const [loadReady, setLoadReady] = useState(false);
   const [loaded, setLoaded] = useState(() => normalizePolicy(null));
   const [draft, setDraft] = useState(() => normalizePolicy(null).policy);
   const [jobTypes, setJobTypes] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [newClient, setNewClient] = useState('');
   const [newJobType, setNewJobType] = useState('');
   const [newOperator, setNewOperator] = useState('');
   const [loading, setLoading] = useState(true);
@@ -167,10 +171,12 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
   const load = useCallback(async () => {
     const requestId = ++sequenceRef.current;
     setLoading(true);
+    setLoadReady(false);
     setError('');
-    const [operationalResult, catalogResult] = await Promise.allSettled([
+    const [operationalResult, catalogResult, clientsResult] = await Promise.allSettled([
       api.getOperationalSettings(),
       api.getBusinessCatalog(),
+      canEdit ? api.getV1Clients() : Promise.resolve({ data: [] }),
     ]);
     if (requestId !== sequenceRef.current) return;
 
@@ -178,6 +184,7 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
       const normalized = normalizePolicy(operationalResult.value?.data);
       setLoaded(normalized);
       setDraft(normalized.policy);
+      setLoadReady(true);
     } else {
       setError(apiError(operationalResult.reason, 'Impossible de charger la politique de clôture.'));
     }
@@ -187,8 +194,13 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
       const types = Array.isArray(values?.job_types) ? values.job_types : [];
       setJobTypes(types.filter((item) => item?.active !== false));
     }
+    if (clientsResult.status === 'fulfilled') {
+      setClients(Array.isArray(clientsResult.value?.data) ? clientsResult.value.data : []);
+    } else {
+      setError('Annuaire client indisponible : rechargez avant d’ajouter une règle client. Les règles existantes restent conservées.');
+    }
     setLoading(false);
-  }, []);
+  }, [canEdit]);
 
   useEffect(() => {
     load();
@@ -201,6 +213,8 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
     () => JSON.stringify(draft) !== JSON.stringify(loaded.policy),
     [draft, loaded.policy],
   );
+  const valid = [draft.default, ...Object.values(draft.by_job_type), ...Object.values(draft.by_operator), ...Object.values(draft.by_client_organization)]
+    .every((rule) => Number.isInteger(rule.minimum_photos) && rule.minimum_photos >= 0);
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -209,7 +223,7 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   const save = async () => {
-    if (!dirty || saving) return;
+    if (!dirty || saving || !loadReady || !canEdit || !valid) return;
     setSaving(true);
     setError('');
     try {
@@ -223,6 +237,7 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
       const normalized = normalizePolicy(response?.data);
       setLoaded(normalized);
       setDraft(normalized.policy);
+      applyOperationalDocument(response?.data);
       toast?.('Politique de clôture enregistrée et active sur le web et le mobile.', 'success');
     } catch (saveError) {
       const message = apiError(saveError, 'Impossible d’enregistrer la politique de clôture.');
@@ -248,7 +263,11 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
 
   const addOperatorOverride = () => {
     const code = text(newOperator).toUpperCase();
-    if (!code || draft.by_operator[code]) return;
+    if (!code) return;
+    if (Object.keys(draft.by_operator).some((key) => key.trim().toUpperCase() === code)) {
+      setError('Une règle existe déjà pour cet opérateur. Modifiez la règle existante.');
+      return;
+    }
     setDraft((current) => ({
       ...current,
       by_operator: {
@@ -286,7 +305,12 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
         <span className="completion-policy-badge">Moteur workflow</span>
       </div>
 
-      {error ? <div className="admin-settings-error" role="alert"><span>{error}</span><Button size="sm" variant="secondary" onClick={load}>Réessayer</Button></div> : null}
+      {error ? <div className="admin-settings-error" role="alert"><span>{error}</span><Button size="sm" variant="secondary" disabled={saving} onClick={() => {
+        if (!dirty || window.confirm('Recharger la politique et abandonner les modifications non enregistrées ?')) load();
+      }}>Recharger</Button></div> : null}
+
+      {!canEdit && <p>Consultation seule : la modification est réservée à un administrateur.</p>}
+      <fieldset disabled={!canEdit || !loadReady || saving} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
 
       <Card title="Règle par défaut" className="completion-policy-card">
         {loading ? (
@@ -301,6 +325,27 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
 
       {!loading ? (
         <div className="completion-policy-overrides">
+          <Card title="Exceptions par entreprise cliente" className="completion-policy-card">
+            <div className="completion-policy-add-row">
+              <select aria-label="Entreprise cliente" value={newClient} onChange={(event) => setNewClient(event.target.value)}>
+                <option value="">Choisir une entreprise…</option>
+                {clients.filter((client) => client.is_active !== false && !draft.by_client_organization[String(client.id)])
+                  .map((client) => <option key={client.id} value={String(client.id)}>{client.name}</option>)}
+              </select>
+              <Button size="sm" variant="secondary" disabled={!newClient} onClick={() => {
+                if (!newClient || draft.by_client_organization[newClient]) return;
+                updateOverride('by_client_organization', newClient, { ...draft.default, required_field_keys: [...draft.default.required_field_keys] });
+                setNewClient('');
+              }}>Ajouter la règle client</Button>
+            </div>
+            {Object.entries(draft.by_client_organization).map(([key, value]) => (
+              <article key={key} className="completion-policy-override">
+                <header><strong>{clients.find((client) => String(client.id) === key)?.name || `Entreprise n° ${key}`}</strong>
+                  <button type="button" onClick={() => removeOverride('by_client_organization', key)}>Supprimer</button></header>
+                <RuleEditor compact value={value} onChange={(next) => updateOverride('by_client_organization', key, next)} />
+              </article>
+            ))}
+          </Card>
           <Card title="Exceptions par type d’intervention" className="completion-policy-card">
             <div className="completion-policy-add-row">
               <select value={newJobType} onChange={(event) => setNewJobType(event.target.value)}>
@@ -342,13 +387,14 @@ const CompletionPolicySettingsSection = memo(function CompletionPolicySettingsSe
 
       <div className="completion-policy-footer">
         <span>
-          Priorité : opérateur → type d’intervention → défaut. Une exception est une règle complète, pas un supplément à la règle par défaut.
+          Priorité : entreprise cliente → opérateur → type d’intervention → défaut. Une exception est une règle complète, pas un supplément à la règle par défaut.
         </span>
         <div>
           <Button variant="secondary" disabled={!dirty || saving} onClick={() => setDraft(loaded.policy)}>Annuler</Button>
-          <Button variant="primary" loading={saving} disabled={!dirty || loading} onClick={save}>Enregistrer la politique</Button>
+          <Button variant="primary" loading={saving} disabled={!dirty || loading || !valid || !loadReady || !canEdit} onClick={save}>Enregistrer la politique</Button>
         </div>
       </div>
+      </fieldset>
     </div>
   );
 });

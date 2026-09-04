@@ -34,6 +34,7 @@ from backend.auth.dependencies import (
 from backend.database.connection import get_db
 from backend.database.models import (
     ApplicationSetting,
+    ClientOrganization,
     JobPriority,
     JobStatus,
     JobType,
@@ -543,6 +544,11 @@ async def update_operational_settings(
             ),
         )
 
+    client_ids = {int(key) for key in payload.values.completion_policy.by_client_organization}
+    if client_ids:
+        existing = set((await db.execute(select(ClientOrganization.id).where(ClientOrganization.id.in_(client_ids)))).scalars().all())
+        if client_ids - existing:
+            raise HTTPException(status_code=422, detail="Une règle de clôture référence une entreprise cliente inexistante.")
     serialized_values = payload.values.model_dump(
         mode="json",
     )

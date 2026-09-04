@@ -4,10 +4,30 @@ import test from 'node:test';
 import {
   buildOperationalAccountProfilePayload,
   canMutateOrganizationSnapshot,
+  filterOperationalAccounts,
+  operationalAccountRoleLabel,
   resolveOperationalAccountProfilePolicy,
   resolveOrganizationAvailability,
   resolveOrganizationSnapshot,
 } from './accountProfilePolicy.js';
+
+test('account directory uses readable role labels and combined filters', () => {
+  const accounts = [
+    { username: 'chef', email: 'chef@example.test', role: 'CHEF_ORIENTEUR', is_active: true },
+    { username: 'field', email: 'field@example.test', role: 'TECHNICIAN', is_active: false },
+  ];
+
+  assert.equal(operationalAccountRoleLabel('CHEF_ORIENTEUR'), 'Chef orienteur');
+  assert.equal(operationalAccountRoleLabel('TECHNICIAN'), 'Technicien');
+  assert.deepEqual(
+    filterOperationalAccounts(accounts, { query: 'technicien', status: 'INACTIVE' }),
+    [accounts[1]],
+  );
+  assert.deepEqual(
+    filterOperationalAccounts(accounts, { role: 'CHEF_ORIENTEUR', status: 'ACTIVE' }),
+    [accounts[0]],
+  );
+});
 
 test('account profile policy mirrors backend role requirements', () => {
   assert.deepEqual(resolveOperationalAccountProfilePolicy('TECHNICIAN'), {

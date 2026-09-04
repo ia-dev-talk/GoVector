@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '../../api/client';
 import territoryApi from './territoryApi';
+import { isTerritoryWorkspaceEmpty } from './territoryWorkspacePresentation';
 import './territory-workspace.css';
 
 const KIND_LABELS = {
@@ -143,6 +144,12 @@ export default function TerritoryWorkspace({ canManage, legacySectors = null, to
     }),
     [nodes],
   );
+  const emptyWorkspace = isTerritoryWorkspaceEmpty({
+    loading,
+    error,
+    nodes,
+    editorOpen,
+  });
 
   const beginCreate = (parent = null) => {
     setEditingId(null);
@@ -262,7 +269,7 @@ export default function TerritoryWorkspace({ canManage, legacySectors = null, to
   };
 
   return (
-    <section className="territory-workspace">
+    <section className={`territory-workspace${emptyWorkspace ? ' territory-workspace--empty' : ''}`}>
       <header className="territory-workspace__header">
         <div>
           <span className="territory-workspace__eyebrow">Géographie & QGIS/QField</span>
@@ -294,23 +301,25 @@ export default function TerritoryWorkspace({ canManage, legacySectors = null, to
         <span><strong>{summary.inactive}</strong> inactifs</span>
       </div>
 
-      <div className="territory-workspace__filters">
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Rechercher Casablanca, Sidi Maarouf, code…"
-          aria-label="Rechercher dans la hiérarchie territoriale"
-        />
-        <label>
+      {!emptyWorkspace ? (
+        <div className="territory-workspace__filters">
           <input
-            type="checkbox"
-            checked={showInactive}
-            onChange={(event) => setShowInactive(event.target.checked)}
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Rechercher Casablanca, Sidi Maarouf, code…"
+            aria-label="Rechercher dans la hiérarchie territoriale"
           />
-          Afficher les inactifs
-        </label>
-      </div>
+          <label>
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(event) => setShowInactive(event.target.checked)}
+            />
+            Afficher les inactifs
+          </label>
+        </div>
+      ) : null}
 
       {notice && <div className="territory-workspace__notice" role="status">{notice}</div>}
       {error && (
@@ -319,6 +328,21 @@ export default function TerritoryWorkspace({ canManage, legacySectors = null, to
         </div>
       )}
 
+      {emptyWorkspace ? (
+        <div className="territory-workspace__empty-state">
+          <div>
+            <strong>Aucune géographie détaillée configurée</strong>
+            <span>
+              Les secteurs opérationnels restent disponibles ci-dessous. Ajoutez la hiérarchie GIS uniquement quand ses territoires et rattachements sont prêts.
+            </span>
+          </div>
+          {canManage ? (
+            <button type="button" className="is-primary" onClick={() => beginCreate(null)}>
+              Créer le premier territoire
+            </button>
+          ) : null}
+        </div>
+      ) : (
       <div className="territory-workspace__body">
         <div className="territory-tree" aria-busy={loading}>
           {loading ? (
@@ -461,6 +485,7 @@ export default function TerritoryWorkspace({ canManage, legacySectors = null, to
           )}
         </aside>
       </div>
+      )}
     </section>
   );
 }

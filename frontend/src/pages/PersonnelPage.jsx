@@ -172,6 +172,7 @@ export default function PersonnelPage({
   const inspectorHostRef = useRef(null);
   const inspectorBaselineRef = useRef('');
   const serverBaselineRef = useRef('');
+  const detailBaselineKeyRef = useRef('');
   const detailDirtyRef = useRef(false);
   const conflictToastRef = useRef('');
 
@@ -514,20 +515,36 @@ export default function PersonnelPage({
   );
 
   useEffect(() => {
-    if (!detailTechId || !detailTech) {
+    const detailBaselineKey = detailTechId && detailTech
+      ? `${normalizeIdentifier(detailTechId)}:${detailRevision}`
+      : '';
+
+    if (!detailBaselineKey) {
       inspectorBaselineRef.current = '';
       serverBaselineRef.current = '';
+      detailBaselineKeyRef.current = '';
       detailDirtyRef.current = false;
       setDetailDirty(false);
       setDetailConflict(false);
       return undefined;
     }
 
+    // A live server refresh must be reconciled by the conflict effect below.
+    // Only a technician/revision transition is allowed to reset the draft.
+    if (detailBaselineKeyRef.current === detailBaselineKey) return undefined;
+
+    detailBaselineKeyRef.current = detailBaselineKey;
     serverBaselineRef.current = detailServerFingerprint;
     conflictToastRef.current = '';
     const frameId = window.requestAnimationFrame(markDetailClean);
     return () => window.cancelAnimationFrame(frameId);
-  }, [detailRevision, detailTechId, markDetailClean]);
+  }, [
+    detailRevision,
+    detailServerFingerprint,
+    detailTech,
+    detailTechId,
+    markDetailClean,
+  ]);
 
   useEffect(() => {
     if (!detailTech || !detailServerFingerprint) return;

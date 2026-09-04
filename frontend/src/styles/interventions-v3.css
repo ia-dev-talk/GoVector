@@ -3133,9 +3133,53 @@ button.intervention-kpi-card:hover {
 }
 
 @media (max-width: 980px) {
+  .intervention-workspace-header--v4 {
+    grid-template-columns: minmax(0, 1fr) !important;
+    min-height: auto !important;
+    padding-inline: 12px !important;
+    gap: 10px !important;
+  }
+
+  .intervention-workspace-header--v4
+  .intervention-workspace-date {
+    display: grid;
+    grid-template-columns:
+      42px minmax(0, 1fr) 42px;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .intervention-workspace-header--v4
+  .intervention-date-button {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .intervention-kpi-section--v4 {
+    padding-inline: 12px !important;
+  }
+
+  .intervention-kpi-section--v4
+  .intervention-kpi-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .intervention-workforce-summary--v4 {
+    grid-template-columns:
+      28px repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .intervention-workforce-summary--v4
+  .intervention-overdue-rule {
+    grid-column: 1 / -1 !important;
+    justify-self: start !important;
+  }
+
   .intervention-toolbar--v4 {
     grid-template-columns: 1fr !important;
     grid-template-rows: auto !important;
+    padding-inline: 12px !important;
   }
 
   .intervention-toolbar--v4
@@ -3146,5 +3190,59 @@ button.intervention-kpi-card:hover {
   .intervention-toolbar-actions {
     grid-row: auto !important;
     grid-column: 1 !important;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-view-switcher {
+    justify-self: start !important;
+    max-width: 100%;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-actions {
+    width: 100%;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-filter-button {
+    flex: 1 1 90px;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-refresh,
+  .intervention-toolbar--v4
+  .intervention-actions-menu {
+    flex: 0 0 42px;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-assign {
+    flex: 1 1 88px;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-toolbar-create {
+    flex: 1 1 180px;
+    min-width: 0 !important;
+  }
+
+  .intervention-toolbar--v4
+  .intervention-actions-trigger {
+    width: 42px;
+    padding-inline: 0;
+  }
+
+  .ie-main.intervention-workspace-main,
+  .ie-main.intervention-workspace-main--rail-collapsed {
+    grid-template-columns:
+      minmax(0, 1fr) !important;
+    padding-inline: 12px !important;
+  }
+
+  .intervention-technician-rail {
+    display: none !important;
   }
 }

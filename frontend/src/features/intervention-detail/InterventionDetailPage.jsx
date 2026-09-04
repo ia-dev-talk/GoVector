@@ -9,6 +9,8 @@ import InterventionFieldSummary from './InterventionFieldSummary';
 import InterventionGraphicalTools from './InterventionGraphicalTools';
 import InterventionMapCard from './InterventionMapCard';
 import InterventionOverview from './InterventionOverview';
+import OrienteurAssessment from './OrienteurAssessment';
+import { useInterventionPermissions } from '../interventions/interventionPermissionsContext';
 import InterventionTechnicianPhotos from './InterventionTechnicianPhotos';
 import InterventionTimeline from './InterventionTimeline';
 import { getApiErrorMessage, identifier, isRecord } from './interventionDetailUtils';
@@ -40,6 +42,7 @@ export default function InterventionDetailPage({
   onJobLoaded,
 }) {
   const initialJobId = identifier(initialJob?.id);
+  const { canAssessIntervention } = useInterventionPermissions();
   const [job, setJob] = useState(() => (isRecord(initialJob) ? initialJob : null));
   const [timeline, setTimeline] = useState([]);
   const [equipment, setEquipment] = useState(null);
@@ -203,6 +206,7 @@ export default function InterventionDetailPage({
           </div>
 
           <div className="intervention-detail-center">
+            {canAssessIntervention && <OrienteurAssessment key={`${jobId}:${job?.updated_at}:${refreshRevision}`} jobId={jobId} revision={job?.updated_at} />}
             <InterventionOverview job={job} assignmentContext={stock} />
             <InterventionMapCard job={job} fieldReference={fieldRecord?.field_reference_location} />
           </div>

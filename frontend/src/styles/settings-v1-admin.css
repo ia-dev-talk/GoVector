@@ -47,16 +47,24 @@
 .v1-admin-team-add .v1-admin-quiet-button:hover{color:#fff;border-color:#405879;background:#132239}
 .v1-admin-help{margin:-4px 0 13px;color:#8094af;font-size:11px;line-height:1.55}
 .v1-admin-form--accounts{grid-template-columns:repeat(3,minmax(0,1fr))}
+.v1-admin-account-directory{display:grid;grid-template-columns:minmax(220px,1fr) minmax(145px,.45fr) minmax(135px,.4fr) auto;gap:8px;align-items:center;margin-top:14px}
+.v1-admin-account-directory input,.v1-admin-account-directory select{min-height:38px;padding:8px 10px;border:1px solid #2b3c55;border-radius:8px;color:#dce6f3;background:#0b1523;font-size:11px}
+.v1-admin-account-directory input:focus,.v1-admin-account-directory select:focus{outline:2px solid rgba(75,141,255,.22);border-color:#4b8dff}
+.v1-admin-account-directory>span{color:#7f91aa;font-size:10px;white-space:nowrap}
 .v1-admin-account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px;max-height:560px;padding-right:4px;overflow-y:auto;scrollbar-width:thin}
 .v1-admin-account-grid article{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:11px;border:1px solid #273950;border-radius:10px;background:#0b1523}
 .v1-admin-account-grid article.is-archived{opacity:.65}
 .v1-admin-account-grid article>div{display:flex;min-width:0;flex-direction:column;gap:2px}
 .v1-admin-account-grid article strong{font-size:12px}
 .v1-admin-account-grid article span{overflow:hidden;color:#8296b2;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.v1-admin-account-grid article small{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.v1-admin-account-grid article small.is-active{color:#59d49b}
+.v1-admin-account-grid article small.is-inactive{color:#f0a4aa}
 .v1-admin-account-grid article>button,.v1-admin-account-grid form button{min-height:34px;padding:7px 10px;border:0;border-radius:7px;color:#fff;background:#2477ef;font-size:10px;cursor:pointer}
 .v1-admin-account-grid details{grid-column:1/-1;border-top:1px solid #273950;padding-top:7px}
 .v1-admin-account-grid summary{color:#7facf7;font-size:10px;cursor:pointer}
 .v1-admin-account-grid form{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:7px}
 .v1-admin-account-grid form input{padding:8px;border:1px solid #2b3c55;border-radius:7px;color:#dce6f3;background:#111f32;font-size:10px}
-@media(max-width:1250px){.v1-admin-team-add--explicit{grid-template-columns:1fr 1fr}.v1-admin-team-add--explicit button{width:100%}}
+.v1-admin-account-empty{grid-column:1/-1;margin:0;padding:18px;border:1px dashed #2b3c55;border-radius:10px;color:#8296b2;text-align:center;font-size:11px}
+@media(max-width:1250px){.v1-admin-team-add--explicit{grid-template-columns:1fr 1fr}.v1-admin-team-add--explicit button{width:100%}.v1-admin-account-directory{grid-template-columns:1fr 1fr}.v1-admin-account-directory>span{justify-self:end}}
 @media(max-width:850px){.v1-admin-grid,.v1-admin-team-grid,.v1-admin-account-grid,.v1-admin-form--accounts{grid-template-columns:1fr}.v1-admin-card--wide{grid-column:auto}.v1-admin-account-grid{max-height:none;overflow:visible}.v1-admin-team-add--explicit{grid-template-columns:1fr}.v1-admin-form{grid-template-columns:1fr}.v1-admin-form fieldset{grid-column:auto}}

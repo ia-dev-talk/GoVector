@@ -430,6 +430,7 @@ class StockMovementResponse(BaseModel):
     reference_id: Optional[int] = None
     operator: Optional[str] = None
     job_id: Optional[int] = None
+    visit_id: Optional[int] = None
     technician_id: Optional[int] = None
     notes: Optional[str] = None
     created_by: Optional[int] = None
@@ -585,6 +586,7 @@ class StockConsumptionResponse(BaseModel):
     id: int
     consumption_number: str
     job_id: Optional[int] = None
+    visit_id: Optional[int] = None
     technician_id: Optional[int] = None
     operator: Optional[str] = None
     status: str

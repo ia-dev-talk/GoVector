@@ -1,0 +1,1015 @@
+=== PAGE 1 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 1 sur 18 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+OFFRE TECHNIQUE ET T ARIFAIRE 
+POUR LE P ART AGE FTTH 
+DE L’OPERA TEUR 
+ITISSALA T AL-MAGHRIB 
+ 
+ 
+ 
+ 
+  
+
+=== PAGE 2 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 2 sur 18 
+ 
+Table des matières 
+ 
+1. Préambule .................................................................................................................................................... 3
+2. Définitions ..................................................................................................................................................... 3
+3.Portée de l’Offre ............................................................................................................................................ 5
+4. Responsabilités de MT ................................................................................................................................. 6
+5. Informations préalables................................................................................................................................. 6
+5.1.Information sur la couverture de l’Offre ................................................................................................ 6
+5.2. Eligibilité des accès FTTH .................................................................................................................... 7
+5.3.Ouverture d’une nouvelle zone/plaque des accès FTTH ...................................................................... 7
+6.Modalités de commande et de mise à disposition des services d’hébergement et de collecte ..................... 8
+6.1. Service hébergement ........................................................................................................................... 8
+6.2. Service de collecte ............................................................................................................................. 10
+7. Modalités de commande et de mise à disposition des accès FTTH ........................................................... 12
+7.1. Description du service accès FTTH .................................................................................................... 12
+7.2. Conditions préalables aux Commande des Accès FTTH ................................................................... 12
+7.3. Mandat préalable ................................................................................................................................ 13
+7.4. Délais de traitement ............................................................................................................................ 13
+7.5. Conditions Techniques ....................................................................................................................... 14
+7.6.Prestations d’installation de CPE........................................................................................................ 14
+7.7. Prestation de création de nouveaux Profils de débit........................................................................... 14
+7.8. Modalités de Commande des Accès FTTH ........................................................................................ 14
+7.9. Prévisions des commandes des accès FTTH .................................................................................... 15
+8. Maintenance et SAV ................................................................................................................................... 15
+8.1. SAV du Service Hébergement ............................................................................................................ 15
+8.2. SAV des Accès FTTH ......................................................................................................................... 15
+8.3. SAV+ des Accès FTTH....................................................................................................................... 16
+8.4. Maintenance préventive ..................................................................................................................... 16
+9.Modalités d’accès aux sites de MT ............................................................................................................. 16
+10. Tarifs des prestations.................................................................................................................................. 17
+11. Pénalités ..................................................................................................................................................... 17
+11.1.Dépassement du délai d’activation d’un Accès ou de modification du débit d’un Accès .................... 17
+11.2.Dépassement du délai de rétablissement d’une ligne (SAV) .............................................................. 17
+11.3.Dépassement du délai de mise à disposition de l’hébergement ......................................................... 17
+11.4. Dépassement du délai de mise à disposition du port de collecte ....................................................... 17
+11.5.Pénalités liées à la fourniture d’information ........................................................................................ 18
+11.6. Autres pénalités .................................................................................................................................. 18
+11.7. Cas particulier : Pénalités applicables dans le cadre du traitement de SAV ....................................... 18
+ 
+  
+
+=== PAGE 3 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 3 sur 18 
+1. Préambule 
+ 
+La présente offre (ci-après désignée par «Offre» ou «Offre Technique et Tarifaire» ou «OTT») 
+s’adresse aux exploitants de réseaux publics de télécommunications (ERPT) détenant une
+Licence fixe (ou nouvelle génération) pour l’établissement et l’exploitation de réseaux publics
+de télécommunications au Royaume du Maroc, et qui en font la demande. Cette Offre traite 
+des modalités d’accès en partage actif au réseau FTTH.  
+ 
+L’Offre précise certaines modalités techniques, opérationnelles et tarifaires liées aux
+prestations nécessaires à l’accès FTTH, notamment : 
+▪ la fourniture d’Accès pour le Client Final sur l’infrastructure technique FTTH (Service
+Accès FTTH) ; 
+▪ la fourniture d’une prestation de collecte et de livraison du trafic (Service de Collecte) ; 
+▪ la fourniture d’une prestation d’hébergement dans le PoP de Collecte (Service
+Hébergement). 
+ 
+MT ne peut invoquer l'existence d'une Offre pour refuser d'engager des négociations 
+commerciales avec un autre ERPT en vue de la détermination de prestations ou de conditions 
+qui n'auraient pas été prévues dans cette Offre. 
+ 
+Le partage est matérialisé par la signature d’un contrat ou Convention-Cadre de partage entre 
+les ERPT concernés. La non signature ne doit pas faire obstacle au partage des accès FTTH. 
+ 
+Dans le cas où les demandes/commandes atteindraient des niveaux élevés qui rendraient leur 
+traitement par MT difficile dans les délais fixés, MT pourrait être autorisé, par l’ANRT, à mettre
+en place des limitations de traitement durant des périodes prédéterminées. 
+ 
+2. Définitions 
+ 
+Les termes utilisés dans l’ensemble des documents contractuels auront le sens qui leur est
+donné ci-dessous : 
+ 
+▪ «Opérateur Commercial» ou «OC» : désigne un opérateur de télécommunications 
+titulaire de la licence prévue par la loi n°24-96 relative à la poste et aux 
+télécommunications, telle que modifiée et complétée, pour l’établissement et
+l’exploitation de réseaux publics fixes de télécommunications. 
+ 
+▪ «Opérateur d’infrastructure» ou «OI» : désigne un opérateur de télécommunications 
+titulaire de la licence prévue par la loi n°24-96 relative à la poste et aux 
+télécommunications, telle que modifiée et complétée, pour l’établissement et
+l’exploitation de réseaux publics fixes de télécommunications et exploitant des 
+infrastructures FTTH. 
+Pour la présente Offre, il s’agitde Maroc Telecom (MT). 
+ 
+▪ «Bon de Commande» désigne le formulaire permettant à l’OC de souscrire à des
+prestations de gros offertes par MT dans le cadre de l’Offre. 
+ 
+▪ «Boucle locale optique» segment filaire en fibre optique entre un point terminal (chez 
+le Client Final) et un répartiteur optique de MT. 
+ 
+▪ «Client Final» : désigne toute personne, physique ou morale, cliente de l’OC
+souscripteur d’une offre de services de télécommunications fixes FTTH de l’OC. 
+ 
+▪ «Convention» : le contrat conclu entre MT et l’OC et qui détaille les différentes modalités
+de mise en œuvre de l’Offre. 
+
+=== PAGE 4 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 4 sur 18 
+▪ «Durée minimale» : l’OC souscrit au Bon de Commande pour une durée minimale, à
+l’expiration de laquelle le Bon de Commande est renouvelé par tacite reconduction, de
+mois en mois, sauf résiliation. 
+ 
+▪ «Force majeure» : désigne tout événement totalement indépendant de la volonté des 
+Parties et en dehors de leur contrôle, et rendant impossible l’exécution de leurs
+obligations respectives ou qui les rend si difficiles qu’elles peuvent être tenues pour
+impossibles dans de telles circonstances.  
+ 
+▪ «FTTH» : désigne l’acronyme pour «Fiber To The Home» et signifie déploiement de la
+fibre optique jusqu’au local du Client Final. 
+ 
+▪ «Guichet Unique» : désigne le guichet unique mis en place par MT pour recevoir les 
+commandes des OC. 
+ 
+▪ «Heure ouvrée» (ou HO) : désigne la plage horaire de 8H à 16H30. 
+ 
+▪ «Incident» : désigne un défaut, un dysfonctionnement ou une interruption de la 
+fourniture d’un service fournipar MT à l’OC. 
+ 
+▪ «Infrastructures techniques FTTH» : désigne l’infrastructure de télécommunications
+exploitée par MT pour fournir un service FTTH. 
+ 
+▪ «Jour Ouvré» : du lundi au vendredi inclus, de 08H00 à 16H30. Les jours fériés sont 
+exclus. 
+ 
+▪ «Jour Ouvrable» : Le samedi (non férié) de 08H00 à 13H00 ainsi que les jours ouvrés.  
+ 
+▪ «Ligne Active» : désigne un accès FTTH déjà opérationnel chez un OC et dont le Client 
+Final dispose d’un contrat en cours chez ledit OC. 
+ 
+▪ «Ligne Inactive» : désigne un accès FTTH déjà existant et non opérationnel. 
+ 
+▪ «Ligne inexistante» : ligne inactive dont l’accès nécessite la réalisation d’un
+raccordement FTTH du Client Final se trouvant dans la zone/plaque déjà couverte par 
+MT. 
+ 
+▪ «Local/Locaux ou Logements» ou «Prises» : désigne un logement ou un local à 
+usage professionnel ou mixte, situé dans un immeuble/bâtiment ou une habitation 
+individuelle. 
+ 
+▪ «OLT» (Optical Line Terminal) : l'équipement de terminaison côté réseau qui permet 
+l’activation des accès FTTH des Clients Finaux. 
+ 
+▪ «ONU» (Optical Network Unit) : Cet équipement de terminaison, installé par MT chez le 
+Client Final, assure la conversion du signal optique en signal électrique. Il matérialise la 
+limite de responsabilité de MT et est le point de raccordement entre l’accès FTTH et
+l’équipement (CPE) fourni par l’OC à son Client Final. 
+ 
+▪ «PTO» (Point de Terminaison Optique) : partie terminale du réseau FTTH, installée à 
+l’intérieur du local du Client Final. Elle se matérialise par un boitier doté d’une prise
+optique à laquelle se branche l’ONU. 
+ 
+▪ «Plaque ou Zone FTTH» : désigne un groupe de logements/locaux raccordables et 
+rattachés à un ou plusieurs PoP de Collecte. 
+
+=== PAGE 5 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 5 sur 18 
+▪ «PoP de Collecte» : désigne le nœud d’extrémité de la boucle locale optique, où l’OC
+collecte les trafics émanant des Clients Finaux de l’OC qui utilisent des accès FTTH
+fournis par MT. Ce point de collecte est indiqué par MT et héberge aussi des 
+équipements de l’OC (emplacement, énergie, etc.) destinés à la collecte des trafics.
+L’OC peut se raccorder au PoP de Collecte et y installer ses switchs. 
+ 
+▪ «Profil de débit» : désigne les niveaux de débits demandés par l’OCà MT. 
+ 
+▪ «Rack» : désigne un cabinet qui abrite un équipement actif. 
+ 
+▪ «Raccordement Client Final» : désigne l’opération consistant à installerpar MT, pour 
+le compte de l’OC, un Accès FTTH chez le Client Final de l’OC. 
+ 
+▪ «Service(s)» : désigne le (ou les) Services d’Hébergement, ou le Service Accès FTTH,
+ou le Service de Collecte souscrit par l’OC auprèsde MT tels qu’ils sont décrits dans
+l’Offre (ou les contrats entreMT et l’OC) ou plusieurs ou tous à la fois. 
+ 
+▪ «Site» : désigne le site où est situé le PoP de Collecte. 
+ 
+▪ «Partage actif» : désigne la fourniture par MT à l’OC, au niveau de l’OLTde MT, d’un
+accès FTTH (activé) jusqu’à l’ONU. 
+ 
+▪ «Partage passif» : désigne la fourniture par MT à l’OC, au niveau du point de
+mutualisation (ou SRO) d’un accès FTTH (non activé) jusqu’au PTO. 
+ 
+3. Portée de l’Offre 
+ 
+L’Offre porte sur les prestations suivantes : 
+▪ la fourniture par MT à l’OC d’un Accès FTTH pour raccorder le Client Final de l’OC à
+travers l’infrastructure technique FTTHde MT selon le schéma illustratif de la figure 1 ci-
+dessous ; 
+▪ la collecte par MT des trafics émanant des Clients Finaux de l’OC qui utilisent les
+infrastructures FTTH de MT, d’une part, et la livraisonpar MT à l’OC de ces trafics vers
+le Switch de l’OC installé au niveau du PoP de collectede MT d’autre part ; 
+▪ la fourniture par MT à l’OC d’un espace d’hébergement au niveau d’un PoP de Collecte
+de MT. 
+ 
+ 
+Figure 1 - Schéma général de l’architecture de partage 
+ 
+Par ailleurs, les précisions suivantes sont apportées : 
+▪ A la demande de l’OC,MT lui communique les caractéristiques techniques de l'ONU de 
+MT. 
+
+
+=== PAGE 6 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 6 sur 18 
+▪ MT fournira la liste des PoP de Collecte (locale, régionale, nationale) à la demande de 
+l’OC. 
+▪ L’OC co-localise ses équipements sur le même PoP où est situé le switch de MT 
+conformément aux modalités du Service Hébergement décrites dans l’Offre. 
+▪ L’OC est seul responsable du dimensionnement du port de conduit de collecte créé au
+niveau du PoP concerné de MT et destiné à assurer la collecte du trafic des Clients 
+Finaux de l’OC. 
+▪ L’OC fait son affaire personnelle des adaptations de son réseau/équipement aux
+caractéristiques des liens/interfaces fournis par MT, sachant que MT notifiera les OC 
+des différentes modifications ou évolutions techniques avec un préavis de trois (3) mois. 
+▪ Il appartient à l’OC de raccorder son switch, installé au PoP de Collecte, à son propre
+réseau. 
+ 
+4. Responsabilités de MT 
+ 
+Les limites de responsabilités de MT concernant le Service Accès FTTH actif sont 
+représentées dans le schéma ci-après : 
+ 
+ 
+Figure 2 : Les limites de responsabilité 
+ 
+Ces limites portent notamment sur ce qui suit : 
+▪ Assurer le câblage depuis l’OLT jusqu’au logement/local duClient Final. 
+▪ Fournir et installer la prise optique PTO chez le Client Final. 
+▪ Fournir et installer l’ONU chez le Client Final. 
+▪ Fournir et brancher la jarretière entre la PTO et l’ONU. 
+▪ Provisionner l’ONU sur son réseau (y compris l’OLT). 
+▪ Assurer la disponibilité du signal au niveau de l’ONU avec le Profil de débit commandé
+par l’OC pour le compte de son Client Final, tenant compte des conditions techniques
+décrites dans l’Offre. 
+A cet effet, MT est responsable de tester le bon fonctionnement de l’Accès FTTH, mis à
+disposition de l’OC, au niveau de l’ONU en utilisant un outil de test dédié à cet effet. 
+▪ Assurer le routage des trafics depuis l’ONU jusqu’au point de Collecte de l’OC. 
+ 
+La fourniture par MT à l'OC des prestations objet de l’Offre n'emporte aucune cession des
+droits de propriété des infrastructures ou des éléments composant la liaison optique de la 
+boucle locale de MT ou de tout autre composant. 
+ 
+5. Informations préalables 
+ 
+5.1. Information sur la couverture de l’Offre 
+ 
+MT notifie à l’OC, au préalable, les informations nécessaires pour lui permettre d’apprécier,
+autant que possible avec précision, l’étendue de la couverture (empreinte) FTTH des
+infrastructures déployées et/ou exploitées par MT. Ces informations doivent également 
+permettre l’identification des points de collecte (locale, régionale, nationale) de chaque
+
+
+=== PAGE 7 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 7 sur 18 
+zone/plaque. 
+ 
+Particulièrement, MT notifie les données suivantes : 
+▪ des données géoréférencées sur les zones couvertes par MT, présentées comme suit : 
+- un polygone traçant les limites de chaque zone/plaque/projet/quartier desservi ; 
+- l’identification, pour chaque polygone,des points de Collecte Locale, Régionale et 
+Nationale de rattachement. 
+▪ La liste des PoP de Collectes (tant locale, régionale que nationale) en précisant, pour 
+chaque PoP, l’adresse et les coordonnées GPS y afférentes. 
+ 
+Ces informations sont mises à disposition des OC par MT par le biais de fichiers électroniques 
+exploitables et des cartes géoréférencées. Les formats de ces fichiers sont convenus entre 
+les Parties. 
+ 
+5.1.1. Mise à disposition initiale des informations préalables 
+ 
+Au plus tard deux (2) semaines après validation de l’Offre,MT met à disposition des OC les 
+informations précitées. 
+ 
+La mise à disposition ne fait aucunement obstacle à ce que chaque OC sollicite des 
+informations complémentaires auprès de MT. 
+ 
+5.1.2. Mise à jour périodique des informations préalables 
+ 
+La mise à jour des différentes informations relève de la responsabilité de MT. Elle se fait, 
+gratuitement, sur la base d’une fréquence mensuelle. Toutefois,MT s’engage à notifier l’OC
+dès la mise à jour d’une information modifiée chez MT. 
+ 
+La mise à disposition ne fait aucunement obstacle à ce que chaque OC sollicite des 
+informations complémentaires auprès de MT. 
+ 
+5.1.3. Fourniture à la demande des informations 
+ 
+Dans tous les cas, et indépendamment des fréquences précitées, l’OC peut, à tout moment,
+demander des informations à MT. MT fournit lesdites informations 1 à l’OC dans un délai de
+trois (03) jours ouvrés. 
+ 
+5.2. Eligibilité des accès FTTH 
+ 
+MT met à disposition des OC une solution automatisée et dématérialisée pour l’étude
+d’éligibilité des accès FTTH. Cette solution devra fournir des informations en temps réel sur
+l’éligibilité d’une adresse à un accès FTTHde MT, conformément aux données de couverture 
+mises à disposition de l’OCpar MT selon le canevas convenu. 
+ 
+5.3. Ouverture d’une nouvelle zone/plaque des accès FTTH 
+ 
+(i) MT est tenu de notifier aux OC ses projets préliminaires de déploiement de nouvelles 
+zones/plaques. 
+Cette notification2 est faite deux (2) fois par an : 
+ 
+1 : Il s’agit des informations préalablement convenues. Cependant, dans le cas où la demande de l’OC porte sur de nouvelles
+informations à fournir par MT nécessitant des traitements nouveaux ou spécifiques, MT informera l’OC du délai pour la mise
+à disposition de ces nouvelles informations, sans que ce délai ne puisse dépasser trente (30) jours calendaires. Dans le cas 
+où ce délai serait insuffisant, MT informe, immédiatement et dès la réception de la demande, l’OC et l’ANRT et précise le
+délai pour la fourniture desdites informations. 
+2 : MT et les OC conviennent, au plus tard deux (2) mois à compter de la date d’approbation de l’OTT, des informations minimales
+(délimitation de chaque plaque, types de bâtiments/locaux, …) devant être fournies lors de la notification (y compris le format 
+de la notification). 
+
+=== PAGE 8 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 8 sur 18 
+- au plus tard le 1 er avril de l’année ; 
+- au plus tard le 1 er octobre de l’année. 
+Outre les nouveaux projets, chaque notification met à jour la situation des projets 
+précédemment notifiés, qui seraient en cours de réalisation ou non encore engagés. 
+(ii) Chaque OC disposera d’un délai d’un (1) mois pour faire partà MT de son intérêt d’être
+associé à ce déploiement (co-investissement 3, besoins spécifiques, commentaires, 
+recours à l’Offre de gros, …). 
+La réponse de l’OC vaut engagements en cas de réalisation du projet. 
+(iii) En cas d’expression d’un intérêt par un ou plusieurs OC,MT est tenu d’en tenir compte
+lors du déploiement ou de faire un retour à l’OC. 
+Dans le cas où MT ne tiendrait pas compte de la réponse de l’OC,MT est tenu d’en
+informer préalablement l’OC. 
+(iv) La non réponse d’un OC ne fait pas obstacle à des demandes ultérieures de cet OC
+pour le partage des Accès FTTH, lesquelles seront traitées par MT conformément à 
+l’Offre. 
+(v) MT notifie les OC de la date prévisionnelle de l’ouverture d’une zone/plaque. 
+- MT est tenu de ne commencer la vente/commercialisation de ses services dans la 
+zone que quarante-cinq (45) jours calendaires après la date précitée de 
+notification. 
+- MT met à jour, concomitamment, toutes les informations et bases de données 
+mises à disposition des OC. 
+(vi) Afin de traiter d’éventuels projets urgents de couverture,MT notifie préalablement les 
+OC d’une procédure4 simplifiée à cet effet. 
+ 
+6. Modalités de commande et de mise à disposition des services d’hébergement
+et de collecte 
+ 
+6.1. Service hébergement 
+ 
+6.1.1. Description du Service Hébergement 
+ 
+Le Service Hébergement consiste, à titre principal, en la mise à disposition d’espace au sein
+d’un sitede MT permettant à l’OC de co-localiser son switch, ses jarretières, ses câbles ou 
+tout autre équipement nécessaire à la collecte des trafics de ses Clients Finaux. 
+ 
+MT met ainsi à disposition de l’OC un espace spécifique incluant, notamment : 
+▪ un chemin de câble permettant le passage des câbles optiques de l’OC ;  
+▪ la climatisation ;  
+▪ la fourniture de l’énergie nécessaire au fonctionnement des équipements hébergés. 
+ 
+Il appartient à l’OC (directement ou par le biais de ses sous-traitants) : 
+▪ de procéder à l’installation de ses équipements (switch, …) et de les raccorder à son
+réseau et aux départs d’énergie et à la mise à la terre jusqu’aux points de raccordements
+indiqués par MT ; 
+▪ de mettre en œuvre toutes les actions qui lui semblent nécessaires, en conformité avec
+les conditions et modalités de l’Offre, pour procéder à l’exploitation desdits équipements; 
+▪ d’assurer la maintenance de ses équipements hébergés. 
+ 
+6.1.2. Commande du Service Hébergement 
+ 
+▪ L’OC fait parvenirà MT un Bon de Commande d’étude de faisabilité à travers un Guichet
+ 
+3 : Des modèles de convention/contrat de co-investissement peuvent être proposés par MT à l’OC. La mise en œuvre du principe
+d’IRU est accepté. Dans ce cas, les tarifs relatifs à l’Accès ne s’appliquent pas. Ils seront fixés dans la Convention/Contrat de
+co-investissement. 
+4 : de préférence, une seule procédure. 
+
+=== PAGE 9 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 9 sur 18 
+Unique qui sera mis à disposition de l’OCpar MT. 
+▪ MT communique la réponse de faisabilité d’installation des équipements à l’OC dans un
+délai maximal de trente (30) jours calendaires. 
+▪ Si l’étude de faisabilité donne lieu à une réponse positive,MT établit un devis ferme qui 
+indique, à titre non exhaustif : 
+- l’espace alloué ; 
+- le lieu d’implantation des équipements ; 
+- les points de raccordement ; 
+- le type d’énergie disponible ; 
+- le nombre des jarretières optiques. 
+▪ Cette prestation inclut une prestation de pénétration dans le local de MT.A l’issue de la
+réception du devis, l’OC doit notifier l’acceptation ou le refus du devisà MT dans un délai 
+maximal de trente (30) jours calendaires à partir de sa réception. Au-delà de cette 
+échéance, le résultat de l’étude de faisabilité réaliséepar MT devient obsolète et le devis 
+est automatiquement annulé. 
+▪ L’acceptation du devis par l’OC équivaut à une commande ferme. 
+▪ Dans le cas de disponibilité immédiate de la totalité de l’espace demandé par l’OC,MT 
+mettra à disposition de l’OC l’espace de colocalisation dans un délai maximal devingt 
+(20) jours calendaires à compter de la date de notification par l’OC de l’acceptation du
+devis.  
+▪ Dans le cas de non disponibilité immédiate de la totalité de l’espace demandé,MT met 
+en œuvre ce qui suit : 
+- MT informe l’OC du délai prévisionnel de mise à disposition de l’espace
+d’hébergement demandé. 
+- Sur demande de l’OC,MT fournit, dans un délai de vingt (20) jours calendaires à 
+compter de la date de notification par l’OC de l’acceptation du devis, l’espace
+disponible, et au minimum5 un espace de 0,18 m3. 
+- MT fournit les espaces restants demandés, dans un délai n’excédant pas 90 jours
+calendaires à compter de la date de notification par l’OC de l’acceptation du devis. 
+▪ L’OC est tenu d’entamer les travaux et d’installer ses équipements au plus tard quarante-
+cinq (45) jours calendaires après la mise à disposition de l’espace demandé. 
+▪ En cas d’infaisabilité avéré pourMT du Service d’Hébergement et sur demande de l’OC,
+MT accepte, sans réserve, de déporter l’hébergement dans un autre local (désigné par
+l’OC à son choix, soit à son initiative, soit sur propositionde MT) et assure les prestations 
+suivantes à l’OC : 
+- la pénétration dans la chambre d’accès au PoP de Collectede MT ; 
+- la fourniture des chemins de câble à l’intérieur du Sitede MT ; 
+- le raccordement de la fibre de l’OC au PoPde MT. 
+ 
+Les PV de la mise à disposition de l’espace sont établis et signés entre MT et l’OC. Ils précisent 
+notamment les éléments (espace, racks, câbles, énergie, …) et les devis y afférents acceptés
+par l’OC. Ces PV constituent la base de facturation du service d’hébergement.  
+ 
+6.1.3. Conditions d’installation des équipements 
+ 
+▪ Seuls les équipements nécessaires à la fourniture du service FTTH au Client Final sont 
+autorisés à être hébergés au sein du PoP de Collecte. 
+▪ Les équipements installés et les installations réalisées par l’OC au niveau du PoP de
+Collecte doivent respecter les standards sur la compatibilité électromagnétique (EMC et 
+EMI) avec les exigences pour la mise à terre des équipements et avec les standards 
+concernant la sécurité et la protection des sites. 
+▪ Avant installation, l’OC s’engage à fournirà MT la liste des équipements, accompagnée 
+de leurs spécifications techniques.  
+MT se réserve le droit de s’opposer, de façon motivée, à l’installation de tout équipement
+ 
+5 : destiné à l’hébergement d’un switch de l’OC. 
+
+=== PAGE 10 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 10 sur 18 
+qui ne répond pas aux conditions susmentionnées. 
+▪ Dans le cas où MT déclare la non-conformité électrique d’un ou plusieurs équipements
+de l’OC, ce dernier peut proposerà MT de recourir à un bureau agréé en vue de vérifier 
+la conformité des équipements concernés de l’OC et destinés à être installés au niveau
+du PoP de Collecte. 
+- MT ne peut refuser cette demande. 
+- L’OC prend en charge l’intégralité des frais afférents à ces vérifications. 
+ 
+6.2. Service de collecte 
+ 
+6.2.1. Description du Service de Collecte 
+ 
+Le Service Collecte correspond à la collecte par MT et la livraison à l’OC des trafics du Client
+Final de l’OC. Cette Collecte6 peut se faire au niveau local, ou régional ou national, et ce selon 
+les modalités suivantes : 
+▪ Sous réserve de disposer de ses équipements installés dans un PoP de Collecte, il 
+revient à l’OC de décider du niveau de Collecte (locale, régionale, nationale). 
+▪ Le trafic du Client Final sera livré au niveau du Switch de l’OC. Ce Switch doit être
+raccordé, via les moyens propres de l’OC, au PoP concernéde MT. 
+▪ L’OC assume seul la responsabilité du bon dimensionnement du port de conduit de
+Collecte créé à cet effet au niveau du PoP concerné pour assurer la collecte des trafics 
+de ses Clients Finaux. 
+▪ Chaque classe de service est associée à un VLAN dédié.  
+▪ Les classes de services associées aux VLAN de l’OC doivent être convenues avecMT. 
+Les flux de trafic y afférents ne doivent en aucun cas être préjudiciables à la qualité de 
+service du trafic ou, d’une manière générale, à l’intégrité du réseaude MT. Ces mesures 
+seront détaillées dans la Convention-Cadre du partage FTTH. 
+▪ Les profils de débit demandés par l’OC sont crééspar MT sur les éléments concernés 
+de son réseau (notamment ses OLT). MT ne peut refuser de créer les profils demandés 
+par l’OC. 
+▪ Les débits des ports de collecte sont décrits dans l’Offre. 
+ 
+6.2.2. Collecte Locale 
+ 
+La «Collecte Locale» consiste au raccordement d’un ou plusieurs OLTde MT à un switch de 
+collecte de l’OC, et ce pour livrer le trafic de l’ensemble des accès des OLT concernés au
+niveau du switch de l’OC. Le switch de collecte de l’OC est installé au niveau du PoP de
+Collecte Locale (de MT) qui peut être situé dans le même site qu’un des OLT concernésde 
+MT (et exceptionnellement, dans un autre site).  
+ 
+La collecte locale se fait à travers des ports supérieurs (ou égaux) à 1 Gbps. 
+ 
+ 
+Figure 3 : Schéma de l’architecture de partage avec collecte locale 
+ 
+MT fournit les classes de service pour la Collecte Locale comme suit : 
+ 
+Type de service Classe du service 
+ 
+6 : MT est responsable de la fourniture, à l’OC, duchemin de câble et de la jarretière de raccordement. 
+
+
+=== PAGE 11 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 11 sur 18 
+Management P2 (Priorité moyenne) 
+Voix P1 (Priorité basique) 
+Internet P0 (Best effort) 
+ 
+6.2.3. Collecte Régionale 
+ 
+La «Collecte Régionale» consiste au raccordement d’un ensemble de points de collecte locale
+à un switch de collecte de MT, et ce pour livrer le trafic de l’ensemble des accès desdits points
+de collecte locale au niveau du switch de l’OC. 
+ 
+La Collecte Régionale se fait à travers des ports supérieurs (ou égaux) à 10 Gbps. 
+ 
+ 
+Figure 4 : Schéma de l’architecture de partage avec collecte régionale 
+ 
+Pour la Collecte Régionale, les classes de service seront mis à disposition de l’OC : 
+ 
+Type de service Classe du service 
+Management P2 (Priorité moyenne) 
+Voix P1 (Priorité basique) 
+Internet P0 (Best effort) 
+ 
+6.2.4. Collecte Nationale 
+ 
+La «Collecte Nationale» consiste au raccordement d’un ensemble de points de collecte
+régionale à un switch de collecte de MT, et ce pour livrer le trafic de l’ensemble des accès
+desdits points de collecte régionale au niveau du switch de l’OC. 
+ 
+La Collecte Nationale se fait à travers des ports supérieurs (ou égaux) à 10 Gbps. 
+ 
+ 
+Figure 5 : Schéma de l’architecture de partage avec collecte nationale 
+ 
+Pour la collecte nationale, elle est assurée en Bitstream et MT s’engageà mettre à disposition 
+de l’OC un VLAN. 
+ 
+
+
+=== PAGE 12 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 12 sur 18 
+6.2.5. Modalités de commande et de mise à disposition du Service de Collecte 
+ 
+▪ La prestation de fourniture des conduits et ports de collecte est fournie sous réserve de: 
+- disponibilité de capacités au niveau du switch de Collecte du PoP concerné de MT ; 
+- disponibilité de la bande passante souhaitée au moment de la demande ; 
+- disponibilité de jarretières optiques. 
+▪ En cas d’indisponibilité ou de contraintes expriméespar MT, ce dernier s’efforcera à
+apporter une réponse positive à l’OC. 
+▪ L’OC fait parvenirà MT un Bon de Commande d’étude de faisabilité. 
+▪ MT transmet sa réponse quant à la faisabilité de la commande, assortie d’un devis ferme,
+au plus tard trente (30) jours calendaires après sa réception.  
+▪ L’OC doit notifier son acceptation ou son refus du devisà MT dans un délai maximal de 
+quinze (15) jours calendaires à partir de sa réception. 
+A défaut, le devis et la demande sont considérés annulés.  
+▪ L’acceptation du devis par l’OC équivaut à une commande ferme de l’OC. 
+▪ Les délais de mise à disposition sont ceux indiqués dans la réponse à l’étude de
+faisabilité, sans que ces délais ne dépassent trente (30) jours calendaires. Ces délais 
+sont calculés à partir de la date d’installation par l’OC de ses équipements au niveau du 
+point de Collecte concerné.  
+▪ Les demandes de fourniture des conduits et ports de collecte peuvent être faites de 
+façon concomitante avec la commande du Service d’Hébergement. 
+Les délais de traitement ne sont pas cumulables. 
+ 
+Cas des demandes d’upgrade de débit de port de collecte : 
+Dans le cas d’une demande d’upgrade de débit de port de collecte, le délai d’étude de
+faisabilité par MT est de deux (2) jours ouvrés dans le cas où le débit ne dépasse pas 
+trois (3) fois celui déjà contracté pour le port concerné. Pour les autres débits, ce délai 
+ne peut excéder trente (30) jours calendaires après la réception de la demande. 
+▪ Les délais de mise à disposition par MT à l’OC sont ceux indiqués dans la réponse à
+l’étude de faisabilité. En tout état de cause, ils ne peuvent dépasser 15 joursouvrés. 
+ 
+6.2.6. Prévisions des ports des conduits de collecte 
+ 
+A compter du 1er janvier 2026, les OC doivent commencer à soumettre à MT leurs prévisions 
+de commandes relatives aux ports des conduits de collecte par PoP. Afin que MT puisse 
+anticiper les ressources nécessaires pour répondre aux commandes de l’OC, ce dernier
+s’engage à transmettreà MT à titre indicatif, ses prévisions relatives aux ports 1, 10 et 100 
+Gbps de raccordement pour l’année N+1 au plus tardoctobre de l’année N. 
+ 
+7. Modalités de commande et de mise à disposition des accès FTTH 
+ 
+7.1. Description du service accès FTTH 
+ 
+▪ Le service d’Accès FTTH consiste en la fourniture d’accès sur les zones/plaques FTTH
+couvertes par MT, permettant ainsi à l’OC d’offrir un service FTTH sur ledit Accès pour
+son Client Final. 
+▪ Chaque commande d’Accès est assujettie à une durée minimale d’engagement de trois
+(3) mois.  
+▪ Une fois le contrat liant le Client Final à son OC est résilié, l’OC est tenu derésilier, sans 
+délai, l’accès FTTH qui supportait les services offerts au Client Final. 
+ 
+Au plus tard deux (2) semaines après la validation de l’Offre,MT conviendra, avec chaque OC 
+concerné, d’une liste restrictive de motifs de rejetpar MT des commandes d’Accès FTTH. 
+ 
+7.2. Conditions préalables aux Commande des Accès FTTH 
+
+=== PAGE 13 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 13 sur 18 
+ 
+Avant de traiter toute commande de mise à disposition d’Accès FTTH, les conditions suivantes
+doivent être remplies au préalable : 
+▪ la signature d’une convention d’accès à la boucle locale optiquede MT, ou la notification 
+par l’OCà MT de son intention de recourir à son réseau FTTH ; 
+▪ la mise en œuvre d’une colocalisation spécifique sur le PoP de Collecte (locale ou
+régionale ou nationale) concerné ; 
+▪ l’installation des équipements de l’OC nécessaires au partage FTTH sur le PoP de
+Collecte concerné (locale ou régionale ou nationale) et le raccordement des 
+équipements de l’OC aux éléments concernés de son réseau (notamment ses OLT) ; 
+▪ l’activation du Service de Collecte. 
+ 
+7.3. Mandat préalable 
+ 
+L’OC est tenu de disposer d’un mandat/contrat avec son Client Final pour pouvoir mener, au
+nom dudit Client, les démarches, notamment auprès de MT, nécessaires à la mise en œuvre
+de sa demande de fourniture d’accès FTTH. 
+ 
+▪ L’OC doit être en mesure de s’en justifier à la première demandeà MT. 
+▪ Toute commande à MT émane exclusivement de l’OC. 
+▪ Pour une ligne active, ce mandat doit comporter de façon non équivoque l’autorisation
+pour l’OC de faire, au nom du Client Final, les démarches d’affecter l’Accès FTTH déjà
+installé pour la fourniture d’un service de télécommunications au bénéfice du Client Final. 
+Il appartiendra à l’OC d’informer formellement le Client Final des conséquences liées à
+la signature de ce mandat, en particulier, de la résiliation consécutive des services de 
+télécommunications précédemment opérés par le biais de l’Accès FTTH considéré. 
+▪ Lorsque la mise à disposition concerne un Accès FTTH qui supporte déjà le service d’un
+autre OC, le Mandant est le Client Final ayant signé le mandat nécessaire à la mise à 
+disposition dudit Accès FTTH auprès du premier OC. 
+▪ Un accès FTTH, déjà actif, peut faire l’objet d’une demande de portabilité du numéro de
+téléphone associé. Les conditions prévues par la Décision en vigueur et relative à la 
+portabilité des numéros s’appliquent. 
+ 
+De façon générale, l’OC garantitMT contre toute réclamation, contestation, recours ou action 
+de quelque nature que ce soit, intentés par le Client Final, résultant d’un défaut de mandat,
+d’erreur sur le mandat, ou de manquement de l’OC à son obligation d’information sur les
+spécificités du dégroupage. 
+ 
+7.4. Délais de traitement 
+ 
+MT effectue le traitement des commandes de fourniture d’Accès FTTH émises par l’OC dans
+un délai maximal de : 
+▪ Deux (02) jours ouvrés pour le cas des «Lignes Actives», pour au moins 90% des 
+commandes7 reçues par MT pour les «Lignes Actives» durant le mois calendaire 
+concerné. 
+▪ Quatre (04) jours ouvrés pour le cas des «Lignes Inactives» 8, pour au moins 90% des 
+commandes9 reçues par MT pour les «Lignes Inactives» durant le mois calendaire 
+concerné. 
+▪ Quatre (04) jours ouvrés pour le cas des «Lignes Inexistantes», pour au moins 90% des 
+commandes10 reçues par MT pour les «Lignes Inexistantes» durant le mois calendaire 
+concerné. 
+ 
+7 : Hors commandes rejetées et annulées. 
+8 : Lors de l’étude de faisabilité ou du raccordement, une «Ligne Inactive» peut s’avérer une «Ligne Inexistante». Son délai de
+traitement est, en conséquence, celui d’une «Ligneinexistante». 
+9 : Hors commandes rejetées et annulées. 
+10 : Hors commandes rejetées et annulées. 
+
+=== PAGE 14 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 14 sur 18 
+ 
+Ces délais courent à partir de la date de la commande et ne peuvent être supérieurs, pour 
+90% des demandes mensuelles, au délai moyen de raccordement des Clients propres11 FTTH 
+de MT par type de ligne :  
+▪ A ce titre, MT notifie les OC et l’ANRT, au plus tard le8 de chaque mois calendaire, les 
+délais moyens de traitement distinctivement pour les «Lignes Inactives» et les «Lignes 
+Inexistantes». 
+▪ Ce délai s’appliquera, en conséquence, au mois en cours. 
+▪ A la demande de l’ANRT,MT s’engage à justifierles modalités de calcul de ce délai. 
+ 
+En cas de demande de modification du débit commandé par l’OCà MT pour un Client Final, 
+la demande est traitée par MT en deux (2) jours ouvrés. 
+ 
+Toute commande, envoyée par l’OCaprès 16H30 du jour «J», est comptabilisée à la 1ère heure 
+du jour ouvré «J+1». 
+ 
+7.5. Conditions Techniques 
+ 
+▪ MT installe l’ONU comme point de démarcation entre le réseaude MT et le CPE du 
+Client Final.  
+▪ L’OC se charge de la fourniture et la configuration du CPE qu’il met à disposition de son
+Client Final. 
+▪ L’OC précise également s’il souhaite recourir à l’installation du CPE de son Client Final
+par MT. 
+ 
+Dans le cas où l’OC utilise des équipements ou met en œuvre des techniques ou des
+paramétrages qui mettent en péril l’intégrité du réseaude MT ou dans le cas d’éventuelle
+perturbations constatées, MT en avertit l’OC moyennant un préavis de deux (02) jours
+ouvrables, à l’issue duquel il peut suspendre momentanément la mise à disposition dudit
+Accès FTTH concerné de l’OC. En cas d’atteinte grave à l’intégrité du réseau et de tous faits
+indépendants de la volonté de MT, la suspension pourrait intervenir quatre (04) heures après 
+la notification de l’OCpar MT. 
+ 
+7.6. Prestations d’installation de CPE 
+ 
+▪ L’OC peut recourir, concomitamment à l’installationpar MT de l’ONU, à la prestation
+optionnelle d’installation du CPE chez son Client Finalpar MT.  
+▪ L’OC doit le préciser lors de la prise de commande. 
+ 
+7.7. Prestation de création de nouveaux Profils de débit 
+ 
+▪ L’OC peut demander la création de nouveaux Profils de débits dans la limite du débit 
+maximal prévu dans l’annexe 4 de l’Offre.  
+▪ MT dispose d’un délai detrente (30) jours calendaires à compter de la date de réception 
+de la demande pour donner une suite favorable. Tout refus doit être motivé par MT au 
+plus tard quinze (15) jours calendaires à compter de la date de réception de la demande. 
+ 
+7.8. Modalités de Commande des Accès FTTH 
+ 
+L’OC fait parvenirà MT une commande de mise à disposition d’un accès FTTH. Les échanges
+sont effectués d’une manière automatisée, conformément 12 au document d’architecture
+technique détaillé et les tests de recette validés entre MT et l’OC.  
+ 
+ 
+11 : hors demandes de partage des OC qui ne doivent pas être inclus dans les calculs. 
+12 : Les documents ont déjà été validés entre MT et chaque OC concerné. 
+
+=== PAGE 15 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 15 sur 18 
+Par ailleurs, les commandes émises par des OC, agissant sur le même Accès FTTH, sont 
+prises en compte par MT, sous réserve de l'application des règles suivantes : 
+▪ Si pour un Accès FTTH donné, plusieurs commandes sont reçues, seule la première 
+commande, reçue par MT et non encore annulée, sera prise en compte ; 
+▪ Pour un Accès FTTH donné, tant qu'une commande réceptionnée par MT n'a pas été 
+traitée, aucune autre commande portant sur le même Accès ne pourra être traitée par 
+MT. 
+▪ Aucune commande ne peut être annulée à la seule initiative de MT. 
+ 
+7.9. Prévisions des commandes des accès FTTH 
+ 
+▪ A compter du 1 er janvier 2026, l’OC soumet à MT ses prévisions, par ville, des 
+commandes relatives aux accès FTTH.  
+L’OC s’engage à transmettreà MT à titre indicatif, 45 jours avant chaque trimestre (T), 
+ses prévisions trimestrielles relatives aux accès FTTH. 
+▪ MT s’engage à traiter et prendre en charge, sans réserve, toutes les commandes,
+qu’elles aient été notifiées ou non dans les prévisions de commandes. 
+ 
+8. Maintenance et SAV 
+ 
+Dans le cadre de l’Offre,MT assure, à sa charge, la maintenance des Services conformément 
+aux dispositions de l’Offre. 
+ 
+Les spécifications des modalités de maintenance seront détaillées dans la Convention-Cadre 
+établie entre MT et l’OC. 
+ 
+8.1. SAV du Service Hébergement 
+ 
+▪ MT opère la maintenance des sites des PoP de Collecte locale, régionale et nationale 
+(hors équipements et accessoires propres à l’OC). 
+▪ L’OC est responsable des opérations de maintenance de ses équipements installés au
+sein de l’espace d’hébergement au niveau du PoP de Collecte, de l’adduction depuis
+son réseau, en amont du PoP de Collecte, y compris la jarretière ou la soudure au sein 
+du PoP de Collecte. 
+▪ En cas de survenance d’un incident impactant l’installation électrique ou la climatisation
+la ventilation ou l’éclairage et la fourniture de l’énergie,MT assure les actions suivantes: 
+- Réparation de l’incident incombantà MT ; 
+- Fourniture d’un compte rendu de rétablissement qui clôture l’incident et détermine le
+délai de rétablissement. 
+▪ Si le dysfonctionnement relève de la responsabilité de MT, ce dernier rétablira le Service 
+dans un délai maximal de deux (02) jours ouvrables à compter de la date de réception 
+de la signalisation de l’incident. 
+▪ Aucune signalisation émanant d’un tiers (Clients Finaux, Sous-traitants, ...), autre que 
+l’OC concerné, ne sera prise en comptepar MT. 
+ 
+8.2. SAV des Accès FTTH 
+ 
+▪ MT assure la maintenance des infrastructures nécessaires à la constitution de ses accès 
+FTTH. 
+▪ L’OC est responsable des opérations de maintenance et de SAV de ses équipements
+(switch dans le site MT et CPE du Client Final). 
+▪ En cas de survenance d’un incident sur les infrastructuresde MT, ce dernier assure les 
+prestations suivantes :  
+- Réparation de l’incident incombantà MT ; 
+- Fourniture d’un compte rendu de rétablissement qui clôture l’incident et détermine le
+
+=== PAGE 16 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 16 sur 18 
+délai de rétablissement. 
+▪ L’OC transmet, après un diagnostic préalable à son niveau, les incidents relevant de la
+responsabilité de MT.  
+En particulier, l’OC s'assurera que le défaut ne provient ni de l'installation terminale
+(CPE) du Client Final, ni de son réseau et/ou de ses installations ou équipements. 
+▪ Si le dysfonctionnement relève de la responsabilité de MT, ce dernier rétablira le Service 
+dans un délai maximal de deux (02) jours ouvrables à compter de la réception par MT 
+de la notification de l’incident. Dans ce cas,MT informera l’OC des actions effectivement
+entreprises pour relever ledit dysfonctionnement.  
+▪ Dans le cas où l’OC confirme la persistance du dysfonctionnement signalé, il peut
+demander de programmer une intervention mixte entre l’OC etMT. Cette intervention 
+mixte est sanctionnée par la signature d’un PV entre les deux parties concernées. 
+▪ Si après le diagnostic réalisé par MT, il s’avère qu’aucun dysfonctionnement n’est imputé
+à la partie du réseau de la responsabilité de MT, la signalisation sera considérée comme 
+une signalisation à tort.  
+Les modalités de facturation des signalisations à tort seront détaillées dans la 
+Convention-Cadre conclue entre MT et l’OC. 
+ 
+MT met à la disposition des OC une solution automatisée pour la déclaration et la gestion des 
+incidents signalés par les OC. Aucune signalisation émanant d’un tiers (Client Final, Sous-
+traitant, ...) ne sera prise en compte par MT. 
+ 
+8.3. SAV+ des Accès FTTH 
+ 
+Outre le SAV standard décrit ci-avant, MT s’engage, au plus tard six (06) mois aprèsla 
+validation de l’Offre, à proposer aux OC une offre de SAV+. 
+▪ Cette offre doit détailler le périmètre et les SLA relatifs au SAV+. 
+▪ Elle doit également inclure les pénalités en cas de dépassement des délais de 
+rétablissement. 
+ 
+Pour l’OC, le SAV+ est optionnel. Il fait l’objet d’une commande spécifique de la part de l’OC,
+soit au moment de la prise de commande, soit à tout moment tant que l’Accès FTTH partagé
+est opérationnel.  
+ 
+8.4. Maintenance préventive 
+ 
+▪ MT peut effectuer des opérations de maintenance préventive de l’infrastructure de
+réseau FTTH.  
+▪ L’OC accepte que ces opérations puissent donner lieu à des interruptions des Services
+associés.  
+▪ Dans le cas où ces opérations affecteraient les Services fournis, MT notifie à l’OC la date
+et la durée des opérations (préventives), avec un préavis de dix (10) jours calendaires. 
+MT s’efforce d’effectuer ces opérations à un moment permettant de minimiser la gêne
+causée au Client Final, le cas échéant. Aucune indemnité n’est duepar MT à ce titre. 
+ 
+Cependant, et en cas d’urgence motivée,MT peut mener, sans délai, des travaux de 
+maintenance. MT est tenu d’en informer sans délai l’OC en lui indiquant la portée des travaux
+et les plaques/zones éventuellement affectées.  
+ 
+ 
+9. Modalités d’accès aux sitesde MT 
+ 
+MT met à disposition de l’OC un dispositif qui permet, compte tenu des meilleures pratiques
+internationales en la matière, l’automatisation des accès par les représentants habilités de
+l’OC aux sitesde MT, et ce sans aucune obligation pour l’OC de disposer, pour chaque
+
+=== PAGE 17 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 17 sur 18 
+demande, des autorisations préalables, ni d’engager préalablement des formalités
+administratives. 
+ 
+Par ailleurs, MT notifiera les OC, au plus tard deux (2) semaines à compter de la date de 
+notification de l’Offre, une procédure d’accès au site et d’escalade limitant au strict minimum
+les niveaux impliqués pour délivrer les autorisations d’accès à chaque sitede MT, sans 
+conditions préalables, sans exigence d’intervention de niveaux hiérarchiques comparables et
+sans dispositions pouvant rendre les modalités mises en œuvre discriminatoires. 
+ 
+10. Tarifs des prestations 
+ 
+Les tarifs liés aux prestations relevant de l’Offre sont précisés en annexes ns°1 à 6 de l’Offre. 
+ 
+Il est à préciser que les dates qui déclenchent les facturations sont comme suit : 
+▪ pour le Service d’Hébergement : le lendemain de la date portée sur chaque procès-
+verbal au moment de la mise à disposition du Service Hébergement ; 
+▪ pour le Service de l’énergie : le lendemain de la date portée sur chaque procès-verbal 
+au moment de la mise sous tension ; 
+▪ pour le Service de Collecte : le lendemain, soit de la date portée sur chaque procès-
+verbal au moment de la mise en service du lien de Collecte concerné, soit de la date du 
+courriel de confirmation adressé par l’OCà MT ; 
+▪ pour le Service d’Accès : le lendemain de la date de mise en service telle que notifiée
+ou confirmée dans la solution automatisée de commandes. 
+ 
+11. Pénalités 
+ 
+Hors cas de force majeure, et dans le cas de non-respect par MT des délais fixés dans l’Offre,
+MT assumera, à sa charge, une pénalité de retard qui lui est appliquée par l’OC concerné. 
+ 
+11.1. Dépassement du délai d’activation d’un Accès ou de modification du débit d’un
+Accès 
+ 
+▪ Dans le cas où, durant le mois calendaire concerné, plus de 10% des commandes sont 
+traitées au-delà du délai fixé dans l’Offre, unepénalité, par commande, est appliquée, 
+par jour ouvré de retard, à hauteur de 10% de l’abonnement mensuel, avec un plafond, 
+par commande, d’une (01) fois l’abonnement mensuel de l’accès en question. 
+ 
+11.2. Dépassement du délai de rétablissement d’une ligne (SAV) 
+ 
+▪ Dans le cas où, durant le mois calendaire concerné, plus de 10% des incidents signalés 
+sont traités au-delà du délai fixé dans l’Offre, unepénalité, par incident, est appliquée, 
+par jour ouvrable de retard, à hauteur de 10% de l’abonnement mensuel de l’accès en
+question avec un plafond, par Accès, d’une (01) fois l’abonnement mensuel de l’accès
+en question. 
+ 
+11.3. Dépassement du délai de mise à disposition de l’hébergement 
+ 
+▪ Cette pénalité est fixée, par jour (calendaire) de retard, à hauteur de 10% du montant du 
+FAS correspondant, avec un plafond d’une (01) fois ledit montant. 
+ 
+11.4. Dépassement du délai de mise à disposition du port de collecte 
+ 
+▪ Cette pénalité est fixée, par jour (calendaire) de retard, à hauteur de 10% du montant du 
+FAS correspondant, avec un plafond d’une (01) fois ledit montant. 
+ 
+
+=== PAGE 18 ===
+ 
+ 
+ 
+Offre technique et tarifaire pour le partage FTTH 
+Décembre 2025  Page 18 sur 18 
+11.5. Pénalités liées à la fourniture d’information 
+ 
+▪ En cas d’éventuelles erreurs d’informations dépassant, sur un moiscalendaire donné, 
+un seuil de 5% par rapport aux demandes formulées par un OC durant le mois précité, 
+ledit OC est en droit de facturer à MT des pénalités suivantes : 
+- Si l’erreur est relevée durant le mois suivant la fourniture de l’information erronée,MT 
+est redevable à l’OC d’une pénalité correspondant à 50% des frais facturéspar MT à 
+l’OC au titre de ladite information. 
+- Au-delà de la durée précitée (un mois suivant la fourniture de l’information erronée), 
+la pénalité est de 100% et MT prend en charge intégralement les coûts engagés par 
+l’OCconcerné pour remédier aux impacts de ladite erreur sur ses propres 
+installations. Ces coûts doivent être dûment justifiés par l’OC à la demandede MT. 
+ 
+11.6. Autres pénalités 
+ 
+▪ Pour les prestations autres que celles prévues aux § 11.1 à §11.5 ci-dessus, la pénalité 
+est fixée, par jour calendaire de retard, à hauteur de 10% du montant de la prestation 
+concernée, avec un plafond d’une (01) fois ledit montant. 
+ 
+11.7. Cas particulier : Pénalités applicables dans le cadre du traitement de SAV 
+ 
+▪ En cas de constatation par MT d’une signalisation à tort, l’OC s’acquittera d’une pénalité,
+au profit de MT, d’un montant tel que fixé en annexe n°6. 
+ 
+▪ En cas de non-respect d’un rendez-vous ou l’annulation d’un rendez-vous, dans le cadre 
+d’une intervention mixte, moins de quatre (4) heures avant l’heure prévue, la partie
+détaillante (MT ou l’OC) s’acquittera, au profit de l’autre partie, d’une pénalité d’un
+montant tel que fixé en annexe n°6. 
+ 
+ 

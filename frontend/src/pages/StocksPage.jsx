@@ -194,12 +194,14 @@ function StockScopeBar({
       ? `${text(selectedWarehouse?.city, 'Localisation non renseignée')} · ${warehouseType(selectedWarehouse) || 'DÉPÔT'}`
       : 'Tous les dépôts et toutes les dotations techniciens';
 
+  const explainedSubtitle = `${subtitle} · En stock = utilisable + réservé`;
+
   return (
     <section className="st3-scopebar" aria-label="Périmètre du stock">
       <div className="st3-scopebar__identity">
         <span>Vue du stock</span>
         <strong>{title}</strong>
-        <small>{subtitle}</small>
+        <small>{explainedSubtitle}</small>
       </div>
 
       <StockHolderPicker
@@ -212,7 +214,7 @@ function StockScopeBar({
 
       <div className="st3-scopebar__metrics">
         <div><strong>{summary.catalog}</strong><span>articles</span></div>
-        <div><strong>{summary.available}</strong><span>disponibles</span></div>
+        <div><strong>{summary.available}</strong><span>utilisables</span></div>
         <div><strong>{summary.reserved}</strong><span>réservés</span></div>
       </div>
     </section>

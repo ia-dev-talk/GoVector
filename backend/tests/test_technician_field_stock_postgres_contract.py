@@ -11,11 +11,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.api.schemas.tech_sync import TechnicianSyncEventRequest
+from backend.api.routes.stock_history_v2 import stock_history_v2
 from backend.database.models import (
     Assignment,
     Base,
     EquipmentInventory,
     Job,
+    JobVisit,
     JobStatus,
     JobType,
     Stock,
@@ -97,9 +99,19 @@ async def _seed(db):
         is_active=True,
         technician_id=technician.id,
     )
+    visit = JobVisit(
+        job_id=job.id,
+        attempt_number=1,
+        primary_technician_id=technician.id,
+        status=job.status.value,
+        assigned_at=datetime.now(timezone.utc),
+    )
+    db.add(visit)
+    await db.flush()
     assignment = Assignment(
         job_id=job.id,
         technician_id=technician.id,
+        visit_id=visit.id,
     )
     warehouse = Warehouse(
         name=f"Garde technicien {technician.id}",
@@ -146,7 +158,7 @@ async def _seed(db):
         )
     )
     await db.commit()
-    return technician, user, job, warehouse, item, serialized, mismatch
+    return technician, user, job, visit, warehouse, item, serialized, mismatch
 
 
 async def _exercise(database_url: str) -> dict:
@@ -157,7 +169,7 @@ async def _exercise(database_url: str) -> dict:
             await connection.run_sync(Base.metadata.create_all)
 
         async with session_factory() as db:
-            technician, user, job, warehouse, item, serialized, mismatch = await _seed(db)
+            technician, user, job, visit, warehouse, item, serialized, mismatch = await _seed(db)
 
             material_event_id = uuid4()
             material_event = TechnicianSyncEventRequest(
@@ -199,8 +211,19 @@ async def _exercise(database_url: str) -> dict:
                 )
             )
             consumption_count = await db.scalar(select(func.count(StockConsumption.id)))
+            consumption_visit_id = await db.scalar(
+                select(StockConsumption.visit_id).where(
+                    StockConsumption.job_id == job.id
+                )
+            )
             movement_count = await db.scalar(
                 select(func.count(StockMovement.id)).where(
+                    StockMovement.job_id == job.id,
+                    StockMovement.technician_id == technician.id,
+                )
+            )
+            movement_visit_id = await db.scalar(
+                select(StockMovement.visit_id).where(
                     StockMovement.job_id == job.id,
                     StockMovement.technician_id == technician.id,
                 )
@@ -215,6 +238,22 @@ async def _exercise(database_url: str) -> dict:
                     TechnicianSyncEvent.event_id == str(material_event_id)
                 )
             )
+            history = await stock_history_v2(
+                search=None,
+                item_id=None,
+                warehouse_id=None,
+                technician_id=technician.id,
+                job_id=job.id,
+                visit_id=visit.id,
+                movement_type=None,
+                operator=None,
+                created_from=None,
+                created_to=None,
+                limit=10,
+                db=db,
+                _current_user=user,
+            )
+            history_row = history[0]
 
             scan_event = TechnicianSyncEventRequest(
                 event_id=uuid4(),
@@ -327,9 +366,16 @@ async def _exercise(database_url: str) -> dict:
                 "quantity": stock.quantity,
                 "available": stock.available_quantity,
                 "consumption_count": consumption_count,
+                "visit_id": visit.id,
+                "consumption_visit_id": consumption_visit_id,
                 "movement_count": movement_count,
+                "movement_visit_id": movement_visit_id,
                 "material_action_count": material_action_count,
                 "receipt_count": receipt_count,
+                "history_count": len(history),
+                "history_visit_id": history_row["visit_id"],
+                "history_visit_attempt": history_row["visit_attempt_number"],
+                "history_visit_status": history_row["visit_status"],
                 "scan_status": scan.status,
                 "router_serial": refreshed_job.router_serial,
                 "serialized_job": refreshed_serialized.assigned_job_id,
@@ -367,9 +413,15 @@ def test_mobile_field_workflows_are_atomic_connected_and_idempotent():
     assert result["quantity"] == 3
     assert result["available"] == 3
     assert result["consumption_count"] == 1
+    assert result["consumption_visit_id"] == result["visit_id"]
     assert result["movement_count"] == 1
+    assert result["movement_visit_id"] == result["visit_id"]
     assert result["material_action_count"] == 1
     assert result["receipt_count"] == 1
+    assert result["history_count"] == 1
+    assert result["history_visit_id"] == result["visit_id"]
+    assert result["history_visit_attempt"] == 1
+    assert result["history_visit_status"] == JobStatus.ASSIGNED.value
 
     assert result["scan_status"] == "acknowledged"
     assert result["router_serial"] == "ROUTER-SN-0001"

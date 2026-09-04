@@ -23,6 +23,7 @@ import SectorHeader from '../features/sectors/SectorHeader';
 import SectorInspector from '../features/sectors/SectorInspector';
 import SectorKpiStrip from '../features/sectors/SectorKpiStrip';
 import SectorRegistry from '../features/sectors/SectorRegistry';
+import GisDatasetWorkspace from '../features/sectors/GisDatasetWorkspace';
 import {
   buildSectorSnapshotFromSettled,
   canMutateSectorSnapshot,
@@ -319,6 +320,7 @@ export default function SecteursPage({ userRole, onNavigate }) {
       )}
 
       <div className="sv3-content">
+        {String(userRole).toUpperCase() === 'ADMIN' && <GisDatasetWorkspace />}
         <SectorKpiStrip
           summary={summary}
           activeFilter={kpiFilter}

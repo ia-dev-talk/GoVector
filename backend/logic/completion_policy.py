@@ -90,6 +90,10 @@ class CompletionPolicy:
         )
         policy: CompletionPolicyValues = values.completion_policy
 
+        client_id = getattr(job, "client_organization_id", None)
+        if client_id is not None and str(client_id) in policy.by_client_organization:
+            return policy.by_client_organization[str(client_id)]
+
         job_type = getattr(job.job_type, "value", str(job.job_type))
         operator = (getattr(job, "operator", None) or "").strip().lower()
         operator_keys = {

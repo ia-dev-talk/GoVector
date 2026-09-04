@@ -81,7 +81,7 @@ function ItemRow({
         <strong className="st3-success">
           {item.totals.available}
         </strong>
-        <small>disponibles</small>
+        <small>utilisables</small>
       </span>
 
       <span className="st3-col-reserved">
@@ -207,8 +207,8 @@ const StockTable = memo(function StockTable({
         <span className="st3-col-item">Article</span>
         <span className="st3-col-type">Type</span>
         <span className="st3-col-operator">Opérateur</span>
-        <span className="st3-col-physical">Physique</span>
-        <span className="st3-col-available">Disponible</span>
+        <span className="st3-col-physical">En stock</span>
+        <span className="st3-col-available">Utilisable</span>
         <span className="st3-col-reserved">Réservé</span>
         <span className="st3-col-price">Prix</span>
         <span className="st3-col-state">État</span>

@@ -7,10 +7,19 @@ import {
   reconcileVisibleSectorSelection,
 } from './sectorSnapshot.js';
 import { buildSectorMetrics } from './sectorUtils.js';
+import { isTerritoryWorkspaceEmpty } from './territoryWorkspacePresentation.js';
 
 const fulfilled = (data) => ({ status: 'fulfilled', value: { data } });
 const rejected = (message) => ({ status: 'rejected', reason: new Error(message) });
 const normalize = (value) => (Array.isArray(value) ? value : []);
+
+test('empty GIS workspace stays compact only after a successful empty load', () => {
+  assert.equal(isTerritoryWorkspaceEmpty({ nodes: [] }), true);
+  assert.equal(isTerritoryWorkspaceEmpty({ loading: true, nodes: [] }), false);
+  assert.equal(isTerritoryWorkspaceEmpty({ error: 'indisponible', nodes: [] }), false);
+  assert.equal(isTerritoryWorkspaceEmpty({ nodes: [{ id: 1 }] }), false);
+  assert.equal(isTerritoryWorkspaceEmpty({ nodes: [], editorOpen: true }), false);
+});
 
 test('sector metrics count a Sidi Maârouf job in its canonical operational sector', () => {
   const sectors = buildSectorMetrics({

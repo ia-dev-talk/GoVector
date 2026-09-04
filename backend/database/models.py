@@ -1028,6 +1028,9 @@ class StockMovement(Base):
     reference_id: Mapped[Optional[int]] = mapped_column(Integer)
     operator: Mapped[Optional[str]] = mapped_column(String(20))
     job_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("jobs.id"))
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     technician_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("technicians.id"))
     notes: Mapped[Optional[str]] = mapped_column(Text)
     created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"))
@@ -1037,6 +1040,7 @@ class StockMovement(Base):
     item: Mapped["StockItem"] = relationship("StockItem", back_populates="movement_lines", lazy="selectin")
     warehouse: Mapped["Warehouse"] = relationship("Warehouse", lazy="selectin")
     job: Mapped[Optional["Job"]] = relationship("Job", lazy="selectin")
+    visit: Mapped[Optional["JobVisit"]] = relationship("JobVisit", lazy="selectin")
     technician: Mapped[Optional["Technician"]] = relationship("Technician", lazy="selectin")
 
     def __repr__(self):
@@ -1155,6 +1159,9 @@ class StockConsumption(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     consumption_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     job_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("jobs.id"), index=True)
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     technician_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("technicians.id"))
     operator: Mapped[Optional[str]] = mapped_column(String(20))
     status: Mapped[StockConsumptionStatus] = mapped_column(Enum(StockConsumptionStatus), default=StockConsumptionStatus.BROUILLON, nullable=False)
@@ -1167,6 +1174,7 @@ class StockConsumption(Base):
 
     # Relations
     job: Mapped[Optional["Job"]] = relationship("Job", lazy="selectin")
+    visit: Mapped[Optional["JobVisit"]] = relationship("JobVisit", lazy="selectin")
     technician: Mapped[Optional["Technician"]] = relationship("Technician", lazy="selectin")
     items: Mapped[List["StockConsumptionItem"]] = relationship("StockConsumptionItem", back_populates="consumption", cascade="all, delete-orphan", lazy="selectin")
 

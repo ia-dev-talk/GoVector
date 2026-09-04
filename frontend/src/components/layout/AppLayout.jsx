@@ -430,6 +430,9 @@ export default function AppLayout({
   const mobileCloseButtonRef =
     useRef(null);
 
+  const previousCurrentPageRef =
+    useRef(normalizePage(currentPage));
+
   const normalizedRole =
     normalizeRole(userRole);
 
@@ -632,16 +635,26 @@ export default function AppLayout({
   ]);
 
   useEffect(() => {
+    const pageChanged =
+      previousCurrentPageRef.current !==
+      normalizedCurrentPage;
+
+    previousCurrentPageRef.current =
+      normalizedCurrentPage;
+
     if (
-      isMobile &&
-      mobileMenuOpen
+      !isMobile ||
+      !mobileMenuOpen ||
+      !pageChanged
     ) {
-      const frameId = window.requestAnimationFrame(() => {
-        closeMobileMenu({ restoreFocus: false });
-      });
-      return () => window.cancelAnimationFrame(frameId);
+      return undefined;
     }
-    return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      closeMobileMenu({ restoreFocus: false });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
   }, [
     closeMobileMenu,
     isMobile,

@@ -4,6 +4,7 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
     label: 'Centre de contrôle',
     items: [
       { id: 'overview', label: 'Vue d’ensemble', description: 'État de la configuration active', status: 'active', icon: 'overview', keywords: ['général', 'plateforme', 'runtime', 'configuration'] },
+      { id: 'completion-policy', label: 'Clôture terrain', description: 'Preuves requises par activité et opérateur', status: 'connected', icon: 'modules', keywords: ['clôture', 'photo', 'signature', 'preuve', 'opérateur', 'personnalisation'] },
       { id: 'operational', label: 'Exploitation', description: 'Règles terrain persistées', status: 'connected', icon: 'location', keywords: ['gps', 'supervision', 'cockpit', 'seuil', 'clôture'] },
     ],
   },

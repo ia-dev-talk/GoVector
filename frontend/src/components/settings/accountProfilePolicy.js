@@ -5,6 +5,13 @@ const PROFILE_POLICIES = Object.freeze({
   TECHNICIAN: Object.freeze({ field: 'technician_id', label: 'profil technicien' }),
 });
 
+const ROLE_LABELS = Object.freeze({
+  ADMIN: 'Administrateur',
+  CHEF_ORIENTEUR: 'Chef orienteur',
+  ORIENTEUR: 'Orienteur',
+  TECHNICIAN: 'Technicien',
+});
+
 export const ORGANIZATION_SOURCE_LABELS = Object.freeze([
   'entreprises clientes',
   'équipes',
@@ -17,6 +24,35 @@ export const ORGANIZATION_SOURCE_LABELS = Object.freeze([
 
 function normalizeRole(role) {
   return String(role ?? '').trim().toUpperCase();
+}
+
+export function operationalAccountRoleLabel(role) {
+  const normalizedRole = normalizeRole(role);
+  return ROLE_LABELS[normalizedRole] || normalizedRole || 'Rôle non défini';
+}
+
+export function filterOperationalAccounts(
+  accounts,
+  { query = '', role = 'ALL', status = 'ALL' } = {},
+) {
+  const normalizedQuery = String(query).trim().toLocaleLowerCase('fr');
+  const normalizedRole = normalizeRole(role);
+  const normalizedStatus = String(status).trim().toUpperCase();
+
+  return (Array.isArray(accounts) ? accounts : []).filter((account) => {
+    const matchesQuery = !normalizedQuery || [
+      account?.username,
+      account?.email,
+      operationalAccountRoleLabel(account?.role),
+    ].some((value) => String(value ?? '').toLocaleLowerCase('fr').includes(normalizedQuery));
+    const matchesRole = normalizedRole === 'ALL' || normalizeRole(account?.role) === normalizedRole;
+    const isActive = account?.is_active !== false;
+    const matchesStatus = normalizedStatus === 'ALL'
+      || (normalizedStatus === 'ACTIVE' && isActive)
+      || (normalizedStatus === 'INACTIVE' && !isActive);
+
+    return matchesQuery && matchesRole && matchesStatus;
+  });
 }
 
 function positiveInteger(value) {

@@ -1,0 +1,621 @@
+=== PAGE 1 ===
+SOLUTION FTTH
+
+
+=== PAGE 2 ===
+2
+NTL OFFI ISTIUTIONNHNT
+NO
+SO
+OONS
+ SS
+INIOS
+ONNTOISS
+OTIS
+ NOUISSNT
+ L
+TIOIS IOTNTS
+NI
+TIOIS IOTNTS
+OTO
+ TITU OTIU 
+I
+SIL OU OUL 
+OULUS L
+OONS
+ SS
+L IOOUL
+OSOUTIN
+L IOOUL
+OSOUTIN
+TIOIS IOTNTS
+NI
+TIOIS IOTNTS
+OTO OI  U
+OONS
+ SS
+INIOS
+ONNTOISS
+OTIS
+ NOUISSNT
+ L
+TIOIS IOTNTS
+NI
+TIOIS IOTNTS
+OTO
+ TITU OTIU 
+I
+SIL OU OUL 
+OULUS L
+OULUS L
+TI  TOLLON ONNOON ONN
+
+
+=== PAGE 3 ===
+3
+RÉSEAU FTTH
+IN
+N
+IN
+ SUSNSION
+HUSS
+TLO
+OTI OULI
+IUL TLS
+OONS
+ SS
+OTI TNH
+TI  TO OON ONN
+L  NHNT
+ONN INTIU
+O INTIU
+N
+OUTIL OUTU
+ L IS
+L IS
+OLONN ONTNT 
+OTI OULI
+IUL TLS
+OONS
+ SS
+INS N T 
+SUSNSION  NHNT
+O TIU
+L  NHNT
+ONN TIU  INTIU 
+DTIo : Dispositif de Terminaison Intérieur optique
+PTO : Prise Terminale Optique
+NRO : Nœud de Raccordement Optique
+PBO : Point de Branchement Optique
+SRO : Sous Répartiteur Optique
+
+=== PAGE 4 ===
+4
+EN APPLICATION
+RÉPARTITEURS OPTIQUES INTÉRIEURS RIGA
+RIGA SIMPLE 
+• 1 zone 19’’ 
+• Capacité 19’’ : 41 U 
+• Dimensions (L x H x P) : 800 x 2200 x 300 mm 
+• Résorbeurs : verticaux gauche pour le brassage des cordons à l’intérieur du 
+répartiteur autorisant leur sortie en haut ou en bas
+• Fixation : Murale, au sol, dos à dos, juxtaposés
+• Application : NRO, PM d’intérieur - recommandé pour 1000 abonnés
+RIGA DOUBLE
+• 2 zones 19’’ 
+• Capacité 19’’ : 42 U 
+• Dimensions (L x H x P) : 1400 x 2200 x 305 mm 
+• Résorbeurs : zone centrale pour le brassage des cordons d’une longueur unique 
+de 4 m (Ø 1.6 mm)
+• Fixation : Murale, au sol, dos à dos, juxtaposés
+• Application : PM d’intérieur - recommandé pour 1000 abonnés
+RÉPARTITEURS OPTIQUES EXTÉRIEURS
+ARMOIRES DE RUE
+PM100 PASSIF - Armoire de rue simple peau 
+• 1 zone 19’’ 
+• Capacité 19’’ : 1 x 15 U 
+• Dimensions (L x H x P) : 800 x 1050 x 350 mm 
+• Résorbeurs : verticaux gauche pour le brassage des cordons d’une longueur unique de 2.5 m (Ø 1.6 mm)
+• Fermeture : 3 points par serrure à empreinte demi - cylindre européen
+• Fixation : au sol par points de fixation accessibles par l’intérieur de l’armoire + 4 points de levage sous le toit
+• Application : PM extérieur jusqu’à 100 abonnés en ZMD
+PM360 PASSIF - Armoire de rue simple peau
+• 2 zones 19’’ 
+• Capacité 19’’ : 2 x 28 U 
+• Dimensions (L x H x P) : 1600 x 1625 x 350 mm 
+• Résorbeurs : zone centrale pour le brassage des cordons d’une longueur unique de 3.5 m (Ø 1.6 mm)
+• Fixation : au sol par points de fixation accessibles par l’intérieur de l’armoire + 4 points de levage sous le toit
+• Application : PM extérieur jusqu’à 360 abonnés en ZMD
+
+
+=== PAGE 5 ===
+5
+NRO || SRO
+BOÎTIERS D’ÉPANOUISSEMENT DE CÂBLES (BEC)
+• Boîtiers sécurisables en acier
+• Excellente tenue du câble entrant par une fixation en deux points
+• Universels, ils s’adaptent à tous les types de répartiteurs
+• Fixation robuste permettant l’épanouissement des fibres en toute sécurité
+• Système de reprise d’effort utilisant les éléments de renfort des câbles
+• Maintien des gaines de protection (Ø 4.3 mm ou 10 mm) par peigne
+• Capacités :
+ = BEC2 : 96 FO - Ø câbles 8 à 13 mm - 8 gaines Ø 4.3 mm 
+ = BEC3 : 288 FO - Ø câbles 8 à 13 mm - 24 gaines Ø 4.3 mm 
+ = BEC4 : 1728 FO - Ø câbles 14 à 22 mm - 12 gaines Ø 10 mm
+TIROIRS OPTIQUES PORTO & NIAGARA
+• Tiroirs pivotants 19’’
+• Faibles profondeurs = applications FTTH
+• Patte fixe d’arrimage des câbles et tubes/gaines de protection entrants
+• Plateau pivotant accueillant l’interface de brassage et les cassettes d’épissurage
+• Haute densité : 48 fibres optiques sur 1 U, jusqu’à 144 fibres optiques sur 3 U
+• Gamme de produits complète et configurable :
+ = déclinés en métal ou en plastique
+ = en version de base ou pré-équipés
+ = compatibles avec les applications PON
+COMPOSANTS FIBRE OPTIQUE
+Coupleurs PLC
+• Gamme complète : de 1x2 à 1x128 et 2x2 à 2x128
+• 3 formats : micromodule (FO en 250 µm), minimodule (900 µm), ABS Box (2 mm)
+• Disponibles en versions nues & préconnectorisées et/ou intégrés en tiroirs optiques
+Câbles Minicores  || MiniBreakout préconnectorisés
+• Disponibles en 2 versions : 12 FO ou 24 FO en G657A2
+• Câbles très compacts : Ø 4.3 mm pour le 12 FO et Ø 4.6 mm pour le 24 FO
+• Diamètre de retubage : 900 µm, 1.6 mm ou 2 mm
+• Préconnectorisation à la longueur et à la connectique au choix
+Cordons de brassage
+• Large choix de longueurs, types de fibre optiques, couleurs de cordons et connectiques
+• Cordons simplex ou zipcord
+• Connectiques SC et LC en manchon court
+• Performances optiques élevées
+
+
+=== PAGE 6 ===
+6
+TIROIRS OPTIQUES PORTO & NIAGARA
+APPLICATION EN FTTH
+11 VERSIONS POUR TOUS LES BESOINS
+Les tiroirs optiques PORTO et NIAGARA sont des tiroirs pivotants au format 19’’, avec un 
+pivot et un capot supérieur de protection facilitant l’accessibilité aux composants. Ils sont 
+constitués d’un châssis fixe d’arrimage des câbles et tubes/gaines de protection entrants 
+et d’un plateau pivotant accueillant l’interface de brassage et les cassettes d’épissurage.
+Ces tiroirs peuvent être utilisés indifféremment pour faire du brassage simple 
+(connectorisation directe), combiner l’épissurage et le brassage dans le cadre d’une 
+pigtailisation avec cassettes, ou encore le raccordement de coupleurs PLC avec gestion 
+de branches préconnectorisées.
+Le faible encombrement en profondeur des tiroirs optiques 
+PORTO et NIAGARA et leur 3 ème point de fixation permettent leur 
+intégration en répartiteur. Ils sont donc parfaitement adaptés aux 
+déploiements FTTH, au niveau des Nœuds de Raccordement 
+Optique (NRO) et des Points de Mutualisation (PM).
+FOLAN propose une large gamme de tiroirs optiques pivotants, pour répondre à 
+tous les besoins du marché. Robustesse, légerté, accessibilité, facilité et rapidité 
+d’installation... Chacun de nos tiroirs répond à une problématique terrain en alliant 
+technicité et innovation.
+PIVOT DROIT : PORTO PIVOT GAUCHE : NIAGARA
+4 MODÈLES PORTO
+MÉTAL
+1U T1P
+3U T3P
+PLASTIQUE
+1U (2 x 0,5) T1P PL
+3U (6 x 0,5) T3P PL
+7 MODÈLES NIAGARA
+MÉTAL
+1U T1N
+3U JARRETIÈRES EN COLONNE T3N
+3U JARRETIÈRES EN LIGNE T3N M6
+4U T4N
+1U BAC À JARRETIÈRE T1N BJ
+PLASTIQUE
+1U (2 x 0,5) T1N PL
+3U (6 x 0,5) T3N PL
+TIROIR NIAGARA PLASTIQUE 3U
+Pensé pour garantir une 
+installation facile et rapide, le 
+tiroir plastique est équipé d’un 
+système de pré-positionnement 
+et d’un clip et verrou de 
+fermeture pour une fixation 
+du tiroir sans écrous cage en 
+moins de 40 secondes.
+TIROIR PORTO PLASTIQUE 3U AVEC COUPLEURS
+Le plateau fonctionnel 
+des tiroirs PORTO et 
+NIAGARA métal offre une 
+large rotation pour une 
+excellente accessibilité au 
+fond de l’équipement 19’’. 
+TIROIR NIAGARA MÉTAL 3U M6
+
+
+=== PAGE 7 ===
+7
+TIROIRS PORTO & NIAGARA 
+En complément des versions de base, la gamme FOLAN propose différentes versions pré-
+équipées , procurant un réel gain de temps sur site.
+Plusieurs solutions sont proposées :
+• livrés avec des raccords et/ou pigtails montés
+• avec des coupleurs intégrés
+• soudés à un câble amorce
+VERSIONS PRÉ-ÉQUIPÉES
+TIROIR AMORCE NIAGARA MÉTAL 4U
+Les tiroirs PORTO et NIAGARA en métal contiennent des cassettes 12 épissures juxtaposées et fixées sur une plaque 
+de maintien. Le système d’inclinaison à crabotage jusqu’à 90° permet une meilleure accessibilité qui facilite le travail 
+de soudure.
+Les tiroirs plastiques sont eux équipés d’une seule cassette de 24 épissures par plateau. Cette cassette permet la 
+gestion des pigtails dans 2 peignes superposables. 
+Les cassettes FOLAN permettent le stockage et le lovage de fibre nue (≈ 1 m) pour faciliter la soudure à distance.
+CASSETTES ET CAPACITÉ D’ÉPISSURAGE
+T1P PLT1N PLT1PT1N T3P PLT3N PL T3P T3N T3N M6 T4N
+2 CASSETTES DE 24 FO 4 CASSETTES DE 12 FO 6 CASSETTES DE 24 FO 12 CASSETTES DE 12 FO
+48 ÉPISSURES 144 ÉPISSURES
+TIROIR NIAGARA PLASTIQUE 1U
+ZOOM CASSETTE
+ARRIMAGE DES CÂBLES
+Sur les tiroirs PORTO et NIAGARA, le guidage des tubes/gaines de protection et l’arrimage des câbles entrants 
+se fait directement sur la patte de fixation du tiroir. Des peignes permettent le guidage des fibres optiques par 
+module de 6 ou 12 fibres optiques vers les cassettes d’épissurage. Ce système d’arrimage respecte le rayon de 
+courbure selon le type de fibre utilisé (G652D et  G657A2).
+TIROIR PORTO PLASTIQUE 1U AVEC COUPLEURS TIROIR NIAGARA MÉTAL 3U 
+TIROIRS COMPATIBLES AVEC LES RÉSEAUX PON
+Les tiroirs PORTO et NIAGARA sont compatibles avec les réseaux PON et peuvent être équipés de coupleurs.
+La cassette permet de souder l’entrée du coupleur lorsqu’il est non connectorisé. Les entrées des coupleurs 
+peuvent être préconnectorisées et mises à disposition en face avant du tiroir.
+T1P PLT1N PLT1PT1N T3PT3N T3P PL T3N PL
+4 PLC 1x8
+2 PLC 1x16
+1 PLC 1x32
+8 PLC 1x4
+4 PLC 1x8
+2 PLC 1x16
+1 PLC 1x32
+16 PLC 1x8
+8 PLC 1x16
+4 PLC 1x32
+2 PLC 1x64
+8 PLC 1x16
+4 PLC 1x32
+2 PLC 1x64
+TIROIR PORTO MÉTAL 3U AVEC COUPLEURS
+
+
+=== PAGE 8 ===
+8
+POINT DE BRANCHEMENT OPTIQUE (PBO)
+INTÉRIEUR ANGARA
+• Destiné aux applications FTTH verticales en immeubles
+• Raccordement entre le câble colonne montante à accessibilité permanente et les différents 
+câbles de branchement abonnés
+• Installation dans les parties communes d’un immeuble, à l’intérieur d’une gaine technique ou 
+contre une goulotte
+• Jusqu’à 32 épissures fusion 
+• 12 logements en 1 et 2 fibres, 8 logements en 4 fibres
+• Câblage intuitif
+CÂBLE RISER COLONNE MONTANTE
+• Câble vertical optique ou câble à accessibilité permanente
+• Permet le déploiement de la fibre optique dans l’ensemble de l’immeuble et donc le 
+raccordement entre le boitier situé en pied d’immeuble et les points de branchement 
+optique installés dans les étages.
+• Déployé dans les colonnes montantes via des goulottes ou le long d’une gaine technique
+• Contenance : 12 à 144 fibres optiques G657A2 
+• Structure micromodule - Modulo 4, 6 ou 12 fibres optiques 
+• Diamètres : 7.5 mm à 14 mm selon versions
+• Matériau : Gaine extérieure LSZH-FR-Blanche – RPC Classe Dca 
+• Disponible en version préconnectorisée
+BOÎTIER MODULAIRE DE PIED D’IMMEUBLE (BMI) ATLAS
+• Version Module Client pour le raccordement du ou des câbles colonne montante installés 
+par l’opérateur d’immeuble (OI), 
+• Version Module Opérateur assurant l’arrivée et le raccordement des câbles des opérateurs 
+commerciaux (OC) quelle que soit la technologie FTTH utilisée, P2P ou PON.
+• L’association de plusieurs modules permet d’obtenir un point de mutualisation évolutif
+• Jusqu’à 4 cassettes pivotantes 12 épissures 
+• 1 interface de brassage 48 fibres (empreintes SC) 
+• Support coupleur 
+• 2 compartiments sécurisés indépendants
+• Disponible en version de base ou pré-équipé de raccords, pigtails, coupleurs
+• Compatible avec un câble colonne montante préconnectorisé
+
+
+=== PAGE 9 ===
+9
+LOGEMENTS COLLECTIFS
+CORDON ABONNÉ
+• Assure la liaison optique finale chez l’abonné entre la Prise Terminale Optique [DTIo/PTO] 
+et l’équipement actif (Box)
+• Fibre monomode G657A2, dotée d’un faible rayon de courbure
+• Diamètre standard : 2.8 mm 
+• Gaine extérieure : ULSZH-FR de couleur ivoire 
+• Connectique : SC-UPC ou SC-APC 
+• Longueur : 1 à 30 m
+DISPOSITIF DE TERMINAISON INTÉRIEUR OPTIQUE [DTIo]
+PRISE TERMINALE OPTIQUE [PTO]
+• Point d’arrivée de la fibre optique chez l’abonné
+• Répond à toutes les exigences de qualité, fiabilité et esthétique en environnement domestique
+• Disponible en 1, 2 et 4 fibres optiques
+• Compatible avec la fibre optique monomode G657A2 à faible rayon de courbure
+• Équipé du raccord auto-protégé SC-APC FOLAN
+• Facile à mettre en place en logements existants et neufs, locaux commerciaux et entreprises
+CÂBLES DE BRANCHEMENT
+ABONNÉ INTÉRIEUR
+CBMG [micromodule + fibres 250 μm] : 
+• Contenance : 2 ou 4 fibres optiques G657A2
+• Structure : micromodule
+• Diamètre : 4 mm
+• Matériau : Gaine extérieure LSZH-FR-Blanche – RPC Classe Dca
+CBD [fibres tubées 900 μm] : 
+• Contenance : 1 ou 2 fibres optiques G657A2
+• Structure : Easy Strip
+• Diamètre : 4 mm
+• Matériau : Gaine extérieure LSZH-FR-Blanche - RPC Classe Dca
+
+=== PAGE 10 ===
+10
+RÉPARTITEUR OPTIQUE EXTÉRIEUR
+ARMOIRE DE RUE
+PM360 PASSIF - Armoire de rue simple peau
+• 2 zones 19’’ 
+• Capacité 19’’ : 2 x 28 U 
+• Dimensions (L x H x P) : 1600 x 1625 x 350 mm 
+• Résorbeurs : zone centrale pour le brassage des cordons d’une longueur 
+unique de 3.5 m (Ø 1.6 mm)
+• Fixation : au sol par points de fixation accessibles par l’intérieur de l’armoire 
++ 4 points de levage sous le toit
+• Application : PM extérieur jusqu’à 360 abonnés en ZMD
+CÂBLE MICROMODULE AÉRO-SOUTERRAIN
+• Câbles micromodules diélectriques utilisés pour les réseaux FTTH et longues distances
+• Installation par tirage ou par portage à l’air ou à l’eau dans des conduites classiques, 
+mais également pour des installations en aérien avec une portée maximale de 60 m
+• Contenance : 12 à 288 fibres optiques G652D ou G657A2
+• Structure micromodule : Modulo 6 (maxi 144 FO) ou 12 (maxi 288 FO) 
+• Diamètres : 6.5 mm à 16.5 mm selon les versions 
+• Matériau : Gaine externe PEHD noir
+BOÎTIERS ÉTANCHES
+Boîtier Étanche Plat (BEP)
+• Indice de protection : IP68
+• Étanchéité : mécanique
+• Jusqu’à 96 soudures fusion par empilement de 4 cassettes pivotantes de 24 fibres
+• Fixation : murale, en aérien et sur poteau
+Boîtier Étanche Dôme (BED)
+• Indice de protection : IP68
+• Étanchéité : mécanique
+• Jusqu’à 144 soudures fusion par empilement de 6 cassettes pivotantes de 24 fibres pour le BED 144 et 
+jusqu’à 288 soudures fusion par empilement de 24 cassettes pivotantes de 12 fibres pour le BED 288
+• Fixation : murale et sur poteau
+PINCE D’ANCRAGE ET
+DE SUSPENSION DE CÂBLE
+PINCE D’ANCRAGE 
+• Câbles compatibles : Ø 5 à 9 mm pour les pinces universelles
+et Ø 7 à 20 mm pour les pinces spécifiques
+• Matériau : thermoplastique résistant aux U.V pour les pinces universelles
+et alliage d’aluminium haute resistance avec thermoplastiques
+résistant aux UV pour les pinces spécifiques
+• Longueur de câblette : 120 à 300 mm pour les pinces universelles
+et 400 mm pour les pinces spécifiques
+PINCE DE SUSPENSION
+• Câbles compatibles : Ø 8 à 20 mm
+• Matériau : thermoplastique résistant aux U.V
+
+
+=== PAGE 11 ===
+11
+LOGEMENTS INDIVIDUELS
+DISPOSITIF DE TERMINAISON INTÉRIEUR OPTIQUE [DTIo]
+PRISE TERMINALE OPTIQUE [PTO]
+• Point d’arrivée de la fibre optique chez l’abonné
+• Répond à toutes les exigences de qualité, fiabilité et esthétique en environnement domestique
+• Disponible en 1, 2 et 4 fibres optiques
+• Compatible avec la fibre optique monomode G657A2 à faible rayon de courbure
+• Équipé du raccord auto-protégé SC-APC FOLAN
+• Faciles à mettre en place en logements existants et neufs, locaux commerciaux et entreprises
+CÂBLE DE BRANCHEMENT ABONNÉ
+EXTÉRIEUR/INTÉRIEUR
+• Contenance : 1, 2 ou 4 fibres optiques G657A2
+• Structure : 1 FO : 900 µm / 2 et 4 FO : micromodule avec fibre 250 µm
+• Diamètre : Gaine extérieure : 6 mm / Gaine intérieure : 3 mm
+• Matériau : Gaine extérieure PE Noire / Gaine intérieure LSZH-FR-Blanche – RPC Classe Dca
+• Installation en aérien avec une portée maximale de 45 m
+POINT DE BRANCHEMENT OPTIQUE (PBO) EXTÉRIEUR
+• Nœud situé au plus près des logements et locaux à usage professionnel, 
+à partir duquel sont réalisées les opérations de raccordement final
+• Indice de protection : IP54 / IK07 
+• Entrée des câbles en partie inférieure 
+• Possibilité de câbles en passage 
+• Fixation : murale ou sur poteau avec adaptateur
+• Capacité : 
+ - Jusqu’à 24 câbles abonnés Ø 7 mm en soudure
+ - Jusqu’à 16 câbles abonnés Ø 7 mm en préconnectorisé
+• PON : 1 ou 2 coupleurs PLC 1x8 ou 1 coupleur PLC 1x16
+RALLONGE ET CORDON ABONNÉ
+• Assure la liaison optique finale chez l’abonné entre la Prise Terminale Optique [DTIo/PTO] 
+et l’équipement actif (Box)
+• Fibre monomode G657A2, dotée d’un faible rayon de courbure
+• Diamètre standard : 2.8 mm (cordon) et 4 mm (rallonge)
+• Gaine extérieure : ULSZH-FR de couleur ivoire (cordon) et blanche (rallonge)
+• Connectique : SC-UPC ou SC-APC 
+• Longueur : 1 à 30 m
+
+
+=== PAGE 12 ===
+12
+RÉSIDENTIEL
+• Dimensions (L x H x P) : 86 x 86 x 23 mm 
+• Couleur : Blanc 
+• Fixation : 
+- Murale par vis
+- Sur boîte encastrée 
+• Entrées de câble : 
+- 7 entrées : droite haut/bas, gauche haut/bas, dessus aux 2 extrémités, arrière 
+- Pour câbles de diamètre 2.5 à 6 mm 
+- Arrimage par collier de serrage plastique 
+• Connectique admissible : SC Simplex 
+• Capacité : 
+- Jusqu’à 2 épissures thermorétractables 40 mm 
+- 1 épissure mécanique 
+• Compatible avec un câble abonné d’1 FO préconnectorisé avec une fiche 
+directement montée sur le câble
+PRISE TERMINALE OPTIQUE || PTO V5.2
+1 à 2
+abonnés
+• Dimensions (L x P x H) : 80 x 80 x 28 mm 
+• Couleur : Blanc 
+• Fixation : 
+- Murale par vis ou par collage 
+- Sur boîte encastrée 
+- Sur Rail DIN : sans pièce additionnelle 
+• Entrées de câble : 
+- 4 entrées : droite, gauche, dessous, arrière 
+- Arrimage central par dispositif d’arrimage rapide avec collier de serrage plastique 
+- Pour câbles de diamètre 3.5 à 5.2 mm 
+• Connectique admissible : SC Simplex
+• Étiquette d’identification protégée par un volet
+• Capacité : 4 épissures thermorétractables 40 mm
+PRISE TERMINALE OPTIQUE || PTO V6
+1 à 4
+abonnés
+• Dimensions (L x H x P) : 80 x 105 x 27 mm 
+• Couleur : Blanc
+• Fixation : 
+- Murale par vis 
+- Sur boîte encastrée 
+• Entrées de câbles :
+- 3 entrées : gauche, dessous, arrière 
+- Pour câbles de diamètre 2.5 à 5 mm 
+- Arrimage par Clip Secure© ou collier de serrage plastique 
+• Connectique admissible : SC Simplex / LC Duplex 
+• Capacité : 
+- Jusqu’à 4 épissures thermorétractables 40 ou 45 mm 
+- 2 épissures mécaniques 
+• Platine pivotante
+PRISE TERMINALE OPTIQUE || PTO V2.2
+1 à 2
+abonnés
+- Version de base = nue
+- Pré-équipées :
+•Raccords SC-APC auto-protégés
+• Raccords et pigtails
+• Kit Toron : Les Prises Terminales Optiques peuvent être livrées en Kit Toron, pré-câblées en 
+usine avec un câble de branchement abonné intérieur de type CBD ou CMG de 1 à 4 FO, 
+d’une longueur de 20, 30 ou 50 m.
+• Kit dévidoir : Les Prises Terminales Optiques peuvent être livrées en kit dévidoir, pré-câblées 
+en usine avec un câble de branchement abonné intérieur de type CBD ou CBMG de 1 à 4 
+FO, d’une longueur de 20, 30 ou 50 m, enroulé sur un touret avec un œil de tirage en bout 
+de câble.
+VERSIONS DISPONIBLES
+
+
+=== PAGE 13 ===
+13
+GÉNIE CIVIL || AÉRIEN
+Boîtier Étanche Plat (BEP) 12-96 FO
+• Dimensions (L x H x P) : 220 x 300 x 100 mm
+• Étanchéité : mécanique, indice de protection IP68
+• Kit de fixation : mural, aérien, poteau
+• Capacité d’épissurage : 96 via 4 cassettes pivotantes de 24 fibres
+• Entrées / Sortie et Ø des câbles : 
+- 1 port ovale pour 3 câbles (Ø 8 à 15 mm) ou 6 câbles (Ø 4 à 8 mm)
+- 1 port ovale pour 2 câbles (Ø 8 à 11 mm) ou 4 câbles (Ø 4 à 8 mm)
+- 1 port simple pour 1 câble (Ø 6 mm) ou 4 pigtails (Ø 2 mm)
+Boîtier Étanche Dôme (BED) 12-144 FO ou 12-288 FO
+• Dimensions (H x Ø) : BED 144 - 450 x Ø 230 mm | BED288 - 480 x Ø 260 mm
+• Étanchéité : mécanique, indice de protection IP68
+• Kit de fixation : mural, poteau
+• Capacité d’épissurage : 
+BED144 - 144 via 6 cassettes pivotantes de 24 fibres
+BED288 - 288 via 24 cassettes pivotantes de 12 fibres 
+• Entrées / Sortie et Ø des câbles : 
+BED144 :
+- 1 port ovale pour 2 câbles (Ø 10 à 17.5 mm) ou 16 câbles (Ø 5 à 7 mm)
+- 4 ports simples pour 1 câble (Ø 8 à 12 mm) ou 4 câbles (Ø 5 à 7 mm)  
+BED288 :
+- 1 port ovale pour 2 câbles (Ø 10 à 16 mm) ou 2 câbles (Ø 16 à 22 mm) 
+- 2 ports doubles pour 2 câbles (Ø 10 à 17.5 mm) ou 16 câbles (Ø 5 à 7 mm)
+- 2 ports simples pour 1 câble (Ø 8 à 12 ou 12 à 17.5 mm)  ou 4 câbles (Ø 5 à 7 mm)
+BOÎTIERS ÉTANCHES
+POINT DE BRANCHEMENT OPTIQUE (PBO) EXTÉRIEUR
+• Dimensions (L x P x H) : 260 x 105 x 320 mm 
+• Indice de protection : IP54/IK07 
+• Entrée des câbles en partie inférieure 
+• Possibilité de câbles en passage 
+• Fixation : murale ou sur poteau avec adaptateur
+• Capacité : 
+- Jusqu’à 24 câbles abonnés Ø 7 mm en soudure via 2 cassettes pivotantes 12 épissures
+- Jusqu’à 16 câbles abonnés Ø 7 mm en préconnectorisé
+• PON : 1 ou 2 coupleurs PLC 1x8 ou 1 coupleur PLC 1x16
+• Entrées et Ø des câbles : 2 entrées pour câble de distribution Ø 25 mm et 1 entrée pour câble Ø 16 mm
+• Zone de lovage pour la gestion des surlongueurs de fibre des câbles de distribution en passage
+• Compatible avec fibres optiques G652D et  G657A2
+PINCES DE SUSPENSION DE BRANCHEMENT
+• Compatible avec câble de Ø 5 à 8 mm 
+• Portée jusqu’à 50 - 70 m 
+• Longueur : 80 mm 
+• Matériau thermoplastique résistant aux U.V
+RÉHAUSSE ET TRAVERSE POTEAU TÉLÉCOM
+• Déploiement d’une nappe de fibres optiques sur poteau télécom, au-dessus de la nappe de câbles cuivre
+• Réhausse qualifiée par Orange
+• Installation sur poteau bois ou métallique
+• Acier galvanisé à chaud
+ACCESSOIRES TÉLÉCOM AÉRIEN
+PINCE D’ANCRAGE DE BRANCHEMENT
+• Câble de branchement Ø 4 - 7 mm 
+• Longueur : 245 mm 
+• Thermoplastique résistant aux UV
+PINCES DE SUSPENSION UNIVERSELLE
+• Compatible avec câble de Ø 8 à 20 mm 
+• Portée maximum : 150 m 
+• Fixation par feuillard ou par boulon 
+• Matériau thermoplastique résistant aux U.V
+PINCE D’ANCRAGE UNIVERSELLE
+• Compatible avec câble de Ø 5 à 9 mm
+• Longueur : 120 à 300 mm
+• Plastique résistant aux UV
+
+
+=== PAGE 14 ===
+
+
+=== PAGE 15 ===
+15
+CÂBLES
+INTÉRIEUR
+INTÉRIEUR
+EXTÉRIEUR
+EXTÉRIEUR & INTÉRIEUR
+• Contenance : 1 ou 2 fibres optiques 900 µm
+• Structure : Easy Strip
+• Diamètre : 4 mm 
+• Fibres optiques colorées monomode G657A2 (rouge - bleu) 
+• Fibres optiques en brins 900 μm de couleur (rouge - bleu) 
+• Matériau : Gaine extérieure LSZH - FR-Blanche - RPC Classe Dca
+CÂBLE DE BRANCHEMENT ABONNÉ DISTRIBUTION (CBD)
+• Contenance : 2 ou 4 fibres optiques 250 µm
+• Structure : micromodule
+• Diamètre : 4 mm 
+• Fibres optiques colorées monomode G657A2 (rouge – bleu – vert - jaune) 
+• Micromodule rouge de diamètre 1.1 mm
+• Matériau : Gaine extérieure LSZH - FR-Blanche – RPC Classe Dca
+CÂBLE DE BRANCHEMENT ABONNÉ MICROMODULE (CBMG)
+• Contenance :1, 2 ou 4 Fibres optiques
+• Structure : 1 FO : 900 µm / Micromodule de 2 et 4 FO : 250 µm
+• Diamètre : Gaine extérieure : 6 mm / Gaine intérieure : 3 mm
+• Matériau : Gaine extérieure PE Noire / Gaine intérieure LSZH - FR-Blanche – RPC Classe Dca
+• Fibres optiques colorées monomode G657A2 
+• Renforts non-métalliques incorporés dans la gaine 
+• Portée maximum : 45 m
+CÂBLE DE BRANCHEMENT ABONNÉ EXTÉRIEUR / INTÉRIEUR
+• Câbles micromodules diélectriques 
+• Contenance : 12 à 288 fibres optiques 
+• Structure micromodule- Modulo 6 (maxi 144FO) ou 12 (maxi 288FO) fibres optiques 
+• Diamètres : 6.5 mm à 16.5 mm selon versions 
+• Matériau : Gaine externe PEHD noire
+• Fibres optiques colorées monomode G652D ou G657A2
+• Renforts non-métalliques incorporés dans la gaine 
+• Installation par tirage, soufflage, portage à l’eau et portage à l’air 
+• Compatible avec installation en aérien pour des portées allant jusqu’à 60 m
+CÂBLE MICROMODULE AÉRO-SOUTERRAIN
+
+=== PAGE 16 ===
+692 rue des Mercières
+69140 Rillieux-la-Pape - FRANCE
+contact@folan.net 
+www.folan.net
++33 (0)4 78 800 810

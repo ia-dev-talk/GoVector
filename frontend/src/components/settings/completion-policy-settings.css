@@ -1,0 +1,23 @@
+.completion-policy-section { max-width: 1200px; }
+.completion-policy-card { margin: 16px 0; }
+.completion-policy-rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.completion-policy-toggle { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--border-color, #dce3ec); padding: 12px; border-radius: 8px; }
+.completion-policy-toggle input { margin-top: 4px; }
+.completion-policy-toggle strong, .completion-policy-toggle small { display: block; }
+.completion-policy-toggle small { margin-top: 5px; line-height: 1.5; color: var(--text-secondary, #526176); }
+.completion-policy-photo-field { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 16px 0; }
+.completion-policy-photo-field small { display: block; line-height: 1.5; }
+.completion-policy-photo-field input { width: 100px; padding: 8px; border: 1px solid #b9c5d4; border-radius: 6px; }
+.completion-policy-advanced summary { cursor: pointer; padding: 8px 0; }
+.completion-policy-chip-grid { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 0; }
+.completion-policy-chip { display: flex; gap: 6px; align-items: center; }
+.completion-policy-overrides { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: 16px; }
+.completion-policy-add-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.completion-policy-add-row input, .completion-policy-add-row select { min-width: 0; max-width: 100%; padding: 8px; border: 1px solid #b9c5d4; border-radius: 6px; }
+.completion-policy-override { margin-top: 16px; padding-top: 12px; border-top: 1px solid #dce3ec; }
+.completion-policy-override header { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.completion-policy-override header strong { display: block; overflow-wrap: anywhere; }
+.completion-policy-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: center; margin-top: 20px; }
+.completion-policy-footer > span { flex: 1 1 300px; line-height: 1.5; }
+.completion-policy-footer > div { display: flex; gap: 8px; }
+.completion-policy-badge { padding: 6px 10px; border-radius: 6px; background: #e8f1fd; color: #1e497e; }

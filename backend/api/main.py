@@ -48,6 +48,8 @@ from backend.api.routes import (
     reports,
     audit,
     orienteurs,
+    orienteur_agent,
+    gis_datasets,
     sectors,
     tech_auth,
     tech_jobs,
@@ -198,6 +200,8 @@ app = FastAPI(
 )
 
 install_business_error_handler(app)
+app.include_router(orienteur_agent.router, prefix=settings.API_V1_PREFIX)
+app.include_router(gis_datasets.router, prefix=settings.API_V1_PREFIX)
 
 
 uploads_dir = Path("uploads")

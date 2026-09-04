@@ -35,6 +35,7 @@ from backend.logic.technician_jobs import (
     TechnicianJobMutationError,
     require_assigned_job,
 )
+from backend.logic.job_visits import resolve_visit_for_technician
 
 
 def technician_warehouse_code(technician_id: int) -> str:
@@ -208,10 +209,16 @@ async def consume_technician_material(
 
     requested = _normalized_items(payload)
     now = occurred_at or datetime.now(timezone.utc)
+    visit = await resolve_visit_for_technician(
+        db,
+        job_id=job_id,
+        technician_id=technician_id,
+    )
     suffix = re.sub(r"[^A-Za-z0-9]", "", event_id or "")[-16:] or uuid4().hex[:16]
     consumption = StockConsumption(
         consumption_number=f"MOB-{technician_id}-{suffix}",
         job_id=job_id,
+        visit_id=visit.id if visit is not None else None,
         technician_id=technician_id,
         operator=(str(payload.get("operator") or "").strip() or job.operator),
         status=StockConsumptionStatus.VALIDE,
@@ -302,6 +309,7 @@ async def consume_technician_material(
                     reference_id=consumption.id,
                     operator=item.operator or job.operator,
                     job_id=job_id,
+                    visit_id=visit.id if visit is not None else None,
                     technician_id=technician_id,
                     notes=consumption.notes,
                     created_by=current_user.id,

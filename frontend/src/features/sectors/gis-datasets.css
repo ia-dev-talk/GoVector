@@ -1,0 +1,13 @@
+.gis-workspace { border: 1px solid #2c405a; border-radius: 12px; padding: 18px; margin: 16px 0; background: #101c2c; color: #e1e9f5; }
+.gis-workspace summary { cursor: pointer; font-weight: 700; }
+.gis-workspace p { margin: 12px 0; line-height: 1.5; }
+.gis-workspace label { display: flex; flex-direction: column; gap: 8px; }
+.gis-workspace input, .gis-workspace select { max-width: 100%; min-width: 0; padding: 9px; color: inherit; background: #122137; border: 1px solid #53647b; border-radius: 6px; }
+.gis-import-fields { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; border: 0; padding: 16px 0; min-width: 0; }
+.gis-import-fields label { flex: 1 1 200px; min-width: 0; }
+.gis-preview-map { height: 260px; width: 100%; background: #dbe6ec; border-radius: 8px; }
+.gis-workspace ul { padding-left: 20px; margin: 14px 0; }
+.gis-registry article { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; border-bottom: 1px solid #2c405a; padding: 14px 0; }
+.gis-registry article > div { min-width: 0; overflow-wrap: anywhere; }
+.gis-registry { margin-top: 18px; }
+.gis-workspace [role="alert"] { color: #ffb5b5; }

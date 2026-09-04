@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { api } from '../../api/client';
 import {
   buildOperationalAccountProfilePayload,
   canMutateOrganizationSnapshot,
+  filterOperationalAccounts,
+  operationalAccountRoleLabel,
   resolveOperationalAccountProfilePolicy,
   resolveOrganizationAvailability,
   resolveOrganizationSnapshot,
@@ -34,6 +36,9 @@ export default function AdminOrganizationSection({
   ]);
   const [teamDrafts, setTeamDrafts] = useState({});
   const [accountRole, setAccountRole] = useState('');
+  const [accountQuery, setAccountQuery] = useState('');
+  const [accountDirectoryRole, setAccountDirectoryRole] = useState('ALL');
+  const [accountStatus, setAccountStatus] = useState('ALL');
   const [loading, setLoading] = useState(enabled);
   const [hasSnapshot, setHasSnapshot] = useState(false);
   const [loadWarnings, setLoadWarnings] = useState([]);
@@ -48,6 +53,14 @@ export default function AdminOrganizationSection({
     hasSnapshot,
     warnings: loadWarnings,
   });
+  const filteredAccounts = useMemo(
+    () => filterOperationalAccounts(accounts, {
+      query: accountQuery,
+      role: accountDirectoryRole,
+      status: accountStatus,
+    }),
+    [accountDirectoryRole, accountQuery, accountStatus, accounts],
+  );
 
   const ensureOrganizationWritable = () => {
     if (!mutationsLocked) return true;
@@ -352,9 +365,9 @@ export default function AdminOrganizationSection({
         <header><span>Identités et accès</span><h2>Comptes opérationnels</h2></header>
         <p className="v1-admin-help">Les profils métier existent séparément des identifiants de connexion. Un compte technicien ou orienteur doit être relié au bon profil.</p>
         <form onSubmit={createOfficeAccount} className="v1-admin-form v1-admin-form--accounts">
-          <input name="username" required minLength="3" placeholder="Identifiant de connexion" />
-          <input name="email" required type="email" placeholder="Email" />
-          <input name="password" required type="password" minLength="12" placeholder="Mot de passe initial · 12 caractères" />
+          <input name="username" required minLength="3" placeholder="Identifiant de connexion" aria-label="Identifiant de connexion" />
+          <input name="email" required type="email" placeholder="Email" aria-label="Email du compte" />
+          <input name="password" required type="password" minLength="12" placeholder="Mot de passe initial · 12 caractères" aria-label="Mot de passe initial" />
           <select
             name="role"
             required
@@ -384,12 +397,51 @@ export default function AdminOrganizationSection({
           ) : null}
           <button type="submit" disabled={mutationsLocked}>Créer le compte</button>
         </form>
+        <div className="v1-admin-account-directory" aria-label="Filtres des comptes opérationnels">
+          <input
+            type="search"
+            value={accountQuery}
+            onChange={(event) => setAccountQuery(event.target.value)}
+            placeholder="Rechercher identifiant, email ou rôle…"
+            aria-label="Rechercher un compte opérationnel"
+          />
+          <select
+            value={accountDirectoryRole}
+            onChange={(event) => setAccountDirectoryRole(event.target.value)}
+            aria-label="Filtrer les comptes par rôle"
+          >
+            <option value="ALL">Tous les rôles</option>
+            <option value="ADMIN">Administrateurs</option>
+            <option value="CHEF_ORIENTEUR">Chefs orienteurs</option>
+            <option value="ORIENTEUR">Orienteurs</option>
+            <option value="TECHNICIAN">Techniciens</option>
+          </select>
+          <select
+            value={accountStatus}
+            onChange={(event) => setAccountStatus(event.target.value)}
+            aria-label="Filtrer les comptes par état"
+          >
+            <option value="ALL">Tous les états</option>
+            <option value="ACTIVE">Actifs</option>
+            <option value="INACTIVE">Désactivés</option>
+          </select>
+          <span>{filteredAccounts.length} affiché{filteredAccounts.length > 1 ? 's' : ''} sur {accounts.length}</span>
+        </div>
         <div className="v1-admin-account-grid">
-          {accounts.map((account) => <article key={account.id} className={account.is_active ? '' : 'is-archived'}>
-            <div><strong>{account.username}</strong><span>{account.role} · {account.email}</span></div>
+          {filteredAccounts.map((account) => <article key={account.id} className={account.is_active ? '' : 'is-archived'}>
+            <div>
+              <strong>{account.username}</strong>
+              <span>{operationalAccountRoleLabel(account.role)} · {account.email}</span>
+              <small className={account.is_active ? 'is-active' : 'is-inactive'}>
+                {account.is_active ? 'Compte actif' : 'Compte désactivé'}
+              </small>
+            </div>
             <button type="button" disabled={mutationsLocked} onClick={() => toggleAccount(account)}>{account.is_active ? 'Désactiver' : 'Réactiver'}</button>
             <details><summary>Réinitialiser le mot de passe</summary><form onSubmit={(event) => resetAccountPassword(event, account.id)}><input name="password" type="password" minLength="12" required placeholder="Nouveau mot de passe" /><button type="submit" disabled={mutationsLocked}>Remplacer</button></form></details>
           </article>)}
+          {filteredAccounts.length === 0 ? (
+            <p className="v1-admin-account-empty">Aucun compte ne correspond à ces filtres.</p>
+          ) : null}
         </div>
       </section> : null}
 

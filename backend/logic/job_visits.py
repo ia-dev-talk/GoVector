@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import raiseload
 
 from backend.database.models import Assignment, Job, JobStatus, JobVisit
 
@@ -40,7 +41,8 @@ PASSAGE_RESET_OUTCOMES = {
 
 
 async def get_current_assignment(
-    db: AsyncSession, job_id: int, *, for_update: bool = False
+    db: AsyncSession, job_id: int, *, for_update: bool = False,
+    load_relationships: bool = True,
 ) -> Assignment | None:
     statement = select(Assignment).where(
         Assignment.job_id == job_id,
@@ -48,11 +50,14 @@ async def get_current_assignment(
     )
     if for_update:
         statement = statement.with_for_update()
+    if not load_relationships:
+        statement = statement.options(raiseload("*"))
     return (await db.execute(statement)).scalar_one_or_none()
 
 
 async def get_current_visit(
-    db: AsyncSession, job_id: int, *, for_update: bool = False
+    db: AsyncSession, job_id: int, *, for_update: bool = False,
+    load_relationships: bool = True,
 ) -> JobVisit | None:
     statement = select(JobVisit).where(
         JobVisit.job_id == job_id,
@@ -60,6 +65,8 @@ async def get_current_visit(
     )
     if for_update:
         statement = statement.with_for_update()
+    if not load_relationships:
+        statement = statement.options(raiseload("*"))
     return (await db.execute(statement)).scalar_one_or_none()
 
 

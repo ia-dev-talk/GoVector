@@ -19,6 +19,7 @@ from backend.auth.dependencies import require_internal_user
 from backend.database.connection import get_db
 from backend.database.models import (
     Job,
+    JobVisit,
     StockItem,
     StockMovement,
     StockMovementType,
@@ -40,6 +41,7 @@ async def stock_history_v2(
     warehouse_id: Optional[int] = Query(None, gt=0),
     technician_id: Optional[int] = Query(None, gt=0),
     job_id: Optional[int] = Query(None, gt=0),
+    visit_id: Optional[int] = Query(None, gt=0),
     movement_type: Optional[str] = Query(None),
     operator: Optional[str] = Query(None),
     created_from: Optional[datetime] = Query(None),
@@ -69,11 +71,15 @@ async def stock_history_v2(
             Job.job_number.label("job_number"),
             Job.customer_name.label("customer_name"),
             Job.service_address.label("service_address"),
+            JobVisit.attempt_number.label("visit_attempt_number"),
+            JobVisit.status.label("visit_status"),
+            JobVisit.outcome.label("visit_outcome"),
         )
         .join(StockItem, StockItem.id == StockMovement.item_id)
         .join(Warehouse, Warehouse.id == StockMovement.warehouse_id)
         .outerjoin(Technician, Technician.id == StockMovement.technician_id)
         .outerjoin(Job, Job.id == StockMovement.job_id)
+        .outerjoin(JobVisit, JobVisit.id == StockMovement.visit_id)
     )
 
     if item_id is not None:
@@ -84,6 +90,8 @@ async def stock_history_v2(
         statement = statement.where(StockMovement.technician_id == technician_id)
     if job_id is not None:
         statement = statement.where(StockMovement.job_id == job_id)
+    if visit_id is not None:
+        statement = statement.where(StockMovement.visit_id == visit_id)
     if movement_type:
         normalized = movement_type.strip().upper()
         try:
@@ -145,9 +153,13 @@ async def stock_history_v2(
             "technician_name": technician_name,
             "technician_employee_id": technician_employee_id,
             "job_id": movement.job_id,
+            "visit_id": movement.visit_id,
             "job_number": job_number,
             "customer_name": customer_name,
             "service_address": service_address,
+            "visit_attempt_number": visit_attempt_number,
+            "visit_status": visit_status,
+            "visit_outcome": visit_outcome,
             "operator": movement.operator,
             "reference_type": movement.reference_type,
             "reference_id": movement.reference_id,
@@ -166,5 +178,8 @@ async def stock_history_v2(
             job_number,
             customer_name,
             service_address,
+            visit_attempt_number,
+            visit_status,
+            visit_outcome,
         ) in rows
     ]

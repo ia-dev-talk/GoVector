@@ -368,12 +368,15 @@ class WorkflowEngine:
 
         # 3. Si terminée → libérer le stock réservé
         if new_status == JobStatus.COMPLETED:
-            await self._release_stock(job)
+            await self._release_stock(job, visit_id=visit_id)
 
         # 4. Si équipement scanné → enregistrer consommation via StockService
         if metadata.get("equipment_serial") or metadata.get("consumption_items"):
             await self._register_consumption(
-                job, metadata, technician_id=technician_id
+                job,
+                metadata,
+                technician_id=technician_id,
+                visit_id=visit_id,
             )
 
     # ============================================================
@@ -497,7 +500,7 @@ class WorkflowEngine:
     # STOCK — Gestion via StockService
     # ============================================================
 
-    async def _release_stock(self, job: Job):
+    async def _release_stock(self, job: Job, *, visit_id: int | None):
         """Consomme le stock réservé via StockService quand un job est terminé."""
         from sqlalchemy import select
         from backend.database.models import StockMovement, StockMovementType
@@ -519,6 +522,7 @@ class WorkflowEngine:
                     warehouse_id=mvt.warehouse_id,
                     quantity=abs(mvt.quantity),
                     job_id=job.id,
+                    visit_id=visit_id,
                     technician_id=mvt.technician_id,
                     notes=f"Consommation auto job #{job.id}",
                     reference_type="workflow_completion",
@@ -535,6 +539,7 @@ class WorkflowEngine:
         metadata: Dict,
         *,
         technician_id: int | None,
+        visit_id: int | None,
     ):
         """Enregistre la consommation d'équipement via StockService."""
         serial = metadata.get("equipment_serial")
@@ -565,6 +570,7 @@ class WorkflowEngine:
             try:
                 consumption = await self._stock.create_consumption(
                     job_id=job.id,
+                    visit_id=visit_id,
                     technician_id=tech_id,
                     notes=f"Consommation job #{job.id}",
                     items=consumption_items,

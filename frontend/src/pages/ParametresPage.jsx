@@ -9,6 +9,7 @@ import {
 import Toast from '../components/Toast';
 import FeedbackCenter from '../components/FeedbackCenter';
 import OperationalSettingsSection from '../components/settings/OperationalSettingsSection';
+import CompletionPolicySettingsSection from '../components/settings/CompletionPolicySettingsSection';
 import AdminOrganizationSection from '../components/settings/AdminOrganizationSection';
 import BusinessCatalogSection from '../components/settings/BusinessCatalogSection';
 import OperationalAuditSection from '../components/settings/OperationalAuditSection';
@@ -197,6 +198,8 @@ export default function ParametresPage({ userRole, onNavigate }) {
         );
       case 'operational-audit':
         return <OperationalAuditSection userRole={userRole} refreshRevision={refreshRevision} />;
+      case 'completion-policy':
+        return <CompletionPolicySettingsSection toast={toast} userRole={userRole} refreshRevision={refreshRevision} onDirtyChange={setSettingsDirty} />;
       case 'feedback':
         return <FeedbackCenter userRole={userRole} />;
       case 'modules':
