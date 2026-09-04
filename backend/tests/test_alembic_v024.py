@@ -23,7 +23,7 @@ from backend.database.models import Base
 ROOT = Path(__file__).resolve().parents[2]
 ADMIN_URL_ENV = "BLUEVECTOR_TEST_DATABASE_ADMIN_URL"
 NB1_REVISION = "nb1b2c3d4e5f"
-HEAD_REVISION = "pc3d4e5f6a7b"
+TARGET_REVISION = "pc3d4e5f6a7b"  # V025: the end of this adoption contract.
 EXISTING_EVENT_ID = "11111111-1111-4111-8111-111111111111"
 
 
@@ -71,14 +71,16 @@ async def _create_nb1_schema(database_url: str) -> None:
 def _run_alembic(database_url: str, *arguments: str) -> subprocess.CompletedProcess:
     environment = os.environ.copy()
     environment["DATABASE_URL"] = _sqlalchemy_url(database_url)
-    return subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-m", "alembic", *arguments],
         cwd=ROOT,
         env=environment,
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
+    assert result.returncode == 0, result.stderr
+    return result
 
 
 @pytest.fixture
@@ -235,7 +237,7 @@ async def _inspect_result(database_url: str) -> dict:
 
 
 def _assert_v024_and_v025(result: dict) -> None:
-    assert result["revision"] == HEAD_REVISION
+    assert result["revision"] == TARGET_REVISION
     assert result["defaults"]["payload"] == "'{}'::jsonb"
     assert result["defaults"]["created_at"].lower() in {
         "current_timestamp",
@@ -267,11 +269,11 @@ def _assert_v024_and_v025(result: dict) -> None:
 def test_v024_creates_table_from_nb1(migration_database):
     asyncio.run(_prepare_fresh_case(migration_database))
 
-    _run_alembic(migration_database, "upgrade", "head")
+    _run_alembic(migration_database, "upgrade", TARGET_REVISION)
     current = _run_alembic(migration_database, "current")
     result = asyncio.run(_inspect_result(migration_database))
 
-    assert HEAD_REVISION in current.stdout
+    assert TARGET_REVISION in current.stdout
     _assert_v024_and_v025(result)
     assert result["existing_event_count"] == 0
 
@@ -279,10 +281,10 @@ def test_v024_creates_table_from_nb1(migration_database):
 def test_v024_adopts_create_all_table_without_data_loss(migration_database):
     asyncio.run(_prepare_adoption_case(migration_database))
 
-    _run_alembic(migration_database, "upgrade", "head")
+    _run_alembic(migration_database, "upgrade", TARGET_REVISION)
     current = _run_alembic(migration_database, "current")
     result = asyncio.run(_inspect_result(migration_database))
 
-    assert HEAD_REVISION in current.stdout
+    assert TARGET_REVISION in current.stdout
     _assert_v024_and_v025(result)
     assert result["existing_event_count"] == 1

@@ -42,6 +42,9 @@ jobs:
     env:
       BLUEVECTOR_POSTGRES_CONTRACT_ADMIN_URL: >-
         postgresql://fieldopt:fieldopt@localhost:5432/postgres
+      # Legacy V024 uses this name; both point to the disposable CI service.
+      BLUEVECTOR_TEST_DATABASE_ADMIN_URL: >-
+        postgresql://fieldopt:fieldopt@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -56,16 +59,9 @@ jobs:
           python -m backend.database.bootstrap_schema
           python -m backend.database.bootstrap_schema
           python -m alembic current
-      - run: >-
-          python -m pytest -q
-          backend/tests/test_geolocation_postgres_contract.py
-          backend/tests/test_stock_allocation_postgres_contract.py
-          backend/tests/test_technician_field_stock_postgres_contract.py
-          backend/tests/test_completion_evidence_postgres_contract.py
-          backend/tests/test_alembic_v031.py
-          backend/tests/test_alembic_v032.py
-          backend/tests/test_alembic_v033.py
-          backend/tests/test_alembic_v035.py
+      # Run discovery with PostgreSQL configured so new connected contracts
+      # (GIS, client policies, Orienteur, migrations) cannot silently skip.
+      - run: python -m pytest -q -rs backend/tests
 
   frontend:
     runs-on: ubuntu-latest
