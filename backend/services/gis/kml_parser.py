@@ -18,6 +18,9 @@ from typing import Any, Iterable
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, ZipFile, ZipInfo
 
+from defusedxml import ElementTree as SafeET
+from defusedxml.common import DefusedXmlException
+
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 MAX_KML_BYTES = 50 * 1024 * 1024
@@ -27,7 +30,6 @@ MAX_COMPRESSION_RATIO = 200
 MAX_FEATURES = 50_000
 MAX_COORDINATES = 1_000_000
 
-_UNSAFE_XML = re.compile(br"<!\s*(?:DOCTYPE|ENTITY)\b", re.IGNORECASE)
 _SUPPORTED_EXTENSIONS = {".kml", ".kmz"}
 _GEOMETRY_TAGS = {
     "Point",
@@ -495,12 +497,13 @@ def _dataset_bbox(features: Iterable[ParsedFeature]) -> tuple[float, float, floa
 def _parse_kml_document(kml_bytes: bytes) -> tuple[str | None, tuple[ParsedFeature, ...], tuple[str, ...]]:
     if len(kml_bytes) > MAX_KML_BYTES:
         raise GisImportError("Le document KML est trop volumineux.")
-    if _UNSAFE_XML.search(kml_bytes[: min(len(kml_bytes), 128 * 1024)]):
-        raise GisImportError("Le document XML contient une déclaration interdite.")
-
     try:
-        root = ET.fromstring(kml_bytes)
-    except ET.ParseError as exc:
+        # Reject declarations in the parser itself, regardless of byte offset
+        # or XML encoding. A prefix/byte regex cannot enforce that boundary.
+        root = SafeET.fromstring(kml_bytes, forbid_dtd=True, forbid_entities=True, forbid_external=True)
+    except DefusedXmlException as exc:
+        raise GisImportError("Le document XML contient une déclaration interdite.") from exc
+    except (ET.ParseError, ValueError, LookupError) as exc:
         raise GisImportError("Le document KML est un XML invalide.") from exc
     if _local_name(root.tag) != "kml":
         raise GisImportError("Le document ne possède pas de racine KML.")

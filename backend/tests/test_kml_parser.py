@@ -121,3 +121,36 @@ def test_parse_kml_ignores_network_links_without_fetching_them():
 
     assert "Les NetworkLink externes ont été ignorés." in dataset.warnings
     assert len(dataset.features) == 3
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-16", "utf-16-be", "utf-16-le"])
+@pytest.mark.parametrize("archive", [False, True], ids=["kml", "kmz"])
+def test_rejects_dtd_after_long_prologue_in_all_supported_xml_encodings(encoding, archive):
+    # Keep the payload valid and below upload limits; the old 128 KiB byte
+    # scan missed this declaration and expanded the entity into a feature name.
+    declaration = "UTF-8" if encoding == "utf-8" else "UTF-16"
+    xml = ('<?xml version="1.0" encoding="' + declaration + '"?>'
+           + '<!--' + 'padding ' * 17000 + '-->'
+           + '<!DOCTYPE kml [<!ENTITY label "EXPANDED">]>'
+           + '<kml><Placemark><name>&label;</name>'
+           + '<Point><coordinates>1,2</coordinates></Point></Placemark></kml>')
+    payload = xml.encode(encoding)
+    if archive:
+        # Stored ZIP avoids triggering the independent compression-ratio guard.
+        output = BytesIO()
+        with ZipFile(output, "w") as bundle:
+            bundle.writestr("doc.kml", payload)
+        payload = output.getvalue()
+    with pytest.raises(GisImportError, match="déclaration interdite"):
+        parse_geospatial_upload("unsafe.kmz" if archive else "unsafe.kml", payload)
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-16", "utf-16-be", "utf-16-le"])
+def test_safe_xml_encodings_preserve_unicode_and_geometry(encoding):
+    declaration = "UTF-8" if encoding == "utf-8" else "UTF-16"
+    xml = ('<?xml version="1.0" encoding="' + declaration + '"?>'
+           + '<kml><Placemark><name>Réseau été</name>'
+           + '<Point><coordinates>1,2</coordinates></Point></Placemark></kml>')
+    result = parse_geospatial_upload("safe.kml", xml.encode(encoding))
+    assert result.features[0].name == "Réseau été"
+    assert result.features[0].geometry_geojson == {"type": "Point", "coordinates": [1.0, 2.0]}

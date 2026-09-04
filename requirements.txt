@@ -16,6 +16,7 @@ numpy>=1.26.0
 scipy>=1.11.0
 pandas
 openpyxl
+defusedxml==0.7.1
 # Starlette 0.27 TestClient still passes the removed ``app=`` argument.
 # httpx 0.28+ therefore breaks the backend test suite during client creation.
 httpx>=0.25.2,<0.28

@@ -48,3 +48,19 @@ def test_multipart_preview_and_invalid_xml(name, payload):
     assert len(response.json()['sha256']) == 64
     assert client.post('/gis-datasets/preview', files={'file': ('test.kml', b'broken')}).status_code == 422
     db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize('endpoint', ['/gis-datasets/preview', '/gis-datasets'])
+def test_multipart_dtd_is_rejected_before_any_persistence(endpoint):
+    client, db = application(UserRole.ADMIN)
+    payload = ('<?xml version="1.0" encoding="UTF-16"?>'
+               '<!DOCTYPE kml [<!ENTITY label "forbidden">]>'
+               '<kml><Placemark><name>&label;</name>'
+               '<Point><coordinates>1,2</coordinates></Point></Placemark></kml>').encode('utf-16')
+    response = client.post(endpoint, files={'file': ('hostile.kml', payload)}, data={
+        'name': 'Rejected', 'client_organization_id': 1, 'expected_sha256': 'a' * 64})
+    assert response.status_code == 422
+    assert 'déclaration interdite' in response.json()['detail']
+    db.execute.assert_not_called()
+    db.get.assert_not_called()
+    db.commit.assert_not_called()
