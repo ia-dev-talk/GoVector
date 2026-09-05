@@ -370,17 +370,27 @@ def _inventory_custody_matches(
 ) -> bool:
     if inventory is None:
         return False
-    values = [inventory.warehouse, inventory.vehicle]
-    haystack = " ".join(str(value or "") for value in values).casefold()
-    markers = {
-        str(technician_id),
+
+    normalized_values = {
+        str(value or "").strip().casefold()
+        for value in (inventory.warehouse, inventory.vehicle)
+        if str(value or "").strip()
+    }
+    exact_markers = {
+        str(technician_id).casefold(),
         f"tech-{technician_id}".casefold(),
         f"technicien {technician_id}".casefold(),
     }
     if warehouse is not None:
-        markers.add(str(warehouse.code or "").casefold())
-        markers.add(str(warehouse.name or "").casefold())
-    return any(marker and marker in haystack for marker in markers)
+        exact_markers.update(
+            marker
+            for marker in (
+                str(warehouse.code or "").strip().casefold(),
+                str(warehouse.name or "").strip().casefold(),
+            )
+            if marker
+        )
+    return bool(normalized_values & exact_markers)
 
 
 async def resolve_equipment_scan(
@@ -526,11 +536,14 @@ async def apply_equipment_scan(
     """Resolve a scan and bind only verified serialized inventory to the job.
 
     Unknown codes remain useful field evidence and are not silently rejected.
-    A verified operator mismatch or an inventory item already attached to a
-    different job is a conflict and must be surfaced to the technician.
+    A verified operator mismatch, equipment outside the authenticated technician
+    custody, or an inventory item already attached to a different job is a
+    conflict and must be surfaced to the technician.
     """
 
-    raw_code = str(payload.get("code") or payload.get("value") or payload.get("reference") or "").strip()
+    raw_code = str(
+        payload.get("code") or payload.get("value") or payload.get("reference") or ""
+    ).strip()
     resolved = await resolve_equipment_scan(
         db,
         raw_code=raw_code,
@@ -549,14 +562,18 @@ async def apply_equipment_scan(
             ),
         )
 
+    if resolved["confidence"] == "verified" and not resolved["in_technician_stock"]:
+        raise TechnicianJobMutationError(
+            "conflict",
+            "equipment_not_in_technician_stock",
+            "Cet équipement n'appartient pas à la dotation du technicien connecté",
+        )
+
     inventory_id = resolved.get("inventory_id")
     if inventory_id is not None:
         inventory = await db.get(EquipmentInventory, int(inventory_id))
         if inventory is not None:
-            if (
-                inventory.assigned_job_id is not None
-                and inventory.assigned_job_id != job_id
-            ):
+            if inventory.assigned_job_id is not None and inventory.assigned_job_id != job_id:
                 raise TechnicianJobMutationError(
                     "conflict",
                     "equipment_already_assigned",
