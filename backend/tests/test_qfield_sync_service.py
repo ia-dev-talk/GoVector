@@ -20,6 +20,7 @@ class FakeDb:
         self.rows = rows or []
         self.added = []
         self.commits = 0
+        self.flushes = 0
 
     async def get(self, model, key):
         return self.dataset
@@ -32,6 +33,9 @@ class FakeDb:
 
     def add(self, value):
         self.added.append(value)
+
+    async def flush(self):
+        self.flushes += 1
 
     async def commit(self):
         self.commits += 1
@@ -74,6 +78,7 @@ def dataset_obj():
         public_id="dataset-public-5",
         status="PUBLISHED",
         revision=7,
+        bbox_json={"bounds": [-7.62, 33.59, -7.62, 33.59]},
         updated_at=datetime(2026, 9, 8, 12, 0, tzinfo=timezone.utc),
     )
 
@@ -180,7 +185,11 @@ async def test_apply_clean_feature_increments_feature_and_dataset_revision(monke
     async def inspect(*args, **kwargs):
         return feature, layer, "apply"
 
+    async def refresh_bounds(db_arg, *, dataset):
+        dataset.bbox_json = {"bounds": [-7.6, 33.61, -7.6, 33.61]}
+
     monkeypatch.setattr(service, "_inspect_one", inspect)
+    monkeypatch.setattr(service, "_refresh_dataset_bounds", refresh_bounds)
     monkeypatch.setattr(
         service,
         "_normalize_incoming_feature",
@@ -206,9 +215,11 @@ async def test_apply_clean_feature_increments_feature_and_dataset_revision(monke
     assert result["applied_count"] == 1
     assert feature.revision == 3
     assert dataset.revision == 8
+    assert dataset.bbox_json == {"bounds": [-7.6, 33.61, -7.6, 33.61]}
     assert feature.name == "PBO terrain"
     assert feature.attributes_json == {"capacity": 16}
     assert feature.bbox_json["bounds"] == [-7.6, 33.61, -7.6, 33.61]
     assert feature.updated_by_user_id == 4
+    assert db.flushes == 1
     assert db.commits == 1
     assert len(db.added) == 1
