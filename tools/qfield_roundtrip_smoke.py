@@ -12,8 +12,26 @@ import json
 import os
 from pathlib import Path
 import sys
+from urllib.parse import urlparse
 
 import httpx
+
+
+_LOCAL_HTTP_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _safe_base_url(value: str) -> str:
+    base = str(value or "").strip().rstrip("/")
+    parsed = urlparse(base)
+    if not parsed.scheme or not parsed.hostname:
+        raise SystemExit("BLUEVECTOR_BASE_URL doit être une URL absolue")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise SystemExit("BLUEVECTOR_BASE_URL ne doit pas contenir credentials, query ou fragment")
+    if parsed.scheme == "https":
+        return base
+    if parsed.scheme == "http" and parsed.hostname in _LOCAL_HTTP_HOSTS:
+        return base
+    raise SystemExit("HTTPS est obligatoire pour une cible BlueVector distante")
 
 
 def _json_file(path: Path) -> dict:
@@ -78,7 +96,7 @@ def main() -> int:
     if not args.token:
         parser.error("Admin token missing; set BLUEVECTOR_ADMIN_TOKEN or --token")
 
-    base = args.base_url.rstrip("/")
+    base = _safe_base_url(args.base_url)
     root = f"{base}/api/v1/gis-datasets/{args.dataset_id}/qfield-sync"
     headers = {"Authorization": f"Bearer {args.token}", "Accept": "application/json"}
 
