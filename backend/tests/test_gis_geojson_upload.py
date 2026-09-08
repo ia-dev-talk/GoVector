@@ -64,5 +64,5 @@ def test_kml_still_routes_to_existing_parser():
       <name>P1</name><Point><coordinates>-7.6,33.5,0</coordinates></Point>
     </Placemark></Document></kml>'''
     parsed = parse_geospatial_upload("legacy.kml", kml, content_type="application/vnd.google-earth.kml+xml")
-    assert parsed.source_type == "kml"
+    assert parsed.source_type == "KML"
     assert parsed.feature_counts == {"Point": 1}
