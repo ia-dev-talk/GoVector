@@ -1,6 +1,7 @@
-"""Admin-owned GIS drafts and controlled file exchange; no external synchronization."""
+"""Admin-owned GIS drafts and controlled QGIS/QField exchange."""
 
 from functools import partial
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
 from fastapi.responses import JSONResponse
@@ -12,6 +13,8 @@ from starlette.concurrency import run_in_threadpool
 from backend.auth.dependencies import require_admin
 from backend.database.connection import get_db
 from backend.database.gis_models import GeoDataset, GeoLayer, GeoFeature
+from backend.integrations.qfield import service as qfield_service
+from backend.integrations.qfield.service import QFieldSyncError
 from backend.services.gis import datasets
 from backend.services.gis.kml_parser import GisImportError
 from backend.services.gis.upload_parser import MAX_UPLOAD_BYTES, parse_geospatial_upload
@@ -28,6 +31,13 @@ async def parse_upload(file):
         raise HTTPException(422, str(error)) from error
     finally:
         await file.close()
+
+
+def _qfield_http_exception(error: QFieldSyncError) -> HTTPException:
+    return HTTPException(
+        status_code=error.status_code,
+        detail={"code": error.code, "message": error.message},
+    )
 
 
 @router.post("/preview")
@@ -87,6 +97,66 @@ async def geojson(dataset_id: int = Path(..., gt=0), layer_id: int | None = Quer
     result = await datasets.export_geojson(db, dataset_id=dataset_id, layer_id=layer_id)
     return JSONResponse(jsonable_encoder(result), media_type="application/geo+json",
         headers={"Content-Disposition": f'attachment; filename="bluevector-{dataset_id}.geojson"'})
+
+
+@router.get("/{dataset_id}/qfield-sync")
+async def qfield_sync_export(
+    dataset_id: int = Path(..., gt=0),
+    layer_id: int | None = Query(None, gt=0),
+    db=Depends(get_db),
+):
+    """Export a revision/hash protected FeatureCollection for QField editing."""
+    try:
+        result = await qfield_service.export_dataset(
+            db,
+            dataset_id=dataset_id,
+            layer_id=layer_id,
+        )
+    except QFieldSyncError as error:
+        raise _qfield_http_exception(error) from error
+    return JSONResponse(
+        jsonable_encoder(result),
+        media_type="application/geo+json",
+        headers={
+            "Content-Disposition": f'attachment; filename="bluevector-qfield-{dataset_id}.geojson"'
+        },
+    )
+
+
+@router.post("/{dataset_id}/qfield-sync/preview")
+async def qfield_sync_preview(
+    payload: dict[str, Any],
+    dataset_id: int = Path(..., gt=0),
+    db=Depends(get_db),
+):
+    """Preflight a QField changeset without mutating BlueVector."""
+    try:
+        return await qfield_service.preview_changes(
+            db,
+            dataset_id=dataset_id,
+            collection=payload,
+        )
+    except QFieldSyncError as error:
+        raise _qfield_http_exception(error) from error
+
+
+@router.post("/{dataset_id}/qfield-sync/apply")
+async def qfield_sync_apply(
+    payload: dict[str, Any],
+    dataset_id: int = Path(..., gt=0),
+    db=Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Apply a conflict-free QField changeset as one audited transaction."""
+    try:
+        return await qfield_service.apply_changes(
+            db,
+            dataset_id=dataset_id,
+            collection=payload,
+            user=user,
+        )
+    except QFieldSyncError as error:
+        raise _qfield_http_exception(error) from error
 
 
 @router.get("/{dataset_id}/preview")
