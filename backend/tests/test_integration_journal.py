@@ -2,7 +2,7 @@ from backend.database.integration_models import (
     IntegrationExchange,
     IntegrationExternalReference,
 )
-from backend.integrations.journal import canonical_payload_hash
+from backend.integrations.journal import _advisory_lock_id, canonical_payload_hash
 
 
 def test_payload_hash_is_stable_across_key_order():
@@ -13,6 +13,13 @@ def test_payload_hash_is_stable_across_key_order():
 
 def test_payload_hash_changes_when_business_payload_changes():
     assert canonical_payload_hash({"quantity": 1}) != canonical_payload_hash({"quantity": 2})
+
+
+def test_advisory_lock_identity_is_stable_and_namespace_sensitive():
+    value = _advisory_lock_id("integration-exchange:praxedo:outbound:event-42")
+    assert value == _advisory_lock_id("integration-exchange:praxedo:outbound:event-42")
+    assert value != _advisory_lock_id("integration-exchange:praxedo:outbound:event-43")
+    assert -(2**63) <= value < 2**63
 
 
 def test_exchange_table_has_idempotency_uniqueness_contract():
