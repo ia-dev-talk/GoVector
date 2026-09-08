@@ -18,10 +18,11 @@ class FakeDb:
 class FakeClient:
     RETRYABLE_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
 
-    def __init__(self, *, response=None, error=None):
+    def __init__(self, *, response=None, error=None, idempotency_header=None):
         self.response = response
         self.error = error
         self.calls = []
+        self.config = SimpleNamespace(idempotency_header=idempotency_header)
 
     async def post(self, operation, **kwargs):
         self.calls.append(("POST", operation, kwargs))
@@ -82,6 +83,13 @@ def test_safe_response_meta_does_not_persist_remote_business_payload():
         "keys": ["id", "status"],
     }
     assert executor.safe_response_meta([1, 2, 3]) == {"kind": "json_array", "length": 3}
+
+
+def test_tenant_replay_requires_explicit_idempotency_header():
+    assert executor._tenant_supports_idempotent_replay(FakeClient()) is False
+    assert executor._tenant_supports_idempotent_replay(
+        FakeClient(idempotency_header="Idempotency-Key")
+    ) is True
 
 
 @pytest.mark.asyncio
@@ -191,6 +199,57 @@ async def test_retryable_receipt_waits_until_due(monkeypatch):
 
     assert result.status == "retryable"
     assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_indeterminate_sending_receipt_is_not_replayed_without_remote_idempotency(monkeypatch):
+    receipt = exchange(status="sending", attempts=0)
+
+    async def reserve(*args, **kwargs):
+        return receipt, False
+
+    monkeypatch.setattr(executor, "reserve_exchange", reserve)
+    client = FakeClient(response={"unexpected": True})
+
+    with pytest.raises(executor.PraxedoDispatchError, match="indeterminate"):
+        await executor.dispatch_outbound(
+            FakeDb(),
+            client,
+            endpoint_operation="stock_movement_write",
+            idempotency_key="movement:99",
+            mapped_payload={"quantity": 5},
+        )
+
+    assert receipt.status == "sending"
+    assert client.calls == []
+
+
+@pytest.mark.asyncio
+async def test_indeterminate_sending_receipt_can_replay_with_tenant_idempotency(monkeypatch):
+    receipt = exchange(status="sending", attempts=0)
+
+    async def reserve(*args, **kwargs):
+        return receipt, False
+
+    monkeypatch.setattr(executor, "reserve_exchange", reserve)
+    monkeypatch.setattr(executor, "mark_exchange_result", fake_mark)
+    client = FakeClient(
+        response={"status": "ok"},
+        idempotency_header="Idempotency-Key",
+    )
+
+    result = await executor.dispatch_outbound(
+        FakeDb(),
+        client,
+        endpoint_operation="stock_movement_write",
+        idempotency_key="movement:99",
+        mapped_payload={"quantity": 5},
+    )
+
+    assert result.status == "acknowledged"
+    assert result.attempts == 1
+    assert len(client.calls) == 1
+    assert client.calls[0][2]["idempotency_key"] == "movement:99"
 
 
 @pytest.mark.asyncio
