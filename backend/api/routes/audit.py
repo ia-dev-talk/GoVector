@@ -11,6 +11,7 @@ from backend.auth.dependencies import require_admin, require_chef_orienteur
 from backend.database.connection import get_db
 from backend.database.integration_models import IntegrationExchange
 from backend.database.models import JobActivityLog, User
+from backend.integrations.exchange_state import ACTIONABLE_EXCHANGE_STATUSES
 from backend.integrations.praxedo.client import PraxedoClient, PraxedoConfig, PraxedoError
 from backend.integrations.praxedo.readiness import inspect_praxedo_readiness
 from backend.integrations.praxedo.smoke import PraxedoSmokeError, smoke_read
@@ -147,7 +148,7 @@ async def get_integration_exchange_journal(
     exchange_status: str | None = Query(
         default=None,
         alias="status",
-        pattern="^(pending|sending|acknowledged|retryable|rejected)$",
+        pattern="^(pending|sending|acknowledged|retryable|rejected|indeterminate)$",
     ),
     operation: str | None = Query(default=None, max_length=80),
     entity_type: str | None = Query(default=None, max_length=64),
@@ -251,7 +252,7 @@ async def get_integration_exchange_summary(
     actionable = sum(
         int(count)
         for _system, _direction, status_value, count in rows
-        if status_value in {"pending", "sending", "retryable", "rejected"}
+        if status_value in ACTIONABLE_EXCHANGE_STATUSES
     )
     return {
         "total": total,
