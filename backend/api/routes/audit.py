@@ -8,6 +8,7 @@ from backend.auth.dependencies import require_admin, require_chef_orienteur
 from backend.database.connection import get_db
 from backend.database.integration_models import IntegrationExchange
 from backend.database.models import JobActivityLog, User
+from backend.integrations.praxedo.readiness import inspect_praxedo_readiness
 
 
 router = APIRouter(tags=["Audit & Security"])
@@ -69,6 +70,15 @@ async def get_audit_summary(
             for action, count in grouped
         ],
     }
+
+
+@router.get("/audit/integrations/readiness/praxedo")
+async def get_praxedo_integration_readiness(
+    _current_user: User = Depends(require_admin),
+):
+    """Return configuration readiness without tenant URLs or credentials."""
+
+    return inspect_praxedo_readiness()
 
 
 @router.get("/audit/integrations")
