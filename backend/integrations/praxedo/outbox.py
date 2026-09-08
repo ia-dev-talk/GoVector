@@ -18,7 +18,7 @@ from typing import Any, Mapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.integration_models import IntegrationExchange
-from backend.integrations.journal import claim_exchange_attempt, finish_exchange_attempt
+from backend.integrations.exchange_state import claim_exchange_attempt, finish_exchange_attempt
 from backend.integrations.praxedo.client import PraxedoClient, PraxedoConfig, PraxedoError
 from backend.integrations.praxedo.smoke import describe_response
 from backend.integrations.praxedo.write_contract import (
@@ -191,8 +191,8 @@ async def execute_exchange(
     resolved_config = config or PraxedoConfig.from_env()
     resolved_contract = contract or PraxedoWriteContract.from_env()
 
-    # Lock/read first so validation happens against the exact receipt that will
-    # be claimed.  claim_exchange_attempt repeats the lock before state change.
+    # Validate before claiming so bad tenant mapping never creates a `sending`
+    # receipt. claim_exchange_attempt repeats the row lock before state change.
     exchange = await db.get(IntegrationExchange, exchange_id)
     if exchange is None:
         raise PraxedoOutboxError("outbox_exchange_not_found", "Échange d'intégration introuvable")
@@ -203,6 +203,7 @@ async def execute_exchange(
     )
 
     claimed = await claim_exchange_attempt(db, exchange_id=exchange_id)
+    claimed_id = claimed.id
     await db.commit()  # persist `sending` before any external side effect
 
     owns_client = client is None
@@ -223,7 +224,7 @@ async def execute_exchange(
             next_attempt_at = datetime.now(timezone.utc) + timedelta(seconds=retry_delay_seconds)
         result = await finish_exchange_attempt(
             db,
-            exchange_id=claimed.id,
+            exchange_id=claimed_id,
             status=state,
             http_status=exc.status_code,
             error=f"{exc.code}: {exc.message}"[:4000],
@@ -238,7 +239,7 @@ async def execute_exchange(
 
     result = await finish_exchange_attempt(
         db,
-        exchange_id=claimed.id,
+        exchange_id=claimed_id,
         status="acknowledged",
         response_meta={
             "response": describe_response(response),
