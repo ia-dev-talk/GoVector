@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import json
 from typing import Any, Mapping
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.gis_models import GeoDataset, GeoFeature, GeoFeatureRevision, GeoLayer
@@ -253,6 +253,23 @@ async def preview_changes(
     }
 
 
+async def _refresh_dataset_bounds(db: AsyncSession, *, dataset: GeoDataset) -> None:
+    row = (
+        await db.execute(
+            select(
+                func.min(GeoFeature.bbox_min_longitude),
+                func.min(GeoFeature.bbox_min_latitude),
+                func.max(GeoFeature.bbox_max_longitude),
+                func.max(GeoFeature.bbox_max_latitude),
+            )
+            .join(GeoLayer, GeoFeature.layer_id == GeoLayer.id)
+            .where(GeoLayer.dataset_id == dataset.id)
+        )
+    ).one()
+    if all(value is not None for value in row):
+        dataset.bbox_json = {"bounds": [float(value) for value in row]}
+
+
 async def apply_changes(
     db: AsyncSession,
     *,
@@ -348,6 +365,8 @@ async def apply_changes(
     if applied:
         dataset.revision = int(dataset.revision or 0) + 1
         dataset.updated_at = now
+        await db.flush()
+        await _refresh_dataset_bounds(db, dataset=dataset)
     await db.commit()
     return {
         "status": "applied" if applied else "noop",
