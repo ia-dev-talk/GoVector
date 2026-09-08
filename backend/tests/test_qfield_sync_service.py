@@ -49,6 +49,7 @@ def feature_obj(**overrides):
         "name": "PBO 9",
         "asset_type": "PBO",
         "status": "ACTIVE",
+        "job_id": None,
         "attributes_json": {"capacity": 8},
         "geometry_geojson": {"type": "Point", "coordinates": [-7.62, 33.59]},
         "geometry_type": "Point",
