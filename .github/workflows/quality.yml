@@ -104,7 +104,12 @@ jobs:
         run: >-
           flutter build apk --release --no-pub
           --dart-define=API_BASE_URL=https://api.invalid/api/v1
-      - uses: actions/upload-artifact@v4
+      - name: Publish pilot APK artifact
+        # Artifact storage is an external GitHub account quota. The APK build
+        # itself remains a hard release gate above; a full artifact quota must
+        # not turn a valid source/build into a false-negative CI result.
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
         with:
           name: bluevector-pilot-apk
           path: mobile_app/build/app/outputs/flutter-apk/app-release.apk
