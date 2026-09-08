@@ -1,6 +1,6 @@
 """Configuration-driven Praxedo REST transport.
 
-No Praxedo endpoint path is hard-coded here.  Exact operation paths must be
+No Praxedo endpoint path is hard-coded here. Exact operation paths must be
 copied from the customer's Praxedo API documentation into PRAXEDO_ENDPOINTS_JSON.
 This prevents a staging/production tenant from being called with guessed API
 contracts while still letting BlueVector ship the integration plumbing early.
@@ -42,6 +42,7 @@ class PraxedoConfig:
     timeout_seconds: float = 20.0
     max_retries: int = 2
     extra_headers: Mapping[str, str] = field(default_factory=dict)
+    idempotency_header: str | None = None
 
     def __post_init__(self) -> None:
         parsed = urlparse(self.base_url)
@@ -66,6 +67,10 @@ class PraxedoConfig:
             parsed_path = urlparse(str(path))
             if parsed_path.scheme or parsed_path.netloc or str(path).startswith("//"):
                 raise ValueError("Les endpoints Praxedo doivent être des chemins relatifs")
+        if self.idempotency_header is not None:
+            header = self.idempotency_header.strip()
+            if not header or any(char in header for char in "\r\n:"):
+                raise ValueError("PRAXEDO_IDEMPOTENCY_HEADER est invalide")
 
     @classmethod
     def from_env(cls) -> "PraxedoConfig":
@@ -99,6 +104,7 @@ class PraxedoConfig:
             timeout_seconds=float(os.getenv("PRAXEDO_TIMEOUT_SECONDS", "20")),
             max_retries=int(os.getenv("PRAXEDO_MAX_RETRIES", "2")),
             extra_headers=headers,
+            idempotency_header=os.getenv("PRAXEDO_IDEMPOTENCY_HEADER"),
         )
 
 
@@ -200,15 +206,10 @@ class PraxedoClient:
         url = self.endpoint(operation, **dict(path_params or {}))
         method = method.upper().strip()
         headers = await self._headers()
-        if idempotency_key:
-            # Only used when the tenant/API contract confirms support for an
-            # idempotency header. The header name itself is configurable.
-            header_name = self.config.extra_headers.get(
-                "BlueVector-Idempotency-Header", ""
-            )
-            if header_name:
-                headers.pop("BlueVector-Idempotency-Header", None)
-                headers[header_name] = idempotency_key
+        if idempotency_key and self.config.idempotency_header:
+            # Enabled only when the tenant/API documentation confirms that the
+            # chosen Praxedo operation supports such a header.
+            headers[self.config.idempotency_header] = idempotency_key
 
         basic_auth = None
         if self.config.auth_mode.strip().lower() == "basic":
