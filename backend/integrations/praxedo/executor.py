@@ -40,14 +40,12 @@ def retry_delay(attempts_completed: int) -> timedelta:
 
 
 def error_outcome(error: PraxedoError) -> str:
-    """Classify a Praxedo failure as retryable or terminal for this receipt."""
+    """Classify a definite Praxedo failure as retryable or terminal."""
 
     if error.code in _RETRYABLE_ERROR_CODES:
         return "retryable"
     if error.status_code in PraxedoClient.RETRYABLE_STATUS_CODES:
         return "retryable"
-    # OAuth rejection, tenant validation errors, unsupported operations and
-    # other deterministic 4xx/config failures require human/config correction.
     return "rejected"
 
 
@@ -88,16 +86,10 @@ async def dispatch_outbound(
 ) -> IntegrationExchange:
     """Reserve and execute one tenant-mapped Praxedo request safely.
 
-    Replaying the same idempotency key with the same request returns the same
-    receipt. Already acknowledged/rejected receipts are never sent again.
-    Retryable receipts may be called again once ``next_attempt_at`` is due.
-
-    A pre-existing ``sending`` receipt is an *indeterminate remote outcome*: the
-    process may have crashed after Praxedo accepted the write but before
-    BlueVector persisted the acknowledgement. Such a request is replayed only
-    if the tenant contract explicitly configured an idempotency header. Without
-    that guarantee, automatic replay is blocked to prevent duplicate stock or
-    work-report side effects and the receipt remains visible for reconciliation.
+    A pre-existing ``sending`` receipt is an indeterminate remote outcome. It is
+    replayed only when the tenant contract explicitly configured idempotency.
+    A newly ambiguous non-idempotent network result is persisted as ``sending``
+    and returned for operator reconciliation instead of being queued for retry.
     """
 
     normalized_method = method.upper().strip()
@@ -146,8 +138,6 @@ async def dispatch_outbound(
         if due_at > clock:
             return exchange
 
-    # Do not increment the business attempt count until the remote call has
-    # produced an outcome. ``mark_exchange_result`` increments exactly once.
     exchange.status = "sending"
     exchange.next_attempt_at = None
     await db.flush()
@@ -168,6 +158,21 @@ async def dispatch_outbound(
                 idempotency_key=idempotency_key,
             )
     except PraxedoError as exc:
+        if exc.code == "indeterminate_write":
+            # The request may already have produced a remote side effect. Keep
+            # the receipt non-terminal and do not schedule any automatic replay.
+            return await mark_exchange_result(
+                db,
+                exchange,
+                status="sending",
+                http_status=exc.status_code,
+                error=f"{exc.code}: {exc.message}",
+                response_meta={
+                    "error_code": exc.code,
+                    "reconciliation_required": True,
+                },
+            )
+
         outcome = error_outcome(exc)
         next_attempt_at = None
         if outcome == "retryable":
@@ -182,9 +187,9 @@ async def dispatch_outbound(
             next_attempt_at=next_attempt_at,
         )
     except Exception:
-        # Programming/process errors must not be converted to a definitive
-        # remote outcome. The row intentionally stays ``sending`` so operators
-        # can reconcile it before any non-idempotent replay.
+        # Programming/process errors keep the in-memory row ``sending``. The
+        # caller must rollback or persist/reconcile according to its transaction
+        # boundary; no automatic remote replay is inferred here.
         raise
 
     return await mark_exchange_result(
