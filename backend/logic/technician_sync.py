@@ -12,6 +12,7 @@ from backend.api.schemas.tech_sync import (
 )
 from backend.api.errors import BusinessAPIError
 from backend.database.models import Job, TechnicianSyncEvent, User
+from backend.logic.cable_classification import normalize_cable_capture_payload
 from backend.logic.cable_measurements import apply_cable_endpoint_projection
 from backend.logic.technician_field_actions import (
     SUPPORTED_FIELD_ACTION_TYPES,
@@ -175,6 +176,11 @@ async def _dispatch(
         elif event.type in {"cable_entry", "cable_exit"} and isinstance(
             db, AsyncSession
         ):
+            await normalize_cable_capture_payload(
+                db,
+                payload=field_payload,
+                current_user=current_user,
+            )
             await apply_cable_endpoint_projection(
                 db,
                 job_id=event.job_id,
