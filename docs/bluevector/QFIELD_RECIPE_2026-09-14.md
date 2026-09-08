@@ -28,6 +28,43 @@ Références officielles :
 - Un `GeoDataset` publié.
 - QGIS ou QField capable d'ouvrir/modifier un GeoJSON sans supprimer les propriétés `_bv_*`.
 
+### Outil de smoke fourni
+
+Le dépôt contient :
+
+```text
+tools/qfield_roundtrip_smoke.py
+```
+
+Le token admin doit de préférence rester dans une variable d'environnement :
+
+```bash
+export BLUEVECTOR_ADMIN_TOKEN='...'
+export BLUEVECTOR_BASE_URL='http://localhost:8080'
+python tools/qfield_roundtrip_smoke.py --dataset-id 1
+```
+
+Ce mode exporte seulement le fichier `bluevector-qfield-export.geojson`.
+
+Pour prévisualiser un fichier modifié sans écrire :
+
+```bash
+python tools/qfield_roundtrip_smoke.py \
+  --dataset-id 1 \
+  --changed-file terrain-modifie.geojson
+```
+
+Pour appliquer explicitement un lot déjà prévisualisé :
+
+```bash
+python tools/qfield_roundtrip_smoke.py \
+  --dataset-id 1 \
+  --changed-file terrain-modifie.geojson \
+  --apply
+```
+
+Le script refuse l'apply lorsqu'un conflit est détecté et n'écrit jamais sans `--apply`.
+
 ### 1. Exporter le dataset pour QField
 
 ```text
@@ -211,6 +248,7 @@ La recette QField est considérée prête uniquement si :
 - [ ] preview/apply validés ;
 - [ ] conflit stale validé ;
 - [ ] aucune écriture partielle en cas de conflit ;
+- [ ] smoke CLI exécuté sur l'environnement de recette ;
 - [ ] QGIS ouvre les couches attendues ;
 - [ ] Android ouvre le projet ;
 - [ ] modification offline possible ;
