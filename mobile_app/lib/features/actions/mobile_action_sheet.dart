@@ -10,6 +10,7 @@ import '../../services/location_service.dart';
 import '../../services/intervention_service.dart';
 import '../../services/offline_service.dart';
 import '../../widgets/barcode_scanner_widget.dart';
+import 'cable_endpoint_screen.dart';
 import 'client_signature_screen.dart';
 import 'free_document_action_screen.dart';
 import 'free_measurement_action_screen.dart';
@@ -583,9 +584,8 @@ Future<void> showMobileActionSheet({
           label: label('cable_entry', 'Entrée câble'),
           icon: Icons.login_rounded,
           color: BlueVectorColors.cyan,
-          onTap: () => recordGps(
-            action: 'cable_entry',
-            successMessage: 'Entrée de câble enregistrée.',
+          onTap: () => openScreen(
+            CableEndpointScreen(jobId: job.id, actionType: 'cable_entry'),
           ),
         ),
         _MobileAction(
@@ -594,9 +594,8 @@ Future<void> showMobileActionSheet({
           label: label('cable_exit', 'Sortie câble'),
           icon: Icons.logout_rounded,
           color: BlueVectorColors.cyan,
-          onTap: () => recordGps(
-            action: 'cable_exit',
-            successMessage: 'Sortie de câble enregistrée.',
+          onTap: () => openScreen(
+            CableEndpointScreen(jobId: job.id, actionType: 'cable_exit'),
           ),
         ),
         _MobileAction(
