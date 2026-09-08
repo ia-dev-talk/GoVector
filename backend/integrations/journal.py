@@ -7,7 +7,7 @@ from hashlib import sha256
 import json
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.integration_models import (
@@ -35,6 +35,34 @@ def canonical_payload_hash(payload: Any) -> str:
     return sha256(encoded).hexdigest()
 
 
+def _advisory_lock_id(namespace: str) -> int:
+    """Map an integration identity to a stable signed PostgreSQL bigint lock."""
+
+    return int.from_bytes(
+        sha256(namespace.encode("utf-8")).digest()[:8],
+        byteorder="big",
+        signed=True,
+    )
+
+
+async def _acquire_advisory_locks(db: AsyncSession, *namespaces: str) -> None:
+    """Serialize create-if-absent decisions for the duration of the transaction.
+
+    ``SELECT ... FOR UPDATE`` cannot lock a row that does not exist yet. Stable
+    transaction-scoped advisory locks close that gap so concurrent workers see
+    one deterministic receipt/reference instead of racing into a unique-key
+    ``IntegrityError``. Locks are acquired in sorted numeric order to avoid
+    deadlocks when two reference identities need to be protected together.
+    """
+
+    lock_ids = sorted({_advisory_lock_id(namespace) for namespace in namespaces})
+    for lock_id in lock_ids:
+        await db.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_id)"),
+            {"lock_id": lock_id},
+        )
+
+
 async def bind_external_reference(
     db: AsyncSession,
     *,
@@ -55,6 +83,12 @@ async def bind_external_reference(
     external_id = external_id.strip()
     if not system or not entity_type or not external_id or local_entity_id <= 0:
         raise IntegrationConflict("invalid_external_reference", "Référence externe invalide")
+
+    await _acquire_advisory_locks(
+        db,
+        f"integration-ref:local:{system}:{entity_type}:{local_entity_id}",
+        f"integration-ref:external:{system}:{entity_type}:{external_id}",
+    )
 
     local = await db.scalar(
         select(IntegrationExternalReference)
@@ -134,7 +168,7 @@ async def reserve_exchange(
     external_id: str | None = None,
     occurred_at: datetime | None = None,
 ) -> tuple[IntegrationExchange, bool]:
-    """Reserve an idempotent exchange receipt.
+    """Reserve an idempotent exchange receipt safely under concurrency.
 
     Returns ``(exchange, created)``. Replays with the same key and identical
     payload return the existing receipt. Reusing the key for another payload is
@@ -149,6 +183,11 @@ async def reserve_exchange(
         raise IntegrationConflict("invalid_direction", "Direction d'intégration invalide")
     if not normalized_system or not normalized_operation or not normalized_key:
         raise IntegrationConflict("invalid_exchange", "Échange d'intégration incomplet")
+
+    await _acquire_advisory_locks(
+        db,
+        f"integration-exchange:{normalized_system}:{normalized_direction}:{normalized_key}",
+    )
 
     request_hash = canonical_payload_hash(payload)
     existing = await db.scalar(
