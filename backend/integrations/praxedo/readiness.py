@@ -25,10 +25,15 @@ DELIVERY_REQUIRED_WRITE_OPERATIONS = (
     "work_report_write",
     "stock_movement_write",
 )
+_ALLOWED_WRITE_METHODS = frozenset({"POST", "PUT", "PATCH"})
 
 
 def _present(value: str | None) -> bool:
     return bool(str(value or "").strip())
+
+
+def _truthy(value: str | None) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _https_url(value: str | None) -> bool:
@@ -121,6 +126,34 @@ def inspect_praxedo_readiness(
         if operation not in configured_aliases
     ]
 
+    write_methods, write_methods_json_valid = _json_object(
+        source.get("PRAXEDO_WRITE_METHODS_JSON")
+    )
+    write_methods_valid = write_methods_json_valid and all(
+        operation in DELIVERY_REQUIRED_WRITE_OPERATIONS
+        and str(method).strip().upper() in _ALLOWED_WRITE_METHODS
+        for operation, method in write_methods.items()
+    )
+    configured_write_methods = sorted(
+        operation
+        for operation, method in write_methods.items()
+        if operation in DELIVERY_REQUIRED_WRITE_OPERATIONS
+        and str(method).strip().upper() in _ALLOWED_WRITE_METHODS
+    )
+    missing_write_methods = [
+        operation
+        for operation in DELIVERY_REQUIRED_WRITE_OPERATIONS
+        if operation not in configured_write_methods
+    ]
+    write_contract_confirmed = _truthy(source.get("PRAXEDO_WRITE_CONTRACT_CONFIRMED"))
+    write_contract_version_present = _present(source.get("PRAXEDO_WRITE_CONTRACT_VERSION"))
+    write_contract_ready = (
+        write_contract_confirmed
+        and write_contract_version_present
+        and write_methods_valid
+        and not missing_write_methods
+    )
+
     base_url_valid = _https_url(base_url)
     transport_configured = (
         base_url_valid
@@ -133,7 +166,7 @@ def inspect_praxedo_readiness(
         and retries_valid
     )
     ready_for_read = transport_configured and not missing_read
-    ready_for_write = transport_configured and not missing_write
+    ready_for_write = transport_configured and not missing_write and write_contract_ready
 
     idempotency_header_present = _present(source.get("PRAXEDO_IDEMPOTENCY_HEADER"))
     idempotency_header_valid = _idempotency_header_valid(
@@ -161,7 +194,14 @@ def inspect_praxedo_readiness(
         missing.append("max_retries")
     if idempotency_header_present and not idempotency_header_valid:
         missing.append("idempotency_header")
+    if not write_methods_json_valid or not write_methods_valid:
+        missing.append("write_methods_json")
+    if not write_contract_confirmed:
+        missing.append("write_contract_confirmation")
+    if not write_contract_version_present:
+        missing.append("write_contract_version")
     missing.extend(f"operation:{operation}" for operation in [*missing_read, *missing_write])
+    missing.extend(f"write_method:{operation}" for operation in missing_write_methods)
 
     return {
         "configured": transport_configured,
@@ -177,6 +217,12 @@ def inspect_praxedo_readiness(
         "missing_read_operations": missing_read,
         "missing_write_operations": missing_write,
         "ready_for_read": ready_for_read,
+        "write_contract_confirmed": write_contract_confirmed,
+        "write_contract_version_present": write_contract_version_present,
+        "write_methods_json_valid": write_methods_json_valid and write_methods_valid,
+        "configured_write_method_aliases": configured_write_methods,
+        "missing_write_method_aliases": missing_write_methods,
+        "write_contract_ready": write_contract_ready,
         "ready_for_write": ready_for_write,
         "idempotency_header_configured": idempotency_header_present,
         "idempotency_header_valid": idempotency_header_valid,
