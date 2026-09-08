@@ -79,3 +79,82 @@ def test_idempotency_header_is_only_sent_when_explicitly_configured():
         assert observed["idempotency-key"] == "bv-event-123"
 
     asyncio.run(run())
+
+
+def test_non_idempotent_write_timeout_is_never_retried():
+    async def run():
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            raise httpx.ReadTimeout("ambiguous timeout", request=request)
+
+        config = _basic_config(max_retries=3)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as raw_client:
+            client = PraxedoClient(config, client=raw_client)
+            with pytest.raises(PraxedoError) as exc_info:
+                await client.post(
+                    "consumption",
+                    json_body={"quantity": 1},
+                    idempotency_key="bv-event-unsafe",
+                )
+
+        assert exc_info.value.code == "indeterminate_write"
+        assert calls == 1
+
+    asyncio.run(run())
+
+
+def test_idempotent_write_timeout_can_use_bounded_retries():
+    async def run():
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            raise httpx.ReadTimeout("temporary timeout", request=request)
+
+        config = _basic_config(
+            max_retries=2,
+            idempotency_header="Idempotency-Key",
+        )
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as raw_client:
+            client = PraxedoClient(config, client=raw_client)
+            with pytest.raises(PraxedoError) as exc_info:
+                await client.post(
+                    "consumption",
+                    json_body={"quantity": 1},
+                    idempotency_key="bv-event-safe",
+                )
+
+        assert exc_info.value.code == "transport_error"
+        assert calls == 3
+
+    asyncio.run(run())
+
+
+def test_non_idempotent_write_retryable_http_status_is_indeterminate():
+    async def run():
+        calls = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            return httpx.Response(503, request=request)
+
+        config = _basic_config(max_retries=3)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as raw_client:
+            client = PraxedoClient(config, client=raw_client)
+            with pytest.raises(PraxedoError) as exc_info:
+                await client.post(
+                    "consumption",
+                    json_body={"quantity": 1},
+                    idempotency_key="bv-event-503",
+                )
+
+        assert exc_info.value.code == "indeterminate_write"
+        assert exc_info.value.status_code == 503
+        assert calls == 1
+
+    asyncio.run(run())
