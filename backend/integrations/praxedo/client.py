@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 import json
 import os
 from typing import Any, Mapping
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote, urljoin, urlparse
 
 import httpx
 
@@ -142,8 +142,12 @@ class PraxedoClient:
                 "operation_not_configured",
                 f"Opération Praxedo non configurée : {operation}",
             )
+        encoded_params = {
+            key: quote(str(value), safe="")
+            for key, value in path_params.items()
+        }
         try:
-            path = template.format_map({key: str(value) for key, value in path_params.items()})
+            path = template.format_map(encoded_params)
         except KeyError as exc:
             raise PraxedoError(
                 "endpoint_parameter_missing",
