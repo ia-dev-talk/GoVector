@@ -112,6 +112,7 @@ class PraxedoClient:
     """Small async REST client with Basic/OAuth2 auth and bounded retries."""
 
     RETRYABLE_STATUS_CODES = {408, 425, 429, 500, 502, 503, 504}
+    SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
     def __init__(
         self,
@@ -193,6 +194,15 @@ class PraxedoClient:
             headers["Authorization"] = f"Bearer {await self._oauth_token()}"
         return headers
 
+    def _request_is_replay_safe(self, method: str, idempotency_key: str | None) -> bool:
+        if method in self.SAFE_METHODS:
+            return True
+        return bool(
+            idempotency_key
+            and self.config.idempotency_header
+            and str(self.config.idempotency_header).strip()
+        )
+
     async def request(
         self,
         method: str,
@@ -215,6 +225,7 @@ class PraxedoClient:
         if self.config.auth_mode.strip().lower() == "basic":
             basic_auth = (self.config.username or "", self.config.password or "")
 
+        replay_safe = self._request_is_replay_safe(method, idempotency_key)
         attempts = max(0, int(self.config.max_retries)) + 1
         for attempt in range(attempts):
             try:
@@ -228,26 +239,39 @@ class PraxedoClient:
                     timeout=self.config.timeout_seconds,
                 )
             except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                if not replay_safe:
+                    # For a non-idempotent write, the connection outcome alone
+                    # cannot prove that Praxedo did not persist the request.
+                    raise PraxedoError("indeterminate_write", str(exc)) from exc
                 if attempt + 1 >= attempts:
                     raise PraxedoError("transport_error", str(exc)) from exc
                 await asyncio.sleep(min(0.25 * (2**attempt), 2.0))
                 continue
 
             if response.status_code == 401 and self.config.auth_mode.strip().lower() == "oauth2":
+                # A 401 is a definite authentication rejection, so refreshing
+                # the token and retrying does not duplicate a business write.
                 if attempt + 1 < attempts:
                     headers["Authorization"] = f"Bearer {await self._oauth_token(force_refresh=True)}"
                     continue
 
-            if response.status_code in self.RETRYABLE_STATUS_CODES and attempt + 1 < attempts:
-                retry_after = response.headers.get("Retry-After")
-                try:
-                    delay = min(max(float(retry_after or 0), 0.0), 5.0)
-                except ValueError:
-                    delay = 0.0
-                if delay <= 0:
-                    delay = min(0.25 * (2**attempt), 2.0)
-                await asyncio.sleep(delay)
-                continue
+            if response.status_code in self.RETRYABLE_STATUS_CODES:
+                if not replay_safe:
+                    raise PraxedoError(
+                        "indeterminate_write",
+                        f"Praxedo a répondu HTTP {response.status_code} à une écriture non idempotente",
+                        status_code=response.status_code,
+                    )
+                if attempt + 1 < attempts:
+                    retry_after = response.headers.get("Retry-After")
+                    try:
+                        delay = min(max(float(retry_after or 0), 0.0), 5.0)
+                    except ValueError:
+                        delay = 0.0
+                    if delay <= 0:
+                        delay = min(0.25 * (2**attempt), 2.0)
+                    await asyncio.sleep(delay)
+                    continue
 
             if response.status_code >= 400:
                 raise PraxedoError(
