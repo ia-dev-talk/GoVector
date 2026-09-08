@@ -1,8 +1,8 @@
 """Durable Praxedo outbound execution on top of the integration journal.
 
-This module deliberately accepts a *tenant-mapped* request body.  BlueVector's
+This module deliberately accepts a *tenant-mapped* request body. BlueVector's
 canonical payloads must first be converted by a tenant adapter using the exact
-Praxedo contract.  Sending the canonical shape directly would silently assume
+Praxedo contract. Sending the canonical shape directly would silently assume
 field names that are not part of the customer's documented API.
 """
 
@@ -64,6 +64,13 @@ def safe_response_meta(value: Any) -> dict[str, Any]:
     return {"kind": type(value).__name__}
 
 
+def _tenant_supports_idempotent_replay(client: PraxedoClient) -> bool:
+    """Return true only when the tenant contract explicitly configured a header."""
+
+    header = getattr(getattr(client, "config", None), "idempotency_header", None)
+    return bool(str(header or "").strip())
+
+
 async def dispatch_outbound(
     db: AsyncSession,
     client: PraxedoClient,
@@ -82,8 +89,15 @@ async def dispatch_outbound(
     """Reserve and execute one tenant-mapped Praxedo request safely.
 
     Replaying the same idempotency key with the same request returns the same
-    receipt.  Already acknowledged/rejected receipts are never sent again.
+    receipt. Already acknowledged/rejected receipts are never sent again.
     Retryable receipts may be called again once ``next_attempt_at`` is due.
+
+    A pre-existing ``sending`` receipt is an *indeterminate remote outcome*: the
+    process may have crashed after Praxedo accepted the write but before
+    BlueVector persisted the acknowledgement. Such a request is replayed only
+    if the tenant contract explicitly configured an idempotency header. Without
+    that guarantee, automatic replay is blocked to prevent duplicate stock or
+    work-report side effects and the receipt remains visible for reconciliation.
     """
 
     normalized_method = method.upper().strip()
@@ -98,7 +112,7 @@ async def dispatch_outbound(
         "path_params": dict(path_params or {}),
         "body": mapped_payload,
     }
-    exchange, _created = await reserve_exchange(
+    exchange, created = await reserve_exchange(
         db,
         system="praxedo",
         direction="outbound",
@@ -114,6 +128,16 @@ async def dispatch_outbound(
     if exchange.status in _TERMINAL:
         return exchange
 
+    if (
+        not created
+        and exchange.status == "sending"
+        and not _tenant_supports_idempotent_replay(client)
+    ):
+        raise PraxedoDispatchError(
+            "Praxedo outcome indeterminate: automatic replay blocked until "
+            "the remote result is reconciled or tenant idempotency is configured"
+        )
+
     clock = now or datetime.now(timezone.utc)
     if exchange.status == "retryable" and exchange.next_attempt_at:
         due_at = exchange.next_attempt_at
@@ -123,7 +147,7 @@ async def dispatch_outbound(
             return exchange
 
     # Do not increment the business attempt count until the remote call has
-    # produced an outcome.  ``mark_exchange_result`` increments exactly once.
+    # produced an outcome. ``mark_exchange_result`` increments exactly once.
     exchange.status = "sending"
     exchange.next_attempt_at = None
     await db.flush()
@@ -158,8 +182,9 @@ async def dispatch_outbound(
             next_attempt_at=next_attempt_at,
         )
     except Exception:
-        # Programming errors must not be converted to business receipts.  Leave
-        # the row as ``sending`` so operators can see an interrupted execution.
+        # Programming/process errors must not be converted to a definitive
+        # remote outcome. The row intentionally stays ``sending`` so operators
+        # can reconcile it before any non-idempotent replay.
         raise
 
     return await mark_exchange_result(
