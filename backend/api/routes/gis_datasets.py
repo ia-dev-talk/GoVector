@@ -13,7 +13,8 @@ from backend.auth.dependencies import require_admin
 from backend.database.connection import get_db
 from backend.database.gis_models import GeoDataset, GeoLayer, GeoFeature
 from backend.services.gis import datasets
-from backend.services.gis.kml_parser import GisImportError, MAX_UPLOAD_BYTES, parse_geospatial_upload
+from backend.services.gis.kml_parser import GisImportError
+from backend.services.gis.upload_parser import MAX_UPLOAD_BYTES, parse_geospatial_upload
 
 router = APIRouter(prefix="/gis-datasets", tags=["GIS"], dependencies=[Depends(require_admin)])
 
