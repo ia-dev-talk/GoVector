@@ -74,9 +74,37 @@ class PublishRequest(BaseModel):
     expected_revision: int = Field(..., ge=1)
 
 
+class CableRouteLinkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    job_id: int = Field(..., gt=0)
+    expected_feature_revision: int = Field(..., ge=1)
+
+
 @router.post("/{dataset_id}/publish")
 async def publish(payload: PublishRequest, dataset_id: int = Path(..., gt=0), db=Depends(get_db), user=Depends(require_admin)):
     return await datasets.publish_dataset(db, dataset_id=dataset_id, expected_revision=payload.expected_revision, user=user)
+
+
+@router.post("/{dataset_id}/features/{feature_id}/cable-route")
+async def link_cable_route(
+    payload: CableRouteLinkRequest,
+    dataset_id: int = Path(..., gt=0),
+    feature_id: int = Path(..., gt=0),
+    db=Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Explicitly designate one server-owned line feature as a job cable route."""
+    try:
+        return await qfield_service.designate_cable_route(
+            db,
+            dataset_id=dataset_id,
+            feature_id=feature_id,
+            job_id=payload.job_id,
+            expected_feature_revision=payload.expected_feature_revision,
+            user=user,
+        )
+    except QFieldSyncError as error:
+        raise _qfield_http_exception(error) from error
 
 
 @router.get("/{dataset_id}/layers")
