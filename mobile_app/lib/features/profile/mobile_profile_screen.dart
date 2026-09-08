@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../design_system/bluevector_brand.dart';
 import '../../design_system/bluevector_tokens.dart';
 import '../../services/auth_service.dart';
+import 'technician_stock_screen.dart';
 
 class MobileProfileScreen extends StatelessWidget {
   const MobileProfileScreen({
@@ -144,6 +145,36 @@ class MobileProfileScreen extends StatelessWidget {
                     : null,
                 icon: const Icon(Icons.sync_rounded),
                 label: const Text('Synchroniser maintenant'),
+              ),
+            ],
+          ),
+          const SizedBox(height: BlueVectorSpacing.md),
+          _SectionCard(
+            title: 'Stock terrain',
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => TechnicianStockScreen(
+                          technicianId: technicianId,
+                        ),
+                      ),
+                    );
+                  },
+                  leading: const Icon(
+                    Icons.inventory_2_outlined,
+                    color: BlueVectorColors.primaryBright,
+                  ),
+                  title: const Text('Mon stock actuel'),
+                  subtitle: const Text(
+                    'Consommables disponibles, SN/MAC et équipements en garde',
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                ),
               ),
             ],
           ),

@@ -42,4 +42,5 @@ from . import stock_v2_atomic  # noqa: E402,F401
 from . import stock_history_v2  # noqa: E402,F401
 from . import warehouse_admin_v2  # noqa: E402,F401
 from . import tech_stock_v2  # noqa: E402,F401
+from . import tech_serialized_custody  # noqa: E402,F401
 from . import job_stock_v2  # noqa: E402,F401

@@ -8,7 +8,13 @@ import '../config/config.dart';
 import 'auth_service.dart';
 
 class TechnicianStockService {
-  static const _custodyCachePrefix = 'bluevector:technician-custody:v1';
+  static const String materialCustodyPath = 'tech/jobs/stock-v2';
+  static const String serializedCustodyPath = 'tech/jobs/stock-v2/serialized';
+
+  static const _materialCustodyCachePrefix =
+      'bluevector:technician-custody:v1';
+  static const _serializedCustodyCachePrefix =
+      'bluevector:technician-serialized-custody:v1';
 
   static Future<String> _token() async {
     final token = await AuthService.getToken();
@@ -41,15 +47,15 @@ class TechnicianStockService {
     return 'Erreur de communication avec BlueVector';
   }
 
-  static String _custodyCacheKey(String token) {
+  static String _cacheKey(String prefix, String token) {
     final sessionFingerprint = sha256
         .convert(utf8.encode(token))
         .toString()
         .substring(0, 20);
-    return '$_custodyCachePrefix:$sessionFingerprint';
+    return '$prefix:$sessionFingerprint';
   }
 
-  static List<Map<String, dynamic>> _decodeCustody(String raw) {
+  static List<Map<String, dynamic>> _decodeRows(String raw) {
     final decoded = jsonDecode(raw);
     if (decoded is! List) return const [];
     return decoded
@@ -58,27 +64,30 @@ class TechnicianStockService {
         .toList(growable: false);
   }
 
-  static Future<void> _cacheCustody(
+  static Future<void> _cacheRows(
+    String prefix,
     String token,
     List<Map<String, dynamic>> rows,
   ) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(
-      _custodyCacheKey(token),
+      _cacheKey(prefix, token),
       jsonEncode(rows),
     );
   }
 
-  static Future<List<Map<String, dynamic>>?> _cachedCustody(
+  static Future<List<Map<String, dynamic>>?> _cachedRows(
+    String prefix,
     String token,
   ) async {
     final preferences = await SharedPreferences.getInstance();
-    final cached = preferences.getString(_custodyCacheKey(token));
+    final key = _cacheKey(prefix, token);
+    final cached = preferences.getString(key);
     if (cached == null || cached.trim().isEmpty) return null;
     try {
-      return _decodeCustody(cached);
+      return _decodeRows(cached);
     } catch (_) {
-      await preferences.remove(_custodyCacheKey(token));
+      await preferences.remove(key);
       return null;
     }
   }
@@ -87,45 +96,63 @@ class TechnicianStockService {
     return statusCode == 408 || statusCode == 429 || statusCode >= 500;
   }
 
-  static Future<List<Map<String, dynamic>>> _fallbackCustody(
+  static Future<List<Map<String, dynamic>>> _fallbackRows(
+    String prefix,
     String token,
     Object error,
   ) async {
-    final cached = await _cachedCustody(token);
+    final cached = await _cachedRows(prefix, token);
     if (cached != null) return cached;
     throw error;
   }
 
-  static Future<List<Map<String, dynamic>>> getCustody() async {
+  static Future<List<Map<String, dynamic>>> _getCustodyRows({
+    required String path,
+    required String cachePrefix,
+  }) async {
     final token = await _token();
     late final http.Response response;
 
     try {
       response = await http
           .get(
-            AppConfig.apiUri('tech/jobs/stock-v2'),
+            AppConfig.apiUri(path),
             headers: _headers(token),
           )
           .timeout(AppConfig.httpTimeout);
     } catch (error) {
-      return _fallbackCustody(token, error);
+      return _fallbackRows(cachePrefix, token, error);
     }
 
     if (response.statusCode != 200) {
       final error = Exception(_detail(response));
       if (canUseCustodyCacheForStatus(response.statusCode)) {
-        return _fallbackCustody(token, error);
+        return _fallbackRows(cachePrefix, token, error);
       }
       throw error;
     }
 
     try {
-      final rows = _decodeCustody(response.body);
-      await _cacheCustody(token, rows);
+      final rows = _decodeRows(response.body);
+      await _cacheRows(cachePrefix, token, rows);
       return rows;
     } catch (error) {
-      return _fallbackCustody(token, error);
+      return _fallbackRows(cachePrefix, token, error);
     }
+  }
+
+  static Future<List<Map<String, dynamic>>> getCustody() {
+    return _getCustodyRows(
+      path: materialCustodyPath,
+      cachePrefix: _materialCustodyCachePrefix,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getSerializedCustody() {
+    return _getCustodyRows(
+      path: serializedCustodyPath,
+      cachePrefix: _serializedCustodyCachePrefix,
+    );
   }
 
   static Future<Map<String, dynamic>> resolveScan({

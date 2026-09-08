@@ -40,5 +40,20 @@ void main() {
         isFalse,
       );
     });
+
+    test('keeps material and serialized custody endpoints distinct', () {
+      expect(
+        TechnicianStockService.materialCustodyPath,
+        'tech/jobs/stock-v2',
+      );
+      expect(
+        TechnicianStockService.serializedCustodyPath,
+        'tech/jobs/stock-v2/serialized',
+      );
+      expect(
+        TechnicianStockService.serializedCustodyPath,
+        isNot(TechnicianStockService.materialCustodyPath),
+      );
+    });
   });
 }
