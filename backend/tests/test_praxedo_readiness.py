@@ -64,3 +64,45 @@ def test_oauth_requires_https_token_url_and_credentials():
     )
     assert report["configured"] is False
     assert "oauth_token_url_https" in report["missing"]
+
+
+def test_invalid_headers_timeout_and_retries_cannot_report_ready():
+    report = inspect_praxedo_readiness(
+        {
+            "PRAXEDO_BASE_URL": "https://sandbox.example.test/",
+            "PRAXEDO_AUTH_MODE": "basic",
+            "PRAXEDO_USERNAME": "user",
+            "PRAXEDO_PASSWORD": "secret",
+            "PRAXEDO_ENDPOINTS_JSON": "{}",
+            "PRAXEDO_HEADERS_JSON": "[]",
+            "PRAXEDO_TIMEOUT_SECONDS": "not-a-number",
+            "PRAXEDO_MAX_RETRIES": "-1",
+        }
+    )
+    assert report["configured"] is False
+    assert "headers_json" in report["missing"]
+    assert "timeout_seconds" in report["missing"]
+    assert "max_retries" in report["missing"]
+
+
+def test_invalid_idempotency_header_is_never_marked_replay_safe():
+    env = {
+        "PRAXEDO_BASE_URL": "https://sandbox.example.test/",
+        "PRAXEDO_AUTH_MODE": "basic",
+        "PRAXEDO_USERNAME": "user",
+        "PRAXEDO_PASSWORD": "secret",
+        "PRAXEDO_ENDPOINTS_JSON": (
+            '{"technician_list":"api/technicians",'
+            '"intervention_get":"api/interventions/{id}",'
+            '"article_list":"api/articles",'
+            '"work_report_write":"api/reports",'
+            '"stock_movement_write":"api/stock-movements"}'
+        ),
+        "PRAXEDO_IDEMPOTENCY_HEADER": "Bad:Header",
+    }
+    report = inspect_praxedo_readiness(env)
+    assert report["ready_for_write"] is True
+    assert report["idempotency_header_configured"] is True
+    assert report["idempotency_header_valid"] is False
+    assert report["automated_write_replay_safe"] is False
+    assert "idempotency_header" in report["missing"]
