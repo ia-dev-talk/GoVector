@@ -371,8 +371,18 @@ class _TechnicianHistoryDetailScreenState
                 title: 'Reports',
                 values: detail.postponements.first,
               ),
-            if (detail.materials.isNotEmpty)
-              _DataSection(title: 'Matériel', values: detail.materials.first),
+            if (detail.materials.isNotEmpty) ...[
+              Text(
+                'Matériel consommé',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: BlueVectorSpacing.sm),
+              for (var index = 0; index < detail.materials.length; index++)
+                _DataSection(
+                  title: _materialTitle(detail.materials[index], index),
+                  values: detail.materials[index],
+                ),
+            ],
             const SizedBox(height: BlueVectorSpacing.lg),
             Text(
               'Journal métier',
@@ -404,6 +414,17 @@ class _TechnicianHistoryDetailScreenState
       ),
     );
   }
+}
+
+String _materialTitle(Map<String, dynamic> material, int index) {
+  final label = material['label']?.toString().trim();
+  final reference = material['reference']?.toString().trim();
+  if (label != null && label.isNotEmpty) {
+    if (reference != null && reference.isNotEmpty) return '$label · $reference';
+    return label;
+  }
+  if (reference != null && reference.isNotEmpty) return reference;
+  return 'Matériel ${index + 1}';
 }
 
 String _formatHistoryDate(DateTime? value) {
