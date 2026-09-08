@@ -10,6 +10,7 @@ from alembic import context
 from backend.config import get_settings
 from backend.database.models import Base
 from backend.database import gis_models as _gis_models  # noqa: F401,E402
+from backend.database import integration_models as _integration_models  # noqa: F401,E402
 from backend.database import territory_models as _territory_models  # noqa: F401,E402
 
 config = context.config
