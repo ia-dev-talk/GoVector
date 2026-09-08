@@ -119,11 +119,19 @@ Il faut obtenir du client/Praxedo :
 9. mécanisme delta/polling/webhook ;
 10. jeu de données sandbox anonymisé.
 
-Dès réception : configurer les aliases d'opérations, exécuter d'abord un smoke **lecture seule**, binder les external IDs, puis seulement tester une écriture contrôlée lorsque méthode, endpoint, version de contrat, mapping et idempotence sont tous confirmés.
+Les aliases de **lecture** déjà gouvernés dans BlueVector sont :
+
+- `technician_list` ;
+- `intervention_get` ;
+- `article_list`.
+
+Ils ne contiennent aucun chemin Praxedo en dur : les URLs relatives et paramètres exacts doivent venir de la documentation du tenant. Le smoke n'autorise aucune opération d'écriture et ne retourne que la forme de la réponse (`kind`, clés, taille), jamais les valeurs métier.
+
+Dès réception des accès : configurer les aliases d'opérations, exécuter d'abord un smoke **lecture seule réel**, binder les external IDs, puis seulement tester une écriture contrôlée lorsque méthode, endpoint, version de contrat, mapping et idempotence sont tous confirmés.
 
 ## 6. Smoke non destructif
 
-Exécution normale :
+Exécution normale sans obligation de joindre Praxedo :
 
 ```bash
 python scripts/release_acceptance_smoke.py \
@@ -144,6 +152,23 @@ Le smoke vérifie :
 
 Il ne consomme aucun stock, ne fait aucun `qfield-sync/apply` et ne déclenche aucune écriture Praxedo.
 
+### Lecture Praxedo réelle facultative hors mode strict
+
+L'opération doit être choisie à partir du contrat tenant, jamais par défaut :
+
+```bash
+python scripts/release_acceptance_smoke.py \
+  --root-url https://bluevector.example \
+  --technician-token "$BLUEVECTOR_TECH_TOKEN" \
+  --admin-token "$BLUEVECTOR_ADMIN_TOKEN" \
+  --dataset-id "$BLUEVECTOR_DATASET_ID" \
+  --praxedo-smoke-operation technician_list \
+  --praxedo-path-params '{}' \
+  --praxedo-params '{"limit":1}'
+```
+
+`technician_list` ci-dessus n'est qu'un exemple **si et seulement si** le contrat tenant documente cet alias et ses paramètres configurés. Pour `intervention_get`, les `path_params` doivent être fournis selon le chemin tenant configuré.
+
 ### Mode strict final
 
 ```bash
@@ -152,10 +177,23 @@ python scripts/release_acceptance_smoke.py \
   --technician-token "$BLUEVECTOR_TECH_TOKEN" \
   --admin-token "$BLUEVECTOR_ADMIN_TOKEN" \
   --dataset-id "$BLUEVECTOR_DATASET_ID" \
+  --praxedo-smoke-operation "$PRAXEDO_ACCEPTANCE_READ_ALIAS" \
+  --praxedo-path-params "$PRAXEDO_ACCEPTANCE_PATH_PARAMS_JSON" \
+  --praxedo-params "$PRAXEDO_ACCEPTANCE_QUERY_JSON" \
   --strict-delivery
 ```
 
-Le mode strict refuse les tokens/dataset manquants et exige que Praxedo soit réellement `ready_for_read=true`. Il ne transforme jamais une absence d'accès externe en faux succès.
+Le mode strict refuse désormais :
+
+- token technicien manquant ;
+- token admin manquant ;
+- dataset QField manquant ;
+- alias de smoke Praxedo manquant ;
+- `ready_for_read != true` ;
+- échec de la requête réelle Praxedo ;
+- réponse de smoke qui n'affirme pas `business_values_exposed=false`.
+
+Ainsi, une simple configuration syntaxiquement complète ne peut plus être confondue avec une intégration réellement joignable.
 
 ## 7. Sauvegarde et rollback
 
@@ -176,7 +214,7 @@ La version est GO cette semaine uniquement si :
 - câble respecte les sources d'autorité ;
 - QField/QGIS round-trip et conflit ancien sont reproduits ;
 - le readiness Praxedo reflète les accès réels ;
-- si les accès Praxedo sont obtenus, le smoke lecture sandbox passe ;
+- si les accès tenant sont fournis pour la livraison, le smoke lecture sandbox réel passe ;
 - aucun secret n'est versionné ;
 - sauvegarde/rollback sont prêts.
 
