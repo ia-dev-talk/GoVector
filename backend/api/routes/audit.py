@@ -1,6 +1,9 @@
 """Authenticated audit views backed only by persisted business activity."""
 
-from fastapi import APIRouter, Depends, Query
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,10 +11,22 @@ from backend.auth.dependencies import require_admin, require_chef_orienteur
 from backend.database.connection import get_db
 from backend.database.integration_models import IntegrationExchange
 from backend.database.models import JobActivityLog, User
+from backend.integrations.praxedo.client import PraxedoClient, PraxedoConfig, PraxedoError
 from backend.integrations.praxedo.readiness import inspect_praxedo_readiness
+from backend.integrations.praxedo.smoke import PraxedoSmokeError, smoke_read
 
 
 router = APIRouter(tags=["Audit & Security"])
+
+
+class PraxedoSmokeReadRequest(BaseModel):
+    """One explicitly requested, read-only Praxedo sandbox probe."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    operation: str = Field(min_length=1, max_length=80)
+    path_params: dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.get("/audit/log")
@@ -79,6 +94,50 @@ async def get_praxedo_integration_readiness(
     """Return configuration readiness without tenant URLs or credentials."""
 
     return inspect_praxedo_readiness()
+
+
+@router.post("/audit/integrations/praxedo/smoke-read")
+async def run_praxedo_sandbox_read_smoke(
+    payload: PraxedoSmokeReadRequest,
+    _current_user: User = Depends(require_admin),
+):
+    """Prove one documented Praxedo GET works without returning business values."""
+
+    try:
+        config = PraxedoConfig.from_env()
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "praxedo_config_invalid", "message": str(exc)},
+        ) from exc
+
+    try:
+        async with PraxedoClient(config) as client:
+            return await smoke_read(
+                client,
+                operation=payload.operation,
+                path_params=payload.path_params,
+                params=payload.params,
+            )
+    except PraxedoSmokeError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": exc.code, "message": exc.message},
+        ) from exc
+    except PraxedoError as exc:
+        status_code = 409 if exc.code in {
+            "operation_not_configured",
+            "endpoint_parameter_missing",
+            "unsafe_endpoint",
+        } else 502
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": exc.code,
+                "message": exc.message,
+                "upstream_status": exc.status_code,
+            },
+        ) from exc
 
 
 @router.get("/audit/integrations")
