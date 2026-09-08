@@ -304,10 +304,16 @@ void main() {
     expect(find.text('Échec terrain'), findsOneWidget);
     expect(find.text('Terminée'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('MAT-B'), 250);
+    await tester.scrollUntilVisible(find.text('Matériel consommé'), 250);
     await tester.pumpAndSettle();
     expect(find.text('Matériel consommé'), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('MAT-A'), 250);
+    await tester.pumpAndSettle();
     expect(find.text('MAT-A'), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('MAT-B'), 250);
+    await tester.pumpAndSettle();
     expect(find.text('MAT-B'), findsOneWidget);
     expect(find.text('35'), findsOneWidget);
 
