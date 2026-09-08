@@ -52,7 +52,28 @@ Map<String, dynamic> _detail() => {
   'field_data': {'pto': 'PTO-12'},
   'failures': <dynamic>[],
   'postponements': <dynamic>[],
-  'materials': <dynamic>[],
+  'materials': [
+    {
+      'consumption_id': 100,
+      'visit_id': 21,
+      'status': 'valide',
+      'reference': 'MAT-A',
+      'label': 'Connecteur',
+      'quantity': 2,
+      'serial_number': null,
+      'mac_address': null,
+    },
+    {
+      'consumption_id': 101,
+      'visit_id': 22,
+      'status': 'valide',
+      'reference': 'MAT-B',
+      'label': 'Câble optique',
+      'quantity': 35,
+      'serial_number': null,
+      'mac_address': null,
+    },
+  ],
   'media_references': <dynamic>[],
   'visits': [
     {
@@ -152,6 +173,7 @@ void main() {
     expect(detail.visits.first.arrivedAt, isNull);
     expect(detail.visits.last.technicianName, 'Tech reprise');
     expect(detail.visits.last.attemptNumber, 2);
+    expect(detail.materials, hasLength(2));
   });
 
   test('pilot field labels contain no false required marker', () {
@@ -281,6 +303,13 @@ void main() {
     expect(find.text('Passages terrain'), findsOneWidget);
     expect(find.text('Échec terrain'), findsOneWidget);
     expect(find.text('Terminée'), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('MAT-B'), 250);
+    await tester.pumpAndSettle();
+    expect(find.text('Matériel consommé'), findsOneWidget);
+    expect(find.text('MAT-A'), findsOneWidget);
+    expect(find.text('MAT-B'), findsOneWidget);
+    expect(find.text('35'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Journal métier'), 250);
     await tester.pumpAndSettle();
