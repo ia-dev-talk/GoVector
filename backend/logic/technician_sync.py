@@ -184,6 +184,7 @@ async def _dispatch(
             await apply_cable_endpoint_projection(
                 db,
                 job_id=event.job_id,
+                event_id=str(event.event_id),
                 event_type=event.type,
                 payload=field_payload,
                 current_user=current_user,
