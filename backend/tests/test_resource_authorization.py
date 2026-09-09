@@ -87,22 +87,32 @@ async def test_job_read_access_is_resource_scoped_for_technicians(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_job_read_access_preserves_operational_roles():
+async def test_office_orienteur_is_global_and_field_agent_has_no_generic_read():
     job = _job(orienteur_id=4)
     assert await job_access.require_job_read_access(
         _DB(),
         job=job,
         current_user=_user(UserRole.ORIENTEUR, orienteur_id=4),
     ) is job
+    # There is one central office orienteur: legacy orienteur_id no longer
+    # restricts its global exploitation visibility.
+    assert await job_access.require_job_read_access(
+        _DB(),
+        job=job,
+        current_user=_user(UserRole.ORIENTEUR, orienteur_id=12),
+    ) is job
     assert await job_access.require_job_read_access(
         _DB(), job=job, current_user=_user(UserRole.ADMIN)
     ) is job
-    with pytest.raises(job_access.BusinessAPIError):
+    # Historical CHEF_ORIENTEUR is now Agent terrain and must use the explicit
+    # team-scoped /orienteur-agent surface rather than generic job access.
+    with pytest.raises(job_access.BusinessAPIError) as denied:
         await job_access.require_job_read_access(
             _DB(),
             job=job,
-            current_user=_user(UserRole.ORIENTEUR, orienteur_id=12),
+            current_user=_user(UserRole.CHEF_ORIENTEUR, orienteur_id=4),
         )
+    assert denied.value.status_code == 403
 
 
 @pytest.mark.asyncio
@@ -121,20 +131,24 @@ async def test_client_read_access_is_strictly_organization_scoped():
     assert denied.value.status_code == 403
 
 
-def test_assignment_mutations_are_operationally_scoped():
+def test_assignment_mutations_are_office_only():
     job = _job(orienteur_id=4)
     assert job_access.require_job_operations_access(
         job=job,
-        current_user=_user(UserRole.ORIENTEUR, orienteur_id=4),
+        current_user=_user(UserRole.ORIENTEUR, orienteur_id=99),
     ) is job
     assert job_access.require_job_operations_access(
         job=job, current_user=_user(UserRole.ADMIN)
     ) is job
-    with pytest.raises(job_access.BusinessAPIError):
-        job_access.require_job_operations_access(
-            job=job,
-            current_user=_user(UserRole.TECHNICIAN, technician_id=3),
-        )
+    for denied_user in (
+        _user(UserRole.TECHNICIAN, technician_id=3),
+        _user(UserRole.CHEF_ORIENTEUR, orienteur_id=4),
+    ):
+        with pytest.raises(job_access.BusinessAPIError):
+            job_access.require_job_operations_access(
+                job=job,
+                current_user=denied_user,
+            )
 
 
 def test_every_p0_route_declares_oauth_security():
@@ -173,10 +187,14 @@ def test_dashboard_and_audit_do_not_expose_static_or_random_fallbacks():
 
 
 @pytest.mark.asyncio
-async def test_supervision_read_routes_reject_technicians_by_role():
-    with pytest.raises(HTTPException) as denied:
-        await require_orienteur(_user(UserRole.TECHNICIAN, technician_id=3))
-    assert denied.value.status_code == 403
+async def test_supervision_read_routes_reject_non_office_roles():
+    for denied_user in (
+        _user(UserRole.TECHNICIAN, technician_id=3),
+        _user(UserRole.CHEF_ORIENTEUR, orienteur_id=4),
+    ):
+        with pytest.raises(HTTPException) as denied:
+            await require_orienteur(denied_user)
+        assert denied.value.status_code == 403
     assert await require_orienteur(_user(UserRole.ORIENTEUR, orienteur_id=4))
 
 
