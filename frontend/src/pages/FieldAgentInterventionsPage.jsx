@@ -54,6 +54,63 @@ function DataRow({ label, value }) {
   );
 }
 
+function compactPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return payload == null ? '—' : String(payload);
+  }
+
+  const preferredKeys = [
+    'type_cable',
+    'cable_type',
+    'cable_code',
+    'pose_type',
+    'type_pose',
+    'metric_start',
+    'metric_end',
+    'metrique_depart',
+    'metrique_arrivee',
+    'length_m',
+    'computed_length_m',
+    'value',
+    'unit',
+    'latitude',
+    'longitude',
+    'note',
+    'comment',
+  ];
+
+  const parts = preferredKeys
+    .filter((key) => payload[key] !== null && payload[key] !== undefined && payload[key] !== '')
+    .slice(0, 6)
+    .map((key) => `${key}: ${String(payload[key])}`);
+
+  if (parts.length) {
+    return parts.join(' · ');
+  }
+
+  try {
+    const serialized = JSON.stringify(payload);
+    return serialized.length > 180 ? `${serialized.slice(0, 177)}…` : serialized;
+  } catch {
+    return 'Donnée terrain enregistrée';
+  }
+}
+
+function mediaGpsLabel(metadata) {
+  if (!metadata || typeof metadata !== 'object') {
+    return null;
+  }
+  const latitude = metadata.latitude ?? metadata.lat;
+  const longitude = metadata.longitude ?? metadata.lon ?? metadata.lng;
+  if (latitude == null || longitude == null) {
+    return null;
+  }
+  const accuracy = metadata.accuracy ?? metadata.accuracy_m;
+  return accuracy == null
+    ? `${latitude}, ${longitude}`
+    : `${latitude}, ${longitude} · ±${accuracy} m`;
+}
+
 export default function FieldAgentInterventionsPage() {
   const [entries, setEntries] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
@@ -63,8 +120,12 @@ export default function FieldAgentInterventionsPage() {
   const [returnReason, setReturnReason] = useState('');
   const [filter, setFilter] = useState('all');
   const [message, setMessage] = useState(null);
+  const [fieldRecord, setFieldRecord] = useState(null);
+  const [stockContext, setStockContext] = useState(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [contextError, setContextError] = useState('');
 
-  const loadTeamJobs = useCallback(async ({ quiet = false } = {}) => {
+  const loadTeamJobs = useCallback(async ({ quiet = false, preserveMessage = false } = {}) => {
     if (quiet) {
       setRefreshing(true);
     } else {
@@ -82,7 +143,9 @@ export default function FieldAgentInterventionsPage() {
         const reviewFirst = nextEntries.find((entry) => isAwaitingAgentReview(entry.job));
         return reviewFirst?.job?.id ?? nextEntries[0]?.job?.id ?? null;
       });
-      setMessage(null);
+      if (!preserveMessage) {
+        setMessage(null);
+      }
     } catch (error) {
       setMessage({ type: 'error', text: readableError(error) });
     } finally {
@@ -91,9 +154,39 @@ export default function FieldAgentInterventionsPage() {
     }
   }, []);
 
+  const loadReviewContext = useCallback(async (jobId) => {
+    if (!jobId) {
+      setFieldRecord(null);
+      setStockContext(null);
+      setContextError('');
+      return;
+    }
+
+    setContextLoading(true);
+    setContextError('');
+    try {
+      const [recordResponse, stockResponse] = await Promise.all([
+        apiClient.get(`/orienteur-agent/me/jobs/${jobId}/field-record`),
+        apiClient.get(`/orienteur-agent/me/jobs/${jobId}/stock-context`),
+      ]);
+      setFieldRecord(recordResponse.data ?? null);
+      setStockContext(stockResponse.data ?? null);
+    } catch (error) {
+      setFieldRecord(null);
+      setStockContext(null);
+      setContextError(readableError(error));
+    } finally {
+      setContextLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadTeamJobs();
   }, [loadTeamJobs]);
+
+  useEffect(() => {
+    loadReviewContext(selectedJobId);
+  }, [loadReviewContext, selectedJobId]);
 
   const counters = useMemo(
     () => fieldAgentReviewCounters(entries),
@@ -118,6 +211,36 @@ export default function FieldAgentInterventionsPage() {
   const selectedJob = selectedEntry?.job ?? null;
   const selectedTechnician = selectedEntry?.assigned_technician ?? null;
   const awaitingReview = isAwaitingAgentReview(selectedJob);
+  const technicianMedia = Array.isArray(fieldRecord?.technician_media)
+    ? fieldRecord.technician_media
+    : [];
+  const fieldActions = Array.isArray(fieldRecord?.field_actions)
+    ? fieldRecord.field_actions
+    : [];
+  const visits = Array.isArray(fieldRecord?.visits) ? fieldRecord.visits : [];
+  const currentVisit = visits.find((visit) => visit?.is_current) ?? visits.at(-1) ?? null;
+  const vehicleStock = Array.isArray(stockContext?.vehicle_stock)
+    ? stockContext.vehicle_stock
+    : [];
+
+  const openProtectedAsset = async (path, fallbackName) => {
+    try {
+      const response = await apiClient.get(path, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(response.data);
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fallbackName || 'preuve-terrain';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      setMessage({ type: 'error', text: readableError(error) });
+    }
+  };
 
   const validateJob = async () => {
     if (!selectedJob || !awaitingReview || decisionPending) {
@@ -134,7 +257,7 @@ export default function FieldAgentInterventionsPage() {
       await apiClient.post(`/orienteur-agent/me/jobs/${selectedJob.id}/validate`);
       setMessage({ type: 'success', text: 'Intervention validée et clôturée.' });
       setReturnReason('');
-      await loadTeamJobs({ quiet: true });
+      await loadTeamJobs({ quiet: true, preserveMessage: true });
     } catch (error) {
       setMessage({ type: 'error', text: readableError(error) });
     } finally {
@@ -162,7 +285,8 @@ export default function FieldAgentInterventionsPage() {
       );
       setMessage({ type: 'success', text: 'Intervention retournée au technicien avec le motif indiqué.' });
       setReturnReason('');
-      await loadTeamJobs({ quiet: true });
+      await loadTeamJobs({ quiet: true, preserveMessage: true });
+      await loadReviewContext(selectedJob.id);
     } catch (error) {
       setMessage({ type: 'error', text: readableError(error) });
     } finally {
@@ -181,7 +305,10 @@ export default function FieldAgentInterventionsPage() {
         <button
           type="button"
           className="fa-review-refresh"
-          onClick={() => loadTeamJobs({ quiet: true })}
+          onClick={async () => {
+            await loadTeamJobs({ quiet: true });
+            await loadReviewContext(selectedJobId);
+          }}
           disabled={refreshing || decisionPending}
         >
           {refreshing ? 'Actualisation…' : 'Actualiser'}
@@ -325,6 +452,103 @@ export default function FieldAgentInterventionsPage() {
                   </article>
                 </div>
 
+                <div className="fa-review-context-heading">
+                  <div>
+                    <strong>Preuves & contrôle terrain</strong>
+                    <span>Données issues du même dossier utilisé par le technicien, limitées à votre équipe.</span>
+                  </div>
+                  {contextLoading ? <span>Chargement…</span> : null}
+                </div>
+
+                {contextError ? (
+                  <div className="fa-review-message fa-review-message--error">{contextError}</div>
+                ) : null}
+
+                {!contextLoading && !contextError ? (
+                  <div className="fa-review-proof-grid">
+                    <article className="fa-review-proof-card">
+                      <h3>Photos & médias <span>{technicianMedia.length}</span></h3>
+                      {technicianMedia.length === 0 ? (
+                        <p>Aucun média terrain enregistré.</p>
+                      ) : (
+                        <div className="fa-review-proof-list">
+                          {technicianMedia.slice(0, 8).map((media) => (
+                            <div className="fa-review-proof-item" key={media.media_id}>
+                              <div>
+                                <strong>{media.filename || media.kind || 'Preuve terrain'}</strong>
+                                <span>{media.kind || 'media'} · {formatDateTime(media.created_at)}</span>
+                                {mediaGpsLabel(media.metadata) ? <small>GPS {mediaGpsLabel(media.metadata)}</small> : null}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => openProtectedAsset(
+                                  `/orienteur-agent/me/jobs/${selectedJob.id}/media/${media.media_id}/download`,
+                                  media.filename,
+                                )}
+                              >
+                                Ouvrir
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+
+                    <article className="fa-review-proof-card">
+                      <h3>Actions terrain <span>{fieldActions.length}</span></h3>
+                      {fieldActions.length === 0 ? (
+                        <p>Aucune action terrain enregistrée.</p>
+                      ) : (
+                        <div className="fa-review-proof-list">
+                          {fieldActions.slice(0, 10).map((action) => (
+                            <div className="fa-review-proof-item is-block" key={action.id || action.event_id}>
+                              <div>
+                                <strong>{action.type || 'Action terrain'}</strong>
+                                <span>{formatDateTime(action.occurred_at)} · {action.technician_name || selectedTechnician?.name || 'Technicien'}</span>
+                                <small>{compactPayload(action.payload)}</small>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+
+                    <article className="fa-review-proof-card">
+                      <h3>Passage & GPS</h3>
+                      <DataRow label="État passage" value={currentVisit?.status_label || fieldAgentStatusLabel(currentVisit?.status)} />
+                      <DataRow label="Acceptée" value={currentVisit?.accepted_at ? formatDateTime(currentVisit.accepted_at) : null} />
+                      <DataRow label="Départ" value={currentVisit?.started_at ? formatDateTime(currentVisit.started_at) : null} />
+                      <DataRow label="Sur site" value={currentVisit?.arrived_at ? formatDateTime(currentVisit.arrived_at) : null} />
+                      <DataRow label="Travail démarré" value={currentVisit?.work_started_at ? formatDateTime(currentVisit.work_started_at) : null} />
+                      <DataRow
+                        label="GPS terrain"
+                        value={fieldRecord?.field_reference_location?.latitude != null && fieldRecord?.field_reference_location?.longitude != null
+                          ? `${fieldRecord.field_reference_location.latitude}, ${fieldRecord.field_reference_location.longitude}${fieldRecord.field_reference_location.accuracy_m != null ? ` · ±${fieldRecord.field_reference_location.accuracy_m} m` : ''}`
+                          : null}
+                      />
+                    </article>
+
+                    <article className="fa-review-proof-card">
+                      <h3>Stock technicien <span>{vehicleStock.length}</span></h3>
+                      <DataRow label="Lignes connues" value={stockContext?.stock_summary?.line_count} />
+                      <DataRow label="Total connu" value={stockContext?.stock_summary?.total_units} />
+                      <DataRow label="Disponible" value={stockContext?.stock_summary?.available_units} />
+                      {vehicleStock.length ? (
+                        <div className="fa-review-stock-lines">
+                          {vehicleStock.slice(0, 8).map((row) => (
+                            <div key={row.item_id}>
+                              <span>{row.reference || row.label || `Article #${row.item_id}`}</span>
+                              <strong>{row.available_quantity ?? row.quantity ?? 0} {row.unit || ''}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p>Stock connu à 0 / non renseigné. Cela ne bloque pas la consommation constatée sur le terrain.</p>
+                      )}
+                    </article>
+                  </div>
+                ) : null}
+
                 {awaitingReview ? (
                   <div className="fa-review-decision">
                     <div className="fa-review-decision-copy">
@@ -352,11 +576,14 @@ export default function FieldAgentInterventionsPage() {
                         type="button"
                         className="fa-review-validate"
                         onClick={validateJob}
-                        disabled={decisionPending}
+                        disabled={decisionPending || contextLoading || Boolean(contextError)}
                       >
                         {decisionPending ? 'Traitement…' : 'Valider et clôturer'}
                       </button>
                     </div>
+                    {contextError ? (
+                      <small>La validation reste désactivée tant que le dossier de contrôle ne peut pas être chargé.</small>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="fa-review-waiting-note">
