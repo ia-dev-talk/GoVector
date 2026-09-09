@@ -23,25 +23,36 @@ class OfflineService {
   static final TechnicianOutboxStore _outboxStore = TechnicianOutboxStore();
   static final TechnicianAttachmentStore _attachmentStore =
       TechnicianAttachmentStore();
-  static final TechnicianMediaService _mediaService = TechnicianMediaService(
-    attachmentStore: _attachmentStore,
-    outboxStore: _outboxStore,
-    endpoint: AppConfig.apiUri('tech/media'),
-    tokenProvider: AuthService.getToken,
-  );
   static const TechnicianLegacyOutboxMigrator _legacyMigrator =
       TechnicianLegacyOutboxMigrator();
-  static final TechnicianSyncService _syncService = TechnicianSyncService(
-    store: _outboxStore,
-    endpoint: AppConfig.apiUri('tech/sync'),
-    tokenProvider: AuthService.getToken,
-    onlineProbe: isOnline,
-    onAcknowledgedBatch: _recordLastSync,
-  );
+
+  static TechnicianMediaService _mediaServiceForRole(String? role) {
+    final endpoint = role == MobileFieldRole.fieldAgent
+        ? AppConfig.apiUri('orienteur-agent/media')
+        : AppConfig.apiUri('tech/media');
+    return TechnicianMediaService(
+      attachmentStore: _attachmentStore,
+      outboxStore: _outboxStore,
+      endpoint: endpoint,
+      tokenProvider: AuthService.getToken,
+    );
+  }
+
+  static TechnicianSyncService _syncServiceForRole(String? role) {
+    final endpoint = role == MobileFieldRole.fieldAgent
+        ? AppConfig.apiUri('orienteur-agent/sync')
+        : AppConfig.apiUri('tech/sync');
+    return TechnicianSyncService(
+      store: _outboxStore,
+      endpoint: endpoint,
+      tokenProvider: AuthService.getToken,
+      onlineProbe: isOnline,
+      onAcknowledgedBatch: _recordLastSync,
+    );
+  }
 
   // ── GESTION DU CACHE LOCAL ──
 
-  /// Sauvegarder les jobs en cache local
   static Future<void> cacheJobs(
     List<Job> jobs, {
     int? ownerUserId,
@@ -58,7 +69,6 @@ class OfflineService {
     }
   }
 
-  /// Récupérer les jobs depuis le cache local
   static Future<List<Job>> getCachedJobs({
     int? ownerUserId,
     int? technicianId,
@@ -72,14 +82,13 @@ class OfflineService {
 
       final List data = jsonDecode(json);
       return data.map((e) => Job.fromJson(e)).toList();
-    } catch (e) {
+    } catch (_) {
       return [];
     }
   }
 
-  /// Vérifie que le vrai backend GoVector est joignable.
-  /// Une connexion Internet générique ne suffit pas : en 4G, c'est l'API du
-  /// pilote qui doit répondre avant de sortir des événements de l'outbox.
+  /// Verify that the actual GoVector backend is reachable. Generic Internet
+  /// access is insufficient for the 4G pilot.
   static Future<bool> isOnline({http.Client? client}) async {
     final requestClient = client ?? http.Client();
     try {
@@ -94,13 +103,11 @@ class OfflineService {
     } catch (_) {
       return false;
     } finally {
-      if (client == null) {
-        requestClient.close();
-      }
+      if (client == null) requestClient.close();
     }
   }
 
-  // ── OUTBOX TECHNICIEN V2 ──
+  // ── OUTBOX TERRAIN V2 (TECHNICIEN + AGENT) ──
 
   static Future<TechnicianOutboxEvent> addPendingAction({
     required String action,
@@ -109,9 +116,7 @@ class OfflineService {
     String? eventId,
   }) async {
     final owner = await _currentOwner();
-    if (owner == null) {
-      throw StateError('Session technicien absente');
-    }
+    if (owner == null) throw StateError('Session terrain absente');
     await _migrateLegacy(owner);
 
     final rawJobId = data['job_id'];
@@ -132,9 +137,7 @@ class OfflineService {
 
   static Future<List<Map<String, dynamic>>> getPendingActions() async {
     final owner = await _currentOwner();
-    if (owner == null) {
-      return [];
-    }
+    if (owner == null) return [];
     await _migrateLegacy(owner);
     final events = await _outboxStore.nonAcknowledgedForOwner(owner);
     return events.map((event) => event.toLegacyCompatibleMap()).toList();
@@ -142,9 +145,7 @@ class OfflineService {
 
   static Future<int> getPendingCount() async {
     final owner = await _currentOwner();
-    if (owner == null) {
-      return 0;
-    }
+    if (owner == null) return 0;
     await _migrateLegacy(owner);
     return _outboxStore.nonAcknowledgedCount(owner);
   }
@@ -158,8 +159,9 @@ class OfflineService {
     Map<String, dynamic> metadata = const {},
   }) async {
     final owner = await _currentOwner();
-    if (owner == null) throw StateError('Session technicien absente');
-    return _mediaService.queueFile(
+    if (owner == null) throw StateError('Session terrain absente');
+    final role = await AuthService.getRole();
+    return _mediaServiceForRole(role).queueFile(
       owner: owner,
       jobId: jobId,
       sourcePath: sourcePath,
@@ -190,9 +192,7 @@ class OfflineService {
 
   static Future<TechnicianOutboxEvent?> getAction(String eventId) async {
     final owner = await _currentOwner();
-    if (owner == null) {
-      return null;
-    }
+    if (owner == null) return null;
     return _outboxStore.eventForOwner(owner, eventId);
   }
 
@@ -203,7 +203,7 @@ class OfflineService {
         synced: 0,
         failed: 0,
         total: 0,
-        error: 'Session technicien absente',
+        error: 'Session terrain absente',
       );
     }
     await _migrateLegacy(owner);
@@ -216,8 +216,9 @@ class OfflineService {
         offline: true,
       );
     }
-    final media = await _mediaService.sync(owner);
-    final events = await _syncService.sync(owner);
+    final role = await AuthService.getRole();
+    final media = await _mediaServiceForRole(role).sync(owner);
+    final events = await _syncServiceForRole(role).sync(owner);
     return TechnicianSyncRunResult(
       synced: media.synced + events.synced,
       failed: media.failed + events.failed,
@@ -227,16 +228,20 @@ class OfflineService {
     );
   }
 
+  /// The outbox storage model predates Agent mobile support and calls its local
+  /// namespace key `technicianId`. For an Agent we intentionally store the
+  /// positive orienteur/team id in that local-only slot. It is never sent as
+  /// an assigned technician id; server-side Agent sync resolves the real
+  /// subject technician from the current team assignment.
   static Future<TechnicianOutboxOwner?> _currentOwner() async {
     final userId = await AuthService.getUserId();
-    final technicianId = await AuthService.getTechnicianId();
-    if (userId == null ||
-        userId <= 0 ||
-        technicianId == null ||
-        technicianId <= 0) {
-      return null;
-    }
-    return TechnicianOutboxOwner(userId: userId, technicianId: technicianId);
+    final role = await AuthService.getRole();
+    if (userId == null || userId <= 0 || role == null) return null;
+    final scopeId = role == MobileFieldRole.fieldAgent
+        ? await AuthService.getOrienteurId()
+        : await AuthService.getTechnicianId();
+    if (scopeId == null || scopeId <= 0) return null;
+    return TechnicianOutboxOwner(userId: userId, technicianId: scopeId);
   }
 
   static String _jobsCacheKey(TechnicianOutboxOwner owner) =>
@@ -250,21 +255,28 @@ class OfflineService {
     int? technicianId,
   ) async {
     final userId = ownerUserId ?? await AuthService.getUserId();
-    final techId = technicianId ?? await AuthService.getTechnicianId();
-    if (userId == null || userId <= 0 || techId == null || techId <= 0) {
+    var scopeId = technicianId;
+    if (scopeId == null) {
+      final role = await AuthService.getRole();
+      scopeId = role == MobileFieldRole.fieldAgent
+          ? await AuthService.getOrienteurId()
+          : await AuthService.getTechnicianId();
+    }
+    if (userId == null || userId <= 0 || scopeId == null || scopeId <= 0) {
       return null;
     }
-    return TechnicianOutboxOwner(userId: userId, technicianId: techId);
+    return TechnicianOutboxOwner(userId: userId, technicianId: scopeId);
   }
 
   static Future<void> _migrateLegacy(TechnicianOutboxOwner owner) async {
+    // Legacy pending actions belong to the technician-only app. Never migrate
+    // them into an Agent account after an account switch on the same tablet.
+    if (await AuthService.getRole() == MobileFieldRole.fieldAgent) return;
     final preferences = await SharedPreferences.getInstance();
     final legacy = preferences.getStringList(
       TechnicianLegacyOutboxMigrator.legacyPendingActionsKey,
     );
-    if (legacy == null || legacy.isEmpty) {
-      return;
-    }
+    if (legacy == null || legacy.isEmpty) return;
 
     final cachedJobs = await getCachedJobs(
       ownerUserId: owner.userId,
@@ -292,7 +304,6 @@ class OfflineService {
     );
   }
 
-  /// Récupérer la date de dernière synchronisation
   static Future<DateTime?> getLastSync() async {
     try {
       final owner = await _currentOwner();
