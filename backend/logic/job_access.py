@@ -29,16 +29,11 @@ async def require_job_read_access(
     job: Job,
     current_user: User,
 ) -> Job:
-    if current_user.role in {UserRole.ADMIN, UserRole.CHEF_ORIENTEUR}:
+    # Delivery 2026-09: ADMIN and the single office ORIENTEUR have the global
+    # exploitation view. Historical CHEF_ORIENTEUR accounts are field agents
+    # and must enter through the team-scoped /orienteur-agent surface instead.
+    if current_user.role in {UserRole.ADMIN, UserRole.ORIENTEUR}:
         return job
-
-    if current_user.role == UserRole.ORIENTEUR:
-        if (
-            current_user.orienteur_id is not None
-            and job.orienteur_id == current_user.orienteur_id
-        ):
-            return job
-        _denied()
 
     if current_user.role == UserRole.TECHNICIAN:
         if current_user.technician_id is None:
@@ -95,12 +90,11 @@ async def require_job_collaboration_access(
 
     A technician keeps this narrow right after completion, failure or report if
     they are still assigned or already authored durable business evidence for
-    the intervention. Client accounts remain read-only.
+    the intervention. Client accounts remain read-only. Field agents use a
+    server-resolved TECHNICIAN subject only after their team access is proven.
     """
-    if current_user.role in {UserRole.ADMIN, UserRole.CHEF_ORIENTEUR}:
+    if current_user.role in {UserRole.ADMIN, UserRole.ORIENTEUR}:
         return job
-    if current_user.role == UserRole.ORIENTEUR:
-        return require_job_operations_access(job=job, current_user=current_user)
     if current_user.role != UserRole.TECHNICIAN or current_user.technician_id is None:
         _denied("Cette intervention est disponible en lecture seule")
 
@@ -135,13 +129,7 @@ async def require_job_collaboration_access(
 
 
 def require_job_operations_access(*, job: Job, current_user: User) -> Job:
-    """Authorize assignment/dispatch mutations for an operational role."""
-    if current_user.role in {UserRole.ADMIN, UserRole.CHEF_ORIENTEUR}:
-        return job
-    if (
-        current_user.role == UserRole.ORIENTEUR
-        and current_user.orienteur_id is not None
-        and job.orienteur_id == current_user.orienteur_id
-    ):
+    """Authorize assignment/dispatch mutations for the central office role."""
+    if current_user.role in {UserRole.ADMIN, UserRole.ORIENTEUR}:
         return job
     _denied("Vous ne pouvez pas modifier l'affectation de cette intervention")
