@@ -11,8 +11,10 @@ from sqlalchemy.orm import raiseload
 from backend.database.models import Assignment, Job, JobStatus, JobVisit
 
 
+# EN_ATTENTE_VALIDATION is a review handoff, not the end of the field passage.
+# Keeping the visit/assignment open lets the owning Agent terrain review the
+# submitted evidence and either return it for correction or close it finally.
 PASSAGE_END_STATUSES = {
-    JobStatus.EN_ATTENTE_VALIDATION,
     JobStatus.COMPLETED,
     JobStatus.CANCELLED,
     JobStatus.FAILED,
@@ -211,6 +213,13 @@ async def sync_job_visit_transition(
     elif new_status in {JobStatus.IN_PROGRESS, JobStatus.WORK_IN_PROGRESS}:
         visit.work_started_at = visit.work_started_at or occurred_at
 
+    # Technician submission keeps the passage active while recording when the
+    # field work was handed over for Agent review.
+    if new_status == JobStatus.EN_ATTENTE_VALIDATION:
+        assignment = await get_current_assignment(db, job.id, for_update=True)
+        if assignment is not None and assignment.actual_completion is None:
+            assignment.actual_completion = occurred_at
+
     if new_status in PASSAGE_END_STATUSES:
         visit.outcome = new_status.value
         visit.ended_at = occurred_at
@@ -218,8 +227,6 @@ async def sync_job_visit_transition(
         if assignment is not None:
             assignment.ended_at = occurred_at
             assignment.end_reason = new_status.value
-            if new_status == JobStatus.EN_ATTENTE_VALIDATION:
-                assignment.actual_completion = occurred_at
     visit.updated_at = occurred_at
     return visit
 
