@@ -1,0 +1,97 @@
+name: GoVector pilot 4G release
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Public GoVector API base URL, e.g. https://pilot.example.com/api/v1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-public-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate public HTTPS API and health endpoint
+        env:
+          API_BASE_URL: ${{ inputs.api_base_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import ipaddress
+          import os
+          import socket
+          import sys
+          from urllib.parse import urlparse
+
+          raw = os.environ["API_BASE_URL"].strip().rstrip("/")
+          parsed = urlparse(raw)
+          if parsed.scheme != "https" or not parsed.hostname:
+              raise SystemExit("api_base_url must be an absolute HTTPS URL")
+          if not parsed.path.endswith("/api/v1"):
+              raise SystemExit("api_base_url must end with /api/v1")
+          host = parsed.hostname.lower()
+          if host in {"localhost", "127.0.0.1", "::1"}:
+              raise SystemExit("api_base_url must not target localhost")
+          try:
+              infos = socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)
+          except socket.gaierror as exc:
+              raise SystemExit(f"public API hostname cannot be resolved: {exc}")
+          for info in infos:
+              address = info[4][0]
+              try:
+                  ip = ipaddress.ip_address(address)
+              except ValueError:
+                  continue
+              if ip.is_loopback or ip.is_link_local or ip.is_private:
+                  raise SystemExit(f"API hostname resolves to non-public address: {address}")
+          print(raw)
+          PY
+
+          API_BASE_URL="${API_BASE_URL%/}"
+          HEALTH_URL="${API_BASE_URL%/api/v1}/health"
+          echo "Checking $HEALTH_URL"
+          curl --fail --show-error --silent \
+            --retry 3 --retry-all-errors \
+            --connect-timeout 10 --max-time 25 \
+            "$HEALTH_URL"
+          echo
+
+  build-pilot-apk:
+    needs: validate-public-api
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: mobile_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.0"
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test
+      - name: Build GoVector pilot APK against public API
+        env:
+          API_BASE_URL: ${{ inputs.api_base_url }}
+          ORG_GRADLE_PROJECT_pilotSigning: "true"
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release --no-pub \
+            --dart-define="API_BASE_URL=${API_BASE_URL%/}"
+      - name: Publish GoVector pilot APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: govector-pilot-4g-apk
+          path: mobile_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
