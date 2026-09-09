@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/config.dart';
@@ -77,17 +77,26 @@ class OfflineService {
     }
   }
 
-  /// Vérifier la connectivité réseau
-  static Future<bool> isOnline() async {
+  /// Vérifie que le vrai backend GoVector est joignable.
+  /// Une connexion Internet générique ne suffit pas : en 4G, c'est l'API du
+  /// pilote qui doit répondre avant de sortir des événements de l'outbox.
+  static Future<bool> isOnline({http.Client? client}) async {
+    final requestClient = client ?? http.Client();
     try {
-      final result = await InternetAddress.lookup(
-        "google.com",
-      ).timeout(const Duration(seconds: 3));
-      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-    } on SocketException catch (_) {
+      final response = await requestClient
+          .get(AppConfig.healthUri)
+          .timeout(const Duration(seconds: 5));
+      return response.statusCode == 200;
+    } on TimeoutException {
       return false;
-    } on TimeoutException catch (_) {
+    } on http.ClientException {
       return false;
+    } catch (_) {
+      return false;
+    } finally {
+      if (client == null) {
+        requestClient.close();
+      }
     }
   }
 
