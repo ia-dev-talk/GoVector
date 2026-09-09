@@ -3,8 +3,16 @@ import 'package:flutter/material.dart';
 import '../../design_system/bluevector_brand.dart';
 import '../../design_system/bluevector_tokens.dart';
 import '../../services/auth_service.dart';
+import '../agent/field_agent_shell.dart';
 import '../shell/technician_shell.dart';
-import 'technician_login_screen.dart';
+import 'field_login_screen.dart';
+
+class _FieldSession {
+  const _FieldSession({required this.role, this.technicianId});
+
+  final String role;
+  final int? technicianId;
+}
 
 class SessionGate extends StatefulWidget {
   const SessionGate({super.key});
@@ -14,7 +22,7 @@ class SessionGate extends StatefulWidget {
 }
 
 class _SessionGateState extends State<SessionGate> {
-  late Future<int?> _session;
+  late Future<_FieldSession?> _session;
 
   @override
   void initState() {
@@ -22,60 +30,60 @@ class _SessionGateState extends State<SessionGate> {
     _session = _resolveSession();
   }
 
-  Future<int?> _resolveSession() async {
-    final loggedIn = await AuthService.isLoggedIn();
-
-    if (!loggedIn) {
-      return null;
+  Future<_FieldSession?> _resolveSession() async {
+    if (!await AuthService.isLoggedIn()) return null;
+    final role = await AuthService.getRole();
+    if (role == MobileFieldRole.technician) {
+      final technicianId = await AuthService.getTechnicianId();
+      if (technicianId == null || technicianId <= 0) return null;
+      return _FieldSession(role: role!, technicianId: technicianId);
     }
-
-    return AuthService.getTechnicianId();
+    if (role == MobileFieldRole.fieldAgent) {
+      final orienteurId = await AuthService.getOrienteurId();
+      if (orienteurId == null || orienteurId <= 0) return null;
+      return _FieldSession(role: role!);
+    }
+    return null;
   }
 
-  void _openShell(int technicianId) {
-    setState(() {
-      _session = Future<int?>.value(technicianId);
-    });
+  void _authenticated() {
+    setState(() => _session = _resolveSession());
   }
 
   Future<void> _logout() async {
     await AuthService.logout();
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _session = Future<int?>.value(null);
-    });
+    if (!mounted) return;
+    setState(() => _session = Future<_FieldSession?>.value(null));
   }
 
   void _retry() {
-    setState(() {
-      _session = _resolveSession();
-    });
+    setState(() => _session = _resolveSession());
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<int?>(
+    return FutureBuilder<_FieldSession?>(
       future: _session,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const _BootScreen();
         }
-
         if (snapshot.hasError) {
           return _SessionError(onRetry: _retry);
         }
 
-        final technicianId = snapshot.data;
-
-        if (technicianId != null && technicianId > 0) {
-          return TechnicianShell(technicianId: technicianId, onLogout: _logout);
+        final session = snapshot.data;
+        if (session?.role == MobileFieldRole.technician &&
+            session?.technicianId != null) {
+          return TechnicianShell(
+            technicianId: session!.technicianId!,
+            onLogout: _logout,
+          );
         }
-
-        return TechnicianLoginScreen(onAuthenticated: _openShell);
+        if (session?.role == MobileFieldRole.fieldAgent) {
+          return FieldAgentShell(onLogout: _logout);
+        }
+        return FieldLoginScreen(onAuthenticated: _authenticated);
       },
     );
   }
