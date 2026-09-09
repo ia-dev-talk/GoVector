@@ -9,12 +9,15 @@ import 'auth_service.dart';
 
 class TechnicianStockService {
   static const String materialCustodyPath = 'tech/jobs/stock-v2';
+  static const String cableCataloguePath = 'tech/jobs/stock-v2/cables';
   static const String serializedCustodyPath = 'tech/jobs/stock-v2/serialized';
 
   static const _materialCustodyCachePrefix =
-      'bluevector:technician-custody:v1';
+      'govector:technician-custody:v2';
+  static const _cableCatalogueCachePrefix =
+      'govector:technician-cables:v1';
   static const _serializedCustodyCachePrefix =
-      'bluevector:technician-serialized-custody:v1';
+      'govector:technician-serialized-custody:v2';
 
   static Future<String> _token() async {
     final token = await AuthService.getToken();
@@ -44,7 +47,7 @@ class TechnicianStockService {
             'Action refusée';
       }
     } catch (_) {}
-    return 'Erreur de communication avec BlueVector';
+    return 'Erreur de communication avec GoVector';
   }
 
   static String _cacheKey(String prefix, String token) {
@@ -145,6 +148,16 @@ class TechnicianStockService {
     return _getCustodyRows(
       path: materialCustodyPath,
       cachePrefix: _materialCustodyCachePrefix,
+    );
+  }
+
+  /// Governed cable references visible even when known technician stock is 0.
+  /// This is the field truth path: a real measured cable use must not disappear
+  /// merely because its prior allocation was missing from the system.
+  static Future<List<Map<String, dynamic>>> getCableCatalogue() {
+    return _getCustodyRows(
+      path: cableCataloguePath,
+      cachePrefix: _cableCatalogueCachePrefix,
     );
   }
 
