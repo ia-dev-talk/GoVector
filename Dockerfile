@@ -16,9 +16,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# WeasyPrint's wheel still needs the system Pango/Harfbuzz runtime on Debian.
+# Keep these in the image so PDF exports are genuine PDF files on every pilot PC.
 RUN apt-get update && apt-get install -y --no-install-recommends \
 		gcc \
 		postgresql-client \
+		libpango-1.0-0 \
+		libpangoft2-1.0-0 \
+		libharfbuzz-subset0 \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
