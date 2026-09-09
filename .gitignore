@@ -58,6 +58,7 @@ lerna-debug.log*
 .env
 .env.local
 .pilot-4g-url
+.pilot-4g-secret
 
 # Database
 *.db
