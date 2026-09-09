@@ -153,6 +153,53 @@ async def _ensure_visit(
     return visit
 
 
+async def _commit_final_cable_stock_if_needed(
+    db: AsyncSession,
+    *,
+    job: Job,
+    new_status: JobStatus,
+    technician_id: int | None,
+    metadata: dict,
+    occurred_at: datetime,
+) -> None:
+    """Apply measured cable stock only for the Agent's final validation.
+
+    This runs before the visit/assignment is closed, because the stock helper
+    intentionally verifies that the technician still owns the intervention.
+    """
+
+    if new_status != JobStatus.COMPLETED:
+        return
+    extra = metadata.get("extra") or {}
+    if extra.get("source") != "field_agent_validation":
+        return
+
+    assignment = await get_current_assignment(db, job.id, for_update=True)
+    effective_technician_id = technician_id or (
+        assignment.technician_id if assignment is not None else None
+    )
+    if effective_technician_id is None:
+        return
+
+    raw_actor = extra.get("field_agent_user_id")
+    try:
+        actor_user_id = int(raw_actor)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Agent terrain invalide pour la validation finale") from exc
+
+    from backend.logic.final_cable_stock import commit_final_cable_stock
+
+    summary = await commit_final_cable_stock(
+        db,
+        job_id=job.id,
+        technician_id=effective_technician_id,
+        actor_user_id=actor_user_id,
+        occurred_at=occurred_at,
+    )
+    extra["final_cable_stock_segments"] = summary["segments"]
+    extra["final_cable_stock_m"] = summary["meters"]
+
+
 async def sync_job_visit_transition(
     db: AsyncSession,
     *,
@@ -221,6 +268,14 @@ async def sync_job_visit_transition(
             assignment.actual_completion = occurred_at
 
     if new_status in PASSAGE_END_STATUSES:
+        await _commit_final_cable_stock_if_needed(
+            db,
+            job=job,
+            new_status=new_status,
+            technician_id=technician_id,
+            metadata=metadata,
+            occurred_at=occurred_at,
+        )
         visit.outcome = new_status.value
         visit.ended_at = occurred_at
         assignment = await get_current_assignment(db, job.id, for_update=True)
