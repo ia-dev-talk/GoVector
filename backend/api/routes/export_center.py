@@ -18,6 +18,7 @@ from backend.database.connection import get_db
 from backend.database.models import ExportTemplate, User
 from backend.auth.dependencies import get_current_user, require_chef_orienteur
 from backend.services.export_service import FieldOptExportService
+from backend.services.govector_pdf_export import export_govector_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -139,11 +140,10 @@ async def generate_export(
             media_type = "text/csv"
             extension = "csv"
         elif export_format == "pdf":
-            file_bytes = await FieldOptExportService.export_pdf(
+            file_bytes = await export_govector_pdf(
                 db, columns, filters,
                 request.include_photos, request.include_signatures,
             )
-            # Never serve the historical HTML fallback under a .pdf filename.
             # A report must either be a genuine PDF or fail clearly.
             if not file_bytes.startswith(b"%PDF-"):
                 raise RuntimeError("Le moteur PDF n'a pas produit un document PDF valide")
@@ -432,7 +432,7 @@ async def get_export_formats(
                 "key": "pdf",
                 "label": "PDF (.pdf)",
                 "icon": "📕",
-                "description": "Rapport PDF professionnel avec résumé",
+                "description": "Rapport PDF GoVector avec synthèse",
             },
             {
                 "key": "zip",
