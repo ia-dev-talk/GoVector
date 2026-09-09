@@ -3,10 +3,10 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import raiseload
 
-from backend.database.models import Assignment, FieldTeam, FieldTeamSector, Job, Technician, UserRole
+from backend.database.models import Assignment, FieldTeam, FieldTeamSector, Job, Technician
 from backend.logic.job_access import require_job_operations_access
 from backend.logic.job_planning import job_estimated_duration_minutes
 from backend.logic.workflow.capabilities import allowed_commands_for_job, status_capability
@@ -107,12 +107,9 @@ async def assess_candidates(db, job_id, current_user):
         result["assessment_status"] = "NOT_APPLICABLE"
         return result
 
-    scope = []
-    if current_user.role == UserRole.ORIENTEUR:
-        # Team membership is authoritative; only unteamed legacy profiles use the projection.
-        scope.append(or_(FieldTeam.orienteur_id == current_user.orienteur_id,
-                         and_(Technician.team_id.is_(None), Technician.orienteur_id == current_user.orienteur_id)))
-    base = select(Technician, FieldTeam).outerjoin(FieldTeam, Technician.team_id == FieldTeam.id).where(*scope)
+    # Delivery 2026-09: there is one office ORIENTEUR. Candidate review is
+    # global; team boundaries belong to field-agent execution, not dispatch.
+    base = select(Technician, FieldTeam).outerjoin(FieldTeam, Technician.team_id == FieldTeam.id)
     result["total_candidates"] = await db.scalar(select(func.count()).select_from(base.subquery()))
     rows = (await db.execute(base.options(raiseload("*")).order_by(Technician.id).limit(MAX_CANDIDATES))).all()
     result["truncated"] = result["total_candidates"] > MAX_CANDIDATES
