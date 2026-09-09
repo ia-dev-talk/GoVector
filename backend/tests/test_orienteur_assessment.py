@@ -82,24 +82,42 @@ def test_policy_rejects_invalid_values_and_execution_switch(values):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("owner", [None, 8])
-async def test_foreign_or_unlinked_orienteur_cannot_read_related_facts(owner):
+@pytest.mark.parametrize("owner", [None, 7, 8])
+async def test_field_agent_cannot_use_office_assessment_surface(owner):
     db = AsyncMock()
     db.get.return_value = job()
     with pytest.raises(BusinessAPIError) as error:
-        await assess_job(db, job_id=1, current_user=SimpleNamespace(role=UserRole.ORIENTEUR, orienteur_id=owner))
+        await assess_job(
+            db,
+            job_id=1,
+            current_user=SimpleNamespace(
+                role=UserRole.CHEF_ORIENTEUR,
+                orienteur_id=owner,
+            ),
+        )
     assert error.value.status_code == 403
     db.execute.assert_not_called()
     db.scalar.assert_not_called()
     db.commit.assert_not_called()
 
 
-@pytest.mark.parametrize("role", [UserRole.CLIENT, UserRole.TECHNICIAN, UserRole.COORDINATEUR])
+@pytest.mark.parametrize(
+    "role",
+    [
+        UserRole.CLIENT,
+        UserRole.TECHNICIAN,
+        UserRole.COORDINATEUR,
+        UserRole.CHEF_ORIENTEUR,
+    ],
+)
 def test_http_roles_denied_before_database_access(role):
     app = FastAPI()
     app.include_router(router)
     install_business_error_handler(app)
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(role=role)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        role=role,
+        orienteur_id=7 if role == UserRole.CHEF_ORIENTEUR else None,
+    )
     db = AsyncMock()
     app.dependency_overrides[get_db] = lambda: db
     response = TestClient(app).get('/orienteur-agent/jobs/1/assessment')
