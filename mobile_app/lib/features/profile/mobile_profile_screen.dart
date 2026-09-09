@@ -31,7 +31,7 @@ class MobileProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayName = technicianName.trim().isEmpty
-        ? 'Technicien BlueVector'
+        ? 'Technicien GoVector'
         : technicianName.trim();
 
     final initials = displayName
@@ -84,7 +84,7 @@ class MobileProfileScreen extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    initials.isEmpty ? 'BV' : initials,
+                    initials.isEmpty ? 'GV' : initials,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
@@ -206,12 +206,12 @@ class MobileProfileScreen extends StatelessWidget {
             children: [
               _InfoRow(
                 icon: Icons.lan_outlined,
-                label: 'API BlueVector',
+                label: 'API GoVector',
                 value: AuthService.baseUrl,
               ),
               const SizedBox(height: BlueVectorSpacing.xs),
               const Text(
-                'Cette adresse sera déplacée dans la configuration administrateur lors de la prochaine couche d’intégration.',
+                'Adresse du serveur GoVector utilisée par cette tablette.',
                 style: TextStyle(
                   color: BlueVectorColors.textMuted,
                   fontSize: 11,
