@@ -133,13 +133,25 @@ async def record_observed_cable_consumption(
     )
     now = occurred_at or datetime.now(timezone.utc)
     suffix = re.sub(r"[^A-Za-z0-9]", "", event_id or "")[-16:] or uuid4().hex[:16]
+    consumption_number = f"CAB-{technician_id}-{suffix}"
+
+    # The final segment key is deterministic. A retry or double-submit therefore
+    # returns the existing ledger object instead of creating movements twice.
+    existing = await db.scalar(
+        select(StockConsumption)
+        .where(StockConsumption.consumption_number == consumption_number)
+        .with_for_update()
+    )
+    if existing is not None:
+        return existing
+
     author_user_id = actor_user_id or current_user.id
     note = (
         f"Consommation câble constatée automatiquement: {quantity_m} m"
         + (f" — {cable_reference}" if cable_reference else "")
     )
     consumption = StockConsumption(
-        consumption_number=f"CAB-{technician_id}-{suffix}",
+        consumption_number=consumption_number,
         job_id=job_id,
         visit_id=visit.id if visit is not None else None,
         technician_id=technician_id,
