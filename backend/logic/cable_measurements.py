@@ -1,9 +1,12 @@
-"""Automatic FTTH cable metrics and observed stock projection.
+"""Automatic FTTH cable metrics and stock preview projection.
 
 Cable entry and exit remain immutable field actions. When both observations
 carry a physical meter/counter reading, GoVector computes the used length as
-the absolute delta, aggregates every completed cable segment on the intervention
-and records the measured usage against the assigned technician stock context.
+the absolute delta and aggregates the latest value of every logical cable
+segment on the intervention.
+
+Field capture is preview-only for stock. The durable stock ledger is committed
+later by the final Agent validation path.
 
 GPS is evidence only: cable length is never inferred from geographic distance.
 """
@@ -143,21 +146,36 @@ async def _existing_completed_segments(
     job_id: int,
     technician_id: int,
 ) -> list[dict[str, Any]]:
+    """Return only the newest computed payload for each stable cable segment."""
+
     actions = (
         await db.execute(
-            select(TechnicianFieldAction).where(
+            select(TechnicianFieldAction)
+            .where(
                 TechnicianFieldAction.job_id == job_id,
                 TechnicianFieldAction.technician_id == technician_id,
                 TechnicianFieldAction.action_type.in_(("cable_entry", "cable_exit")),
             )
+            .order_by(
+                TechnicianFieldAction.occurred_at.asc(),
+                TechnicianFieldAction.id.asc(),
+            )
         )
     ).scalars().all()
-    return [
-        action.payload
-        for action in actions
-        if isinstance(action.payload, dict)
-        and _safe_computed_length(action.payload) is not None
-    ]
+
+    latest_by_segment: dict[str, dict[str, Any]] = {}
+    legacy_payloads: list[dict[str, Any]] = []
+    for action in actions:
+        payload = action.payload if isinstance(action.payload, dict) else {}
+        if _safe_computed_length(payload) is None:
+            continue
+        segment = _segment_id(payload)
+        if segment is None:
+            legacy_payloads.append(payload)
+        else:
+            latest_by_segment[segment] = payload
+
+    return [*legacy_payloads, *latest_by_segment.values()]
 
 
 def _aggregate_segments(
@@ -179,7 +197,8 @@ def _aggregate_segments(
         by_pose[pose_code] = by_pose.get(pose_code, 0.0) + length
 
     # A client may resend/correct a logical segment with a stable segment id.
-    # In that case its newest calculation replaces the older aggregate value.
+    # The newest payload is already selected in _existing_completed_segments;
+    # the current segment itself is replaced by the calculation being applied.
     current_segment = _segment_id(current_payload)
     for existing in existing_payloads:
         if current_segment is not None and _segment_id(existing) == current_segment:
@@ -204,7 +223,7 @@ async def apply_cable_endpoint_projection(
     current_user: User,
     occurred_at: datetime,
 ) -> float | None:
-    """Project one paired cable segment into metrics and technician stock."""
+    """Project one paired cable segment into metrics and stock preview."""
 
     if event_type not in {"cable_entry", "cable_exit"}:
         return None
@@ -303,6 +322,8 @@ async def apply_cable_endpoint_projection(
             canonical_item_id = 0
         consumed_m = int(round(computed))
         if canonical_item_id > 0 and consumed_m > 0:
+            # Explicit preview call. The ledger helper is a no-op until the
+            # Agent's final validation invokes it with commit=True.
             await record_observed_cable_consumption(
                 db,
                 job_id=job_id,
@@ -312,9 +333,10 @@ async def apply_cable_endpoint_projection(
                 event_id=event_id,
                 occurred_at=occurred_at,
                 cable_reference=str(payload.get("cable_reference") or "").strip() or None,
+                commit=False,
             )
-            payload["stock_consumption_m"] = consumed_m
-            payload["stock_consumption_mode"] = "observed_field_usage"
+            payload["stock_consumption_preview_m"] = consumed_m
+            payload["stock_consumption_mode"] = "preview_until_agent_validation"
 
         await db.flush()
         return computed
