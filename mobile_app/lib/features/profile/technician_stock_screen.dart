@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../design_system/bluevector_tokens.dart';
 import '../../services/technician_stock_service.dart';
@@ -18,9 +19,11 @@ class TechnicianStockScreen extends StatefulWidget {
 class _TechnicianStockScreenState extends State<TechnicianStockScreen> {
   List<Map<String, dynamic>> _materials = const [];
   List<Map<String, dynamic>> _serialized = const [];
+  List<Map<String, dynamic>> _history = const [];
   bool _loading = true;
   String? _materialError;
   String? _serializedError;
+  String? _historyError;
 
   @override
   void initState() {
@@ -34,13 +37,16 @@ class _TechnicianStockScreenState extends State<TechnicianStockScreen> {
         _loading = true;
         _materialError = null;
         _serializedError = null;
+        _historyError = null;
       });
     }
 
     List<Map<String, dynamic>> materials = const [];
     List<Map<String, dynamic>> serialized = const [];
+    List<Map<String, dynamic>> history = const [];
     String? materialError;
     String? serializedError;
+    String? historyError;
 
     try {
       materials = await TechnicianStockService.getCustody();
@@ -54,12 +60,20 @@ class _TechnicianStockScreenState extends State<TechnicianStockScreen> {
       serializedError = _cleanError(error);
     }
 
+    try {
+      history = await TechnicianStockService.getStockHistory();
+    } catch (error) {
+      historyError = _cleanError(error);
+    }
+
     if (!mounted) return;
     setState(() {
       _materials = materials;
       _serialized = serialized;
+      _history = history;
       _materialError = materialError;
       _serializedError = serializedError;
+      _historyError = historyError;
       _loading = false;
     });
   }
@@ -76,6 +90,12 @@ class _TechnicianStockScreenState extends State<TechnicianStockScreen> {
   String _text(dynamic value, {String fallback = '—'}) {
     final text = value?.toString().trim() ?? '';
     return text.isEmpty ? fallback : text;
+  }
+
+  String _movementDate(dynamic value) {
+    final parsed = DateTime.tryParse(value?.toString() ?? '');
+    if (parsed == null) return 'Date inconnue';
+    return DateFormat('dd/MM HH:mm', 'fr_FR').format(parsed.toLocal());
   }
 
   @override
@@ -113,7 +133,7 @@ class _TechnicianStockScreenState extends State<TechnicianStockScreen> {
             ),
             const SizedBox(height: BlueVectorSpacing.xs),
             const Text(
-              'Vue terrain du matériel actuellement attribué au technicien. Les équipements sérialisés sont limités à la garde vérifiée côté serveur.',
+              'Stock courant et historique personnel. Les consommations câble constatées sur intervention restent visibles même lorsqu’un stock initial était absent ou à zéro.',
               style: TextStyle(
                 color: BlueVectorColors.textSecondary,
                 height: 1.35,
@@ -140,9 +160,9 @@ class _TechnicianStockScreenState extends State<TechnicianStockScreen> {
                 const SizedBox(width: BlueVectorSpacing.sm),
                 Expanded(
                   child: _SummaryCard(
-                    label: 'Sérialisés',
-                    value: '${_serialized.length}',
-                    icon: Icons.qr_code_2_rounded,
+                    label: 'Mouvements',
+                    value: '${_history.length}',
+                    icon: Icons.history_rounded,
                   ),
                 ),
               ],
@@ -179,6 +199,19 @@ class _TechnicianStockScreenState extends State<TechnicianStockScreen> {
                 )
               else
                 ..._materials.map(_materialCard),
+              const SizedBox(height: BlueVectorSpacing.lg),
+              _SectionTitle(
+                title: 'Derniers mouvements',
+                count: _history.length,
+              ),
+              if (_historyError != null)
+                _ErrorCard(message: _historyError!)
+              else if (_history.isEmpty)
+                const _EmptyCard(
+                  message: 'Aucun mouvement de stock enregistré pour ce technicien.',
+                )
+              else
+                ..._history.take(30).map(_historyCard),
             ],
           ],
         ),
@@ -233,6 +266,28 @@ class _TechnicianStockScreenState extends State<TechnicianStockScreen> {
           _StockRow('Opérateur', _text(item['operator'])),
         if (item['warehouse_name'] != null)
           _StockRow('Dépôt', _text(item['warehouse_name'])),
+      ],
+    );
+  }
+
+  Widget _historyCard(Map<String, dynamic> item) {
+    final label = _text(item['item_label'], fallback: 'Article');
+    final reference = _text(item['item_reference']);
+    final unit = _text(item['item_unit'], fallback: 'u');
+    final quantity = _intValue(item['quantity']);
+    final type = _text(item['movement_type']);
+    final jobNumber = _text(item['job_number'], fallback: '');
+    final notes = _text(item['notes'], fallback: '');
+
+    return _StockCard(
+      icon: quantity < 0 ? Icons.south_east_rounded : Icons.north_west_rounded,
+      title: label,
+      subtitle: '$type · ${_movementDate(item['created_at'])}',
+      rows: [
+        _StockRow('Référence', reference),
+        _StockRow('Quantité', '${quantity > 0 ? '+' : ''}$quantity $unit'),
+        if (jobNumber.isNotEmpty) _StockRow('Intervention', jobNumber),
+        if (notes.isNotEmpty) _StockRow('Détail', notes),
       ],
     );
   }
