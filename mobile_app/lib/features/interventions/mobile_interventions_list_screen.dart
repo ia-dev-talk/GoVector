@@ -99,15 +99,39 @@ class _MobileInterventionsListScreenState
               BlueVectorSpacing.md,
               0,
             ),
-            child: Row(
-              children: [
-                const BlueVectorBrand(compact: true, showSubtitle: false),
-                const Spacer(),
-                _ConnectionBadge(
-                  isOnline: widget.isOnline,
-                  lastSync: widget.lastSync,
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 460) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const BlueVectorBrand(
+                        compact: true,
+                        showSubtitle: false,
+                      ),
+                      const SizedBox(height: BlueVectorSpacing.xs),
+                      _ConnectionBadge(
+                        isOnline: widget.isOnline,
+                        lastSync: widget.lastSync,
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    const BlueVectorBrand(
+                      compact: true,
+                      showSubtitle: false,
+                    ),
+                    const Spacer(),
+                    _ConnectionBadge(
+                      isOnline: widget.isOnline,
+                      lastSync: widget.lastSync,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           Padding(
@@ -136,6 +160,8 @@ class _MobileInterventionsListScreenState
                           color: BlueVectorColors.textSecondary,
                           fontSize: 12,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -348,6 +374,8 @@ class _JobCard extends StatelessWidget {
                         color: BlueVectorColors.textSecondary,
                         fontSize: 11,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: BlueVectorSpacing.sm),
                     Text(
@@ -359,6 +387,8 @@ class _JobCard extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: BlueVectorSpacing.xxs),
                     Row(
@@ -460,26 +490,35 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: BlueVectorColors.surfaceSoft,
-        borderRadius: BorderRadius.circular(BlueVectorRadius.pill),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.58,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: BlueVectorColors.textSecondary, size: 12),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: BlueVectorColors.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: BlueVectorColors.surfaceSoft,
+          borderRadius: BorderRadius.circular(BlueVectorRadius.pill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: BlueVectorColors.textSecondary, size: 12),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: BlueVectorColors.textSecondary,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -509,6 +548,7 @@ class _ConnectionBadge extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 7,
