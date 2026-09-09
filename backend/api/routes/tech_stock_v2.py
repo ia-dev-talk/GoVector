@@ -8,12 +8,14 @@ from typing import Any
 
 from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.routes import tech_jobs
 from backend.auth.dependencies import require_technician
 from backend.database.connection import get_db
-from backend.database.models import User
+from backend.database.models import StockItem, User
+from backend.logic.cable_classification import is_cable_catalog_item
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_stock import (
     resolve_equipment_scan,
@@ -46,6 +48,66 @@ async def get_technician_custody_v2(
         db,
         technician_id=current_user.technician_id,
     )
+
+
+@tech_jobs.router.get("/stock-v2/cables")
+async def get_technician_cable_catalogue_v2(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_technician),
+) -> list[dict[str, Any]]:
+    """Return governed cable references, including zero/unknown technician stock.
+
+    Real field consumption must remain recordable even when the system never
+    received a prior allocation for that reel/reference.  The mobile therefore
+    sees the governed catalogue and an informational custody quantity side by
+    side instead of hiding references whose technician stock is zero.
+    """
+    if current_user.technician_id is None:
+        raise HTTPException(status_code=400, detail="Profil technicien manquant")
+
+    custody = await technician_stock_payload(
+        db,
+        technician_id=current_user.technician_id,
+    )
+    by_item_id = {int(row["item_id"]): row for row in custody}
+    items = (
+        await db.execute(
+            select(StockItem)
+            .where(StockItem.is_active.is_(True))
+            .order_by(
+                StockItem.equipment_type.asc(),
+                StockItem.label.asc(),
+                StockItem.reference.asc(),
+                StockItem.id.asc(),
+            )
+        )
+    ).scalars().all()
+
+    result: list[dict[str, Any]] = []
+    for item in items:
+        if not is_cable_catalog_item(item):
+            continue
+        known = by_item_id.get(item.id)
+        result.append(
+            {
+                "item_id": item.id,
+                "reference": item.reference,
+                "label": item.label,
+                "equipment_type": item.equipment_type,
+                "operator": item.operator,
+                "manufacturer": item.manufacturer,
+                "model": item.model,
+                "unit": item.unit,
+                "warehouse_id": known.get("warehouse_id") if known else None,
+                "warehouse_name": known.get("warehouse_name") if known else None,
+                "quantity": int(known.get("quantity", 0)) if known else 0,
+                "reserved_quantity": int(known.get("reserved_quantity", 0)) if known else 0,
+                "available_quantity": int(known.get("available_quantity", 0)) if known else 0,
+                "stock_registered": known is not None,
+                "stock_known": bool(known and int(known.get("available_quantity", 0)) > 0),
+            }
+        )
+    return result
 
 
 @tech_jobs.router.post("/scan/resolve")
