@@ -8,7 +8,7 @@ import {
 
 import { api } from '../api/client';
 
-const PRODUCT_NAME = 'BlueVector';
+const PRODUCT_NAME = 'GoVector';
 const PRODUCT_VERSION = '0.0.8';
 
 function isRecord(value) {
@@ -138,7 +138,7 @@ function getLoginErrorMessage(error) {
     status <= 599
   ) {
     return (
-      'Le serveur BlueVector rencontre un problème. ' +
+      'Le serveur GoVector rencontre un problème. ' +
       'Veuillez réessayer.'
     );
   }
@@ -169,7 +169,7 @@ function getLoginErrorMessage(error) {
   ) {
     return (
       'Serveur inaccessible. Vérifiez la connexion réseau ' +
-      'et que le backend BlueVector est démarré.'
+      'et que le backend GoVector est démarré.'
     );
   }
 
@@ -436,23 +436,28 @@ export default function Login({
             aria-hidden="true"
           >
             <svg
-              width="28"
-              height="28"
-              viewBox="0 0 28 28"
+              width="30"
+              height="30"
+              viewBox="0 0 32 32"
               fill="none"
               focusable="false"
             >
-              <rect
-                width="28"
-                height="28"
-                rx="6"
-                fill="var(--color-accent)"
-              />
-
               <path
-                d="M7.5 8.5h5.25c2.35 0 3.75 1.12 3.75 3 0 1.18-.58 2.08-1.55 2.55 1.48.4 2.3 1.45 2.3 2.92 0 2.18-1.7 3.53-4.45 3.53H7.5v-12Zm3 2.35v2.28h2c.78 0 1.25-.4 1.25-1.13 0-.75-.47-1.15-1.25-1.15h-2Zm0 4.55v2.65h2.18c1.05 0 1.62-.45 1.62-1.32 0-.88-.57-1.33-1.62-1.33H10.5Z"
-                fill="#fff"
+                d="M25 10.2A11 11 0 1 0 25 22h-8.4v-5.1H27"
+                stroke="#172554"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
+              <path
+                d="M8 24 24 8"
+                stroke="#2563eb"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+              <circle cx="9" cy="23" r="2.2" fill="#2563eb" />
+              <circle cx="16" cy="16" r="2.2" fill="#2563eb" />
+              <circle cx="23" cy="9" r="2.2" fill="#2563eb" />
             </svg>
           </div>
 
@@ -464,7 +469,7 @@ export default function Login({
           </h1>
 
           <p className="login-brand-subtitle">
-            Pilotage des interventions FTTH
+            Interventions & stocks FTTH
           </p>
         </header>
 
@@ -642,7 +647,7 @@ export default function Login({
         <p className="login-version">
           {PRODUCT_NAME} v{PRODUCT_VERSION}
           {' — '}
-          Plateforme de supervision FTTH
+          Tranche Interventions & Stocks
         </p>
       </div>
     </main>
