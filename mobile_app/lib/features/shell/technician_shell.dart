@@ -261,6 +261,12 @@ class _TechnicianShellState extends State<TechnicianShell> {
     );
   }
 
+  Map<String, dynamic> _completionPayload(dynamic position) => {
+    if (position != null) 'gps_latitude': position.latitude,
+    if (position != null) 'gps_longitude': position.longitude,
+    if (position != null) 'gps_accuracy': position.accuracy,
+  };
+
   Future<void> _advanceWorkflow() async {
     if (_workflowBusy) return;
     final job = _selectedJob;
@@ -294,6 +300,10 @@ class _TechnicianShellState extends State<TechnicianShell> {
           );
           break;
         case 'start_work':
+          // One visible technician intention: the internal start-work transition
+          // is audited, then completion is durably queued immediately. If 4G
+          // disappears after the first request, complete_job remains retryable
+          // and the technician never needs to understand the internal state.
           await InterventionService.updateStatus(
             jobId: job.id,
             newStatus: 'in_progress',
@@ -301,15 +311,15 @@ class _TechnicianShellState extends State<TechnicianShell> {
             longitude: position?.longitude,
             accuracy: position?.accuracy,
           );
+          await InterventionService.terminateJob(
+            jobId: job.id,
+            payload: _completionPayload(position),
+          );
           break;
         case 'close_field_visit':
           await InterventionService.terminateJob(
             jobId: job.id,
-            payload: {
-              if (position != null) 'gps_latitude': position.latitude,
-              if (position != null) 'gps_longitude': position.longitude,
-              if (position != null) 'gps_accuracy': position.accuracy,
-            },
+            payload: _completionPayload(position),
           );
           break;
         default:
