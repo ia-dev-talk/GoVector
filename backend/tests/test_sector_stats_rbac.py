@@ -16,14 +16,17 @@ def _dependency_calls(path: str):
     return {dependency.call for dependency in _route(path).dependant.dependencies}
 
 
-def test_sector_stats_routes_require_chef_orienteur_dependency():
+def test_sector_stats_routes_keep_legacy_dependency_name_for_office_guard():
     assert require_chef_orienteur in _dependency_calls('/{sector_id}/stats')
     assert require_chef_orienteur in _dependency_calls('/stats/global')
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('role', [UserRole.ORIENTEUR, UserRole.TECHNICIAN, UserRole.CLIENT])
-async def test_sector_stats_guard_rejects_roles_below_chef(role):
+@pytest.mark.parametrize(
+    'role',
+    [UserRole.CHEF_ORIENTEUR, UserRole.TECHNICIAN, UserRole.CLIENT],
+)
+async def test_sector_stats_guard_rejects_field_agent_and_non_office_roles(role):
     with pytest.raises(HTTPException) as exc_info:
         await require_chef_orienteur(SimpleNamespace(role=role))
 
@@ -31,7 +34,7 @@ async def test_sector_stats_guard_rejects_roles_below_chef(role):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('role', [UserRole.CHEF_ORIENTEUR, UserRole.ADMIN])
-async def test_sector_stats_guard_allows_chef_and_admin(role):
+@pytest.mark.parametrize('role', [UserRole.ORIENTEUR, UserRole.ADMIN])
+async def test_sector_stats_guard_allows_office_orienteur_and_admin(role):
     user = SimpleNamespace(role=role)
     assert await require_chef_orienteur(user) is user
