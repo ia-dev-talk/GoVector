@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// Configuration centralisée de l'application BlueVector pour Unifibre.
+/// Configuration centralisée de l'application GoVector.
 class AppConfig {
   static const String _configuredApiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
@@ -13,9 +13,9 @@ class AppConfig {
 
   /// URL de base de l'API.
   ///
-  /// En debug, l'ancienne URL LAN reste disponible pour faciliter les tests
-  /// terrain. En release, API_BASE_URL devient obligatoire et doit être HTTPS
-  /// afin qu'une APK publique ne puisse jamais pointer silencieusement vers une
+  /// En debug, l'URL LAN reste disponible pour faciliter les tests locaux.
+  /// En release, API_BASE_URL devient obligatoire et doit être HTTPS afin
+  /// qu'une tablette en 4G ne puisse jamais pointer silencieusement vers une
   /// machine locale ou une API non chiffrée.
   static String get apiBaseUrl => resolveApiBaseUrl(
         configuredUrl: _configuredApiBaseUrl,
@@ -33,7 +33,7 @@ class AppConfig {
     if (configured.isEmpty) {
       if (releaseMode) {
         throw StateError(
-          'API_BASE_URL est obligatoire pour une build release BlueVector.',
+          'API_BASE_URL est obligatoire pour une build release GoVector.',
         );
       }
       return developmentApiBaseUrl;
@@ -48,7 +48,7 @@ class AppConfig {
 
     if (releaseMode && uri.scheme.toLowerCase() != 'https') {
       throw StateError(
-        'API_BASE_URL doit utiliser HTTPS pour une build release BlueVector.',
+        'API_BASE_URL doit utiliser HTTPS pour une build release GoVector.',
       );
     }
 
@@ -70,9 +70,13 @@ class AppConfig {
         normalized == '::1';
   }
 
-  /// Timeout des requêtes HTTP en secondes.
+  /// Timeout des requêtes API courtes.
   static const int httpTimeoutSeconds = 30;
   static const Duration httpTimeout = Duration(seconds: httpTimeoutSeconds);
+
+  /// Les médias peuvent être lourds et la 4G irrégulière : on laisse plus de
+  /// temps à un upload avant de le remettre proprement dans la file de retry.
+  static const Duration mediaUploadTimeout = Duration(minutes: 2);
 
   /// Construit une URI API à partir d'un chemin relatif.
   static Uri apiUri(String path) {
@@ -80,8 +84,14 @@ class AppConfig {
     return Uri.parse('$apiBaseUrl/$normalizedPath');
   }
 
+  /// Sonde le vrai serveur GoVector, pas un service Internet tiers.
+  static Uri get healthUri {
+    final base = Uri.parse(apiBaseUrl);
+    return base.replace(path: '/health', query: null, fragment: null);
+  }
+
   /// Nom de l'application.
-  static const String appName = 'BlueVector';
+  static const String appName = 'GoVector';
 
   /// Version de l'application, alignée avec pubspec.yaml (1.0.1+2).
   static const String appVersion = '1.0.1';
