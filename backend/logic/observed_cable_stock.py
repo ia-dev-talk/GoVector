@@ -1,10 +1,14 @@
 """Observed cable consumption for the GoVector field pilot.
 
 A technician may physically use a governed cable reference even when their
-system custody is empty or was never initialized.  That real field fact must
-not be rejected.  We debit any known quantity, keep canonical stock non-negative,
-and record any uncovered quantity as an explicit observed/unregistered movement
-linked to the intervention.
+system custody is empty or was never initialized. That real field fact must
+not be rejected. We debit any known quantity, keep canonical stock
+non-negative, and record any uncovered quantity as an explicit
+observed/unregistered movement linked to the intervention.
+
+Field capture is preview-only. The durable ledger is written only by the final
+validation path (normally the responsible Agent terrain) so corrections made
+before closure never leave phantom movements.
 
 This path is intentionally cable-specific. Serialized equipment and ordinary
 material consumption keep their stricter custody rules.
@@ -77,10 +81,17 @@ async def record_observed_cable_consumption(
     event_id: str | None,
     occurred_at: datetime | None,
     cable_reference: str | None = None,
+    commit: bool = False,
+    actor_user_id: int | None = None,
 ) -> StockConsumption | None:
-    """Record measured cable use without rejecting unknown/zero technician stock."""
+    """Record measured cable use without rejecting unknown/zero technician stock.
 
-    if quantity_m <= 0:
+    ``commit=False`` is deliberately a no-op for the ledger. Field capture can
+    call this helper while computing preview values, but only the final review
+    path passes ``commit=True``.
+    """
+
+    if quantity_m <= 0 or not commit:
         return None
 
     technician_id = current_user.technician_id
@@ -122,6 +133,7 @@ async def record_observed_cable_consumption(
     )
     now = occurred_at or datetime.now(timezone.utc)
     suffix = re.sub(r"[^A-Za-z0-9]", "", event_id or "")[-16:] or uuid4().hex[:16]
+    author_user_id = actor_user_id or current_user.id
     note = (
         f"Consommation câble constatée automatiquement: {quantity_m} m"
         + (f" — {cable_reference}" if cable_reference else "")
@@ -134,8 +146,8 @@ async def record_observed_cable_consumption(
         operator=item.operator or job.operator,
         status=StockConsumptionStatus.VALIDE,
         notes=note,
-        created_by=current_user.id,
-        validated_by=current_user.id,
+        created_by=author_user_id,
+        validated_by=author_user_id,
         validated_at=now,
         created_at=now,
         updated_at=now,
@@ -205,7 +217,7 @@ async def record_observed_cable_consumption(
                 visit_id=visit.id if visit is not None else None,
                 technician_id=technician_id,
                 notes=note,
-                created_by=current_user.id,
+                created_by=author_user_id,
                 created_at=now,
             )
         )
@@ -232,7 +244,7 @@ async def record_observed_cable_consumption(
                     f"{note}. Stock préalable non renseigné ou insuffisant: "
                     f"{remaining} m constatés hors stock connu."
                 ),
-                created_by=current_user.id,
+                created_by=author_user_id,
                 created_at=now,
             )
         )
