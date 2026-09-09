@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../config/config.dart';
 import '../features/sync/technician_outbox_event.dart';
 import 'technician_outbox_store.dart';
 
@@ -94,16 +95,18 @@ class TechnicianSyncService {
 
     http.Response response;
     try {
-      response = await client.post(
-        endpoint,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'events': claimed.map((event) => event.toSyncJson()).toList(),
-        }),
-      );
+      response = await client
+          .post(
+            endpoint,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'events': claimed.map((event) => event.toSyncJson()).toList(),
+            }),
+          )
+          .timeout(AppConfig.httpTimeout);
     } catch (error) {
       await _markWholeBatchRetryable(owner, claimed, 'network_error', '$error');
       return TechnicianSyncRunResult(
