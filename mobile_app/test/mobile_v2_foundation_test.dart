@@ -18,7 +18,7 @@ void main() {
     );
   });
 
-  testWidgets('Mobile V2 foundation renders the BlueVector dark brand', (
+  testWidgets('Mobile V2 foundation renders the GoVector dark brand', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -28,7 +28,7 @@ void main() {
       ),
     );
 
-    expect(find.text('BlueVector'), findsOneWidget);
+    expect(find.text('GoVector'), findsOneWidget);
     expect(BlueVectorTheme.dark.brightness, Brightness.dark);
   });
 
