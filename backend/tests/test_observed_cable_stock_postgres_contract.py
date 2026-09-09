@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from backend.api.routes.tech_stock_v2 import get_technician_stock_history_v2
 from backend.api.schemas.tech_sync import TechnicianSyncEventRequest
 from backend.database.models import (
     Assignment,
@@ -191,6 +192,11 @@ async def _exercise(database_url: str) -> dict:
                     StockConsumption.technician_id == technician.id,
                 )
             )
+            tablet_history = await get_technician_stock_history_v2(
+                limit=100,
+                db=db,
+                current_user=user,
+            )
 
             return {
                 "statuses": [entry1.status, exit1.status, entry2.status, exit2.status],
@@ -208,6 +214,9 @@ async def _exercise(database_url: str) -> dict:
                 "last_by_type": computed[-1]["job_cable_totals_by_type"],
                 "last_by_pose": computed[-1]["job_cable_totals_by_pose"],
                 "exit1_event": str(exit1_event.event_id),
+                "tablet_history_quantities": [row["quantity"] for row in tablet_history],
+                "tablet_history_refs": [row["item_reference"] for row in tablet_history],
+                "tablet_history_jobs": [row["job_number"] for row in tablet_history],
             }
     finally:
         await engine.dispose()
@@ -236,3 +245,7 @@ def test_zero_stock_cable_use_is_calculated_aggregated_and_traced():
     assert result["last_payload_total"] == pytest.approx(150.0)
     assert result["last_by_type"]["FO64-TEST"] == pytest.approx(150.0)
     assert result["last_by_pose"]["CONDUITE_PEHD"] == pytest.approx(150.0)
+    # New tablet history endpoint is newest-first and strictly scoped to this technician.
+    assert result["tablet_history_quantities"] == [-50, -100]
+    assert result["tablet_history_refs"] == ["FO64-TEST", "FO64-TEST"]
+    assert result["tablet_history_jobs"] == ["CAB-ZERO-JOB", "CAB-ZERO-JOB"]
