@@ -16,6 +16,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.job_responses import job_response
@@ -28,14 +29,16 @@ from backend.api.schemas.tech_sync import (
 )
 from backend.auth.dependencies import require_field_agent, require_orienteur
 from backend.database.connection import get_db
-from backend.database.models import User
+from backend.database.models import JobStatus, User
 from backend.logic.field_agent_access import (
     list_field_agent_team_jobs,
     require_field_agent_team_job,
     subject_user_for_field_agent,
 )
+from backend.logic.field_agent_review import FieldAgentReviewWorkflowEngine
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_sync import process_technician_sync_event
+from backend.logic.workflow.engine import WorkflowEngine
 from backend.services.orienteur_assessment import assess_job
 from backend.services.orienteur_candidates import assess_candidates
 from backend.services.realtime.dashboard_service import DashboardService
@@ -70,6 +73,10 @@ _FIELD_AGENT_ALLOWED_EVENT_TYPES = {
 }
 
 
+class FieldAgentReturnRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=1000)
+
+
 def _field_agent_error(exc: TechnicianJobMutationError) -> HTTPException:
     status_code = status.HTTP_403_FORBIDDEN
     if exc.code == "job_not_found":
@@ -77,6 +84,10 @@ def _field_agent_error(exc: TechnicianJobMutationError) -> HTTPException:
     elif exc.status == "conflict":
         status_code = status.HTTP_409_CONFLICT
     return HTTPException(status_code=status_code, detail=exc.message)
+
+
+def _review_conflict(message: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=message)
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +170,124 @@ async def get_my_team_job(
         },
         "agent_user_id": current_user.id,
         "team_orienteur_id": current_user.orienteur_id,
+    }
+
+
+@router.post("/me/jobs/{job_id}/return")
+async def return_my_team_job_for_correction(
+    payload: FieldAgentReturnRequest,
+    job_id: int = Path(..., gt=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_field_agent),
+):
+    """Return a submitted team job to its assigned technician with a reason."""
+
+    reason = payload.reason.strip()
+    if not reason:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Le motif de retour est obligatoire",
+        )
+
+    try:
+        context = await require_field_agent_team_job(
+            db,
+            job_id=job_id,
+            current_user=current_user,
+            lock=True,
+        )
+    except TechnicianJobMutationError as exc:
+        raise _field_agent_error(exc) from exc
+
+    if context.job.status != JobStatus.EN_ATTENTE_VALIDATION:
+        raise _review_conflict(
+            "Seule une intervention en attente de validation peut être retournée"
+        )
+
+    engine = FieldAgentReviewWorkflowEngine(db)
+    try:
+        await engine.transition_job(
+            context.job,
+            JobStatus.IN_PROGRESS,
+            technician_id=context.technician.id,
+            metadata={
+                "extra": {
+                    "source": "field_agent_return",
+                    "reason": reason,
+                    "field_agent_user_id": current_user.id,
+                    "field_agent_orienteur_id": current_user.orienteur_id,
+                }
+            },
+        )
+        await db.commit()
+    except ValueError as exc:
+        await db.rollback()
+        raise _review_conflict(str(exc)) from exc
+
+    return {
+        "decision": "returned",
+        "reason": reason,
+        "job": await job_response(db, context.job),
+        "assigned_technician": {
+            "id": context.technician.id,
+            "name": context.technician.name,
+            "employee_id": context.technician.employee_id,
+            "team_id": context.technician.team_id,
+        },
+    }
+
+
+@router.post("/me/jobs/{job_id}/validate")
+async def validate_and_close_my_team_job(
+    job_id: int = Path(..., gt=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_field_agent),
+):
+    """Final Agent decision: validate a submitted team job and close it."""
+
+    try:
+        context = await require_field_agent_team_job(
+            db,
+            job_id=job_id,
+            current_user=current_user,
+            lock=True,
+        )
+    except TechnicianJobMutationError as exc:
+        raise _field_agent_error(exc) from exc
+
+    if context.job.status != JobStatus.EN_ATTENTE_VALIDATION:
+        raise _review_conflict(
+            "Seule une intervention en attente de validation peut être clôturée par l'Agent"
+        )
+
+    engine = WorkflowEngine(db)
+    try:
+        await engine.transition_job(
+            context.job,
+            JobStatus.COMPLETED,
+            technician_id=context.technician.id,
+            metadata={
+                "extra": {
+                    "source": "field_agent_validation",
+                    "field_agent_user_id": current_user.id,
+                    "field_agent_orienteur_id": current_user.orienteur_id,
+                }
+            },
+        )
+        await db.commit()
+    except ValueError as exc:
+        await db.rollback()
+        raise _review_conflict(str(exc)) from exc
+
+    return {
+        "decision": "validated",
+        "job": await job_response(db, context.job),
+        "assigned_technician": {
+            "id": context.technician.id,
+            "name": context.technician.name,
+            "employee_id": context.technician.employee_id,
+            "team_id": context.technician.team_id,
+        },
     }
 
 
