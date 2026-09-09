@@ -21,6 +21,17 @@ class LoginFailure {
   final String message;
 }
 
+abstract final class MobileFieldRole {
+  static const technician = 'TECHNICIAN';
+  static const fieldAgent = 'CHEF_ORIENTEUR';
+
+  static String? normalize(Object? value) {
+    final normalized = value?.toString().trim().toUpperCase();
+    if (normalized == technician || normalized == fieldAgent) return normalized;
+    return null;
+  }
+}
+
 class AuthService {
   static String get baseUrl => AppConfig.apiBaseUrl;
 
@@ -28,6 +39,9 @@ class AuthService {
   static const String _userIdKey = 'tech_user_id';
   static const String _techIdKey = 'tech_id';
   static const String _techNameKey = 'tech_name';
+  static const String _roleKey = 'field_role';
+  static const String _orienteurIdKey = 'field_orienteur_id';
+  static const String _fieldAgentNameKey = 'field_agent_name';
 
   static LoginFailure? _lastLoginFailure;
   static LoginFailure? get lastLoginFailure => _lastLoginFailure;
@@ -95,11 +109,23 @@ class AuthService {
       }
 
       final token = _nonEmptyString(decoded['access_token']);
+      final userId = _positiveInt(decoded['user_id']);
       final technicianId = _positiveInt(decoded['technician_id']);
       final technicianName = _nonEmptyString(decoded['technician_name']);
-      final userId = _positiveInt(decoded['user_id']);
+      final orienteurId = _positiveInt(decoded['orienteur_id']);
+      final fieldAgentName = _nonEmptyString(decoded['field_agent_name']);
+      // Backward-compatible technician inference lets a pilot app survive a
+      // brief server/app version skew while role-aware servers are deployed.
+      final role = MobileFieldRole.normalize(decoded['role']) ??
+          (technicianId != null ? MobileFieldRole.technician : null);
 
-      if (token == null || technicianId == null || technicianName == null) {
+      final validTechnician = role == MobileFieldRole.technician &&
+          technicianId != null &&
+          technicianName != null;
+      final validAgent = role == MobileFieldRole.fieldAgent &&
+          orienteurId != null &&
+          fieldAgentName != null;
+      if (token == null || role == null || (!validTechnician && !validAgent)) {
         _lastLoginFailure = const LoginFailure(
           LoginFailureType.serverError,
           'Réponse invalide du serveur.',
@@ -109,18 +135,27 @@ class AuthService {
 
       final prefs = await SharedPreferences.getInstance();
 
-      // Replace the identity atomically from the app's point of view. In
-      // particular, never retain a previous technician's owner IDs if an older
-      // API response omits user_id: getUserId() can derive it from the new JWT.
-      await prefs.remove(_userIdKey);
-      await prefs.remove(_techIdKey);
-      await prefs.remove(_techNameKey);
-      await prefs.setString(_tokenKey, token);
-      if (userId != null) {
-        await prefs.setInt(_userIdKey, userId);
+      // Replace role identity atomically from the app's point of view. Never
+      // retain a previous technician/Agent identity when accounts are switched.
+      for (final key in [
+        _userIdKey,
+        _techIdKey,
+        _techNameKey,
+        _roleKey,
+        _orienteurIdKey,
+        _fieldAgentNameKey,
+      ]) {
+        await prefs.remove(key);
       }
-      await prefs.setInt(_techIdKey, technicianId);
-      await prefs.setString(_techNameKey, technicianName);
+      await prefs.setString(_tokenKey, token);
+      await prefs.setString(_roleKey, role);
+      if (userId != null) await prefs.setInt(_userIdKey, userId);
+      if (technicianId != null) await prefs.setInt(_techIdKey, technicianId);
+      if (technicianName != null) await prefs.setString(_techNameKey, technicianName);
+      if (orienteurId != null) await prefs.setInt(_orienteurIdKey, orienteurId);
+      if (fieldAgentName != null) {
+        await prefs.setString(_fieldAgentNameKey, fieldAgentName);
+      }
 
       return true;
     } on TimeoutException {
@@ -161,23 +196,35 @@ class AuthService {
   }
 
   // =========================
-  // TOKEN
+  // TOKEN / IDENTITY
   // =========================
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_tokenKey);
+    return token == null || token.isEmpty ? null : token;
+  }
 
-    if (token == null || token.isEmpty) {
-      return null;
-    }
-
-    return token;
+  static Future<String?> getRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = MobileFieldRole.normalize(prefs.getString(_roleKey));
+    if (stored != null) return stored;
+    // Legacy local sessions were necessarily technician sessions.
+    final technicianId = prefs.getInt(_techIdKey);
+    return technicianId != null && technicianId > 0
+        ? MobileFieldRole.technician
+        : null;
   }
 
   static Future<int?> getTechnicianId() async {
     final prefs = await SharedPreferences.getInstance();
     final technicianId = prefs.getInt(_techIdKey);
     return technicianId != null && technicianId > 0 ? technicianId : null;
+  }
+
+  static Future<int?> getOrienteurId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getInt(_orienteurIdKey);
+    return id != null && id > 0 ? id : null;
   }
 
   static Future<int?> getUserId() async {
@@ -193,19 +240,13 @@ class AuthService {
     }
     try {
       final parts = token.split('.');
-      if (parts.length != 3) {
-        return null;
-      }
+      if (parts.length != 3) return null;
       final decoded = jsonDecode(
         utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
       );
-      if (decoded is! Map<String, dynamic>) {
-        return null;
-      }
+      if (decoded is! Map<String, dynamic>) return null;
       final parsed = _positiveInt(decoded['sub']);
-      if (parsed == null) {
-        return null;
-      }
+      if (parsed == null) return null;
       await prefs.setInt(_userIdKey, parsed);
       return parsed;
     } catch (_) {
@@ -219,14 +260,27 @@ class AuthService {
     return name == null || name.isEmpty ? null : name;
   }
 
+  static Future<String?> getFieldAgentName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString(_fieldAgentNameKey)?.trim();
+    return name == null || name.isEmpty ? null : name;
+  }
+
   // =========================
   // SESSION CHECK
   // =========================
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
-    final technicianId = await getTechnicianId();
     final userId = await getUserId();
-    return token != null && technicianId != null && userId != null;
+    final role = await getRole();
+    if (token == null || userId == null || role == null) return false;
+    if (role == MobileFieldRole.technician) {
+      return await getTechnicianId() != null;
+    }
+    if (role == MobileFieldRole.fieldAgent) {
+      return await getOrienteurId() != null;
+    }
+    return false;
   }
 
   // =========================
@@ -235,10 +289,17 @@ class AuthService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_userIdKey);
-    await prefs.remove(_techIdKey);
-    await prefs.remove(_techNameKey);
+    for (final key in [
+      _tokenKey,
+      _userIdKey,
+      _techIdKey,
+      _techNameKey,
+      _roleKey,
+      _orienteurIdKey,
+      _fieldAgentNameKey,
+    ]) {
+      await prefs.remove(key);
+    }
 
     await prefs.reload();
   }
