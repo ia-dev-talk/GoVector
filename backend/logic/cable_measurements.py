@@ -1,13 +1,11 @@
-"""Automatic FTTH cable-length projection from field entry/exit observations.
+"""Automatic FTTH cable metrics and observed stock projection.
 
-Cable entry and exit remain immutable technician field actions.  When both
-observations carry a physical cable meter/counter reading, BlueVector computes
-the used length as the absolute delta and projects it onto ``Job.cable_length_m``.
+Cable entry and exit remain immutable field actions. When both observations
+carry a physical meter/counter reading, GoVector computes the used length as
+the absolute delta, aggregates every completed cable segment on the intervention
+and records the measured usage against the assigned technician stock context.
 
-The module deliberately does *not* infer cable length from GPS distance: a
-straight-line geographic distance is not a reliable representation of routed
-cable length.  It also does not consume a stock item automatically until a
-client/operator cable catalogue mapping is explicitly configured.
+GPS is evidence only: cable length is never inferred from geographic distance.
 """
 
 from __future__ import annotations
@@ -20,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import Job, TechnicianFieldAction, User
+from backend.logic.observed_cable_stock import record_observed_cable_consumption
 from backend.logic.technician_jobs import TechnicianJobMutationError
 
 
@@ -36,6 +35,12 @@ CABLE_REFERENCE_KEYS = (
     "cable_id",
     "reference",
     "cable_ref",
+)
+
+CABLE_SEGMENT_KEYS = (
+    "cable_segment_id",
+    "segment_id",
+    "cable_block_id",
 )
 
 
@@ -82,8 +87,8 @@ def calculate_cable_length_m(entry_meter_m: float, exit_meter_m: float) -> float
     return abs(float(exit_meter_m) - float(entry_meter_m))
 
 
-def _cable_reference(payload: dict[str, Any]) -> str | None:
-    for key in CABLE_REFERENCE_KEYS:
+def _text_value(payload: dict[str, Any], keys: tuple[str, ...]) -> str | None:
+    for key in keys:
         raw = payload.get(key)
         if raw is None:
             continue
@@ -93,10 +98,23 @@ def _cable_reference(payload: dict[str, Any]) -> str | None:
     return None
 
 
+def _cable_reference(payload: dict[str, Any]) -> str | None:
+    return _text_value(payload, CABLE_REFERENCE_KEYS)
+
+
+def _segment_id(payload: dict[str, Any]) -> str | None:
+    return _text_value(payload, CABLE_SEGMENT_KEYS)
+
+
 def _same_cable(
     current_payload: dict[str, Any],
     candidate_payload: dict[str, Any],
 ) -> bool:
+    current_segment = _segment_id(current_payload)
+    candidate_segment = _segment_id(candidate_payload)
+    if current_segment is not None or candidate_segment is not None:
+        return current_segment is not None and current_segment == candidate_segment
+
     current_ref = _cable_reference(current_payload)
     candidate_ref = _cable_reference(candidate_payload)
     if current_ref is None:
@@ -106,28 +124,94 @@ def _same_cable(
     return candidate_ref == current_ref
 
 
+def _safe_computed_length(payload: dict[str, Any]) -> float | None:
+    raw = payload.get("computed_length_m")
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value) or value < 0:
+        return None
+    return value
+
+
+async def _existing_completed_segments(
+    db: AsyncSession,
+    *,
+    job_id: int,
+    technician_id: int,
+) -> list[dict[str, Any]]:
+    actions = (
+        await db.execute(
+            select(TechnicianFieldAction).where(
+                TechnicianFieldAction.job_id == job_id,
+                TechnicianFieldAction.technician_id == technician_id,
+                TechnicianFieldAction.action_type.in_(("cable_entry", "cable_exit")),
+            )
+        )
+    ).scalars().all()
+    return [
+        action.payload
+        for action in actions
+        if isinstance(action.payload, dict)
+        and _safe_computed_length(action.payload) is not None
+    ]
+
+
+def _aggregate_segments(
+    existing_payloads: list[dict[str, Any]],
+    current_payload: dict[str, Any],
+    current_length: float,
+) -> tuple[float, dict[str, float], dict[str, float]]:
+    total = current_length
+    by_type: dict[str, float] = {}
+    by_pose: dict[str, float] = {}
+
+    def add(payload: dict[str, Any], length: float) -> None:
+        nonlocal total
+        type_code = str(
+            payload.get("cable_type_code") or payload.get("cable_reference") or "AUTRE"
+        ).strip()
+        pose_code = str(payload.get("installation_mode_code") or "AUTRE").strip()
+        by_type[type_code] = by_type.get(type_code, 0.0) + length
+        by_pose[pose_code] = by_pose.get(pose_code, 0.0) + length
+
+    # A client may resend/correct a logical segment with a stable segment id.
+    # In that case its newest calculation replaces the older aggregate value.
+    current_segment = _segment_id(current_payload)
+    for existing in existing_payloads:
+        if current_segment is not None and _segment_id(existing) == current_segment:
+            continue
+        length = _safe_computed_length(existing)
+        if length is None:
+            continue
+        total += length
+        add(existing, length)
+
+    add(current_payload, current_length)
+    return total, by_type, by_pose
+
+
 async def apply_cable_endpoint_projection(
     db: AsyncSession,
     *,
     job_id: int,
+    event_id: str,
     event_type: str,
     payload: dict[str, Any],
     current_user: User,
     occurred_at: datetime,
 ) -> float | None:
-    """Project a cable entry/exit pair into the canonical job cable length.
-
-    The caller executes this inside the technician-sync savepoint.  If the
-    subsequent field-action validation fails, the job projection is rolled back
-    with the event, preserving atomicity and idempotency.
-    """
+    """Project one paired cable segment into metrics and technician stock."""
 
     if event_type not in {"cable_entry", "cable_exit"}:
         return None
 
     current_meter = parse_meter_mark(payload)
     if current_meter is None:
-        # Existing GPS-only cable endpoint events remain valid and unchanged.
+        # GPS/photo-only cable endpoint observations remain valid.
         return None
 
     payload["meter_mark_m"] = current_meter
@@ -141,9 +225,7 @@ async def apply_cable_endpoint_projection(
             "Profil technicien manquant",
         )
 
-    job = await db.scalar(
-        select(Job).where(Job.id == job_id).with_for_update()
-    )
+    job = await db.scalar(select(Job).where(Job.id == job_id).with_for_update())
     if job is None:
         raise TechnicianJobMutationError(
             "rejected",
@@ -158,16 +240,22 @@ async def apply_cable_endpoint_projection(
         TechnicianFieldAction.action_type == opposite_type,
     )
 
-    # Prefer the chronologically matching endpoint.  This also supports delayed
-    # offline sync where exit may reach the server before entry.
+    # Prefer the chronologically matching endpoint. This supports delayed
+    # offline sync where an exit can reach the server before its entry.
     if event_type == "cable_exit":
         statement = statement.where(
             TechnicianFieldAction.occurred_at <= occurred_at
-        ).order_by(TechnicianFieldAction.occurred_at.desc(), TechnicianFieldAction.id.desc())
+        ).order_by(
+            TechnicianFieldAction.occurred_at.desc(),
+            TechnicianFieldAction.id.desc(),
+        )
     else:
         statement = statement.where(
             TechnicianFieldAction.occurred_at >= occurred_at
-        ).order_by(TechnicianFieldAction.occurred_at.asc(), TechnicianFieldAction.id.asc())
+        ).order_by(
+            TechnicianFieldAction.occurred_at.asc(),
+            TechnicianFieldAction.id.asc(),
+        )
 
     candidates = (await db.execute(statement)).scalars().all()
     for candidate in candidates:
@@ -196,7 +284,38 @@ async def apply_cable_endpoint_projection(
                 "paired_event_id": candidate.event_id,
             }
         )
-        job.cable_length_m = int(round(computed))
+
+        existing = await _existing_completed_segments(
+            db,
+            job_id=job_id,
+            technician_id=technician_id,
+        )
+        total, by_type, by_pose = _aggregate_segments(existing, payload, computed)
+        job.cable_length_m = int(round(total))
+        payload["job_cable_total_m"] = total
+        payload["job_cable_totals_by_type"] = by_type
+        payload["job_cable_totals_by_pose"] = by_pose
+
+        item_id = payload.get("cable_item_id") or candidate_payload.get("cable_item_id")
+        try:
+            canonical_item_id = int(item_id)
+        except (TypeError, ValueError):
+            canonical_item_id = 0
+        consumed_m = int(round(computed))
+        if canonical_item_id > 0 and consumed_m > 0:
+            await record_observed_cable_consumption(
+                db,
+                job_id=job_id,
+                item_id=canonical_item_id,
+                quantity_m=consumed_m,
+                current_user=current_user,
+                event_id=event_id,
+                occurred_at=occurred_at,
+                cable_reference=str(payload.get("cable_reference") or "").strip() or None,
+            )
+            payload["stock_consumption_m"] = consumed_m
+            payload["stock_consumption_mode"] = "observed_field_usage"
+
         await db.flush()
         return computed
 
