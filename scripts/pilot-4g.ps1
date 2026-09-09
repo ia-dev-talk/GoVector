@@ -13,6 +13,25 @@ function Require-Command([string]$Name) {
     }
 }
 
+function Get-OrCreatePilotSecret {
+    $secretPath = Join-Path $repoRoot '.pilot-4g-secret'
+    if (Test-Path $secretPath) {
+        $existing = (Get-Content $secretPath -Raw).Trim()
+        if ($existing.Length -ge 40) { return $existing }
+    }
+
+    $bytes = New-Object byte[] 48
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $rng.GetBytes($bytes)
+    } finally {
+        $rng.Dispose()
+    }
+    $secret = [Convert]::ToBase64String($bytes)
+    Set-Content -Path $secretPath -Value $secret -Encoding ascii
+    return $secret
+}
+
 function Get-TunnelUrl {
     $logs = docker compose --profile pilot-4g logs pilot-tunnel --no-color 2>&1 | Out-String
     $match = [regex]::Match($logs, 'https://[a-zA-Z0-9-]+\.trycloudflare\.com')
@@ -45,6 +64,9 @@ if ($Action -eq 'stop') {
     Write-Host 'GoVector pilot 4G arrêté.'
     exit 0
 }
+
+# Never expose the pilot using the repository's known development JWT key.
+$env:SECRET_KEY = Get-OrCreatePilotSecret
 
 if ($Action -eq 'start') {
     Write-Host 'Démarrage GoVector local + passerelle 4G sécurisée...'
@@ -85,5 +107,6 @@ Write-Host '========================================='
 Write-Host 'Dashboard local : http://127.0.0.1:8080'
 Write-Host "API tablette 4G : $apiBaseUrl"
 Write-Host 'URL sauvegardée dans .pilot-4g-url'
+Write-Host 'Clé JWT pilote forte chargée depuis .pilot-4g-secret'
 Write-Host ''
 Write-Host 'IMPORTANT: ne considérez pas le pilote validé avant le test tablette réel Wi-Fi OFF / 4G ON.'
