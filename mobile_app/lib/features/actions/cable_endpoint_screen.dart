@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../design_system/bluevector_tokens.dart';
 import '../../services/intervention_service.dart';
@@ -29,6 +31,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     {'code': 'AERIEN', 'label': 'Aérien'},
     {'code': 'AUTRE', 'label': 'Autre'},
   ];
+
+  static const _segmentKeyPrefix = 'govector_cable_segment';
+  static const _uuid = Uuid();
 
   final _meterController = TextEditingController();
   List<Map<String, dynamic>> _cables = const [];
@@ -73,6 +78,30 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     final raw = item['stock_known'];
     if (raw is bool) return raw;
     return _available(item) > 0;
+  }
+
+  String _segmentPreferenceKey(int cableItemId) =>
+      '$_segmentKeyPrefix:${widget.jobId}:$cableItemId';
+
+  Future<String> _resolveSegmentId(int cableItemId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = _segmentPreferenceKey(cableItemId);
+    if (widget.isEntry) {
+      // Starting a new entry means starting a new logical segment. A later exit
+      // automatically reuses this id; a repeated exit is therefore a correction
+      // of the same segment rather than an accidental second consumption.
+      final segmentId = _uuid.v4();
+      await prefs.setString(key, segmentId);
+      return segmentId;
+    }
+
+    final active = prefs.getString(key)?.trim();
+    if (active == null || active.isEmpty) {
+      throw StateError(
+        'Enregistrez d’abord le départ de ce câble avant son arrivée.',
+      );
+    }
+    return active;
   }
 
   Future<void> _load() async {
@@ -183,17 +212,21 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       _error = null;
     });
     try {
+      final cableItemId = _itemId(cable);
+      final segmentId = await _resolveSegmentId(cableItemId);
+
       // Helpful evidence, never a blocker. Photo evidence captures its own GPS.
       final position = await LocationService.getCurrentPosition();
       final data = <String, dynamic>{
         'job_id': widget.jobId,
+        'cable_segment_id': segmentId,
         if (position != null) ...{
           'latitude': position.latitude,
           'longitude': position.longitude,
           'accuracy': position.accuracy,
           'gps_observed_at': DateTime.now().toUtc().toIso8601String(),
         },
-        'cable_item_id': _itemId(cable),
+        'cable_item_id': cableItemId,
         'cable_reference': cable['reference'],
         'cable_type_code': cable['reference'],
         'cable_type_label': cable['label'],
@@ -246,7 +279,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     child: Text(
                       widget.isEntry
                           ? 'Sélectionnez le câble et son mode de pose avant d’enregistrer le départ.'
-                          : 'Sélectionnez le même câble pour l’arrivée : GoVector calcule automatiquement le métrage utilisé.',
+                          : 'Sélectionnez le même câble : GoVector reprend automatiquement son dernier départ et calcule le métrage utilisé.',
                       style: const TextStyle(
                         color: BlueVectorColors.textSecondary,
                         fontSize: 12,
