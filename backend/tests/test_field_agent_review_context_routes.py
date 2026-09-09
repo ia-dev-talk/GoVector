@@ -8,8 +8,13 @@ def _route_paths() -> set[str]:
 def test_field_agent_review_context_routes_are_registered():
     paths = _route_paths()
 
-    assert "/orienteur-agent/me/jobs/{job_id}/field-record" in paths
-    assert "/orienteur-agent/me/jobs/{job_id}/stock-context" in paths
+    expected = {
+        "/orienteur-agent/me/jobs/{job_id}/field-record",
+        "/orienteur-agent/me/jobs/{job_id}/stock-context",
+        "/orienteur-agent/me/jobs/{job_id}/media/{media_id}/download",
+        "/orienteur-agent/me/jobs/{job_id}/attachments/{attachment_id}/download",
+    }
+    assert expected.issubset(paths)
 
 
 def test_field_agent_review_context_never_reuses_global_job_routes():
