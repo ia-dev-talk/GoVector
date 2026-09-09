@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Routes API du Centre d'Export FieldOpt.
+Routes API du Centre d'Export GoVector.
 Permet de générer des exports Excel, CSV, PDF personnalisables.
 """
 import logging
@@ -78,7 +78,7 @@ class TemplateUpdate(BaseModel):
     filters: Optional[dict] = Field(default=None)
     include_photos: Optional[bool] = Field(default=None)
     include_signatures: Optional[bool] = Field(default=None)
-    is_default: Optional[bool] = Field(default=None)
+    is_default: Optional[bool] = Field(default=False)
 
 
 async def _ensure_template_mutation_access(
@@ -143,6 +143,10 @@ async def generate_export(
                 db, columns, filters,
                 request.include_photos, request.include_signatures,
             )
+            # Never serve the historical HTML fallback under a .pdf filename.
+            # A report must either be a genuine PDF or fail clearly.
+            if not file_bytes.startswith(b"%PDF-"):
+                raise RuntimeError("Le moteur PDF n'a pas produit un document PDF valide")
             media_type = "application/pdf"
             extension = "pdf"
         elif export_format == "zip":
@@ -154,8 +158,10 @@ async def generate_export(
 
         duration = time.time() - start_time
 
-        # Journalisation dans l'historique
-        export_name = request.export_name or f"Export {datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # Journalisation dans l'historique. Normalize old visible pilot names so
+        # downloaded files never re-introduce BlueVector/FieldOpt branding.
+        export_name = request.export_name or f"Export GoVector {datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        export_name = export_name.replace("BlueVector", "GoVector").replace("FieldOpt", "GoVector")
         await FieldOptExportService.log_export(
             db=db,
             user_id=current_user.id,
