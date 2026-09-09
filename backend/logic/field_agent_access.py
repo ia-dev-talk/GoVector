@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import (
@@ -56,11 +56,16 @@ def _require_field_agent_identity(current_user: User) -> int:
 
 
 def _team_membership_clause(orienteur_id: int):
-    # Keep both links during the compatibility period: older data uses
-    # technicians.orienteur_id while the newer registry also has field_teams.
+    # Canonical team membership wins whenever technician.team_id exists.
+    # Only legacy technicians without a team_id may fall back to their old
+    # technicians.orienteur_id projection.  This prevents a stale legacy link
+    # from leaking an intervention across current field-team boundaries.
     return or_(
-        Technician.orienteur_id == orienteur_id,
         FieldTeam.orienteur_id == orienteur_id,
+        and_(
+            Technician.team_id.is_(None),
+            Technician.orienteur_id == orienteur_id,
+        ),
     )
 
 
