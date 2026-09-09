@@ -24,7 +24,8 @@ class CableEndpointScreen extends StatefulWidget {
 
 class _CableEndpointScreenState extends State<CableEndpointScreen> {
   static const _fallbackModes = <Map<String, String>>[
-    {'code': 'FACADE', 'label': 'Façade'},
+    {'code': 'CONDUITE_PEHD', 'label': 'Conduite / sous PEHD'},
+    {'code': 'FACADE', 'label': 'Façade / immeuble'},
     {'code': 'AERIEN', 'label': 'Aérien'},
     {'code': 'AUTRE', 'label': 'Autre'},
   ];
@@ -68,16 +69,22 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
   int _available(Map<String, dynamic> item) =>
       int.tryParse(item['available_quantity']?.toString() ?? '') ?? 0;
 
+  bool _stockKnown(Map<String, dynamic> item) {
+    final raw = item['stock_known'];
+    if (raw is bool) return raw;
+    return _available(item) > 0;
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final custody = await TechnicianStockService.getCustody();
-      final cables = custody
-          .where((item) => _available(item) > 0 && _isCableItem(item))
-          .toList(growable: false);
+      // Do not hide a governed cable just because prior technician allocation
+      // is missing from GoVector. Field truth can legitimately start at zero.
+      final catalogue = await TechnicianStockService.getCableCatalogue();
+      final cables = catalogue.where(_isCableItem).toList(growable: false);
 
       var modes = _fallbackModes;
       try {
@@ -100,7 +107,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
           if (configured.isNotEmpty) modes = configured;
         }
       } catch (_) {
-        // Offline/older servers use the conservative field-confirmed fallback.
+        // Offline/older servers use the field-confirmed fallback.
       }
 
       if (!mounted) return;
@@ -176,20 +183,22 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       _error = null;
     });
     try {
+      // Helpful evidence, never a blocker. Photo evidence captures its own GPS.
       final position = await LocationService.getCurrentPosition();
-      if (position == null) {
-        throw Exception('Position GPS indisponible.');
-      }
-
       final data = <String, dynamic>{
         'job_id': widget.jobId,
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'accuracy': position.accuracy,
+        if (position != null) ...{
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'accuracy': position.accuracy,
+          'gps_observed_at': DateTime.now().toUtc().toIso8601String(),
+        },
         'cable_item_id': _itemId(cable),
         'cable_reference': cable['reference'],
         'cable_type_code': cable['reference'],
         'cable_type_label': cable['label'],
+        'cable_stock_available_at_capture': _available(cable),
+        'cable_stock_known_at_capture': _stockKnown(cable),
         'installation_mode_code': mode['code'],
         'installation_mode_label': mode['label'],
         'created_at': DateTime.now().toUtc().toIso8601String(),
@@ -204,7 +213,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       final persisted = await OfflineService.getAction(queued.eventId);
       final status = persisted?.status.name ?? 'retryable';
       if (status == 'conflict' || status == 'rejected') {
-        throw Exception(persisted?.lastError ?? 'Relevé câble refusé par BlueVector');
+        throw Exception(persisted?.lastError ?? 'Relevé câble refusé par GoVector');
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -236,8 +245,8 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     ),
                     child: Text(
                       widget.isEntry
-                          ? 'Sélectionnez le câble et son mode de pose avant d’enregistrer le point d’entrée.'
-                          : 'Utilisez le même câble et le même mode de pose que pour l’entrée afin de calculer la longueur correctement.',
+                          ? 'Sélectionnez le câble et son mode de pose avant d’enregistrer le départ.'
+                          : 'Sélectionnez le même câble pour l’arrivée : GoVector calcule automatiquement le métrage utilisé.',
                       style: const TextStyle(
                         color: BlueVectorColors.textSecondary,
                         fontSize: 12,
@@ -257,7 +266,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                         borderRadius: BorderRadius.circular(BlueVectorRadius.small),
                       ),
                       child: const Text(
-                        'Aucun câble disponible dans votre stock. La garde technicien doit être alimentée avant le relevé.',
+                        'Aucun type de câble n’est configuré dans GoVector.',
                         style: TextStyle(color: BlueVectorColors.danger),
                       ),
                     )
@@ -274,10 +283,13 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                         final reference = item['reference']?.toString() ?? '';
                         final available = _available(item);
                         final unit = item['unit']?.toString() ?? '';
+                        final stock = _stockKnown(item)
+                            ? '$available $unit disponibles'
+                            : 'stock connu 0 $unit';
                         return DropdownMenuItem<int>(
                           value: id,
                           child: Text(
-                            '$label${reference.isEmpty ? '' : ' · $reference'} · $available $unit',
+                            '$label${reference.isEmpty ? '' : ' · $reference'} · $stock',
                             overflow: TextOverflow.ellipsis,
                           ),
                         );
@@ -312,15 +324,15 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: widget.isEntry
-                          ? 'Repère compteur / bobine à l’entrée (m)'
-                          : 'Repère compteur / bobine à la sortie (m)',
-                      hintText: 'Optionnel, ex. 125,5',
+                          ? 'Repère métrique au départ (m)'
+                          : 'Repère métrique à l’arrivée (m)',
+                      hintText: 'Ex. 125,5',
                       prefixIcon: const Icon(Icons.straighten_rounded),
                     ),
                   ),
                   const SizedBox(height: BlueVectorSpacing.xs),
                   const Text(
-                    'La position GPS sera capturée au moment de valider. La longueur finale privilégie le delta des repères métriques lorsqu’ils sont renseignés.',
+                    'Le GPS du relevé est ajouté automatiquement s’il est disponible. Il ne bloque pas la saisie. Les photos prises dans GoVector portent leur propre GPS.',
                     style: TextStyle(
                       color: BlueVectorColors.textMuted,
                       fontSize: 11,
@@ -343,14 +355,14 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.my_location_rounded),
-                    label: Text(_saving ? 'Enregistrement…' : 'Capturer et enregistrer'),
+                        : const Icon(Icons.save_rounded),
+                    label: Text(_saving ? 'Enregistrement…' : 'Enregistrer'),
                   ),
                   const SizedBox(height: BlueVectorSpacing.sm),
                   OutlinedButton.icon(
                     onPressed: _saving ? null : _load,
                     icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Actualiser le stock'),
+                    label: const Text('Actualiser les câbles'),
                   ),
                 ],
               ),
