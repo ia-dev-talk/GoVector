@@ -1,9 +1,12 @@
-# BlueVector — single-container app (built SPA + FastAPI) + PostgreSQL.
+# GoVector / BlueVector — single-container app (built SPA + FastAPI) + PostgreSQL.
 #
 # Run regular:  make up        (or: docker compose up --build)
 # Run demo:     make demo      (or: IS_DEMO=true docker compose up --build)
+# Run 4G pilot: docker compose --profile pilot-4g up -d --build
 #
-# Browse: http://localhost:8080
+# Local dashboard: http://localhost:8080
+# The optional pilot-4g profile exposes ONLY /health and /api/v1/* through
+# Cloudflare Quick Tunnel. PostgreSQL and the dashboard remain local.
 
 services:
   postgres:
@@ -61,6 +64,24 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+
+  pilot-edge:
+    image: nginx:1.27-alpine
+    profiles: ["pilot-4g"]
+    volumes:
+      - ./deploy/pilot-edge.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  pilot-tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["pilot-4g"]
+    command: tunnel --no-autoupdate --url http://pilot-edge:8080
+    depends_on:
+      - pilot-edge
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   technician_media:
