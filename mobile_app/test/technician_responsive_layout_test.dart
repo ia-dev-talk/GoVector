@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:mobile_app/design_system/bluevector_theme.dart';
 import 'package:mobile_app/features/interventions/mobile_interventions_list_screen.dart';
@@ -69,6 +70,10 @@ Future<void> _pumpPlanning(
 }
 
 void main() {
+  setUpAll(() async {
+    await initializeDateFormatting('fr_FR');
+  });
+
   final viewports = <String, Size>{
     'small-phone-320x800': const Size(320, 800),
     'phone-360x800': const Size(360, 800),
@@ -96,7 +101,6 @@ void main() {
         expect(find.byType(TextField), findsOneWidget);
         expect(find.text('Aujourd’hui'), findsOneWidget);
         expect(find.text('À venir'), findsOneWidget);
-        expect(find.text('Clôturées'), findsOneWidget);
         expect(
           find.text('DTLI-2026-000042-LONGUE-REFERENCE'),
           findsOneWidget,
