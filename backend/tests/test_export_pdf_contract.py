@@ -11,7 +11,7 @@ async def _summary(_db, _filters):
 
 
 @pytest.mark.asyncio
-async def test_pdf_route_rejects_historical_html_fallback(monkeypatch):
+async def test_pdf_route_rejects_non_pdf_renderer_output(monkeypatch):
     async def fake_pdf(*_args, **_kwargs):
         return b"<html><body>not a pdf</body></html>"
 
@@ -23,11 +23,7 @@ async def test_pdf_route_rejects_historical_html_fallback(monkeypatch):
         "get_export_summary",
         _summary,
     )
-    monkeypatch.setattr(
-        export_center.FieldOptExportService,
-        "export_pdf",
-        fake_pdf,
-    )
+    monkeypatch.setattr(export_center, "export_govector_pdf", fake_pdf)
     monkeypatch.setattr(
         export_center.FieldOptExportService,
         "log_export",
@@ -66,11 +62,7 @@ async def test_pdf_route_accepts_pdf_magic_and_normalizes_visible_brand(monkeypa
         "get_export_summary",
         _summary,
     )
-    monkeypatch.setattr(
-        export_center.FieldOptExportService,
-        "export_pdf",
-        fake_pdf,
-    )
+    monkeypatch.setattr(export_center, "export_govector_pdf", fake_pdf)
     monkeypatch.setattr(
         export_center.FieldOptExportService,
         "log_export",
