@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path_util;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../config/config.dart';
 import '../features/sync/technician_attachment.dart';
 import '../features/sync/technician_outbox_event.dart';
 import 'technician_attachment_store.dart';
@@ -167,8 +168,12 @@ class TechnicianMediaService {
               contentType: MediaType.parse(attachment.mimeType),
             ),
           );
-        final streamed = await client.send(request);
-        final response = await http.Response.fromStream(streamed);
+        final streamed = await client
+            .send(request)
+            .timeout(AppConfig.mediaUploadTimeout);
+        final response = await http.Response
+            .fromStream(streamed)
+            .timeout(AppConfig.mediaUploadTimeout);
         if (response.statusCode != 200) {
           final permanent =
               response.statusCode == 403 ||
