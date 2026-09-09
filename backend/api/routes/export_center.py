@@ -78,7 +78,7 @@ class TemplateUpdate(BaseModel):
     filters: Optional[dict] = Field(default=None)
     include_photos: Optional[bool] = Field(default=None)
     include_signatures: Optional[bool] = Field(default=None)
-    is_default: Optional[bool] = Field(default=False)
+    is_default: Optional[bool] = Field(default=None)
 
 
 async def _ensure_template_mutation_access(
