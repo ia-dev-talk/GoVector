@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   FIELD_AGENT_ROLE,
+  canFieldAgentValidate,
   fieldAgentReviewCounters,
   fieldAgentStatusLabel,
   isAwaitingAgentReview,
@@ -67,6 +68,15 @@ test('agent status labels use operational wording', () => {
   assert.equal(fieldAgentStatusLabel('en_route'), 'En trajet');
   assert.equal(fieldAgentStatusLabel('on_site'), 'Sur site');
   assert.equal(fieldAgentStatusLabel('completed'), 'Clôturée');
+});
+
+test('Agent closure is allowed only for a loaded review dossier', () => {
+  const job = { status: 'en_attente_validation' };
+
+  assert.equal(canFieldAgentValidate(job), true);
+  assert.equal(canFieldAgentValidate(job, { contextLoading: true }), false);
+  assert.equal(canFieldAgentValidate(job, { contextError: 'Dossier inaccessible' }), false);
+  assert.equal(canFieldAgentValidate({ status: 'in_progress' }), false);
 });
 
 test('malformed payloads cannot create phantom team jobs', () => {
