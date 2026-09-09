@@ -57,7 +57,8 @@ async def _exercise(url):
                 own.append(Technician(name=f'Own {number}', home_latitude=33.5,
                     home_longitude=-7.5, team_id=teams[0].id, orienteur_id=owners[0].id,
                     skills=[] if number == 1 else ['FIBER']))
-            # Deliberately stale legacy owner: canonical team must deny visibility.
+            # Foreign-team technicians remain visible to the office dispatcher;
+            # team/sector checks still make their operational mismatches explicit.
             foreign = [Technician(name=f'Foreign {number}', home_latitude=33.5,
                 home_longitude=-7.5, team_id=teams[1].id, orienteur_id=owners[0].id,
                 skills=['FIBER']) for number in range(MAX_CANDIDATES)]
@@ -108,11 +109,15 @@ async def _exercise(url):
             result = response.json()
             assert result['mode'] == 'SIMULATION_ONLY'
             assert result['execution_enabled'] is False and result['approval_required'] is True
-            assert result['total_candidates'] == 5 and result['truncated'] is False
+            assert result['total_candidates'] == MAX_CANDIDATES + 5
+            assert result['truncated'] is True
             assert result['candidate_limit'] == MAX_CANDIDATES
+            assert len(result['candidates']) == MAX_CANDIDATES
             candidates = {item['technician_id']: item for item in result['candidates']}
-            assert set(candidates) == set(own_ids + [legacy_id])
-            assert foreign_id not in candidates
+            assert set(own_ids).issubset(candidates)
+            assert foreign_id in candidates
+            # The legacy record is ordered after the bounded candidate page.
+            assert legacy_id not in candidates
             checks = {key: {check['code']: check for check in row['checks']}
                       for key, row in candidates.items()}
             assert checks[own_ids[0]]['planning']['state'] == 'FAIL'
@@ -123,7 +128,7 @@ async def _exercise(url):
             assert checks[own_ids[2]]['planning']['state'] == 'PASS'  # historical assignment ignored
             assert checks[own_ids[3]]['planning']['state'] == 'PASS'  # touching endpoints allowed
             assert checks[own_ids[3]]['sector']['state'] == 'PASS'
-            assert checks[legacy_id]['sector']['state'] == 'UNKNOWN'
+            assert 'sector' in candidates[foreign_id]['exclusions']
             assert all(row['ready_for_assignment'] is False for row in candidates.values())
             denied = await client.get(endpoint, headers=headers['outsider'])
             assert denied.status_code == 403
