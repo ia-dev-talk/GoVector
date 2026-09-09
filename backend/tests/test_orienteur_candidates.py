@@ -72,8 +72,11 @@ def test_historical_closed_or_same_job_does_not_create_conflict():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('role', [UserRole.CLIENT, UserRole.TECHNICIAN, UserRole.ORIENTEUR])
-async def test_scope_denied_before_candidate_queries(role):
+@pytest.mark.parametrize(
+    'role',
+    [UserRole.CLIENT, UserRole.TECHNICIAN, UserRole.CHEF_ORIENTEUR],
+)
+async def test_non_office_roles_denied_before_candidate_queries(role):
     db = SimpleNamespace(get=AsyncMock(return_value=job()))
     with pytest.raises(BusinessAPIError) as error:
         await assess_candidates(db, 1, SimpleNamespace(role=role, orienteur_id=99))
@@ -105,21 +108,28 @@ async def exercise_read_only(url):
             await db.flush()
             target.orienteur_id = owner.id
             tech.orienteur_id = owner.id
-            # Stale legacy projection must not expose a technician in a different team.
+            # The central office must review all technicians, including a
+            # technician belonging to another field team.
             foreign = Technician(name='Foreign', home_latitude=0, home_longitude=0,
                                  orienteur_id=owner.id, team_id=team.id)
             db.add(foreign)
+            await db.flush()
             await db.commit()
             target_id = target.id
             owner_id = owner.id
             tech_id = tech.id
+            foreign_id = foreign.id
         async with factory() as db:
             await db.execute(text('SET TRANSACTION READ ONLY'))
-            scoped = await assess_candidates(db, target_id, SimpleNamespace(role=UserRole.ORIENTEUR, orienteur_id=owner_id))
-            assert scoped['total_candidates'] == 1
-            assert [c['technician_id'] for c in scoped['candidates']] == [tech_id]
-            assert scoped['execution_enabled'] is False
-            json.dumps(scoped)
+            office = await assess_candidates(
+                db,
+                target_id,
+                SimpleNamespace(role=UserRole.ORIENTEUR, orienteur_id=owner_id),
+            )
+            assert office['total_candidates'] == 2
+            assert {c['technician_id'] for c in office['candidates']} == {tech_id, foreign_id}
+            assert office['execution_enabled'] is False
+            json.dumps(office)
             admin = await assess_candidates(db, target_id, SimpleNamespace(role=UserRole.ADMIN))
             assert admin['total_candidates'] == 2
             with patch('backend.services.orienteur_candidates.MAX_CANDIDATES', 1):
