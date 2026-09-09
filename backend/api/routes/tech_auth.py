@@ -1,6 +1,6 @@
 """
-API routes for Technician authentication (Mobile).
-Login endpoint for field users using username/password.
+API routes for GoVector field authentication (Mobile).
+The same APK supports assigned technicians and team-scoped Agents terrain.
 """
 import logging
 
@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.auth.security import create_access_token, verify_password
 from backend.database.connection import get_db
-from backend.database.models import Technician, User, UserRole
+from backend.database.models import Orienteur, Technician, User, UserRole
 
 router = APIRouter()
 logger = logging.getLogger("uvicorn.error")
@@ -24,21 +24,23 @@ INVALID_CREDENTIALS = "Identifiants invalides"
 
 
 class TechLoginRequest(BaseModel):
-    """Requête de login pour un utilisateur terrain."""
+    """Login request for a field user."""
 
     username: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=1)
 
 
 class TechLoginResponse(BaseModel):
-    """Réponse de login avec token JWT."""
+    """Role-aware mobile session returned to the GoVector APK."""
 
     access_token: str
     token_type: str = "bearer"
     user_id: int
-    technician_id: int
-    technician_name: str
+    role: str
+    technician_id: int | None = None
+    technician_name: str | None = None
     orienteur_id: int | None = None
+    field_agent_name: str | None = None
 
 
 def _reject_login(reason: str) -> None:
@@ -53,7 +55,7 @@ async def tech_login(
     login_data: TechLoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    """Authenticate an account authorized to use the technician mobile app."""
+    """Authenticate a technician or a team-scoped Agent terrain."""
 
     user_result = await db.execute(
         select(User).where(User.username == login_data.username)
@@ -62,29 +64,33 @@ async def tech_login(
 
     if not user:
         _reject_login("unknown account")
-
     if not user.is_active:
         _reject_login("inactive account")
-
     if user.role not in MOBILE_FIELD_ROLES:
         _reject_login("role not allowed for mobile field access")
-
-    if not user.technician_id:
-        _reject_login("missing technician profile link")
-
     if not user.password_hash:
         _reject_login("password authentication unavailable")
-
     if not verify_password(login_data.password, user.password_hash):
         _reject_login("invalid credentials")
 
-    tech_result = await db.execute(
-        select(Technician).where(Technician.id == user.technician_id)
-    )
-    technician = tech_result.scalar_one_or_none()
-
-    if not technician:
-        _reject_login("technician profile unavailable")
+    technician = None
+    field_agent = None
+    if user.role == UserRole.TECHNICIAN:
+        if not user.technician_id:
+            _reject_login("missing technician profile link")
+        technician = await db.scalar(
+            select(Technician).where(Technician.id == user.technician_id)
+        )
+        if technician is None:
+            _reject_login("technician profile unavailable")
+    elif user.role == UserRole.CHEF_ORIENTEUR:
+        if not user.orienteur_id:
+            _reject_login("missing field-agent team link")
+        field_agent = await db.scalar(
+            select(Orienteur).where(Orienteur.id == user.orienteur_id)
+        )
+        if field_agent is None:
+            _reject_login("field-agent profile unavailable")
 
     access_token = create_access_token(
         data={
@@ -95,12 +101,16 @@ async def tech_login(
         }
     )
 
-    logger.info("[TECH_AUTH] Mobile field login succeeded")
+    logger.info("[TECH_AUTH] Mobile field login succeeded for role=%s", user.role.value)
 
     return TechLoginResponse(
         access_token=access_token,
         user_id=user.id,
-        technician_id=technician.id,
-        technician_name=technician.name,
-        orienteur_id=technician.orienteur_id,
+        role=user.role.value,
+        technician_id=technician.id if technician is not None else None,
+        technician_name=technician.name if technician is not None else None,
+        orienteur_id=(
+            technician.orienteur_id if technician is not None else user.orienteur_id
+        ),
+        field_agent_name=field_agent.name if field_agent is not None else None,
     )
