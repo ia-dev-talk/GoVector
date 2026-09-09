@@ -13,6 +13,14 @@ export function isAwaitingAgentReview(job) {
   return normalizeFieldAgentStatus(job?.status) === AWAITING_VALIDATION_STATUS;
 }
 
+export function canFieldAgentValidate(job, { contextLoading = false, contextError = '' } = {}) {
+  return (
+    isAwaitingAgentReview(job) &&
+    !contextLoading &&
+    !String(contextError || '').trim()
+  );
+}
+
 export function normalizeFieldAgentEntries(payload) {
   const entries = Array.isArray(payload?.jobs) ? payload.jobs : [];
 
