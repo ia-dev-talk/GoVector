@@ -130,9 +130,15 @@ async def _exercise(url):
             assert checks[own_ids[3]]['sector']['state'] == 'PASS'
             assert 'sector' in candidates[foreign_id]['exclusions']
             assert all(row['ready_for_assignment'] is False for row in candidates.values())
-            denied = await client.get(endpoint, headers=headers['outsider'])
-            assert denied.status_code == 403
-            assert denied.json()['code'] == 'permission_denied'
+
+            # ORIENTEUR is the global office dispatcher role. Different legacy
+            # orienteur ownership must not scope technician discovery anymore.
+            second_office = await client.get(endpoint, headers=headers['outsider'])
+            assert second_office.status_code == 200, second_office.text
+            second_result = second_office.json()
+            assert second_result['total_candidates'] == MAX_CANDIDATES + 5
+            assert second_result['candidate_limit'] == MAX_CANDIDATES
+
             assert (await client.get(endpoint, headers=headers['technician'])).status_code == 403
             admin_response = await client.get(endpoint, headers=headers['admin'])
             assert admin_response.status_code == 200, admin_response.text
