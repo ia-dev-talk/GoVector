@@ -30,7 +30,7 @@ class BlueVectorBrand extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'BlueVector',
+              'GoVector',
               style: TextStyle(
                 color: BlueVectorColors.textPrimary,
                 fontSize: compact ? 18 : 27,
