@@ -18,6 +18,16 @@ $lanIp = $configs | ForEach-Object { $_.IPv4Address.IPAddress } | Where-Object {
     $_ -and $_ -notmatch '^127\.' -and $_ -notmatch '^169\.254\.'
 } | Select-Object -First 1
 
+$lanHealthOk = $false
+if ($lanIp) {
+    try {
+        $lanResponse = Invoke-WebRequest -Uri "http://${lanIp}:8080/health" -UseBasicParsing -TimeoutSec 10
+        $lanHealthOk = ([int]$lanResponse.StatusCode -eq 200)
+    } catch {
+        $lanHealthOk = $false
+    }
+}
+
 Write-Host ''
 Write-Host '=================================================='
 Write-Host ' GOVECTOR : PRET POUR LE TEST PHYSIQUE MOBILE/4G'
@@ -25,6 +35,11 @@ Write-Host '=================================================='
 Write-Host 'Dashboard PC : http://127.0.0.1:8080'
 if ($lanIp) {
     Write-Host "Dashboard LAN: http://${lanIp}:8080"
+    if ($lanHealthOk) {
+        Write-Host 'LAN self-check : OK'
+    } else {
+        Write-Host 'LAN self-check : NON VALIDE depuis ce PC'
+    }
     Write-Host '  (si un autre PC du même réseau ne peut pas ouvrir cette URL,'
     Write-Host '   lancer PowerShell en Administrateur puis :'
     Write-Host '   .\scripts\enable-dashboard-lan.ps1)'
