@@ -33,9 +33,12 @@ def test_cable_catalog_item_accepts_cable_type_or_meter_unit():
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ("façade", ("FACADE", "Façade")),
-        ("FACADE", ("FACADE", "Façade")),
+        ("façade", ("FACADE", "Façade / immeuble")),
+        ("FACADE", ("FACADE", "Façade / immeuble")),
+        ("immeuble", ("FACADE", "Façade / immeuble")),
         ("aérien", ("AERIEN", "Aérien")),
+        ("PEHD", ("CONDUITE_PEHD", "Conduite / sous PEHD")),
+        ("conduite / sous PEHD", ("CONDUITE_PEHD", "Conduite / sous PEHD")),
         ("AUTRE", ("AUTRE", "Autre")),
     ],
 )
@@ -74,11 +77,12 @@ class _Db:
         return self.item if item_id == self.item.id else None
 
     async def execute(self, statement):
-        return _Result([SimpleNamespace(available_quantity=self.available)])
+        rows = [] if self.available is None else [SimpleNamespace(available_quantity=self.available)]
+        return _Result(rows)
 
 
 @pytest.mark.asyncio
-async def test_capture_is_rebuilt_from_authoritative_custody(monkeypatch):
+async def test_capture_is_rebuilt_from_authoritative_catalogue_and_custody(monkeypatch):
     async def fake_warehouse(db, *, technician_id):
         assert technician_id == 7
         return SimpleNamespace(id=99)
@@ -102,13 +106,15 @@ async def test_capture_is_rebuilt_from_authoritative_custody(monkeypatch):
         current_user=SimpleNamespace(technician_id=7),
     )
 
-    assert payload["cable_capture_schema"] == 1
+    assert payload["cable_capture_schema"] == 2
     assert payload["cable_reference"] == "CABLE-FO-2F"
     assert payload["cable_type_code"] == "CABLE-FO-2F"
     assert payload["cable_type_label"] == "Câble fibre 2FO"
     assert payload["installation_mode_code"] == "FACADE"
-    assert payload["installation_mode_label"] == "Façade"
+    assert payload["installation_mode_label"] == "Façade / immeuble"
     assert payload["cable_stock_available"] == 87
+    assert payload["cable_stock_known"] is True
+    assert payload["cable_type_source"] == "technician_custody"
 
 
 @pytest.mark.asyncio
@@ -137,7 +143,7 @@ async def test_capture_rejects_non_cable_stock_item(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_capture_rejects_cable_outside_available_custody(monkeypatch):
+async def test_capture_allows_governed_cable_when_technician_stock_is_zero(monkeypatch):
     async def fake_warehouse(db, *, technician_id):
         return SimpleNamespace(id=99)
 
@@ -147,15 +153,44 @@ async def test_capture_rejects_cable_outside_available_custody(monkeypatch):
         fake_warehouse,
     )
     db = _Db(_item(), available=0)
+    payload = {
+        "cable_item_id": 12,
+        "installation_mode_code": "AERIEN",
+    }
 
-    with pytest.raises(TechnicianJobMutationError) as exc_info:
-        await normalize_cable_capture_payload(
-            db,
-            payload={
-                "cable_item_id": 12,
-                "installation_mode_code": "AERIEN",
-            },
-            current_user=SimpleNamespace(technician_id=7),
-        )
+    await normalize_cable_capture_payload(
+        db,
+        payload=payload,
+        current_user=SimpleNamespace(technician_id=7),
+    )
 
-    assert exc_info.value.code == "cable_not_in_technician_stock"
+    assert payload["cable_stock_available"] == 0
+    assert payload["cable_stock_known"] is False
+    assert payload["cable_type_source"] == "catalogue_observed"
+
+
+@pytest.mark.asyncio
+async def test_capture_allows_governed_cable_without_initialized_technician_warehouse(monkeypatch):
+    async def fake_warehouse(db, *, technician_id):
+        return None
+
+    monkeypatch.setattr(
+        cable_classification,
+        "get_technician_warehouse",
+        fake_warehouse,
+    )
+    db = _Db(_item(), available=None)
+    payload = {
+        "cable_item_id": 12,
+        "installation_mode_code": "CONDUITE_PEHD",
+    }
+
+    await normalize_cable_capture_payload(
+        db,
+        payload=payload,
+        current_user=SimpleNamespace(technician_id=7),
+    )
+
+    assert payload["cable_stock_available"] == 0
+    assert payload["cable_stock_registered"] is False
+    assert payload["cable_stock_known"] is False
