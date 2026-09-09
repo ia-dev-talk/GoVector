@@ -81,6 +81,21 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  pilot-4g-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate local + 4G Docker profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          SECRET_KEY=ci-only-strong-secret-for-compose-validation \
+            docker compose --profile pilot-4g config --quiet
+          rendered="$(SECRET_KEY=ci-only-strong-secret-for-compose-validation docker compose --profile pilot-4g config)"
+          grep -q 'pilot-edge:' <<<"$rendered"
+          grep -q 'pilot-tunnel:' <<<"$rendered"
+          grep -q '127.0.0.1:' <<<"$rendered"
+
   mobile:
     runs-on: ubuntu-latest
     timeout-minutes: 35
