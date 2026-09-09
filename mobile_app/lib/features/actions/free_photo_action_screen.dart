@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../design_system/bluevector_tokens.dart';
 import '../../models/job.dart';
+import '../../services/location_service.dart';
 import '../../services/offline_service.dart';
 
 class FreePhotoActionScreen extends StatefulWidget {
@@ -17,11 +18,35 @@ class FreePhotoActionScreen extends StatefulWidget {
   State<FreePhotoActionScreen> createState() => _FreePhotoActionScreenState();
 }
 
+class _PendingPhoto {
+  const _PendingPhoto({
+    required this.file,
+    required this.source,
+    required this.selectedAt,
+    this.latitude,
+    this.longitude,
+    this.accuracy,
+    this.gpsObservedAt,
+  });
+
+  final XFile file;
+  final String source;
+  final DateTime selectedAt;
+  final double? latitude;
+  final double? longitude;
+  final double? accuracy;
+  final DateTime? gpsObservedAt;
+
+  bool get hasGps => latitude != null && longitude != null;
+}
+
 class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
   static const _labels = <(String?, String)>[
     (null, 'Libre'),
     ('before', 'Avant'),
     ('after', 'Après'),
+    ('cable', 'Câble'),
+    ('splitter', 'Splitter'),
     ('pbo', 'PBO'),
     ('pto', 'PTO'),
     ('ont', 'ONT'),
@@ -31,9 +56,11 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
   ];
 
   final _comment = TextEditingController();
-  XFile? _photo;
+  final _picker = ImagePicker();
+  List<_PendingPhoto> _photos = const [];
   String? _label;
   bool _saving = false;
+  bool _capturing = false;
 
   @override
   void dispose() {
@@ -41,18 +68,59 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
     super.dispose();
   }
 
-  Future<void> _pick(ImageSource source) async {
-    final photo = await ImagePicker().pickImage(
-      source: source,
-      imageQuality: 92,
-    );
-    if (photo != null && mounted) {
-      setState(() => _photo = photo);
+  Future<void> _takePhoto() async {
+    if (_capturing || _saving) return;
+    setState(() => _capturing = true);
+    try {
+      final photo = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 92,
+      );
+      if (photo == null) return;
+
+      // The device is at the photo location. Capture GPS automatically and as
+      // close as possible to camera return; GPS failure never invents a point.
+      final position = await LocationService.getCurrentPosition();
+      final selectedAt = DateTime.now().toUtc();
+      final pending = _PendingPhoto(
+        file: photo,
+        source: 'camera',
+        selectedAt: selectedAt,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+        accuracy: position?.accuracy,
+        gpsObservedAt: position?.timestamp.toUtc(),
+      );
+      if (!mounted) return;
+      setState(() => _photos = [..._photos, pending]);
+    } finally {
+      if (mounted) setState(() => _capturing = false);
+    }
+  }
+
+  Future<void> _pickGalleryBatch() async {
+    if (_capturing || _saving) return;
+    setState(() => _capturing = true);
+    try {
+      final files = await _picker.pickMultiImage(imageQuality: 92);
+      if (files.isEmpty || !mounted) return;
+      final importedAt = DateTime.now().toUtc();
+      final additions = [
+        for (final file in files)
+          _PendingPhoto(
+            file: file,
+            source: 'gallery',
+            selectedAt: importedAt,
+          ),
+      ];
+      setState(() => _photos = [..._photos, ...additions]);
+    } finally {
+      if (mounted) setState(() => _capturing = false);
     }
   }
 
   Future<void> _chooseSource() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -63,48 +131,88 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
             children: [
               const ListTile(
                 title: Text(
-                  'Ajouter une preuve photo',
+                  'Ajouter des preuves',
                   style: TextStyle(fontWeight: FontWeight.w800),
                 ),
-                subtitle: Text('Prenez une photo sur site ou utilisez la galerie.'),
+                subtitle: Text(
+                  'La caméra ajoute automatiquement le GPS. La galerie permet un envoi multiple.',
+                ),
               ),
               ListTile(
                 leading: const Icon(Icons.photo_camera_outlined),
-                title: const Text('Appareil photo'),
-                onTap: () => Navigator.pop(context, ImageSource.camera),
+                title: const Text('Prendre une photo'),
+                subtitle: const Text('GPS + heure ajoutés automatiquement'),
+                onTap: () => Navigator.pop(context, 'camera'),
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Galerie'),
-                onTap: () => Navigator.pop(context, ImageSource.gallery),
+                title: const Text('Choisir plusieurs photos'),
+                subtitle: const Text('Envoi groupé depuis la galerie'),
+                onTap: () => Navigator.pop(context, 'gallery'),
               ),
             ],
           ),
         ),
       ),
     );
-    if (source != null) await _pick(source);
+    if (choice == 'camera') {
+      await _takePhoto();
+    } else if (choice == 'gallery') {
+      await _pickGalleryBatch();
+    }
+  }
+
+  void _removePhoto(int index) {
+    if (_saving) return;
+    setState(() {
+      final next = [..._photos]..removeAt(index);
+      _photos = next;
+    });
   }
 
   Future<void> _save() async {
-    final photo = _photo;
-    if (photo == null || _saving) return;
+    if (_photos.isEmpty || _saving) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _saving = true);
     try {
-      await OfflineService.addPendingMedia(
-        jobId: widget.job.id,
-        sourcePath: photo.path,
-        kind: 'photo',
-        eventType: 'intervention_photo',
-        mimeType: photo.mimeType ?? _mimeFromName(photo.name),
-        metadata: {
+      final batchId = 'photo-${DateTime.now().toUtc().microsecondsSinceEpoch}';
+      final comment = _comment.text.trim();
+      for (var index = 0; index < _photos.length; index++) {
+        final photo = _photos[index];
+        final metadata = <String, dynamic>{
           if (_label != null) 'label': _label,
-          if (_comment.text.trim().isNotEmpty) 'comment': _comment.text.trim(),
-          'captured_at': DateTime.now().toUtc().toIso8601String(),
+          if (comment.isNotEmpty) 'comment': comment,
           'evidence_role': 'field_photo',
-        },
-      );
+          'source': photo.source,
+          'batch_id': batchId,
+          'batch_index': index + 1,
+          'batch_size': _photos.length,
+          if (photo.source == 'camera') ...{
+            'captured_at': photo.selectedAt.toIso8601String(),
+            'gps_status': photo.hasGps ? 'captured' : 'unavailable',
+            if (photo.hasGps) ...{
+              'latitude': photo.latitude,
+              'longitude': photo.longitude,
+              if (photo.accuracy != null) 'accuracy': photo.accuracy,
+              'gps_observed_at':
+                  (photo.gpsObservedAt ?? photo.selectedAt).toIso8601String(),
+            },
+          } else ...{
+            'imported_at': photo.selectedAt.toIso8601String(),
+            'gps_status': 'not_asserted_from_gallery',
+          },
+        };
+        await OfflineService.addPendingMedia(
+          jobId: widget.job.id,
+          sourcePath: photo.file.path,
+          kind: 'photo',
+          eventType: 'intervention_photo',
+          mimeType: photo.file.mimeType ?? _mimeFromName(photo.file.name),
+          metadata: metadata,
+        );
+      }
+      // One sync attempt for the whole batch. If 4G is unavailable, every
+      // file remains durably queued and will retry later.
       unawaited(OfflineService.syncPendingActions());
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
@@ -127,11 +235,11 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final photo = _photo;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final first = _photos.isEmpty ? null : _photos.first;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Photo terrain')),
+      appBar: AppBar(title: const Text('Photos terrain')),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -196,9 +304,9 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                             ],
                           ),
                         ),
-                        const Text(
-                          'PHOTO',
-                          style: TextStyle(
+                        Text(
+                          _photos.isEmpty ? 'PHOTO' : '${_photos.length} PHOTO${_photos.length > 1 ? 'S' : ''}',
+                          style: const TextStyle(
                             color: BlueVectorColors.primaryBright,
                             fontSize: 9,
                             fontWeight: FontWeight.w900,
@@ -215,12 +323,12 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                       color: BlueVectorColors.surface,
                       borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
                       child: InkWell(
-                        onTap: _saving ? null : _chooseSource,
+                        onTap: _saving || _capturing ? null : _chooseSource,
                         borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            if (photo == null)
+                            if (first == null)
                               const Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -231,12 +339,12 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                                   ),
                                   SizedBox(height: BlueVectorSpacing.sm),
                                   Text(
-                                    'Ajouter une photo',
+                                    'Ajouter une ou plusieurs photos',
                                     style: TextStyle(fontWeight: FontWeight.w800),
                                   ),
                                   SizedBox(height: 4),
                                   Text(
-                                    'Caméra ou galerie',
+                                    'Caméra géolocalisée ou galerie multiple',
                                     style: TextStyle(
                                       color: BlueVectorColors.textSecondary,
                                       fontSize: 11,
@@ -250,21 +358,48 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                                   BlueVectorRadius.medium,
                                 ),
                                 child: Image.file(
-                                  File(photo.path),
+                                  File(first.file.path),
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => const Center(
                                     child: Icon(Icons.image_rounded, size: 48),
                                   ),
                                 ),
                               ),
-                            if (photo != null)
+                            if (first != null)
+                              Positioned(
+                                left: BlueVectorSpacing.sm,
+                                bottom: BlueVectorSpacing.sm,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.62),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    child: Text(
+                                      first.source == 'camera'
+                                          ? (first.hasGps ? 'GPS enregistré' : 'GPS indisponible')
+                                          : 'Galerie',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            if (first != null)
                               Positioned(
                                 right: BlueVectorSpacing.sm,
                                 bottom: BlueVectorSpacing.sm,
                                 child: FilledButton.tonalIcon(
-                                  onPressed: _saving ? null : _chooseSource,
-                                  icon: const Icon(Icons.swap_horiz_rounded),
-                                  label: const Text('Changer'),
+                                  onPressed: _saving || _capturing ? null : _chooseSource,
+                                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                                  label: const Text('Ajouter'),
                                 ),
                               ),
                           ],
@@ -272,9 +407,58 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                       ),
                     ),
                   ),
+                  if (_photos.length > 1) ...[
+                    const SizedBox(height: BlueVectorSpacing.sm),
+                    SizedBox(
+                      height: 78,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _photos.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(width: BlueVectorSpacing.xs),
+                        itemBuilder: (context, index) {
+                          final photo = _photos[index];
+                          return Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                  BlueVectorRadius.small,
+                                ),
+                                child: Image.file(
+                                  File(photo.file.path),
+                                  width: 78,
+                                  height: 78,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                right: 2,
+                                top: 2,
+                                child: InkWell(
+                                  onTap: _saving ? null : () => _removePhoto(index),
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    padding: const EdgeInsets.all(3),
+                                    child: const Icon(
+                                      Icons.close,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: BlueVectorSpacing.md),
                   const Text(
-                    'Qualifier la photo',
+                    'Type de preuve (facultatif)',
                     style: TextStyle(
                       color: BlueVectorColors.textPrimary,
                       fontWeight: FontWeight.w800,
@@ -282,7 +466,7 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                   ),
                   const SizedBox(height: BlueVectorSpacing.xs),
                   const Text(
-                    'Le type aide le bureau à retrouver immédiatement la bonne preuve.',
+                    'Laissez « Libre » pour envoyer simplement un lot de photos. Le même type s’applique au lot.',
                     style: TextStyle(
                       color: BlueVectorColors.textSecondary,
                       fontSize: 11,
@@ -312,7 +496,7 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                     onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
                     decoration: const InputDecoration(
                       labelText: 'Commentaire (facultatif)',
-                      hintText: 'Ex. boîtier fissuré, passage câble validé…',
+                      hintText: 'Ex. passage câble validé, splitter posé…',
                     ),
                   ),
                   const SizedBox(height: BlueVectorSpacing.sm),
@@ -326,7 +510,7 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                       SizedBox(width: BlueVectorSpacing.xs),
                       Expanded(
                         child: Text(
-                          'La photo est conservée localement puis synchronisée dès que possible.',
+                          'Les photos sont conservées localement puis synchronisées. Les photos caméra enregistrent le GPS automatiquement quand il est disponible.',
                           style: TextStyle(
                             color: BlueVectorColors.textMuted,
                             fontSize: 10,
@@ -349,7 +533,7 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: photo != null && !_saving ? _save : null,
+                  onPressed: _photos.isNotEmpty && !_saving ? _save : null,
                   icon: _saving
                       ? const SizedBox(
                           width: 18,
@@ -358,7 +542,11 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                         )
                       : const Icon(Icons.check_rounded),
                   label: Text(
-                    _saving ? 'Enregistrement…' : 'Enregistrer la photo',
+                    _saving
+                        ? 'Enregistrement…'
+                        : _photos.length <= 1
+                            ? 'Enregistrer la photo'
+                            : 'Envoyer ${_photos.length} photos',
                   ),
                 ),
               ),
