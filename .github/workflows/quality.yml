@@ -1,4 +1,4 @@
-name: BlueVector quality
+name: GoVector quality
 
 on:
   pull_request:
@@ -83,6 +83,7 @@ jobs:
 
   pilot-4g-config:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Validate local + 4G Docker profile
@@ -96,6 +97,12 @@ jobs:
           grep -qx 'pilot-tunnel' <<<"$services"
           rendered="$(docker compose --profile pilot-4g config)"
           grep -Eq 'host_ip:[[:space:]]+127\.0\.0\.1' <<<"$rendered"
+      - name: Build pilot image and prove PDF renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -t govector-pilot-ci .
+          docker run --rm govector-pilot-ci python -c "from weasyprint import HTML; pdf = HTML(string='<h1>GoVector PDF smoke test</h1>').write_pdf(); assert pdf.startswith(b'%PDF-'); print('PDF_OK', len(pdf))"
 
   mobile:
     runs-on: ubuntu-latest
@@ -128,6 +135,6 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
-          name: bluevector-pilot-apk
+          name: govector-pilot-apk
           path: mobile_app/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
