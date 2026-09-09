@@ -57,6 +57,7 @@ lerna-debug.log*
 # Environment
 .env
 .env.local
+.pilot-4g-url
 
 # Database
 *.db
