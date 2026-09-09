@@ -89,12 +89,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SECRET_KEY=ci-only-strong-secret-for-compose-validation \
-            docker compose --profile pilot-4g config --quiet
-          rendered="$(SECRET_KEY=ci-only-strong-secret-for-compose-validation docker compose --profile pilot-4g config)"
-          grep -q 'pilot-edge:' <<<"$rendered"
-          grep -q 'pilot-tunnel:' <<<"$rendered"
-          grep -q '127.0.0.1:' <<<"$rendered"
+          export SECRET_KEY=ci-only-strong-secret-for-compose-validation
+          docker compose --profile pilot-4g config --quiet
+          services="$(docker compose --profile pilot-4g config --services)"
+          grep -qx 'pilot-edge' <<<"$services"
+          grep -qx 'pilot-tunnel' <<<"$services"
+          rendered="$(docker compose --profile pilot-4g config)"
+          grep -Eq 'host_ip:[[:space:]]+127\.0\.0\.1' <<<"$rendered"
 
   mobile:
     runs-on: ubuntu-latest
