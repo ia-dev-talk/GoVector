@@ -62,34 +62,64 @@ async def get_current_user(
     return user
 
 
-async def require_chef_orienteur(
-    current_user: User = Depends(get_current_user)
+async def require_office_orienteur(
+    current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != UserRole.CHEF_ORIENTEUR and current_user.role != UserRole.ADMIN:
+    """Central dispatch identity: create, plan and assign interventions.
+
+    Delivery 2026-09: ORIENTEUR is the office dispatcher.  The historical
+    CHEF_ORIENTEUR role is now the field-team agent and must never inherit
+    global dispatch rights merely because of its legacy name.
+    """
+    if current_user.role not in [UserRole.ORIENTEUR, UserRole.ADMIN]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès Chef Orienteur ou Admin requis"
+            detail="Accès Orienteur bureau ou Admin requis",
         )
-
     return current_user
+
+
+async def require_field_agent(
+    current_user: User = Depends(get_current_user),
+):
+    """Field-team supervisor using the tablet on their own team only."""
+    if current_user.role != UserRole.CHEF_ORIENTEUR:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès Agent terrain requis",
+        )
+    if not current_user.orienteur_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Agent terrain non lié à une équipe",
+        )
+    return current_user
+
+
+async def require_chef_orienteur(
+    current_user: User = Depends(get_current_user),
+):
+    """Legacy dependency name kept for route compatibility.
+
+    Team/dispatch administration is now an office responsibility.  Keeping this
+    function as an alias avoids a risky route-wide rename during the delivery
+    week while removing legacy CHEF_ORIENTEUR global permissions.
+    """
+    return await require_office_orienteur(current_user)
 
 
 async def require_orienteur(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    if current_user.role not in [UserRole.ORIENTEUR, UserRole.CHEF_ORIENTEUR, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès Orienteur, Chef Orienteur ou Admin requis"
-        )
-    return current_user
+    """Office dispatch only; field agents use require_field_agent."""
+    return await require_office_orienteur(current_user)
 
 
 async def require_orienteur_or_above(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    """Alias — same as require_orienteur but explicit"""
-    return await require_orienteur(current_user)
+    """Legacy alias for central office dispatch permissions."""
+    return await require_office_orienteur(current_user)
 
 
 async def require_internal_user(
@@ -105,18 +135,22 @@ async def require_internal_user(
 
 
 async def require_technician(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    allowed_roles = [UserRole.TECHNICIAN, UserRole.CHEF_ORIENTEUR]
-    if not any(role == current_user.role for role in allowed_roles):
+    """Own-job technician access only.
+
+    Field agents no longer enter technician routes directly: their team-scoped
+    surface resolves the actual assigned technician server-side.
+    """
+    if current_user.role != UserRole.TECHNICIAN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès Technicien ou Chef Orienteur requis"
+            detail="Accès Technicien requis",
         )
     if not current_user.technician_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Profil technicien non lié"
+            detail="Profil technicien non lié",
         )
     return current_user
 
