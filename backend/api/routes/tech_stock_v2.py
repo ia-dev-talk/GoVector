@@ -6,7 +6,7 @@ uses the same authenticated technician context as the intervention workflow.
 
 from typing import Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import tech_jobs
 from backend.auth.dependencies import require_technician
 from backend.database.connection import get_db
-from backend.database.models import StockItem, User
+from backend.database.models import Job, StockItem, StockMovement, User
 from backend.logic.cable_classification import is_cable_catalog_item
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_stock import (
@@ -34,6 +34,10 @@ def _mutation_http_exception(exc: TechnicianJobMutationError) -> HTTPException:
         status_code=code,
         detail={"code": exc.code, "message": exc.message},
     )
+
+
+def _enum_value(value: Any) -> Any:
+    return value.value if hasattr(value, "value") else value
 
 
 @tech_jobs.router.get("/stock-v2")
@@ -108,6 +112,57 @@ async def get_technician_cable_catalogue_v2(
             }
         )
     return result
+
+
+@tech_jobs.router.get("/stock-v2/history")
+async def get_technician_stock_history_v2(
+    limit: int = Query(100, ge=1, le=250),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_technician),
+) -> list[dict[str, Any]]:
+    """Return immutable stock movements for the authenticated technician only."""
+    technician_id = current_user.technician_id
+    if technician_id is None:
+        raise HTTPException(status_code=400, detail="Profil technicien manquant")
+
+    rows = (
+        await db.execute(
+            select(
+                StockMovement,
+                StockItem.reference.label("item_reference"),
+                StockItem.label.label("item_label"),
+                StockItem.unit.label("item_unit"),
+                Job.job_number.label("job_number"),
+            )
+            .join(StockItem, StockItem.id == StockMovement.item_id)
+            .outerjoin(Job, Job.id == StockMovement.job_id)
+            .where(StockMovement.technician_id == technician_id)
+            .order_by(StockMovement.created_at.desc(), StockMovement.id.desc())
+            .limit(limit)
+        )
+    ).all()
+
+    return [
+        {
+            "id": movement.id,
+            "created_at": movement.created_at,
+            "movement_type": _enum_value(movement.movement_type),
+            "quantity": movement.quantity,
+            "quantity_before": movement.quantity_before,
+            "quantity_after": movement.quantity_after,
+            "item_id": movement.item_id,
+            "item_reference": item_reference,
+            "item_label": item_label,
+            "item_unit": item_unit,
+            "job_id": movement.job_id,
+            "job_number": job_number,
+            "operator": movement.operator,
+            "reference_type": movement.reference_type,
+            "reference_id": movement.reference_id,
+            "notes": movement.notes,
+        }
+        for movement, item_reference, item_label, item_unit, job_number in rows
+    ]
 
 
 @tech_jobs.router.post("/scan/resolve")
