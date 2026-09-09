@@ -103,11 +103,16 @@ class TechnicianWorkflowCommand {
 }
 
 abstract final class TechnicianWorkflowCommandResolver {
+  // Server commands stay canonical. Only the technician-facing wording is
+  // collapsed to the deliberately tiny Praxedo-style field flow.
   static const _labels = <String, String>{
-    'accept_and_start': 'Accepter & démarrer',
-    'arrive': 'Arrivé sur site',
-    'start_work': 'Commencer les travaux',
-    'close_field_visit': 'Clôturer l’intervention',
+    'accept_and_start': 'Accepter · En route',
+    'arrive': 'Sur site',
+    // This command is only exposed as a recovery state when the automatic
+    // ON_SITE -> IN_PROGRESS hop was interrupted. The shell then starts work
+    // and submits in the same tap.
+    'start_work': 'Travail terminé · Envoyer pour validation',
+    'close_field_visit': 'Travail terminé · Envoyer pour validation',
   };
 
   static TechnicianWorkflowCommand? resolve({
@@ -118,13 +123,13 @@ abstract final class TechnicianWorkflowCommandResolver {
       for (final code in _labels.keys) {
         if (!capabilities.allowedCommands.contains(code)) continue;
         var label = _labels[code]!;
-        if (code == 'close_field_visit') {
+        if (code == 'close_field_visit' || code == 'start_work') {
           final readiness = capabilities.completionAssessment;
           if (readiness != null && !readiness.canComplete) {
             final count = readiness.missingCount;
             label = count > 0
-                ? 'Clôture · $count élément${count > 1 ? 's' : ''} manquant${count > 1 ? 's' : ''}'
-                : 'Vérifier avant clôture';
+                ? 'À compléter · $count élément${count > 1 ? 's' : ''}'
+                : 'Vérifier avant envoi';
           }
         }
         return TechnicianWorkflowCommand(
