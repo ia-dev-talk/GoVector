@@ -92,26 +92,25 @@ abstract final class MobileJobPresenter {
     switch (normalizedStatus(job)) {
       case 'assigned':
       case 'affectee':
+      case 'accepted':
         return 'Affectée';
       case 'en_route':
         return 'En route';
       case 'arrived':
       case 'on_site':
-        return 'Sur site';
       case 'in_progress':
       case 'work_in_progress':
       case 'en_cours':
       case 'ftth_install':
-        return 'En cours';
       case 'tests':
-        return 'Tests';
       case 'validation':
       case 'client_validation':
-        return 'Validation';
       case 'installation_done':
-        return 'Installation terminée';
+        // These remain distinct internally for audit/backward compatibility,
+        // but the technician only needs to understand that they are on site.
+        return 'Sur site';
       case 'en_attente_validation':
-        return 'À valider';
+        return 'À contrôler';
       case 'completed':
       case 'terminee':
         return 'Terminée';
