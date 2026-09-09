@@ -72,22 +72,6 @@ async def commit_final_cable_stock(
     newest SEG-1 payload is selected and only 92 m reaches the ledger.
     """
 
-    technician_user = await db.scalar(
-        select(User)
-        .where(
-            User.technician_id == technician_id,
-            User.is_active.is_(True),
-        )
-        .order_by(User.id.asc())
-        .limit(1)
-    )
-    if technician_user is None:
-        raise TechnicianJobMutationError(
-            "rejected",
-            "technician_user_missing",
-            "Compte technicien actif introuvable pour finaliser le stock câble",
-        )
-
     actions = (
         await db.execute(
             select(TechnicianFieldAction)
@@ -110,10 +94,29 @@ async def commit_final_cable_stock(
             continue
         latest[_segment_key(action, payload)] = (action, payload)
 
+    if not latest:
+        return {"segments": 0, "meters": 0}
+
+    technician_user = await db.scalar(
+        select(User)
+        .where(
+            User.technician_id == technician_id,
+            User.is_active.is_(True),
+        )
+        .order_by(User.id.asc())
+        .limit(1)
+    )
+    if technician_user is None:
+        raise TechnicianJobMutationError(
+            "rejected",
+            "technician_user_missing",
+            "Compte technicien actif introuvable pour finaliser le stock câble",
+        )
+
     committed_segments = 0
     committed_m = 0
     finalized_at = occurred_at or datetime.now(timezone.utc)
-    for key, (action, payload) in latest.items():
+    for key, (_action, payload) in latest.items():
         quantity_m = _computed_length(payload)
         raw_item_id = payload.get("cable_item_id")
         try:
