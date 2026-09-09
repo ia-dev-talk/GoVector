@@ -10,12 +10,15 @@ import 'auth_service.dart';
 class TechnicianStockService {
   static const String materialCustodyPath = 'tech/jobs/stock-v2';
   static const String cableCataloguePath = 'tech/jobs/stock-v2/cables';
+  static const String stockHistoryPath = 'tech/jobs/stock-v2/history';
   static const String serializedCustodyPath = 'tech/jobs/stock-v2/serialized';
 
   static const _materialCustodyCachePrefix =
       'govector:technician-custody:v2';
   static const _cableCatalogueCachePrefix =
       'govector:technician-cables:v1';
+  static const _stockHistoryCachePrefix =
+      'govector:technician-stock-history:v1';
   static const _serializedCustodyCachePrefix =
       'govector:technician-serialized-custody:v2';
 
@@ -158,6 +161,13 @@ class TechnicianStockService {
     return _getCustodyRows(
       path: cableCataloguePath,
       cachePrefix: _cableCatalogueCachePrefix,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getStockHistory() {
+    return _getCustodyRows(
+      path: '$stockHistoryPath?limit=100',
+      cachePrefix: _stockHistoryCachePrefix,
     );
   }
 
