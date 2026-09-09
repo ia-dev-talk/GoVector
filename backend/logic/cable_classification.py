@@ -1,13 +1,13 @@
-"""Governed cable selection for technician field captures.
+"""Governed cable selection for GoVector field captures.
 
-Cable entry/exit events must identify a real cable from the authenticated
-technician custody and a controlled installation mode.  The mobile client may
-send display labels, but the server rebuilds canonical cable identity from the
-stock catalogue so a forged/free-text label cannot become authoritative.
+Cable entry/exit events identify a real cable from the governed catalogue and a
+controlled installation mode. The mobile client may send display labels, but
+the server rebuilds canonical cable identity from server data so forged/free-
+text labels never become authoritative.
 
-This module deliberately does not debit cable stock.  Consumption-by-metre is
-only safe after the operator/customer catalogue confirms cable units, rounding
-and Praxedo mapping rules.
+For the GoVector pilot, zero or unknown technician custody does NOT block a real
+field observation. The payload records whether stock was known; measured usage
+is reconciled separately as observed cable consumption.
 """
 
 from __future__ import annotations
@@ -24,16 +24,24 @@ from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_stock import get_technician_warehouse
 
 
-CABLE_CAPTURE_SCHEMA_VERSION = 1
+CABLE_CAPTURE_SCHEMA_VERSION = 2
 
-# Provisional BlueVector codes confirmed by the current field requirement.
-# Tenant-specific Praxedo values will replace/extend this governed dictionary
-# once the real customer catalogue is collected.  Unknown external values are
-# intentionally rejected instead of guessed.
+# Small delivery vocabulary matching the Praxedo activity shown by the user.
+# It stays governed/configurable rather than accepting arbitrary free text.
 INSTALLATION_MODES: dict[str, str] = {
-    "FACADE": "Façade",
+    "CONDUITE_PEHD": "Conduite / sous PEHD",
+    "FACADE": "Façade / immeuble",
     "AERIEN": "Aérien",
     "AUTRE": "Autre",
+}
+
+INSTALLATION_MODE_ALIASES: dict[str, str] = {
+    "CONDUITE": "CONDUITE_PEHD",
+    "SOUS_PEHD": "CONDUITE_PEHD",
+    "PEHD": "CONDUITE_PEHD",
+    "CONDUITE_SOUS_PEHD": "CONDUITE_PEHD",
+    "FACADE_IMMEUBLE": "FACADE",
+    "IMMEUBLE": "FACADE",
 }
 
 _METER_UNITS = {
@@ -61,6 +69,7 @@ def is_cable_catalog_item(item: StockItem | Any) -> bool:
 
 def normalize_installation_mode(raw: Any) -> tuple[str, str]:
     code = _ascii_token(raw)
+    code = INSTALLATION_MODE_ALIASES.get(code, code)
     label = INSTALLATION_MODES.get(code)
     if label is None:
         raise TechnicianJobMutationError(
@@ -108,17 +117,6 @@ async def normalize_cable_capture_payload(
         payload.get("installation_mode_code")
     )
 
-    warehouse = await get_technician_warehouse(
-        db,
-        technician_id=technician_id,
-    )
-    if warehouse is None:
-        raise TechnicianJobMutationError(
-            "rejected",
-            "technician_stock_missing",
-            "Aucune dotation n'est disponible pour ce technicien",
-        )
-
     item = await db.get(StockItem, item_id)
     if item is None or not getattr(item, "is_active", True):
         raise TechnicianJobMutationError(
@@ -131,22 +129,22 @@ async def normalize_cable_capture_payload(
             "L'article sélectionné n'est pas configuré comme câble",
         )
 
-    lines = (
-        await db.execute(
-            select(Stock).where(
-                Stock.warehouse_id == warehouse.id,
-                Stock.item_id == item_id,
-                Stock.available_quantity > 0,
+    warehouse = await get_technician_warehouse(
+        db,
+        technician_id=technician_id,
+    )
+    lines = []
+    if warehouse is not None:
+        lines = (
+            await db.execute(
+                select(Stock).where(
+                    Stock.warehouse_id == warehouse.id,
+                    Stock.item_id == item_id,
+                )
             )
-        )
-    ).scalars().all()
+        ).scalars().all()
     available = sum(max(int(line.available_quantity or 0), 0) for line in lines)
-    if available <= 0:
-        raise TechnicianJobMutationError(
-            "conflict",
-            "cable_not_in_technician_stock",
-            "Ce câble n'est pas disponible dans le stock du technicien",
-        )
+    stock_registered = bool(lines)
 
     reference = str(getattr(item, "reference", None) or "").strip()
     type_code = reference or f"STOCK_ITEM_{item_id}"
@@ -159,9 +157,13 @@ async def normalize_cable_capture_payload(
             "cable_reference": reference or f"stock-item:{item_id}",
             "cable_type_code": type_code,
             "cable_type_label": label,
-            "cable_type_source": "technician_custody",
+            "cable_type_source": (
+                "technician_custody" if available > 0 else "catalogue_observed"
+            ),
             "cable_stock_unit": getattr(item, "unit", None),
             "cable_stock_available": available,
+            "cable_stock_registered": stock_registered,
+            "cable_stock_known": available > 0,
             "installation_mode_code": mode_code,
             "installation_mode_label": mode_label,
         }
