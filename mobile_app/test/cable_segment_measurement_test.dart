@@ -3,6 +3,7 @@ import 'package:mobile_app/features/actions/cable_segment_measurement.dart';
 
 void main() {
   test('cable length is the absolute physical meter delta', () {
+    expect(cableSegmentLength(startMeter: 1000, endMeterInput: '700'), 300);
     expect(cableSegmentLength(startMeter: 1500, endMeterInput: '1400'), 100);
     expect(cableSegmentLength(startMeter: 1400, endMeterInput: '1500'), 100);
     expect(

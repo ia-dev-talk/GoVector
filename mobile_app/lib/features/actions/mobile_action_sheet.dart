@@ -17,6 +17,7 @@ import 'free_measurement_action_screen.dart';
 import 'free_photo_action_screen.dart';
 import 'material_used_screen.dart';
 import 'mobile_sketch_screen.dart';
+import 'pilot_dynamic_form_screen.dart';
 
 Future<void> showMobileActionSheet({
   required BuildContext context,
@@ -29,7 +30,9 @@ Future<void> showMobileActionSheet({
   try {
     final catalog = await InterventionService.getBusinessCatalog();
     final values = catalog['values'];
-    final actions = values is Map<String, dynamic> ? values['field_actions'] : null;
+    final actions = values is Map<String, dynamic>
+        ? values['field_actions']
+        : null;
     if (actions is List) {
       configuredActions = {
         for (final item in actions.whereType<Map>())
@@ -64,9 +67,7 @@ Future<void> showMobileActionSheet({
 
   Future<void> createSketch() async {
     final outputPath = await Navigator.of(pageContext).push<String>(
-      MaterialPageRoute<String>(
-        builder: (_) => const MobileSketchScreen(),
-      ),
+      MaterialPageRoute<String>(builder: (_) => const MobileSketchScreen()),
     );
 
     if (outputPath == null || outputPath.trim().isEmpty) {
@@ -341,7 +342,9 @@ Future<void> showMobileActionSheet({
                   const SizedBox(height: BlueVectorSpacing.md),
                   DropdownButtonFormField<String>(
                     initialValue: referenceType,
-                    decoration: const InputDecoration(labelText: 'Type de repère'),
+                    decoration: const InputDecoration(
+                      labelText: 'Type de repère',
+                    ),
                     items: const [
                       DropdownMenuItem(value: 'pto', child: Text('PTO')),
                       DropdownMenuItem(value: 'pbo', child: Text('PBO')),
@@ -509,14 +512,23 @@ Future<void> showMobileActionSheet({
         _MobileAction(
           code: 'installation_work',
           category: _ActionCategory.compteRendu,
-          label: label('installation_work', 'Installation / travaux'),
+          label: {'TUBAGE', 'RACCORDEMENT'}.contains(job.jobType.toUpperCase())
+              ? pilotFormSchemaForJobType(job.jobType).label
+              : label('installation_work', 'Installation / travaux'),
           icon: Icons.construction_outlined,
           color: BlueVectorColors.cyan,
-          onTap: () => promptTextAction(
-            title: 'Installation / travaux',
-            action: 'installation_work',
-            hint: 'Type de travail ou note terrain…',
-          ),
+          onTap: {'TUBAGE', 'RACCORDEMENT'}.contains(job.jobType.toUpperCase())
+              ? () => openScreen(
+                  PilotDynamicFormScreen(
+                    job: job,
+                    schema: pilotFormSchemaForJobType(job.jobType),
+                  ),
+                )
+              : () => promptTextAction(
+                  title: 'Installation / travaux',
+                  action: 'installation_work',
+                  hint: 'Type de travail ou note terrain…',
+                ),
         ),
         _MobileAction(
           code: 'network_reference',

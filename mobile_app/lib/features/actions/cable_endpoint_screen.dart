@@ -14,10 +14,12 @@ class CableEndpointScreen extends StatefulWidget {
     super.key,
     required this.jobId,
     required this.actionType,
+    this.segmentSlot = 'primary',
   }) : assert(actionType == 'cable_entry' || actionType == 'cable_exit');
 
   final int jobId;
   final String actionType;
+  final String segmentSlot;
 
   bool get isEntry => actionType == 'cable_entry';
 
@@ -27,10 +29,9 @@ class CableEndpointScreen extends StatefulWidget {
 
 class _CableEndpointScreenState extends State<CableEndpointScreen> {
   static const _fallbackModes = <Map<String, String>>[
-    {'code': 'CONDUITE_PEHD', 'label': 'Conduite / sous PEHD'},
-    {'code': 'FACADE', 'label': 'Façade / immeuble'},
-    {'code': 'AERIEN', 'label': 'Aérien'},
-    {'code': 'AUTRE', 'label': 'Autre'},
+    {'code': 'CONDUITE_PEHD', 'label': 'Pose câble FO en conduite / sous PEHD'},
+    {'code': 'FACADE_IMMEUBLE', 'label': 'Pose câble FO en façade ou immeuble'},
+    {'code': 'AERIEN', 'label': 'Pose câble FO en aérien'},
   ];
 
   static const _segmentKeyPrefix = 'govector_cable_segment';
@@ -91,10 +92,10 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
   }
 
   String _segmentPreferenceKey(int cableItemId) =>
-      '$_segmentKeyPrefix:${widget.jobId}:$cableItemId';
+      '$_segmentKeyPrefix:${widget.jobId}:${widget.segmentSlot}:$cableItemId';
 
   String _segmentStartPreferenceKey(int cableItemId) =>
-      '$_segmentStartKeyPrefix:${widget.jobId}:$cableItemId';
+      '$_segmentStartKeyPrefix:${widget.jobId}:${widget.segmentSlot}:$cableItemId';
 
   Future<void> _loadActiveStart(int cableItemId) async {
     if (widget.isEntry) return;
@@ -256,6 +257,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       final data = <String, dynamic>{
         'job_id': widget.jobId,
         'cable_segment_id': segmentId,
+        'segment_slot': widget.segmentSlot,
         if (position != null) ...{
           'latitude': position.latitude,
           'longitude': position.longitude,

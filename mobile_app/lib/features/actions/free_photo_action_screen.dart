@@ -10,9 +10,14 @@ import '../../services/location_service.dart';
 import '../../services/offline_service.dart';
 
 class FreePhotoActionScreen extends StatefulWidget {
-  const FreePhotoActionScreen({super.key, required this.job});
+  const FreePhotoActionScreen({
+    super.key,
+    required this.job,
+    this.initialLabel,
+  });
 
   final Job job;
+  final String? initialLabel;
 
   @override
   State<FreePhotoActionScreen> createState() => _FreePhotoActionScreenState();
@@ -44,14 +49,26 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
   static const _labels = <(String?, String)>[
     (null, 'Libre'),
     ('before', 'Avant'),
+    ('during', 'Pendant'),
     ('after', 'Après'),
     ('cable', 'Câble'),
+    ('cable_departure', 'Câble — départ'),
+    ('cable_arrival', 'Câble — arrivée'),
     ('splitter', 'Splitter'),
     ('pbo', 'PBO'),
     ('pto', 'PTO'),
     ('ont', 'ONT'),
     ('router', 'Routeur'),
     ('incident', 'Incident'),
+    ('joint_before', 'JOINT AVANT'),
+    ('joint_after', 'JOINT APRÈS'),
+    ('splitter_before', 'SPLITTER AVANT'),
+    ('splitter_after', 'SPLITTER APRÈS'),
+    ('pco_progress', 'PCO EN COURS'),
+    ('pco_after', 'PCO APRÈS'),
+    ('pco_label', 'Étiquetage PCO'),
+    ('ont_signal', 'ONT + Signal'),
+    ('technician_signature', 'Signature technicien'),
     ('other', 'Autre'),
   ];
 
@@ -61,6 +78,12 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
   String? _label;
   bool _saving = false;
   bool _capturing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _label = widget.initialLabel;
+  }
 
   @override
   void dispose() {
@@ -107,11 +130,7 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
       final importedAt = DateTime.now().toUtc();
       final additions = [
         for (final file in files)
-          _PendingPhoto(
-            file: file,
-            source: 'gallery',
-            selectedAt: importedAt,
-          ),
+          _PendingPhoto(file: file, source: 'gallery', selectedAt: importedAt),
       ];
       setState(() => _photos = [..._photos, ...additions]);
     } finally {
@@ -194,8 +213,8 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
               'latitude': photo.latitude,
               'longitude': photo.longitude,
               if (photo.accuracy != null) 'accuracy': photo.accuracy,
-              'gps_observed_at':
-                  (photo.gpsObservedAt ?? photo.selectedAt).toIso8601String(),
+              'gps_observed_at': (photo.gpsObservedAt ?? photo.selectedAt)
+                  .toIso8601String(),
             },
           } else ...{
             'imported_at': photo.selectedAt.toIso8601String(),
@@ -246,7 +265,8 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
           children: [
             Expanded(
               child: ListView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(
                   BlueVectorSpacing.md,
                   BlueVectorSpacing.sm,
@@ -258,7 +278,9 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                     padding: const EdgeInsets.all(BlueVectorSpacing.sm),
                     decoration: BoxDecoration(
                       color: BlueVectorColors.surface,
-                      borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+                      borderRadius: BorderRadius.circular(
+                        BlueVectorRadius.small,
+                      ),
                       border: Border.all(color: BlueVectorColors.border),
                     ),
                     child: Row(
@@ -305,7 +327,9 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                           ),
                         ),
                         Text(
-                          _photos.isEmpty ? 'PHOTO' : '${_photos.length} PHOTO${_photos.length > 1 ? 'S' : ''}',
+                          _photos.isEmpty
+                              ? 'PHOTO'
+                              : '${_photos.length} PHOTO${_photos.length > 1 ? 'S' : ''}',
                           style: const TextStyle(
                             color: BlueVectorColors.primaryBright,
                             fontSize: 9,
@@ -321,10 +345,14 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                     aspectRatio: 4 / 3,
                     child: Material(
                       color: BlueVectorColors.surface,
-                      borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+                      borderRadius: BorderRadius.circular(
+                        BlueVectorRadius.medium,
+                      ),
                       child: InkWell(
                         onTap: _saving || _capturing ? null : _chooseSource,
-                        borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+                        borderRadius: BorderRadius.circular(
+                          BlueVectorRadius.medium,
+                        ),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -340,7 +368,9 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                                   SizedBox(height: BlueVectorSpacing.sm),
                                   Text(
                                     'Ajouter une ou plusieurs photos',
-                                    style: TextStyle(fontWeight: FontWeight.w800),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                   SizedBox(height: 4),
                                   Text(
@@ -381,7 +411,9 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                                     ),
                                     child: Text(
                                       first.source == 'camera'
-                                          ? (first.hasGps ? 'GPS enregistré' : 'GPS indisponible')
+                                          ? (first.hasGps
+                                                ? 'GPS enregistré'
+                                                : 'GPS indisponible')
                                           : 'Galerie',
                                       style: const TextStyle(
                                         color: Colors.white,
@@ -397,8 +429,12 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                                 right: BlueVectorSpacing.sm,
                                 bottom: BlueVectorSpacing.sm,
                                 child: FilledButton.tonalIcon(
-                                  onPressed: _saving || _capturing ? null : _chooseSource,
-                                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                                  onPressed: _saving || _capturing
+                                      ? null
+                                      : _chooseSource,
+                                  icon: const Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                  ),
                                   label: const Text('Ajouter'),
                                 ),
                               ),
@@ -435,7 +471,9 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                                 right: 2,
                                 top: 2,
                                 child: InkWell(
-                                  onTap: _saving ? null : () => _removePhoto(index),
+                                  onTap: _saving
+                                      ? null
+                                      : () => _removePhoto(index),
                                   child: Container(
                                     decoration: const BoxDecoration(
                                       color: Colors.black54,
@@ -493,7 +531,8 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                     minLines: 2,
                     maxLines: 4,
                     textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+                    onSubmitted: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     decoration: const InputDecoration(
                       labelText: 'Commentaire (facultatif)',
                       hintText: 'Ex. passage câble validé, splitter posé…',
@@ -545,8 +584,8 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                     _saving
                         ? 'Enregistrement…'
                         : _photos.length <= 1
-                            ? 'Enregistrer la photo'
-                            : 'Envoyer ${_photos.length} photos',
+                        ? 'Enregistrer la photo'
+                        : 'Envoyer ${_photos.length} photos',
                   ),
                 ),
               ),
