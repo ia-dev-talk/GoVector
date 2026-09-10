@@ -52,7 +52,7 @@ async def test_govector_pdf_renderer_owns_visible_brand_and_escapes_values(monke
     assert pdf.startswith(b"%PDF-")
     html = captured["html"]
     assert "GoVector" in html
-    assert "Interventions &amp; Stocks FTTH" in html
+    assert "Interventions & Stocks FTTH" in html
     assert "FieldOpt" not in html
     assert "BlueVector" not in html
     assert "Client &lt;FTTH&gt;" in html
