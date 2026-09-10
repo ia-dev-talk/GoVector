@@ -38,6 +38,38 @@
   min-width: 0;
 }
 
+/* Interventions: the pilot must look like one product, not a dark legacy page. */
+.intervention-workspace-header.intervention-workspace-header--v4 {
+  min-height: 104px !important;
+  color: var(--text-primary) !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  box-shadow: 0 1px 0 rgba(16, 35, 60, 0.03) !important;
+}
+
+.intervention-workspace-header--v4 .intervention-workspace-eyebrow,
+.intervention-workspace-header--v4 .intervention-workspace-identity > p {
+  color: var(--text-secondary) !important;
+}
+
+.intervention-workspace-header--v4 .intervention-workspace-title-row h1 {
+  color: var(--text-primary) !important;
+}
+
+.intervention-workspace-header--v4 .intervention-date-arrow,
+.intervention-workspace-header--v4 .intervention-date-button {
+  color: var(--text-primary) !important;
+  background: #ffffff !important;
+  border-color: var(--border-color) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.intervention-workspace-header--v4 .intervention-date-button--today {
+  color: var(--color-accent) !important;
+  background: var(--color-accent-bg) !important;
+  border-color: rgba(8, 105, 237, 0.28) !important;
+}
+
 /* Wizard: all three stages must fit without clipping on ordinary laptop screens. */
 .wizard-container {
   width: min(1080px, calc(100vw - 48px)) !important;
@@ -98,6 +130,20 @@
 .wizard-body {
   border: 0 !important;
   background-image: none !important;
+}
+
+/* Keep operational copy readable on the technician workspace. */
+.personnel-v3-header,
+.personnel-v3-workspace,
+.personnel-v3-inspector {
+  color: var(--text-primary) !important;
+}
+
+.personnel-v3-header p,
+.personnel-v3-table,
+.personnel-v3-inspector {
+  --text-muted: #697b91;
+  --text-subtle: #8796a8;
 }
 
 @media (max-width: 900px) {
