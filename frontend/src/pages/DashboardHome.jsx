@@ -855,7 +855,7 @@ export default function DashboardHome({
     return (
       <div className="loading-screen" role="status" aria-live="polite">
         <div className="loading-spinner" aria-hidden="true" />
-        Chargement du tableau de bord GoVector…
+        Chargement du tableau de bord BlueVector…
       </div>
     );
   }

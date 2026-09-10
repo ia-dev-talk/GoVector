@@ -257,7 +257,7 @@ function normalizeFilters(value) {
   );
 }
 
-function sanitizeBaseName(value, fallback = 'export_govector') {
+function sanitizeBaseName(value, fallback = 'export_bluevector') {
   const normalized = text(value, fallback)
     .split('')
     .filter((character) => {
@@ -537,7 +537,7 @@ export default function ExportCenter({
       export_name:
         sanitizeBaseName(
           exportName,
-          `Export GoVector ${localDateKey()}`,
+          `Export BlueVector ${localDateKey()}`,
         ),
     }),
     [
@@ -1109,7 +1109,7 @@ export default function ExportCenter({
       const fallbackName = ensureExtension(
         sanitizeBaseName(
           exportPayload.export_name,
-          `Export GoVector ${localDateKey()}`,
+          `Export BlueVector ${localDateKey()}`,
         ),
         effectiveFormat,
       );
@@ -1583,7 +1583,7 @@ export default function ExportCenter({
                             );
                             invalidatePreview();
                           }}
-                          placeholder={`Export GoVector ${localDateKey()}`}
+                          placeholder={`Export BlueVector ${localDateKey()}`}
                           disabled={busy}
                         />
                       </div>

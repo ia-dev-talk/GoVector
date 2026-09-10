@@ -8,7 +8,7 @@ from backend.services.export_service import FieldOptExportService
 
 
 @pytest.mark.asyncio
-async def test_excel_workbook_uses_govector_visible_brand(monkeypatch):
+async def test_excel_workbook_uses_bluevector_visible_brand(monkeypatch):
     async def no_rows(_db, _filters, _columns):
         return []
 
@@ -28,15 +28,15 @@ async def test_excel_workbook_uses_govector_visible_brand(monkeypatch):
     payload = await FieldOptExportService.export_excel(object(), ["date"], {})
     workbook = load_workbook(io.BytesIO(payload), read_only=True)
 
-    assert workbook.sheetnames[0] == "Export GoVector"
+    assert workbook.sheetnames[0] == "Export BlueVector"
     assert all(
-        "FieldOpt" not in name and "BlueVector" not in name
+        "FieldOpt" not in name and "GoVector" not in name
         for name in workbook.sheetnames
     )
 
 
 @pytest.mark.asyncio
-async def test_photo_zip_uses_govector_workbook_name(monkeypatch):
+async def test_photo_zip_uses_bluevector_workbook_name(monkeypatch):
     async def fake_excel(*_args, **_kwargs):
         return b"xlsx"
 
@@ -50,4 +50,4 @@ async def test_photo_zip_uses_govector_workbook_name(monkeypatch):
         object(), ["date"], {}
     )
     with ZipFile(io.BytesIO(payload)) as archive:
-        assert archive.namelist() == ["export_govector.xlsx"]
+        assert archive.namelist() == ["export_bluevector.xlsx"]
