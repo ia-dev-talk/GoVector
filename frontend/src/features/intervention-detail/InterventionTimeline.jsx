@@ -152,7 +152,7 @@ function SourceBanner({ snapshot }) {
         <small>
           {snapshot
             ? 'Repères reconstruits à partir des champs actuels. À lire comme contexte, pas comme journal d’audit.'
-            : 'Événements persistés et ordonnés par GoVector.'}
+            : 'Événements persistés et ordonnés par BlueVector.'}
         </small>
       </span>
     </div>
