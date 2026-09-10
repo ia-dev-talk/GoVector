@@ -150,7 +150,7 @@ export default function ImageAnnotationDialog({
         </div>
 
         <footer>
-          <p>L’original est conservé. GoVector crée une nouvelle version attribuée.</p>
+          <p>L’original est conservé. BlueVector crée une nouvelle version attribuée.</p>
           <button type="button" className="btn btn--primary" disabled={!ready || saving} onClick={save}>
             {saving ? 'Enregistrement…' : 'Partager l’annotation'}
           </button>
