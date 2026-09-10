@@ -55,6 +55,9 @@ export default function FieldAgentsPage({ onNavigate }) {
   }, [loadAgents]);
 
   const activeCount = agents.filter((agent) => agent?.is_active !== false).length;
+  const technicianCountsComplete = agents.every(
+    (agent) => Number.isInteger(agent?.technician_count),
+  );
   const knownTechnicians = agents.reduce(
     (sum, agent) => sum + (Number.isInteger(agent?.technician_count) ? agent.technician_count : 0),
     0,
@@ -71,7 +74,14 @@ export default function FieldAgentsPage({ onNavigate }) {
         <div className="field-agents-header-summary" aria-label="Résumé des agents terrain">
           <div><strong>{agents.length}</strong><span>agents</span></div>
           <div><strong>{activeCount}</strong><span>actifs</span></div>
-          <div><strong>{knownTechnicians}</strong><span>techniciens rattachés</span></div>
+          <div
+            title={technicianCountsComplete
+              ? 'Total des techniciens rattachés aux agents chargés.'
+              : 'Certaines équipes n’ont pas pu être synchronisées : aucun total incomplet n’est présenté comme exact.'}
+          >
+            <strong>{technicianCountsComplete ? knownTechnicians : '—'}</strong>
+            <span>techniciens rattachés</span>
+          </div>
         </div>
         <div className="field-agents-header-actions">
           <button type="button" className="btn btn--secondary" onClick={loadAgents} disabled={loading}>
