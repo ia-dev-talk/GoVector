@@ -1,0 +1,124 @@
+/* Final visual acceptance fixes driven by the 10/09/2026 desktop recipe. */
+
+/* Keep the expanded product mark readable on 1366–1920px desktop widths. */
+.app-layout.sidebar-open .app-sidebar {
+  width: 236px !important;
+}
+
+.app-layout.sidebar-open .sidebar-brand {
+  max-width: 172px;
+  min-width: 0;
+}
+
+.app-layout.sidebar-open .sidebar-brand > strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 15px !important;
+  text-overflow: clip;
+}
+
+/* Dashboard: give the daily title less visual weight and more room to breathe. */
+.cockpit-header.cockpit-header--v3 {
+  gap: 18px !important;
+}
+
+.cockpit-header.cockpit-header--v3 .cockpit-header-identity {
+  flex: 0 0 min(270px, 24vw);
+  min-width: 220px;
+}
+
+.cockpit-header.cockpit-header--v3 .cockpit-header-title-row h1 {
+  max-width: 270px;
+  font-size: clamp(23px, 1.75vw, 30px) !important;
+  line-height: 1.04 !important;
+}
+
+.cockpit-header.cockpit-header--v3 .cockpit-header-actions {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Wizard: all three stages must fit without clipping on ordinary laptop screens. */
+.wizard-container {
+  width: min(1080px, calc(100vw - 48px)) !important;
+  max-height: min(88dvh, 860px) !important;
+  color-scheme: light !important;
+}
+
+.wizard-header {
+  padding-inline: 28px !important;
+  overflow: hidden;
+}
+
+.wizard-progress {
+  width: 100%;
+  padding-inline: 4px !important;
+  overflow-x: hidden !important;
+}
+
+.wizard-step-indicator,
+.wizard-step-labels {
+  width: 100%;
+  min-width: 0 !important;
+}
+
+.wizard-step-indicator > div,
+.wizard-step-labels > span {
+  flex: 1 1 0 !important;
+}
+
+/* Native time fields are used here as HH:MM duration controls, never as clock times. */
+.pilot-qualification-grid input[type='time'] {
+  min-height: 42px;
+  color-scheme: light;
+  font-variant-numeric: tabular-nums;
+}
+
+.pilot-qualification-grid input[type='time']::-webkit-datetime-edit-ampm-field {
+  display: none;
+}
+
+/* Technician name/status are two separate information rows. */
+.affectation-tech-info {
+  display: grid !important;
+  gap: 3px;
+}
+
+.affectation-tech-name,
+.affectation-tech-status {
+  display: block !important;
+  margin: 0 !important;
+}
+
+.affectation-tech-status {
+  line-height: 1.35 !important;
+}
+
+/* Remove accidental horizontal artefacts from the scrollable body. */
+.wizard-body {
+  border: 0 !important;
+  background-image: none !important;
+}
+
+@media (max-width: 900px) {
+  .app-layout.sidebar-open .app-sidebar {
+    width: min(86vw, 300px) !important;
+  }
+
+  .cockpit-header.cockpit-header--v3 .cockpit-header-identity {
+    flex-basis: auto;
+    min-width: 0;
+  }
+
+  .cockpit-header.cockpit-header--v3 .cockpit-header-title-row h1 {
+    max-width: none;
+  }
+
+  .wizard-container {
+    width: calc(100vw - 24px) !important;
+  }
+
+  .wizard-header {
+    padding-inline: 16px !important;
+  }
+}
