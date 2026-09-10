@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { api } from '../api/client';
+import { api, apiClient } from '../api/client';
 import ExportCenter from '../components/export/ExportCenter';
 import { buildReportExportFilters } from '../components/export/exportScope';
 import Toast from '../components/Toast';
@@ -88,6 +88,7 @@ export default function RapportsPage({ onNavigate }) {
   const [error, setError] = useState('');
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [magillanGenerating, setMagillanGenerating] = useState(false);
   const [toasts, setToasts] = useState([]);
   const requestRef = useRef(0);
   const abortControllerRef = useRef(null);
@@ -315,6 +316,44 @@ export default function RapportsPage({ onNavigate }) {
     onNavigate('interventions', intent);
   }, [onNavigate]);
 
+  const generateMagillanReport = useCallback(async () => {
+    if (!exportScopeFilters || magillanGenerating) return;
+
+    setMagillanGenerating(true);
+    try {
+      const response = await apiClient.post(
+        '/export/magillan-daily',
+        { filters: exportScopeFilters },
+        { responseType: 'blob' },
+      );
+
+      const blob = response?.data instanceof Blob
+        ? response.data
+        : new Blob([response?.data], { type: 'application/pdf' });
+      const startKey = localDateKey(displayedRange.start);
+      const endKey = localDateKey(displayedRange.end);
+      const suffix = startKey === endKey ? startKey : `${startKey}_${endKey}`;
+      const filename = `RAPPORT_JOURNALIER_MAGILLAN_${suffix}.pdf`;
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+      toast(`Rapport Magillan généré : ${filename}`, 'success');
+    } catch (generationError) {
+      toast(
+        generationError?.response?.data?.detail
+          ?? 'Impossible de générer le RAPPORT JOURNALIER Magillan.',
+        'error',
+      );
+    } finally {
+      setMagillanGenerating(false);
+    }
+  }, [displayedRange, exportScopeFilters, magillanGenerating, toast]);
+
   if (loading && !hasSnapshot) {
     return (
       <div className="rv3-loading-screen" role="status" aria-live="polite">
@@ -404,6 +443,15 @@ export default function RapportsPage({ onNavigate }) {
             title="Réinitialiser les filtres"
           >
             ×
+          </button>
+          <button
+            type="button"
+            className="rv3-primary-button rv3-magillan-button"
+            onClick={generateMagillanReport}
+            disabled={!exportScopeFilters || magillanGenerating}
+            title="Générer le RAPPORT JOURNALIER Magillan pour le périmètre affiché"
+          >
+            {magillanGenerating ? 'Génération Magillan…' : 'Rapport Magillan'}
           </button>
         </div>
       )}
