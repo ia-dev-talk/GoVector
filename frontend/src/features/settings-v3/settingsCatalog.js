@@ -12,9 +12,9 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
     id: 'organization',
     label: 'Organisation',
     items: [
-      { id: 'organization-admin', label: 'Équipes & clients', description: 'Organisation terrain et accès entreprises', status: 'connected', icon: 'modules', keywords: ['équipe', 'client', 'iam', 'orange', 'unifiber', 'orienteur'] },
+      { id: 'organization-admin', label: 'Équipes & clients', description: 'Organisation terrain et accès entreprises', status: 'connected', icon: 'modules', keywords: ['équipe', 'client', 'iam', 'orange', 'unifiber', 'agent terrain', 'orienteur'] },
       { id: 'business-catalog', label: 'Référentiels métier', description: 'Grades, activités, statuts et actions terrain', status: 'connected', icon: 'modules', keywords: ['grade', 'compétence', 'activité', 'priorité', 'statut', 'action terrain'] },
-      { id: 'modules', label: 'Modules opérationnels', description: 'Accès aux modules réels', status: 'available', icon: 'modules', keywords: ['personnel', 'secteurs', 'stocks', 'interventions', 'rapports'] },
+      { id: 'modules', label: 'Modules opérationnels', description: 'Accès aux modules réels', status: 'available', icon: 'modules', keywords: ['techniciens', 'secteurs', 'stocks', 'interventions', 'planning', 'rapports'] },
       { id: 'integrations', label: 'Intégrations', description: 'Connecteurs terrain, cartographie et mobile', status: 'planned', icon: 'plug', keywords: ['terrain', 'qgis', 'qfield', 'api', 'mobile', 'smtp'] },
     ],
   },
@@ -25,7 +25,7 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
       { id: 'feedback', label: 'Tickets & retours', description: 'Erreurs, anomalies, UX et idées remontées par les utilisateurs', status: 'connected', icon: 'roadmap', keywords: ['ticket', 'bug', 'erreur', 'feedback', 'commentaire', 'anomalie', 'ux', 'idée', 'support'] },
       { id: 'operational-audit', label: 'Journal d’administration', description: 'Qui a modifié comptes, équipes et référentiels', status: 'connected', icon: 'roadmap', keywords: ['audit', 'trace', 'compte', 'équipe', 'configuration', 'sécurité'] },
       { id: 'roadmap', label: 'Capacités à connecter', description: 'Feuille de route sans faux contrôles', status: 'planned', icon: 'roadmap', keywords: ['utilisateurs', 'rôles', 'sécurité', 'sauvegardes', 'notifications'] },
-      { id: 'about', label: 'À propos', description: 'Version et architecture', status: 'readOnly', icon: 'info', keywords: ['version', 'docker', 'fastapi', 'react', 'govector'] },
+      { id: 'about', label: 'À propos', description: 'Version et architecture', status: 'readOnly', icon: 'info', keywords: ['version', 'docker', 'fastapi', 'react', 'bluevector'] },
     ],
   },
 ]);
