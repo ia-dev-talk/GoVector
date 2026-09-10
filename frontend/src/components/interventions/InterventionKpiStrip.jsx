@@ -162,7 +162,7 @@ const InterventionKpiStrip = memo(
           key: 'total',
           label: 'Total',
           value: total,
-          subtitle: 'Périmètre chargé',
+          subtitle: 'Interventions du jour',
           tone: 'primary',
           icon: <ClipboardIcon />,
           active: activeJobFilter === null,
@@ -172,7 +172,7 @@ const InterventionKpiStrip = memo(
           key: 'pending',
           label: 'Non affectées',
           value: metrics?.pending ?? 0,
-          subtitle: 'À traiter',
+          subtitle: 'À planifier',
           tone: 'warning',
           icon: <PendingIcon />,
           active: activeJobFilter === 'pending',
@@ -256,10 +256,6 @@ const InterventionKpiStrip = memo(
             <i className="intervention-status-dot intervention-status-dot--offline" />
             <small>Hors ligne</small>
             <strong>{offlineTechnicians}</strong>
-          </span>
-
-          <span className="intervention-overdue-rule">
-            Retards non configurés
           </span>
         </aside>
       </section>
