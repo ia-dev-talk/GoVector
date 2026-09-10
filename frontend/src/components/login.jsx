@@ -7,9 +7,8 @@ import {
 } from 'react';
 
 import { api } from '../api/client';
-import govectorLogo from '../assets/govector-logo.png';
 
-const PRODUCT_NAME = 'GoVector';
+const PRODUCT_NAME = 'BlueVector';
 const PRODUCT_VERSION = '0.0.8';
 
 function isRecord(value) {
@@ -139,7 +138,7 @@ function getLoginErrorMessage(error) {
     status <= 599
   ) {
     return (
-      'Le serveur GoVector rencontre un problème. ' +
+      'Le serveur BlueVector rencontre un problème. ' +
       'Veuillez réessayer.'
     );
   }
@@ -170,7 +169,7 @@ function getLoginErrorMessage(error) {
   ) {
     return (
       'Serveur inaccessible. Vérifiez la connexion réseau ' +
-      'et que le backend GoVector est démarré.'
+      'et que le backend BlueVector est démarré.'
     );
   }
 
@@ -435,13 +434,15 @@ export default function Login({
           <h1
             id="login-title"
             className="login-brand-title"
+            style={{
+              margin: 0,
+              color: 'var(--text-primary)',
+              fontSize: 'clamp(28px, 8vw, 40px)',
+              fontWeight: 800,
+              letterSpacing: '-0.04em',
+            }}
           >
-            <img
-              className="login-brand-image"
-              src={govectorLogo}
-              alt={PRODUCT_NAME}
-              draggable="false"
-            />
+            {PRODUCT_NAME}
           </h1>
 
           <p className="login-brand-subtitle">
