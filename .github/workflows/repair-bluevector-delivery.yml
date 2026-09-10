@@ -1,0 +1,50 @@
+name: BlueVector delivery repair
+
+on:
+  push:
+    branches:
+      - delivery/bluevector-final-chatgpt-20260910
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bluevector-delivery-repair
+  cancel-in-progress: true
+
+jobs:
+  repair-visible-branding:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: delivery/bluevector-final-chatgpt-20260910
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply deterministic delivery repair
+        run: python scripts/repair_bluevector_visible_branding.py
+      - name: Verify patch integrity
+        run: git diff --check
+      - name: Commit deterministic repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No repair needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            frontend/src/pages/DashboardHome.jsx \
+            frontend/src/components/export/ExportCenter.jsx \
+            frontend/src/features/intervention-detail/InterventionEvidencePanel.jsx \
+            frontend/src/pages/StocksPage.jsx \
+            backend/services/export_service.py \
+            backend/tests/test_export_visible_branding.py \
+            .github/workflows/quality.yml
+          git commit -m 'fix(delivery): finish visible BlueVector branding'
+          git push origin HEAD:delivery/bluevector-final-chatgpt-20260910
