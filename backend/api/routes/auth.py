@@ -26,6 +26,12 @@ logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter()
 
+WEB_ROLES = frozenset({
+    UserRole.ADMIN,
+    UserRole.ORIENTEUR,
+    UserRole.CLIENT,
+})
+
 _COCKPIT_SCHEMA_VERSION = 3
 _COCKPIT_VIEW_FIELD = "view"
 _COCKPIT_ORDER_FIELD = "order"
@@ -274,6 +280,10 @@ async def login(
 
     if not user or not user.is_active or not user.password_hash:
         logger.warning("[AUTH] Échec de connexion web")
+        raise _invalid_credentials()
+
+    if user.role not in WEB_ROLES:
+        logger.warning("[AUTH] Échec de connexion web - rôle mobile")
         raise _invalid_credentials()
 
     if not verify_password(form_data.password, user.password_hash):

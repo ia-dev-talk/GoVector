@@ -375,12 +375,25 @@ async def create_account(
         if linked is not None:
             raise HTTPException(status_code=409, detail="Ce technicien possède déjà un compte.")
         orienteur_id = None
-    elif role == UserRole.ORIENTEUR:
+    elif role in {UserRole.ORIENTEUR, UserRole.CHEF_ORIENTEUR}:
         if orienteur_id is None or await db.get(Orienteur, orienteur_id) is None:
-            raise HTTPException(status_code=422, detail="Profil orienteur requis ou inconnu.")
-        linked = await db.scalar(select(User.id).where(User.orienteur_id == orienteur_id))
+            label = "Agent terrain" if role == UserRole.CHEF_ORIENTEUR else "Orienteur"
+            raise HTTPException(
+                status_code=422,
+                detail=f"Profil équipe requis ou inconnu pour le rôle {label}.",
+            )
+        linked = await db.scalar(
+            select(User.id).where(
+                User.orienteur_id == orienteur_id,
+                User.role == role,
+            )
+        )
         if linked is not None:
-            raise HTTPException(status_code=409, detail="Cet orienteur possède déjà un compte.")
+            label = "Agent terrain" if role == UserRole.CHEF_ORIENTEUR else "Orienteur"
+            raise HTTPException(
+                status_code=409,
+                detail=f"Ce profil possède déjà un compte {label}.",
+            )
         technician_id = None
     else:
         technician_id = None

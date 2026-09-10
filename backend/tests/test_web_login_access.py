@@ -42,6 +42,42 @@ def make_user(role, *, organization_id=None):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("role", [UserRole.TECHNICIAN, UserRole.CHEF_ORIENTEUR])
+async def test_mobile_field_roles_are_rejected_by_web_login_before_password_check(
+    monkeypatch,
+    role,
+):
+    user = make_user(role)
+    db = LoginDb(user)
+    password_checked = False
+    token_created = False
+
+    def unexpected_password_check(*_args):
+        nonlocal password_checked
+        password_checked = True
+        return True
+
+    def unexpected_token(*_args, **_kwargs):
+        nonlocal token_created
+        token_created = True
+        return "unexpected"
+
+    monkeypatch.setattr(auth, "verify_password", unexpected_password_check)
+    monkeypatch.setattr(auth, "create_access_token", unexpected_token)
+
+    with pytest.raises(HTTPException) as error:
+        await auth.login(
+            SimpleNamespace(username="field-user", password="correct"),
+            db,
+        )
+
+    assert error.value.status_code == 401
+    assert password_checked is False
+    assert token_created is False
+    assert db.scalar_calls == 0
+
+
+@pytest.mark.asyncio
 async def test_disabled_client_organization_is_rejected_before_token_creation(monkeypatch):
     user = make_user(UserRole.CLIENT, organization_id=12)
     db = LoginDb(user, organization_active=False)

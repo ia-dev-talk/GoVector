@@ -46,6 +46,25 @@ def test_catalog_contains_every_protected_business_code():
     assert {item.code for item in values.technician_grades} == {"junior", "senior"}
 
 
+def test_govector_pilot_reference_lists_match_confirmed_praxedo_values():
+    values = settings._catalog_defaults()
+
+    assert [item.label for item in values.installation_modes] == [
+        "Pose câble FO en conduite / sous PEHD",
+        "Pose câble FO en façade ou immeuble",
+        "Pose câble FO en aérien",
+    ]
+    assert [item.label for item in values.cable_types] == ["FO 16", "FO 64", "FO 96"]
+    assert [item.label for item in values.technician_skills] == [
+        "PB",
+        "PM",
+        "POSE DE CABLE SPCO",
+        "PTO",
+        "RACCORDEMENT REALISABLE",
+        "RACCORDEMENT SAV",
+    ]
+
+
 def test_catalog_write_is_admin_only_but_read_is_authenticated():
     get_route = next(
         route
@@ -213,6 +232,14 @@ def test_account_administration_is_admin_scoped_and_requires_profile_links():
         technician_id=8,
     )
     assert technician.technician_id == 8
+    field_agent = AdminAccountCreate(
+        username="agent.wahid",
+        email="agent.wahid@example.test",
+        password="mot-de-passe-solide",
+        role="CHEF_ORIENTEUR",
+        orienteur_id=1,
+    )
+    assert field_agent.orienteur_id == 1
 
     audit_route = next(
         route for route in v1_admin.router.routes if route.path == "/audit-events"

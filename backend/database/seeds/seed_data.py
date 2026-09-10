@@ -339,14 +339,28 @@ async def seed_all(*, include_jobs: bool = True):
             # ADMIN
             {"username": "admin", "email": "admin@fieldopt.ma", "password_hash": DEFAULT_PASSWORD, "role": UserRole.ADMIN},
             # CHEF ORIENTEUR
-            {"username": "chef", "email": "chef.orienteur@fieldopt.ma", "password_hash": DEFAULT_PASSWORD, "role": UserRole.CHEF_ORIENTEUR},
+            {
+                "username": "chef",
+                "email": "chef.orienteur@fieldopt.ma",
+                "password_hash": DEFAULT_PASSWORD,
+                "role": UserRole.CHEF_ORIENTEUR,
+                "orienteur_id": orienteur_username_map.get("wahid"),
+            },
         ]
 
         for user_data in USERS:
             existing = await session.execute(
                 select(User).where(User.username == user_data["username"])
             )
-            if existing.scalar_one_or_none():
+            existing_user = existing.scalar_one_or_none()
+            if existing_user:
+                if (
+                    user_data["username"] == "chef"
+                    and existing_user.orienteur_id is None
+                ):
+                    existing_user.orienteur_id = orienteur_username_map.get("wahid")
+                    await session.commit()
+                    print("    ✓ Compte pilote 'chef' lié à l'équipe Wahid Benali")
                 print(f"    ⚠ Utilisateur '{user_data['username']}' existe déjà, ignoré")
                 continue
             user = User(**user_data)

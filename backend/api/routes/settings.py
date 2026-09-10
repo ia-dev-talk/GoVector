@@ -55,7 +55,7 @@ router = APIRouter()
 _OPERATIONAL_NAMESPACE = "operational"
 _OPERATIONAL_SCHEMA_VERSION = 3
 _CATALOG_NAMESPACE = "business_catalog"
-_CATALOG_SCHEMA_VERSION = 2
+_CATALOG_SCHEMA_VERSION = 3
 
 
 _CATALOG_COLORS = (
@@ -161,6 +161,38 @@ def _catalog_defaults() -> BusinessCatalogValues:
         field_actions=[
             _item(code, FIELD_ACTION_LABELS.get(code, code), index)
             for index, code in enumerate(sorted(SUPPORTED_FIELD_ACTION_TYPES))
+        ],
+        installation_modes=[
+            _item("CONDUITE_PEHD", "Pose câble FO en conduite / sous PEHD", 0),
+            _item("FACADE_IMMEUBLE", "Pose câble FO en façade ou immeuble", 1),
+            _item("AERIEN", "Pose câble FO en aérien", 2),
+        ],
+        cable_types=[
+            _item("FO_16", "FO 16", 0),
+            _item("FO_64", "FO 64", 1),
+            _item("FO_96", "FO 96", 2),
+        ],
+        technician_skills=[
+            _item("PB", "PB", 0),
+            _item("PM", "PM", 1),
+            _item("POSE_CABLE_SPCO", "POSE DE CABLE SPCO", 2),
+            _item("PTO", "PTO", 3),
+            _item("RACCORDEMENT_REALISABLE", "RACCORDEMENT REALISABLE", 4),
+            _item("RACCORDEMENT_SAV", "RACCORDEMENT SAV", 5),
+        ],
+        dashboard_indicators=[
+            _item("PLANIFIER_AUJOURDHUI", "Interventions à planifier pour aujourd'hui", 0),
+            _item("PLANIFIER_DEMAIN", "Interventions à planifier pour demain", 1),
+            _item("TERMINER_J_2H", "Interventions à terminer à J dans 2 heures", 2),
+            _item("TERMINER_J_4H", "Interventions à terminer à J dans 4 heures", 3),
+            _item("RDV_NON_HONORES_J", "Interventions avec RDV non honorés à J", 4),
+            _item("EN_COURS_J", "Interventions en cours à J", 5),
+            _item("SORTIES_PCO_RACCORDEES", "Nombre de sorties de PCO raccordées", 6),
+            _item("PLAN_CHARGE_J1", "Répartition du plan de charge à J+1", 7),
+            _item("DUREE_DEPASSEE", "Seuil durée d'intervention dépassé", 8),
+            _item("TAUX_CLOTURE_GTR", "Taux de clôture avec respect GTR", 9),
+            _item("TAUX_REALISATION_TEMPS_REEL", "Taux de réalisation temps réel", 10),
+            _item("TAUX_VALIDATION_TEMPS_REEL", "Taux de validation temps réel", 11),
         ],
     )
 
@@ -346,6 +378,18 @@ async def _validated_catalog(
         field_actions=_merge_extensible_catalog(
             values.field_actions, defaults.field_actions, section="field_actions"
         ),
+        installation_modes=sorted(
+            values.installation_modes, key=lambda item: (item.sort_order, item.code)
+        ),
+        cable_types=sorted(
+            values.cable_types, key=lambda item: (item.sort_order, item.code)
+        ),
+        technician_skills=sorted(
+            values.technician_skills, key=lambda item: (item.sort_order, item.code)
+        ),
+        dashboard_indicators=sorted(
+            values.dashboard_indicators, key=lambda item: (item.sort_order, item.code)
+        ),
     )
 
 
@@ -353,11 +397,23 @@ def _catalog_response(
     document: ApplicationSetting | None,
 ) -> BusinessCatalogDocumentResponse:
     defaults = _catalog_defaults()
-    values = (
-        BusinessCatalogValues.model_validate(document.values)
-        if document is not None
-        else defaults
-    )
+    values = BusinessCatalogValues.model_validate(document.values) if document is not None else defaults
+
+    if document is not None:
+        stored_keys = set((document.values or {}).keys())
+        additive_sections = {
+            "installation_modes",
+            "cable_types",
+            "technician_skills",
+            "dashboard_indicators",
+        }
+        values = values.model_copy(
+            update={
+                section: getattr(defaults, section)
+                for section in additive_sections
+                if section not in stored_keys
+            }
+        )
 
     if document is not None:
         default_job_types = {item.code: item for item in defaults.job_types}

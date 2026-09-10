@@ -158,6 +158,10 @@ class BusinessCatalogValues(BaseModel):
     priorities: List[CatalogItem] = Field(default_factory=list)
     status_presentations: List[CatalogItem] = Field(default_factory=list)
     field_actions: List[CatalogItem] = Field(default_factory=list)
+    installation_modes: List[CatalogItem] = Field(default_factory=list)
+    cable_types: List[CatalogItem] = Field(default_factory=list)
+    technician_skills: List[CatalogItem] = Field(default_factory=list)
+    dashboard_indicators: List[CatalogItem] = Field(default_factory=list)
 
     @field_validator("technician_grades")
     @classmethod
