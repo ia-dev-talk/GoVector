@@ -354,7 +354,6 @@ export default function AppLayout({
       setMobileMenuOpen(false);
     };
 
-    setIsMobile(mediaQuery.matches);
     mediaQuery.addEventListener?.('change', handleChange);
 
     return () => {
@@ -374,10 +373,6 @@ export default function AppLayout({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    if (isMobile) setMobileMenuOpen(false);
-  }, [isMobile, normalizedCurrentPage]);
 
   const toggleDesktopSidebar = useCallback(() => {
     setSidebarExpanded((previous) => {
