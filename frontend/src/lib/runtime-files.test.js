@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+import './pilot-branding.test.js';
+
 import {
   buildRuntimeFileUrl,
   resolveRuntimeFileBase,

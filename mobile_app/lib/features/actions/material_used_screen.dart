@@ -5,10 +5,7 @@ import '../../services/offline_service.dart';
 import '../../services/technician_stock_service.dart';
 
 class MaterialUsedScreen extends StatefulWidget {
-  const MaterialUsedScreen({
-    super.key,
-    required this.jobId,
-  });
+  const MaterialUsedScreen({super.key, required this.jobId});
 
   final int jobId;
 
@@ -68,20 +65,24 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
 
   List<Map<String, dynamic>> get _visibleStock {
     if (_query.isEmpty) return _stock;
-    return _stock.where((item) {
-      final haystack = [
-        item['label'],
-        item['reference'],
-        item['equipment_type'],
-        item['operator'],
-        item['model'],
-      ].whereType<Object>().join(' ').toLowerCase();
-      return haystack.contains(_query);
-    }).toList(growable: false);
+    return _stock
+        .where((item) {
+          final haystack = [
+            item['label'],
+            item['reference'],
+            item['equipment_type'],
+            item['operator'],
+            item['model'],
+          ].whereType<Object>().join(' ').toLowerCase();
+          return haystack.contains(_query);
+        })
+        .toList(growable: false);
   }
 
-  int get _selectedLines => _quantities.values.where((value) => value > 0).length;
-  int get _selectedUnits => _quantities.values.fold(0, (sum, value) => sum + value);
+  int get _selectedLines =>
+      _quantities.values.where((value) => value > 0).length;
+  int get _selectedUnits =>
+      _quantities.values.fold(0, (sum, value) => sum + value);
 
   void _change(Map<String, dynamic> item, int delta) {
     final id = _itemId(item);
@@ -105,22 +106,28 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
       _error = null;
     });
     try {
-      final selected = _stock.where((item) => (_quantities[_itemId(item)] ?? 0) > 0).toList();
-      final items = selected.map((item) {
-        final id = _itemId(item);
-        return <String, dynamic>{
-          'item_id': id,
-          'quantity': _quantities[id],
-          'reference': item['reference'],
-          'label': item['label'],
-          'operator': item['operator'],
-          'equipment_type': item['equipment_type'],
-        };
-      }).toList(growable: false);
-      final summary = selected.map((item) {
-        final id = _itemId(item);
-        return '${_quantities[id]}× ${item['label'] ?? item['reference'] ?? 'Article $id'}';
-      }).join(' · ');
+      final selected = _stock
+          .where((item) => (_quantities[_itemId(item)] ?? 0) > 0)
+          .toList();
+      final items = selected
+          .map((item) {
+            final id = _itemId(item);
+            return <String, dynamic>{
+              'item_id': id,
+              'quantity': _quantities[id],
+              'reference': item['reference'],
+              'label': item['label'],
+              'operator': item['operator'],
+              'equipment_type': item['equipment_type'],
+            };
+          })
+          .toList(growable: false);
+      final summary = selected
+          .map((item) {
+            final id = _itemId(item);
+            return '${_quantities[id]}× ${item['label'] ?? item['reference'] ?? 'Article $id'}';
+          })
+          .join(' · ');
 
       final queued = await OfflineService.addPendingAction(
         action: 'material_used',
@@ -135,7 +142,9 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
       final persisted = await OfflineService.getAction(queued.eventId);
       final status = persisted?.status.name ?? 'retryable';
       if (status == 'conflict' || status == 'rejected') {
-        throw Exception(persisted?.lastError ?? 'Consommation refusée par BlueVector');
+        throw Exception(
+          persisted?.lastError ?? 'Consommation refusée par GoVector',
+        );
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -178,12 +187,17 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
                     decoration: BoxDecoration(
                       color: BlueVectorColors.primarySoft,
                       border: Border.all(color: BlueVectorColors.border),
-                      borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+                      borderRadius: BorderRadius.circular(
+                        BlueVectorRadius.medium,
+                      ),
                     ),
                     child: const Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.inventory_2_outlined, color: BlueVectorColors.cyan),
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          color: BlueVectorColors.cyan,
+                        ),
                         SizedBox(width: BlueVectorSpacing.sm),
                         Expanded(
                           child: Text(
@@ -214,9 +228,13 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
                       decoration: BoxDecoration(
                         color: BlueVectorColors.danger.withValues(alpha: 0.08),
                         border: Border.all(
-                          color: BlueVectorColors.danger.withValues(alpha: 0.35),
+                          color: BlueVectorColors.danger.withValues(
+                            alpha: 0.35,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+                        borderRadius: BorderRadius.circular(
+                          BlueVectorRadius.small,
+                        ),
                       ),
                       child: Text(
                         _error!,
@@ -314,7 +332,10 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
                   color: BlueVectorColors.surfaceRaised,
                   borderRadius: BorderRadius.circular(BlueVectorRadius.small),
                 ),
-                child: const Icon(Icons.router_outlined, color: BlueVectorColors.cyan),
+                child: const Icon(
+                  Icons.router_outlined,
+                  color: BlueVectorColors.cyan,
+                ),
               ),
               const SizedBox(width: BlueVectorSpacing.sm),
               Expanded(
@@ -331,10 +352,15 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
                     const SizedBox(height: 3),
                     Text(
                       [
-                        item['reference'],
-                        item['operator'],
-                        item['equipment_type'],
-                      ].where((value) => value != null && value.toString().isNotEmpty).join(' · '),
+                            item['reference'],
+                            item['operator'],
+                            item['equipment_type'],
+                          ]
+                          .where(
+                            (value) =>
+                                value != null && value.toString().isNotEmpty,
+                          )
+                          .join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -376,7 +402,9 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
                   ),
                   IconButton(
                     tooltip: 'Ajouter une unité',
-                    onPressed: quantity < available ? () => _change(item, 1) : null,
+                    onPressed: quantity < available
+                        ? () => _change(item, 1)
+                        : null,
                     icon: const Icon(Icons.add_circle_outline),
                   ),
                 ],

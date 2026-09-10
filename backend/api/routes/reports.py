@@ -234,7 +234,7 @@ async def export_advanced_excel(
                 **filter_options,
             }
         )
-        filename = f"rapport_fieldopt_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filename = f"rapport_govector_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         return Response(
             content=excel_bytes,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

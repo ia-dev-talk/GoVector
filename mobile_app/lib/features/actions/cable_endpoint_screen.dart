@@ -7,6 +7,7 @@ import '../../services/intervention_service.dart';
 import '../../services/location_service.dart';
 import '../../services/offline_service.dart';
 import '../../services/technician_stock_service.dart';
+import 'cable_segment_measurement.dart';
 
 class CableEndpointScreen extends StatefulWidget {
   const CableEndpointScreen({
@@ -33,6 +34,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
   ];
 
   static const _segmentKeyPrefix = 'govector_cable_segment';
+  static const _segmentStartKeyPrefix = 'govector_cable_segment_start';
   static const _uuid = Uuid();
 
   final _meterController = TextEditingController();
@@ -40,6 +42,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
   List<Map<String, String>> _installationModes = _fallbackModes;
   int? _selectedCableId;
   String? _selectedModeCode;
+  double? _activeStartMeter;
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -64,8 +67,15 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     final type = _normalized(item['equipment_type']);
     final unit = _normalized(item['unit']);
     return type.contains('cabl') ||
-        const {'m', 'metre', 'mètre', 'metres', 'mètres', 'meter', 'meters'}
-            .contains(unit);
+        const {
+          'm',
+          'metre',
+          'mètre',
+          'metres',
+          'mètres',
+          'meter',
+          'meters',
+        }.contains(unit);
   }
 
   int _itemId(Map<String, dynamic> item) =>
@@ -82,6 +92,25 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
 
   String _segmentPreferenceKey(int cableItemId) =>
       '$_segmentKeyPrefix:${widget.jobId}:$cableItemId';
+
+  String _segmentStartPreferenceKey(int cableItemId) =>
+      '$_segmentStartKeyPrefix:${widget.jobId}:$cableItemId';
+
+  Future<void> _loadActiveStart(int cableItemId) async {
+    if (widget.isEntry) return;
+    final prefs = await SharedPreferences.getInstance();
+    final start = prefs.getDouble(_segmentStartPreferenceKey(cableItemId));
+    if (!mounted || _selectedCableId != cableItemId) return;
+    setState(() => _activeStartMeter = start);
+  }
+
+  Future<void> _selectCable(int? cableItemId) async {
+    setState(() {
+      _selectedCableId = cableItemId;
+      _activeStartMeter = null;
+    });
+    if (cableItemId != null) await _loadActiveStart(cableItemId);
+  }
 
   Future<String> _resolveSegmentId(int cableItemId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -126,12 +155,15 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
           final configured = rawModes
               .whereType<Map>()
               .where((item) => item['active'] != false)
-              .map((item) => {
-                    'code': item['code']?.toString().trim() ?? '',
-                    'label': item['label']?.toString().trim() ?? '',
-                  })
-              .where((item) =>
-                  item['code']!.isNotEmpty && item['label']!.isNotEmpty)
+              .map(
+                (item) => {
+                  'code': item['code']?.toString().trim() ?? '',
+                  'label': item['label']?.toString().trim() ?? '',
+                },
+              )
+              .where(
+                (item) => item['code']!.isNotEmpty && item['label']!.isNotEmpty,
+              )
               .toList(growable: false);
           if (configured.isNotEmpty) modes = configured;
         }
@@ -140,16 +172,18 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       }
 
       if (!mounted) return;
+      final selectedCableId =
+          _selectedCableId ??
+          (cables.length == 1 ? _itemId(cables.first) : null);
       setState(() {
         _cables = cables;
         _installationModes = modes;
-        if (_selectedCableId == null && cables.length == 1) {
-          _selectedCableId = _itemId(cables.first);
-        }
+        _selectedCableId = selectedCableId;
         if (_selectedModeCode == null && modes.length == 1) {
           _selectedModeCode = modes.first['code'];
         }
       });
+      if (selectedCableId != null) await _loadActiveStart(selectedCableId);
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -203,7 +237,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     try {
       meterMark = _parseMeterMark();
     } on FormatException {
-      setState(() => _error = 'Le repère métrique doit être un nombre positif.');
+      setState(
+        () => _error = 'Le repère métrique doit être un nombre positif.',
+      );
       return;
     }
 
@@ -242,11 +278,22 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
         action: widget.actionType,
         data: data,
       );
+      if (widget.isEntry) {
+        final prefs = await SharedPreferences.getInstance();
+        final startKey = _segmentStartPreferenceKey(cableItemId);
+        if (meterMark == null) {
+          await prefs.remove(startKey);
+        } else {
+          await prefs.setDouble(startKey, meterMark);
+        }
+      }
       await OfflineService.syncPendingActions();
       final persisted = await OfflineService.getAction(queued.eventId);
       final status = persisted?.status.name ?? 'retryable';
       if (status == 'conflict' || status == 'rejected') {
-        throw Exception(persisted?.lastError ?? 'Relevé câble refusé par GoVector');
+        throw Exception(
+          persisted?.lastError ?? 'Relevé câble refusé par GoVector',
+        );
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -261,6 +308,12 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
   @override
   Widget build(BuildContext context) {
     final endpointLabel = widget.isEntry ? 'Entrée câble' : 'Sortie câble';
+    final immediateLength = widget.isEntry
+        ? null
+        : cableSegmentLength(
+            startMeter: _activeStartMeter,
+            endMeterInput: _meterController.text,
+          );
     return Scaffold(
       appBar: AppBar(title: Text(endpointLabel)),
       body: SafeArea(
@@ -274,7 +327,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     decoration: BoxDecoration(
                       color: BlueVectorColors.primarySoft,
                       border: Border.all(color: BlueVectorColors.border),
-                      borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+                      borderRadius: BorderRadius.circular(
+                        BlueVectorRadius.medium,
+                      ),
                     ),
                     child: Text(
                       widget.isEntry
@@ -294,9 +349,13 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                       decoration: BoxDecoration(
                         color: BlueVectorColors.danger.withValues(alpha: 0.08),
                         border: Border.all(
-                          color: BlueVectorColors.danger.withValues(alpha: 0.35),
+                          color: BlueVectorColors.danger.withValues(
+                            alpha: 0.35,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+                        borderRadius: BorderRadius.circular(
+                          BlueVectorRadius.small,
+                        ),
                       ),
                       child: const Text(
                         'Aucun type de câble n’est configuré dans GoVector.',
@@ -310,26 +369,28 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                         labelText: 'Type de câble *',
                         prefixIcon: Icon(Icons.cable_rounded),
                       ),
-                      items: _cables.map((item) {
-                        final id = _itemId(item);
-                        final label = item['label']?.toString() ?? 'Câble #$id';
-                        final reference = item['reference']?.toString() ?? '';
-                        final available = _available(item);
-                        final unit = item['unit']?.toString() ?? '';
-                        final stock = _stockKnown(item)
-                            ? '$available $unit disponibles'
-                            : 'stock connu 0 $unit';
-                        return DropdownMenuItem<int>(
-                          value: id,
-                          child: Text(
-                            '$label${reference.isEmpty ? '' : ' · $reference'} · $stock',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(growable: false),
-                      onChanged: _saving
-                          ? null
-                          : (value) => setState(() => _selectedCableId = value),
+                      items: _cables
+                          .map((item) {
+                            final id = _itemId(item);
+                            final label =
+                                item['label']?.toString() ?? 'Câble #$id';
+                            final reference =
+                                item['reference']?.toString() ?? '';
+                            final available = _available(item);
+                            final unit = item['unit']?.toString() ?? '';
+                            final stock = _stockKnown(item)
+                                ? '$available $unit disponibles'
+                                : 'stock connu 0 $unit';
+                            return DropdownMenuItem<int>(
+                              value: id,
+                              child: Text(
+                                '$label${reference.isEmpty ? '' : ' · $reference'} · $stock',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          })
+                          .toList(growable: false),
+                      onChanged: _saving ? null : _selectCable,
                     ),
                   const SizedBox(height: BlueVectorSpacing.sm),
                   DropdownButtonFormField<String>(
@@ -354,7 +415,10 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                   TextField(
                     controller: _meterController,
                     enabled: !_saving,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setState(() {}),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: InputDecoration(
                       labelText: widget.isEntry
                           ? 'Repère métrique au départ (m)'
@@ -363,6 +427,38 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                       prefixIcon: const Icon(Icons.straighten_rounded),
                     ),
                   ),
+                  if (!widget.isEntry && _activeStartMeter != null) ...[
+                    const SizedBox(height: BlueVectorSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: BlueVectorColors.surface,
+                        border: Border.all(color: BlueVectorColors.border),
+                        borderRadius: BorderRadius.circular(
+                          BlueVectorRadius.small,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.calculate_outlined,
+                            color: BlueVectorColors.cyan,
+                          ),
+                          const SizedBox(width: BlueVectorSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              immediateLength == null
+                                  ? 'Départ ${formatCableMeter(_activeStartMeter!)} m · saisissez l’arrivée pour calculer la longueur.'
+                                  : 'Longueur calculée : ${formatCableMeter(immediateLength)} m = |arrivée − départ|',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: BlueVectorSpacing.xs),
                   const Text(
                     'Le GPS du relevé est ajouté automatiquement s’il est disponible. Il ne bloque pas la saisie. Les photos prises dans GoVector portent leur propre GPS.',

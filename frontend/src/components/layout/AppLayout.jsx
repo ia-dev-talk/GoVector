@@ -6,7 +6,7 @@ import {
   useState,
 } from 'react';
 
-const PRODUCT_NAME = 'BlueVector';
+const PRODUCT_NAME = 'GoVector';
 const SIDEBAR_STORAGE_KEY =
   'bluevector:sidebar-collapsed';
 const MOBILE_MEDIA_QUERY =
@@ -872,7 +872,7 @@ export default function AppLayout({
 
           <nav
             className="sidebar-nav"
-            aria-label="Espaces BlueVector"
+            aria-label="Espaces GoVector"
           >
             {visibleNavItems.map(
               (item) => {

@@ -35,7 +35,7 @@ class BlueVectorApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'BlueVector',
+      title: 'GoVector',
       theme: _AppThemeEngine.buildTheme(Brightness.light),
       darkTheme: _AppThemeEngine.buildTheme(Brightness.dark),
       themeMode: ThemeMode.light,

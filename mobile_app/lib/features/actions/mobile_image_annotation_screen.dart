@@ -63,7 +63,10 @@ class _MobileImageAnnotationScreenState
       }
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loadError = 'La pièce originale n’est plus disponible sur cet appareil.');
+      setState(
+        () => _loadError =
+            'La pièce originale n’est plus disponible sur cet appareil.',
+      );
     }
   }
 
@@ -152,9 +155,9 @@ class _MobileImageAnnotationScreenState
     } catch (error) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Annotation impossible : $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Annotation impossible : $error')));
     }
   }
 
@@ -218,7 +221,7 @@ class _MobileImageAnnotationScreenState
                           ),
                           SizedBox(height: 2),
                           Text(
-                            'L’original reste conservé. BlueVector enregistre une nouvelle version annotée.',
+                            'L’original reste conservé. GoVector enregistre une nouvelle version annotée.',
                             style: TextStyle(
                               color: BlueVectorColors.textMuted,
                               fontSize: 11,
@@ -257,47 +260,51 @@ class _MobileImageAnnotationScreenState
                             Text(
                               _loadError!,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(color: BlueVectorColors.textMuted),
+                              style: const TextStyle(
+                                color: BlueVectorColors.textMuted,
+                              ),
                             ),
                           ],
                         ),
                       )
                     : ratio == null
-                        ? const CircularProgressIndicator()
-                        : Padding(
-                            padding: const EdgeInsets.all(BlueVectorSpacing.sm),
-                            child: AspectRatio(
-                              aspectRatio: ratio,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final size = Size(
-                                    constraints.maxWidth,
-                                    constraints.maxHeight,
-                                  );
-                                  return ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onPanStart: (details) => _start(details, size),
-                                      onPanUpdate: (details) => _update(details, size),
-                                      child: Stack(
-                                        fit: StackFit.expand,
-                                        children: [
-                                          Image.file(
-                                            File(widget.sourcePath),
-                                            fit: BoxFit.fill,
-                                          ),
-                                          CustomPaint(
-                                            painter: _AnnotationPainter(_strokes),
-                                          ),
-                                        ],
+                    ? const CircularProgressIndicator()
+                    : Padding(
+                        padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+                        child: AspectRatio(
+                          aspectRatio: ratio,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final size = Size(
+                                constraints.maxWidth,
+                                constraints.maxHeight,
+                              );
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onPanStart: (details) =>
+                                      _start(details, size),
+                                  onPanUpdate: (details) =>
+                                      _update(details, size),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      Image.file(
+                                        File(widget.sourcePath),
+                                        fit: BoxFit.fill,
                                       ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
+                                      CustomPaint(
+                                        painter: _AnnotationPainter(_strokes),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
+                        ),
+                      ),
               ),
             ),
             Container(
@@ -375,7 +382,8 @@ class _MobileImageAnnotationScreenState
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: strokeCount == 0 || _saving || _loadError != null
+                      onPressed:
+                          strokeCount == 0 || _saving || _loadError != null
                           ? null
                           : _save,
                       icon: _saving
@@ -386,7 +394,9 @@ class _MobileImageAnnotationScreenState
                             )
                           : const Icon(Icons.send_outlined),
                       label: Text(
-                        _saving ? 'Préparation de la version…' : 'Enregistrer l’annotation',
+                        _saving
+                            ? 'Préparation de la version…'
+                            : 'Enregistrer l’annotation',
                       ),
                     ),
                   ),
@@ -421,11 +431,7 @@ class _NormalizedStroke {
   final List<Offset> points;
 }
 
-void _paintStrokes(
-  Canvas canvas,
-  Size size,
-  List<_NormalizedStroke> strokes,
-) {
+void _paintStrokes(Canvas canvas, Size size, List<_NormalizedStroke> strokes) {
   for (final stroke in strokes) {
     if (stroke.points.isEmpty) continue;
     final paint = Paint()
@@ -438,10 +444,7 @@ void _paintStrokes(
     final first = stroke.points.first;
     path.moveTo(first.dx * size.width, first.dy * size.height);
     if (stroke.points.length == 1) {
-      path.lineTo(
-        first.dx * size.width + 0.01,
-        first.dy * size.height + 0.01,
-      );
+      path.lineTo(first.dx * size.width + 0.01, first.dy * size.height + 0.01);
     } else {
       for (final point in stroke.points.skip(1)) {
         path.lineTo(point.dx * size.width, point.dy * size.height);

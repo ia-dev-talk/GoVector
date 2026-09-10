@@ -9,7 +9,7 @@ class BlueVectorMobileApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'BlueVector',
+      title: 'GoVector',
       debugShowCheckedModeBanner: false,
       theme: BlueVectorTheme.dark,
       darkTheme: BlueVectorTheme.dark,

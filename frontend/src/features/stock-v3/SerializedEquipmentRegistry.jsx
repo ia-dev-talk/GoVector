@@ -313,7 +313,7 @@ export default function SerializedEquipmentRegistry({ onClose }) {
                   {STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
               </RegistryField>
-              <RegistryField label="Emplacement BlueVector" wide>
+              <RegistryField label="Emplacement GoVector" wide>
                 <select value={form.warehouse} onChange={(event) => update('warehouse', event.target.value)}>
                   <option value="">Aucun emplacement</option>
                   {warehouses.map((warehouse) => {

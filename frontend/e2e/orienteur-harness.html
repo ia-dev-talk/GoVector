@@ -8,6 +8,7 @@ import OperationalSettingsSection from '../src/components/settings/OperationalSe
 import CompletionPolicySettingsSection from '../src/components/settings/CompletionPolicySettingsSection.jsx';
 import ParametresPage from '../src/pages/ParametresPage.jsx';
 import GisDatasetWorkspace from '../src/features/sectors/GisDatasetWorkspace.jsx';
+import MapWindow from '../src/components/MapWindow.jsx';
 import '../src/styles/index.css';
 import '../src/styles/public-v2.css';
 import '../src/styles/bluevector-v3.css';
@@ -28,5 +29,12 @@ window.renderSettings = () => root.render(React.createElement(OperationalSetting
 window.renderCompletion = () => root.render(React.createElement(CompletionPolicySettingsSection, {userRole: 'ADMIN'}));
 window.renderSettingsPage = () => root.render(React.createElement(ParametresPage, {userRole: 'ADMIN'}));
 window.renderGis = () => root.render(React.createElement(GisDatasetWorkspace));
+window.renderPilotMap = () => root.render(React.createElement(MapWindow, {
+  technicians: [{ id: 7, name: 'Technicien pilote', current_latitude: 33.5731, current_longitude: -7.5898, status: 'EN_ROUTE' }],
+  jobs: [{ id: 42, job_number: 'GV-42', customer_name: 'Client pilote', latitude: 33.58, longitude: -7.6, status: 'EN_COURS' }],
+  floating: false,
+  style: { height: '520px' },
+  onReady: (map) => { window.pilotMapInstance = map; },
+}));
 window.renderAssessment(1);
 </script></body></html>

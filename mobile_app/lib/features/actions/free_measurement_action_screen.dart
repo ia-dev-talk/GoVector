@@ -62,8 +62,7 @@ class _FreeMeasurementActionScreenState
     super.dispose();
   }
 
-  bool get _numericType =>
-      _type != 'other' && _type != 'otdr';
+  bool get _numericType => _type != 'other' && _type != 'otdr';
 
   void _changeType(String value) {
     setState(() {
@@ -95,9 +94,9 @@ class _FreeMeasurementActionScreenState
     if (_saving) return;
     final validation = _validateValue();
     if (validation != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(validation)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validation)));
       return;
     }
 
@@ -137,10 +136,7 @@ class _FreeMeasurementActionScreenState
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.speed_rounded,
-                    color: BlueVectorColors.cyan,
-                  ),
+                  const Icon(Icons.speed_rounded, color: BlueVectorColors.cyan),
                   const SizedBox(width: BlueVectorSpacing.sm),
                   Expanded(
                     child: Column(
@@ -255,11 +251,13 @@ class _FreeMeasurementActionScreenState
             FilledButton.icon(
               onPressed: _saving ? null : _save,
               icon: const Icon(Icons.save_outlined),
-              label: Text(_saving ? 'Enregistrement…' : 'Enregistrer le relevé'),
+              label: Text(
+                _saving ? 'Enregistrement…' : 'Enregistrer le relevé',
+              ),
             ),
             const SizedBox(height: BlueVectorSpacing.sm),
             const Text(
-              'BlueVector enregistre la valeur mesurée sans inventer de seuil de conformité. Les seuils métier éventuels doivent être configurés par l’administrateur.',
+              'GoVector enregistre la valeur mesurée sans inventer de seuil de conformité. Les seuils métier éventuels doivent être configurés par l’administrateur.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: BlueVectorColors.textMuted,
