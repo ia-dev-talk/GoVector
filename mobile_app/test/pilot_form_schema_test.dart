@@ -47,6 +47,24 @@ void main() {
     },
   );
 
+  test('SORTIE DE PCO exposes PCO labeling as text', () {
+    final schema = pilotFormSchemaForJobType('TUBAGE');
+    final fields = schema.sections.expand((section) => section.fields).toList();
+    final pcoLabel = fields.singleWhere((field) => field.key == 'pco_label');
+
+    expect(pcoLabel.label, 'Étiquetage PCO');
+    expect(pcoLabel.kind, PilotFieldKind.text);
+    expect(pcoLabel.photoLabel, isNull);
+    expect(
+      fields.singleWhere((field) => field.key == 'pco_progress').kind,
+      PilotFieldKind.photo,
+    );
+    expect(
+      fields.singleWhere((field) => field.key == 'pco_after').kind,
+      PilotFieldKind.photo,
+    );
+  });
+
   test('Raccordement only reveals the reason when the intervention fails', () {
     final schema = pilotFormSchemaForJobType('RACCORDEMENT');
     final fields = schema.sections.expand((section) => section.fields).toList();
