@@ -68,6 +68,46 @@ body {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
 }
 
+.sidebar-brand {
+  padding: 5px 8px;
+  background: #ffffff;
+  border-radius: 9px;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.12);
+}
+
+.govector-product-logo {
+  display: block;
+  width: 142px;
+  height: 34px;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.govector-product-logo img {
+  display: block;
+  width: 142px;
+  height: 34px;
+  object-fit: contain;
+  object-position: left center;
+  user-select: none;
+}
+
+.govector-product-logo--compact {
+  width: 34px;
+  height: 34px;
+}
+
+.login-brand-title {
+  width: min(230px, 74vw);
+  line-height: 0;
+}
+
+.login-brand-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .sidebar-role-badge {
   background: rgba(255, 255, 255, 0.06) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
@@ -450,6 +490,131 @@ body {
   font-size: 11px;
 }
 
+.pilot-step-intro {
+  margin: -4px 0 18px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pilot-creation-grid {
+  padding: 18px;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.pilot-qualification-block {
+  margin-top: 18px;
+  padding: 18px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.pilot-qualification-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(170px, 1fr) minmax(150px, .8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.pilot-instruction-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 13px 14px;
+  color: var(--text-secondary);
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+}
+
+.pilot-instruction-card strong {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.pilot-instruction-card span {
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pilot-qualification-block h4 {
+  margin: 0 0 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.pilot-readonly-note {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.pilot-skills-fieldset {
+  margin: 18px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.pilot-skills-fieldset legend {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pilot-skills-fieldset > p {
+  margin: 4px 0 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.pilot-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pilot-skill-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 10px;
+  color: var(--text-secondary);
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pilot-skill-option.is-selected {
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  border-color: rgba(8, 105, 237, 0.38);
+}
+
+.pilot-skill-option input {
+  accent-color: var(--color-accent);
+}
+
+.pilot-assignment-summary {
+  margin-top: 18px;
+  padding: 18px;
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.pilot-assignment-summary > h4 {
+  margin: 0 0 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
 @media (max-width: 1100px) {
   .pilot-dashboard-grid { grid-template-columns: 1fr; }
   .pilot-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -464,4 +629,6 @@ body {
   .pilot-kpi-grid { grid-template-columns: 1fr; }
   .pilot-dashboard-grid { grid-template-columns: minmax(0, 1fr); }
   .pilot-map-frame { height: 260px; }
+  .pilot-qualification-grid { grid-template-columns: 1fr; }
+  .pilot-skill-grid { grid-template-columns: 1fr; }
 }

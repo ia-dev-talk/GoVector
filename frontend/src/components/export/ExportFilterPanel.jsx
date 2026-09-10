@@ -726,7 +726,7 @@ const ExportFilterPanel = memo(function ExportFilterPanel({
           id={`${reactId}-search`}
           type="search"
           className="export-input"
-          placeholder="Client, commande, téléphone, adresse, ONT, PTO, PBO, NRO, technicien ou notes…"
+          placeholder="Intervention, client, téléphone, adresse, technicien ou notes…"
           value={text(normalizedFilters.search)}
           autoComplete="off"
           onChange={(event) =>

@@ -117,7 +117,7 @@ const JOB_TYPE_DEFINITIONS = [
     icon: '',
     color: 'var(--color-success, #4caf50)',
     description: 'Qualification FTTH réalisable',
-    avgDuration: 120,
+    avgDuration: 60,
     material: [],
     expectedPhotos: 0,
     fields: [],
@@ -129,10 +129,10 @@ const JOB_TYPE_DEFINITIONS = [
     icon: '',
     color: 'var(--color-info, #2196f3)',
     description: 'Intervention sur point de branchement',
-    avgDuration: 60,
+    avgDuration: 15,
     material: [],
     expectedPhotos: 0,
-    fields: ['pbo', 'splitter', 'splitter_port'],
+    fields: [],
     required: [],
   }),
   defineJobType({
@@ -141,10 +141,10 @@ const JOB_TYPE_DEFINITIONS = [
     icon: '',
     color: 'var(--color-info, #2196f3)',
     description: 'Intervention sur point de mutualisation',
-    avgDuration: 60,
+    avgDuration: 180,
     material: [],
     expectedPhotos: 0,
-    fields: ['nro', 'sro'],
+    fields: [],
     required: [],
   }),
   defineJobType({
@@ -153,10 +153,10 @@ const JOB_TYPE_DEFINITIONS = [
     icon: '',
     color: 'var(--color-accent, #0869ed)',
     description: 'Intervention sur prise terminale optique',
-    avgDuration: 90,
+    avgDuration: 15,
     material: [],
     expectedPhotos: 0,
-    fields: ['pbo', 'pto', 'ont_serial', 'optical_power_dbm'],
+    fields: [],
     required: [],
   }),
   defineJobType({
@@ -165,16 +165,10 @@ const JOB_TYPE_DEFINITIONS = [
     icon: '',
     color: 'var(--color-warning, #e89a00)',
     description: 'Pose de câble et raccordement PCO IAM',
-    avgDuration: 120,
+    avgDuration: 180,
     material: [],
     expectedPhotos: 0,
-    fields: [
-      'pbo',
-      'pto',
-      'ont_serial',
-      'cable_length_m',
-      'optical_power_dbm',
-    ],
+    fields: [],
     required: [],
   }),
 ];
@@ -308,34 +302,19 @@ function defineWizardStep(id, label, icon) {
 
 export const WIZARD_STEPS = Object.freeze([
   defineWizardStep(
-    'type',
-    'Type',
-    '🎯',
+    'creation',
+    'Création',
+    '1',
   ),
   defineWizardStep(
-    'client',
-    'Client',
-    '👤',
-  ),
-  defineWizardStep(
-    'reseau',
-    'Réseau FTTH',
-    '🌐',
-  ),
-  defineWizardStep(
-    'details',
-    'Détails',
-    '📝',
+    'qualification',
+    'Qualification',
+    '2',
   ),
   defineWizardStep(
     'affectation',
     'Affectation',
-    '👷',
-  ),
-  defineWizardStep(
-    'validation',
-    'Validation',
-    '✅',
+    '3',
   ),
 ]);
 

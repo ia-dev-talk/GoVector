@@ -497,7 +497,7 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
                   <span>minutes</span>
                 </div>
                 <small className="admin-field-help">
-                  Entier strictement positif. Aucune valeur implicite n’est appliquée par BlueVector.
+                  Entier strictement positif. Aucune valeur implicite n’est appliquée par GoVector.
                 </small>
               </div>
               <div className="admin-operational-impact">
@@ -581,7 +581,7 @@ const OperationalSettingsSection = memo(function OperationalSettingsSection({
                 </div>
                 <small className="admin-field-help">
                   À définir selon la finalité déclarée, les obligations contractuelles
-                  et la validation de conformité. BlueVector n’invente aucune durée légale.
+                  et la validation de conformité. GoVector n’invente aucune durée légale.
                 </small>
               </div>
               <div className="admin-operational-impact">

@@ -226,7 +226,7 @@ export default function SerializedEquipmentRegistry({ onClose }) {
       <section className="ser-reg-modal" role="dialog" aria-modal="true" aria-label="Registre SN et MAC">
         <header className="ser-reg-header">
           <div>
-            <span>Source de vérité scanner</span>
+            <span>Référentiel scanner</span>
             <h2>Registre SN / MAC</h2>
             <p>Équipements sérialisés reconnus par l’application technicien.</p>
           </div>

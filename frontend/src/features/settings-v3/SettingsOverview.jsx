@@ -106,7 +106,7 @@ const SettingsOverview = memo(
             <h2>Vue d’ensemble</h2>
             <p>
               État réel des paramètres actuellement consommés
-              par BlueVector.
+              par GoVector.
             </p>
           </div>
 

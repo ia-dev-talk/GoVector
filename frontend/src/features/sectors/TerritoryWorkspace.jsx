@@ -98,7 +98,7 @@ export default function TerritoryWorkspace({ canManage, legacySectors = null, to
     if (territoryResult.status === 'fulfilled') {
       setNodes(Array.isArray(territoryResult.value?.data) ? territoryResult.value.data : []);
     } else {
-      setError(message(territoryResult.reason, 'Impossible de charger la géographie BlueVector.'));
+      setError(message(territoryResult.reason, 'Impossible de charger la géographie GoVector.'));
     }
     if (legacySectors === null && sectorResult.status === 'fulfilled') {
       const data = sectorResult.value?.data;

@@ -12,6 +12,7 @@ import {
   ModuleRegistry,
 } from 'ag-grid-community';
 import { jobOperationalSector } from '../lib/job-sector.js';
+import { getJobTypeLabel } from '../lib/job-types.js';
 
 ModuleRegistry.registerModules([
   AllCommunityModule,
@@ -38,12 +39,6 @@ const PRIORITY_LABELS = {
   HIGH: 'Haute',
   NORMAL: 'Normale',
   LOW: 'Basse',
-};
-
-const JOB_TYPE_LABELS = {
-  installation: 'Installation',
-  repair: 'Réparation',
-  maintenance: 'Maintenance',
 };
 
 const DATE_FORMATTER = new Intl.DateTimeFormat(
@@ -500,12 +495,10 @@ function JobTypeCellRenderer({ value }) {
     return <EmptyCell />;
   }
 
-  const normalizedType =
-    normalizeComparableText(normalizedValue);
-
-  const displayValue =
-    JOB_TYPE_LABELS[normalizedType] ||
-    normalizedValue.replace(/_/g, ' ');
+  const displayValue = getJobTypeLabel(
+    normalizedValue,
+    normalizedValue.replace(/_/g, ' '),
+  );
 
   return (
     <span
@@ -805,33 +798,6 @@ const JobGrid = forwardRef(function JobGrid(
               headerName: 'Durée',
               width: 75,
               cellRenderer: DurationCellRenderer,
-            },
-      {
-              field: 'nro',
-              headerName: 'NRO',
-              width: 100,
-              valueFormatter: (params) =>
-                normalizeText(params.value) || '—',
-              tooltipValueGetter: (params) =>
-                normalizeText(params.value) || null,
-            },
-      {
-              field: 'sro',
-              headerName: 'SRO',
-              width: 100,
-              valueFormatter: (params) =>
-                normalizeText(params.value) || '—',
-              tooltipValueGetter: (params) =>
-                normalizeText(params.value) || null,
-            },
-      {
-              field: 'pbo',
-              headerName: 'PBO',
-              width: 100,
-              valueFormatter: (params) =>
-                normalizeText(params.value) || '—',
-              tooltipValueGetter: (params) =>
-                normalizeText(params.value) || null,
             },
       {
               field: 'splitter',

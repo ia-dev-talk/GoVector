@@ -501,7 +501,7 @@ function RecentActivity({ activities }) {
                 <small>
                   {[text(activity?.name), text(activity?.location)]
                     .filter(Boolean)
-                    .join(' · ') || 'Système BlueVector'}
+                    .join(' · ') || 'Système GoVector'}
                 </small>
               </span>
             </article>

@@ -45,7 +45,7 @@ const SettingsAbout = memo(
             <h2>À propos</h2>
             <p>
               Identité technique et principes structurants
-              de BlueVector.
+              de GoVector.
             </p>
           </div>
 
@@ -61,7 +61,7 @@ const SettingsAbout = memo(
           </span>
 
           <div>
-            <span>BlueVector FTTH</span>
+            <span>GoVector FTTH</span>
             <h3>
               Couche d’orchestration spécialisée terrain
             </h3>
@@ -99,7 +99,7 @@ const SettingsAbout = memo(
             </div>
           </header>
           <p>
-            BlueVector est distribué selon GNU AGPL v3. Les composants tiers
+            GoVector est distribué selon GNU AGPL v3. Les composants tiers
             conservent leurs licences et attributions respectives.
           </p>
         </article>
@@ -141,7 +141,7 @@ const SettingsAbout = memo(
             </li>
             <li>
               Les mêmes contrats doivent alimenter le web,
-              le mobile, QGIS/QField et Praxedo.
+              le mobile et les connecteurs terrain.
             </li>
             <li>
               Les valeurs absentes restent explicitement

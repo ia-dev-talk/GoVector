@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import { api } from '../api/client';
+import govectorLogo from '../assets/govector-logo.png';
 
 const PRODUCT_NAME = 'GoVector';
 const PRODUCT_VERSION = '0.0.8';
@@ -431,41 +432,16 @@ export default function Login({
         }}
       >
         <header className="login-brand">
-          <div
-            className="login-logo"
-            aria-hidden="true"
-          >
-            <svg
-              width="30"
-              height="30"
-              viewBox="0 0 32 32"
-              fill="none"
-              focusable="false"
-            >
-              <path
-                d="M25 10.2A11 11 0 1 0 25 22h-8.4v-5.1H27"
-                stroke="#172554"
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M8 24 24 8"
-                stroke="#2563eb"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <circle cx="9" cy="23" r="2.2" fill="#2563eb" />
-              <circle cx="16" cy="16" r="2.2" fill="#2563eb" />
-              <circle cx="23" cy="9" r="2.2" fill="#2563eb" />
-            </svg>
-          </div>
-
           <h1
             id="login-title"
             className="login-brand-title"
           >
-            {PRODUCT_NAME}
+            <img
+              className="login-brand-image"
+              src={govectorLogo}
+              alt={PRODUCT_NAME}
+              draggable="false"
+            />
           </h1>
 
           <p className="login-brand-subtitle">

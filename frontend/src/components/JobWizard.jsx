@@ -31,22 +31,36 @@ import {
 import {
   FALLBACK_ESTIMATED_DURATION_MINUTES,
   applyPlanningFieldChange,
-  catalogEstimatedDuration,
   deriveTimeSlotEnd,
 } from '../lib/job-planning';
 import '../styles/wizard.css';
 
-const LAST_STEP_INDEX = 5;
+const LAST_STEP_INDEX = 2;
 
-const NETWORK_REQUIRED_FIELDS =
-  new Set([
-    'nro',
-    'sro',
-    'pbo',
-    'splitter',
-    'splitter_port',
-    'pto',
-  ]);
+// Legacy renderers remain available for BlueVector compatibility, but they are
+// deliberately not connected to the three-step GoVector pilot wizard.
+const NETWORK_REQUIRED_FIELDS = new Set([
+  'nro',
+  'sro',
+  'pbo',
+  'splitter',
+  'splitter_port',
+  'pto',
+]);
+
+const PRAXEDO_TECHNICIAN_SKILLS = Object.freeze([
+  { code: 'PB', label: 'PB', sort_order: 0, active: true },
+  { code: 'PM', label: 'PM', sort_order: 10, active: true },
+  { code: 'POSE_CABLE_SPCO', label: 'POSE DE CABLE SPCO', sort_order: 20, active: true },
+  { code: 'PTO', label: 'PTO', sort_order: 30, active: true },
+  {
+    code: 'RACCORDEMENT_REALISABLE',
+    label: 'RACCORDEMENT REALISABLE',
+    sort_order: 40,
+    active: true,
+  },
+  { code: 'RACCORDEMENT_SAV', label: 'RACCORDEMENT SAV', sort_order: 50, active: true },
+]);
 
 const TECHNICIAN_STATUS = {
   disponible: {
@@ -223,6 +237,20 @@ function dateInputValue(value) {
     : localDateString(parsed);
 }
 
+function durationTimeValue(value) {
+  const minutes = Number(value);
+  if (!Number.isFinite(minutes) || minutes < 0) return '';
+  const hours = Math.floor(minutes / 60);
+  const remainder = Math.round(minutes % 60);
+  return `${String(hours).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+}
+
+function durationMinutesValue(value) {
+  const match = normalizeText(value).match(/^(\d{2}):(\d{2})$/);
+  if (!match) return '';
+  return String((Number(match[1]) * 60) + Number(match[2]));
+}
+
 function uniqueStringList(value) {
   const source = Array.isArray(value)
     ? value
@@ -313,6 +341,11 @@ function createInitialForm(data) {
   return {
     job_type:
       initialJobType,
+
+    description:
+      inputValue(
+        initial.description,
+      ),
 
     customer_name:
       inputValue(
@@ -938,6 +971,9 @@ export default function JobWizard({
     const configured = new Map(
       (businessCatalog?.job_types || []).map((item) => [item.code, item]),
     );
+    const pilotOrder = new Map(
+      Object.keys(JOB_TYPES_CONFIG).map((code, index) => [code, index]),
+    );
     return Object.entries(JOB_TYPES_CONFIG)
       .filter(([code]) => configured.get(code)?.active !== false || code === form.job_type)
       .map(([code, config]) => ({
@@ -946,12 +982,9 @@ export default function JobWizard({
           ...config,
           label: config.label,
           color: config.color,
-          avgDuration: catalogEstimatedDuration(
-            configured.get(code),
-            config.avgDuration,
-          ),
+          avgDuration: config.avgDuration,
         },
-        order: configured.get(code)?.sort_order ?? 10000,
+        order: pilotOrder.get(code) ?? 10000,
       }))
       .sort((first, second) => first.order - second.order || first.code.localeCompare(second.code));
   }, [businessCatalog, form.job_type]);
@@ -984,6 +1017,20 @@ export default function JobWizard({
       .filter((item) => item.active !== false || item.code === form.priority)
       .sort((first, second) => first.sort_order - second.sort_order);
   }, [businessCatalog, form.priority]);
+
+  const displayedTechnicianSkills = useMemo(() => {
+    const configured = businessCatalog?.technician_skills?.length
+      ? businessCatalog.technician_skills
+      : PRAXEDO_TECHNICIAN_SKILLS;
+
+    return [...configured]
+      .filter((item) => item.active !== false)
+      .sort((first, second) => first.sort_order - second.sort_order)
+      .map((item) => ({
+        code: normalizeText(item.code),
+        label: normalizeText(item.label || item.code),
+      }));
+  }, [businessCatalog]);
 
   const sortedTechnicians =
     useMemo(() => {
@@ -1476,190 +1523,29 @@ export default function JobWizard({
       ) => {
         const nextErrors = {};
 
-        const currentTypeConfig =
-          currentForm.job_type
-            ? JOB_TYPES_CONFIG[
-                currentForm.job_type
-              ]
-            : null;
-
-        if (
-          stepIndex === 0 &&
-          !normalizeText(
-            currentForm.job_type,
-          )
-        ) {
-          nextErrors.job_type =
-            'Choisissez un type d’intervention.';
+        if (stepIndex === 0) {
+          if (!normalizeText(currentForm.customer_name)) {
+            nextErrors.customer_name = 'Client obligatoire.';
+          }
+          if (!normalizeText(currentForm.service_address)) {
+            nextErrors.service_address = 'Adresse obligatoire.';
+          }
+          if (!normalizeText(currentForm.service_city)) {
+            nextErrors.service_city = 'Ville obligatoire.';
+          }
+          if (
+            normalizeText(currentForm.customer_email) &&
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeText(currentForm.customer_email))
+          ) {
+            nextErrors.customer_email = 'Adresse e-mail invalide.';
+          }
         }
 
         if (stepIndex === 1) {
-          const latitude = optionalNumber(
-            currentForm.latitude,
-          );
-          const longitude = optionalNumber(
-            currentForm.longitude,
-          );
-
-          if (
-            latitude !== null &&
-            (latitude < -90 || latitude > 90)
-          ) {
-            nextErrors.latitude =
-              'Latitude invalide.';
+          if (!normalizeText(currentForm.job_type)) {
+            nextErrors.job_type = 'Choisissez un type d’intervention.';
           }
 
-          if (
-            longitude !== null &&
-            (longitude < -180 || longitude > 180)
-          ) {
-            nextErrors.longitude =
-              'Longitude invalide.';
-          }
-
-          if ((latitude === null) !== (longitude === null)) {
-            nextErrors.latitude = 'Renseignez les deux coordonnées ou aucune.';
-            nextErrors.longitude = 'Renseignez les deux coordonnées ou aucune.';
-          }
-
-          if (
-            normalizeText(
-              currentForm
-                .customer_email,
-            ) &&
-            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-              normalizeText(
-                currentForm
-                  .customer_email,
-              ),
-            )
-          ) {
-            nextErrors.customer_email =
-              'Adresse e-mail invalide.';
-          }
-
-          if (
-            !isEdit &&
-            currentTypeConfig
-              ?.required
-              ?.includes(
-                'operator',
-              ) &&
-            !normalizeText(
-              currentForm.operator,
-            )
-          ) {
-            nextErrors.operator =
-              'Opérateur obligatoire pour ce type.';
-          }
-        }
-
-        if (
-          stepIndex === 2 &&
-          !isEdit &&
-          currentTypeConfig
-        ) {
-          currentTypeConfig.required
-            .filter((name) =>
-              NETWORK_REQUIRED_FIELDS.has(
-                name,
-              ),
-            )
-            .forEach((name) => {
-              if (
-                !normalizeText(
-                  currentForm[name],
-                )
-              ) {
-                nextErrors[name] =
-                  'Champ obligatoire.';
-              }
-            });
-        }
-
-        if (
-          stepIndex === 3 &&
-          currentTypeConfig &&
-          !isEdit
-        ) {
-          currentTypeConfig.required
-            .filter(
-              (name) =>
-                name !== 'operator' &&
-                !NETWORK_REQUIRED_FIELDS.has(
-                  name,
-                ),
-            )
-            .forEach((name) => {
-              if (
-                !normalizeText(
-                  currentForm[name],
-                )
-              ) {
-                nextErrors[name] =
-                  'Champ obligatoire.';
-              }
-            });
-
-          const cableLength =
-            optionalNumber(
-              currentForm
-                .cable_length_m,
-            );
-
-          if (
-            cableLength !== null &&
-            cableLength < 0
-          ) {
-            nextErrors.cable_length_m =
-              'La longueur ne peut pas être négative.';
-          }
-
-          [
-            'splitter_port',
-            'port_source',
-            'port_destination',
-          ].forEach((name) => {
-            const value =
-              optionalNumber(
-                currentForm[name],
-              );
-
-            if (
-              value !== null &&
-              (
-                !Number.isInteger(
-                  value,
-                ) ||
-                value < 0
-              )
-            ) {
-              nextErrors[name] =
-                'Entier positif attendu.';
-            }
-          });
-
-          const fibres =
-            optionalNumber(
-              currentForm
-                .nombre_fibres,
-            );
-
-          if (
-            fibres !== null &&
-            (
-              !Number.isInteger(
-                fibres,
-              ) ||
-              fibres < 1
-            )
-          ) {
-            nextErrors.nombre_fibres =
-              'Entier supérieur ou égal à 1 attendu.';
-          }
-        }
-
-        if (stepIndex === 4) {
           const duration = Number(
             currentForm
               .estimated_duration,
@@ -1676,6 +1562,9 @@ export default function JobWizard({
               'Durée comprise entre 15 et 480 minutes.';
           }
 
+        }
+
+        if (stepIndex === 2) {
           const start =
             normalizeText(
               currentForm
@@ -1700,7 +1589,7 @@ export default function JobWizard({
 
         return nextErrors;
       },
-      [form, isEdit],
+      [form],
     );
 
   const goNext =
@@ -1809,6 +1698,10 @@ export default function JobWizard({
   const buildCreatePayload =
     useCallback(() => {
       return {
+        description:
+          optionalText(
+            form.description,
+          ),
         customer_name:
           optionalText(
             form.customer_name,
@@ -1945,6 +1838,10 @@ export default function JobWizard({
   const buildUpdatePayload =
     useCallback(() => {
       return {
+        description:
+          optionalText(
+            form.description,
+          ),
         customer_name:
           optionalText(
             form.customer_name,
@@ -2261,7 +2158,248 @@ export default function JobWizard({
         )
       : '';
 
-  const renderStepType = () => (
+  const renderPilotCreation = () => (
+    <div className="wizard-enter pilot-creation-step">
+      <h3
+        ref={stepHeadingRef}
+        tabIndex="-1"
+      >
+        Nouvelle intervention
+      </h3>
+
+      <p className="pilot-step-intro">
+        Renseignez les informations de l’intervention.
+      </p>
+
+      <div className="step-client-grid pilot-creation-grid">
+        <Field
+          id={fieldId('description')}
+          label="Description"
+          full
+        >
+          <textarea
+            value={form.description}
+            onChange={(event) => update('description', event.target.value)}
+            rows="3"
+            disabled={submitting || Boolean(savedOutcome)}
+          />
+        </Field>
+
+        <Field
+          id={fieldId('customer_name')}
+          label="Client"
+          required
+          error={errors.customer_name}
+        >
+          <input
+            value={form.customer_name}
+            onChange={(event) => update('customer_name', event.target.value)}
+            autoComplete="name"
+            disabled={submitting || Boolean(savedOutcome)}
+          />
+        </Field>
+
+        <Field
+          id={fieldId('service_address')}
+          label="Adresse"
+          required
+          error={errors.service_address}
+          full
+        >
+          <input
+            value={form.service_address}
+            onChange={(event) => update('service_address', event.target.value)}
+            autoComplete="street-address"
+            disabled={submitting || Boolean(savedOutcome)}
+          />
+        </Field>
+
+        <Field
+          id={fieldId('service_zip')}
+          label="Code postal"
+        >
+          <input
+            value={form.service_zip}
+            onChange={(event) => update('service_zip', event.target.value)}
+            autoComplete="postal-code"
+            disabled={submitting || Boolean(savedOutcome)}
+          />
+        </Field>
+
+        <Field
+          id={fieldId('service_city')}
+          label="Ville"
+          required
+          error={errors.service_city}
+        >
+          <input
+            value={form.service_city}
+            onChange={(event) => update('service_city', event.target.value)}
+            autoComplete="address-level2"
+            disabled={submitting || Boolean(savedOutcome)}
+          />
+        </Field>
+
+        <Field
+          id={fieldId('customer_phone')}
+          label="Téléphone"
+        >
+          <input
+            type="tel"
+            value={form.customer_phone}
+            onChange={(event) => update('customer_phone', event.target.value)}
+            autoComplete="tel"
+            disabled={submitting || Boolean(savedOutcome)}
+          />
+        </Field>
+
+        <Field
+          id={fieldId('customer_email')}
+          label="E-mail"
+          error={errors.customer_email}
+        >
+          <input
+            type="email"
+            value={form.customer_email}
+            onChange={(event) => update('customer_email', event.target.value)}
+            autoComplete="email"
+            disabled={submitting || Boolean(savedOutcome)}
+          />
+        </Field>
+
+        <Field
+          id={fieldId('notes')}
+          label="Infos site"
+          full
+        >
+          <textarea
+            value={form.notes}
+            onChange={(event) => update('notes', event.target.value)}
+            rows="3"
+            disabled={submitting || Boolean(savedOutcome)}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+
+  const renderPilotQualification = () => (
+    <div className="wizard-enter pilot-qualification-step">
+      <h3
+        ref={stepHeadingRef}
+        tabIndex="-1"
+      >
+        Qualification
+      </h3>
+
+      <p className="pilot-step-intro">
+        Définissez le type et la durée prévue de l’intervention.
+      </p>
+
+      <div className="pilot-qualification-block">
+        {isEdit && (
+          <p className="pilot-readonly-note">
+            Le type est affiché en lecture seule lors d’une modification.
+          </p>
+        )}
+
+        <div className="pilot-qualification-grid">
+          <Field
+            id={fieldId('job_type')}
+            label="Type d’intervention"
+            required
+            error={errors.job_type}
+          >
+            <select
+              className="form-select"
+              value={form.job_type}
+              disabled={isEdit || submitting || Boolean(savedOutcome)}
+              onChange={(event) => update('job_type', event.target.value)}
+            >
+              <option value="">Sélectionner un type</option>
+              {displayedJobTypes.map(({ code, config }) => (
+                <option key={code} value={code}>{config.label}</option>
+              ))}
+            </select>
+          </Field>
+
+          <Field
+            id={fieldId('duration_unit')}
+            label="Unité"
+            required
+          >
+            <select value="HOURS_MINUTES" disabled>
+              <option value="HOURS_MINUTES">Heures / Minutes</option>
+            </select>
+          </Field>
+
+          <Field
+            id={fieldId('estimated_duration')}
+            label="Durée prévue"
+            required
+            error={errors.estimated_duration}
+          >
+            <input
+              type="time"
+              min="00:15"
+              max="08:00"
+              step="900"
+              value={durationTimeValue(form.estimated_duration)}
+              onChange={(event) => update(
+                'estimated_duration',
+                durationMinutesValue(event.target.value),
+              )}
+              disabled={submitting || Boolean(savedOutcome)}
+            />
+          </Field>
+        </div>
+
+        {form.job_type === 'INSTALLATION' && (
+          <div className="pilot-instruction-card">
+            <strong>Instructions de réalisation</strong>
+            <span>N° de port</span>
+          </div>
+        )}
+
+        <fieldset
+          className="pilot-skills-fieldset"
+          disabled={submitting || Boolean(savedOutcome)}
+        >
+          <legend>Compétences technicien</legend>
+          <p>Aucune compétence n’est présélectionnée.</p>
+          <div className="pilot-skill-grid">
+            {displayedTechnicianSkills.map((skill) => {
+              const selected = uniqueStringList(form.required_skills)
+                .includes(skill.code);
+              return (
+                <label
+                  key={skill.code}
+                  className={[
+                    'pilot-skill-option',
+                    selected ? 'is-selected' : '',
+                  ].filter(Boolean).join(' ')}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={(event) => {
+                      const next = new Set(uniqueStringList(form.required_skills));
+                      if (event.target.checked) next.add(skill.code);
+                      else next.delete(skill.code);
+                      update('required_skills', [...next].join(', '));
+                    }}
+                  />
+                  <span>{skill.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      </div>
+    </div>
+  );
+
+  const LEGACY_RENDER_STEP_TYPE = () => (
     <div className="wizard-enter">
       <h3
         ref={stepHeadingRef}
@@ -2327,7 +2465,7 @@ export default function JobWizard({
     </div>
   );
 
-  const renderStepClient = () => (
+  const LEGACY_RENDER_STEP_CLIENT = () => (
     <div className="wizard-enter">
       <h3
         ref={stepHeadingRef}
@@ -2837,7 +2975,7 @@ export default function JobWizard({
     submitting ||
     Boolean(savedOutcome);
 
-  const renderStepNetwork = () => (
+  const LEGACY_RENDER_STEP_NETWORK = () => (
     <div className="wizard-enter">
       <h3
         ref={stepHeadingRef}
@@ -3804,7 +3942,7 @@ export default function JobWizard({
     AUDIT: renderAuditDetails,
   };
 
-  const renderStepDetails = () => {
+  const LEGACY_RENDER_STEP_DETAILS = () => {
     const renderer =
       detailRenderers[
         form.job_type
@@ -4235,146 +4373,17 @@ export default function JobWizard({
             </Field>
           </div>
 
-          <div
-            style={{
-              marginTop:
-                'var(--space-lg)',
-            }}
-          >
-            <Field
-              id={fieldId(
-                'estimated_duration',
-              )}
-              label="Durée estimée (minutes)"
-              error={
-                errors
-                  .estimated_duration
-              }
-            >
-              <input
-                type="number"
-                min="15"
-                max="480"
-                step="1"
-                value={
-                  form
-                    .estimated_duration
-                }
-                onChange={(event) =>
-                  update(
-                    'estimated_duration',
-                    event.target.value,
-                  )
-                }
-                disabled={
-                  submitting ||
-                  Boolean(
-                    savedOutcome,
-                  )
-                }
-              />
-            </Field>
-          </div>
-
-          <div
-            style={{
-              marginTop:
-                'var(--space-lg)',
-            }}
-          >
-            <Field
-              id={fieldId(
-                'required_skills',
-              )}
-              label="Compétences requises"
-              hint="Séparez les compétences par des virgules."
-            >
-              <input
-                value={
-                  form.required_skills
-                }
-                onChange={(event) =>
-                  update(
-                    'required_skills',
-                    event.target.value,
-                  )
-                }
-                placeholder="fibre, routeur, PON"
-                disabled={
-                  submitting ||
-                  Boolean(
-                    savedOutcome,
-                  )
-                }
-              />
-            </Field>
-          </div>
-
-          {typeConfig && (
-            <div
-              style={{
-                marginTop:
-                  'var(--space-lg)',
-                padding:
-                  'var(--space-lg)',
-                color:
-                  'var(--text-secondary)',
-                fontSize:
-                  'var(--font-size-sm)',
-                lineHeight: 1.5,
-                background:
-                  'var(--surface-panel-alt)',
-                border:
-                  '1px solid var(--border-color)',
-                borderRadius: 5,
-              }}
-            >
-              <div>
-                <strong>
-                  Temps moyen :
-                </strong>{' '}
-                {typeConfig.avgDuration}{' '}
-                min
-              </div>
-
-              <div>
-                <strong>
-                  Photos attendues :
-                </strong>{' '}
-                {
-                  typeConfig.expectedPhotos
-                }
-              </div>
-
-              <div>
-                <strong>
-                  Matériel :
-                </strong>{' '}
-                {Array.isArray(
-                  typeConfig.material,
-                ) &&
-                typeConfig.material
-                  .length > 0
-                  ? typeConfig.material.join(
-                      ', ',
-                    )
-                  : 'Non renseigné'}
-              </div>
-            </div>
-          )}
         </div>
       </div>
+      {renderPilotSummary()}
     </div>
   );
 
-  const renderStepSummary = () => (
-    <div className="wizard-enter">
-      <h3
-        ref={stepHeadingRef}
-        tabIndex="-1"
-      >
+  const renderPilotSummary = () => (
+    <section className="pilot-assignment-summary">
+      <h4>
         Récapitulatif
-      </h3>
+      </h4>
 
       <div className="validation-summary">
         <section className="validation-section">
@@ -4385,6 +4394,10 @@ export default function JobWizard({
           <SummaryField
             label="Type"
             value={typeConfig?.label}
+          />
+          <SummaryField
+            label="Description"
+            value={form.description}
           />
           <SummaryField
             label="Client"
@@ -4399,45 +4412,6 @@ export default function JobWizard({
           <SummaryField
             label="Ville"
             value={form.service_city}
-          />
-          <SummaryField
-            label="Opérateur"
-            value={form.operator}
-          />
-          <SummaryField
-            label="Priorité"
-            value={form.priority}
-          />
-        </section>
-
-        <section className="validation-section">
-          <div className="validation-section-title">
-            Réseau FTTH
-          </div>
-
-          <SummaryField
-            label="NRO"
-            value={form.nro}
-          />
-          <SummaryField
-            label="SRO"
-            value={form.sro}
-          />
-          <SummaryField
-            label="PBO"
-            value={form.pbo}
-          />
-          <SummaryField
-            label="Splitter"
-            value={form.splitter}
-          />
-          <SummaryField
-            label="PTO"
-            value={form.pto}
-          />
-          <SummaryField
-            label="ONT"
-            value={form.ont_serial}
           />
         </section>
 
@@ -4484,12 +4458,6 @@ export default function JobWizard({
                 : ''
             }
           />
-          <SummaryField
-            label="Secteur"
-            value={
-              form.route_criteria
-            }
-          />
         </section>
 
         <section className="validation-section">
@@ -4509,32 +4477,21 @@ export default function JobWizard({
               ).join(', ')
             }
           />
-          <SummaryField
-            label="Latitude"
-            value={form.latitude}
-          />
-          <SummaryField
-            label="Longitude"
-            value={form.longitude}
-          />
         </section>
       </div>
-    </div>
+    </section>
   );
 
   const stepRenderers = [
-    renderStepType,
-    renderStepClient,
-    renderStepNetwork,
-    renderStepDetails,
+    renderPilotCreation,
+    renderPilotQualification,
     renderStepAssignment,
-    renderStepSummary,
   ];
 
   const currentStepContent =
     (
       stepRenderers[step] ??
-      renderStepType
+      renderPilotCreation
     )();
 
   return (
@@ -4580,8 +4537,8 @@ export default function JobWizard({
           }}
         >
           {isEdit
-            ? 'Modifier une intervention FTTH'
-            : 'Créer une intervention FTTH'}
+            ? 'Modifier une intervention'
+            : 'Créer une intervention'}
         </h2>
 
         <div className="wizard-header">

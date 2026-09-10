@@ -488,7 +488,7 @@ function PersonnelInspectorContent({
                 <div className="personnel-v3-linked-data-note personnel-v3-field--wide">
                   <strong>Données liées</strong>
                   <span>
-                    Secteurs, équipe, interventions et stock sont des objets BlueVector liés :
+                    Secteurs, équipe, interventions et stock sont des objets GoVector liés :
                     la fiche sert de point d’entrée, pas de silo de données.
                   </span>
                 </div>
@@ -651,7 +651,7 @@ function PersonnelInspectorContent({
       <footer className="personnel-v3-inspector-footer">
         <span>
           {canEditGeneral
-            ? 'Les modifications sont enregistrées dans BlueVector.'
+            ? 'Les modifications sont enregistrées dans GoVector.'
             : 'Seul le statut terrain peut être modifié avec ce rôle.'}
         </span>
         <button

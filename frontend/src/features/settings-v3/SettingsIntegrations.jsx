@@ -24,7 +24,7 @@ const SettingsIntegrations = memo(
       <div className="sv3-section">
         <div className="sv3-section-heading">
           <div>
-            <span>Écosystème BlueVector</span>
+            <span>Écosystème GoVector</span>
             <h2>Intégrations</h2>
             <p>
               État architectural des raccordements externes.

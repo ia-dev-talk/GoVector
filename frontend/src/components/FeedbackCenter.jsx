@@ -135,7 +135,7 @@ export default function FeedbackCenter({ userRole = 'ADMIN' }) {
   };
 
   return (
-    <section className="feedback-center" aria-label="Tickets qualité BlueVector">
+    <section className="feedback-center" aria-label="Tickets qualité GoVector">
       <header className="feedback-center__header">
         <div>
           <small>QUALITÉ PRODUIT</small>

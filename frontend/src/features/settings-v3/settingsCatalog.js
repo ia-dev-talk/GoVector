@@ -15,7 +15,7 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
       { id: 'organization-admin', label: 'Équipes & clients', description: 'Organisation terrain et accès entreprises', status: 'connected', icon: 'modules', keywords: ['équipe', 'client', 'iam', 'orange', 'unifiber', 'orienteur'] },
       { id: 'business-catalog', label: 'Référentiels métier', description: 'Grades, activités, statuts et actions terrain', status: 'connected', icon: 'modules', keywords: ['grade', 'compétence', 'activité', 'priorité', 'statut', 'action terrain'] },
       { id: 'modules', label: 'Modules opérationnels', description: 'Accès aux modules réels', status: 'available', icon: 'modules', keywords: ['personnel', 'secteurs', 'stocks', 'interventions', 'rapports'] },
-      { id: 'integrations', label: 'Intégrations', description: 'Praxedo, QGIS et mobile', status: 'planned', icon: 'plug', keywords: ['praxedo', 'qgis', 'qfield', 'api', 'mobile', 'smtp'] },
+      { id: 'integrations', label: 'Intégrations', description: 'Connecteurs terrain, cartographie et mobile', status: 'planned', icon: 'plug', keywords: ['terrain', 'qgis', 'qfield', 'api', 'mobile', 'smtp'] },
     ],
   },
   {
@@ -25,7 +25,7 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
       { id: 'feedback', label: 'Tickets & retours', description: 'Erreurs, anomalies, UX et idées remontées par les utilisateurs', status: 'connected', icon: 'roadmap', keywords: ['ticket', 'bug', 'erreur', 'feedback', 'commentaire', 'anomalie', 'ux', 'idée', 'support'] },
       { id: 'operational-audit', label: 'Journal d’administration', description: 'Qui a modifié comptes, équipes et référentiels', status: 'connected', icon: 'roadmap', keywords: ['audit', 'trace', 'compte', 'équipe', 'configuration', 'sécurité'] },
       { id: 'roadmap', label: 'Capacités à connecter', description: 'Feuille de route sans faux contrôles', status: 'planned', icon: 'roadmap', keywords: ['utilisateurs', 'rôles', 'sécurité', 'sauvegardes', 'notifications'] },
-      { id: 'about', label: 'À propos', description: 'Version et architecture', status: 'readOnly', icon: 'info', keywords: ['version', 'docker', 'fastapi', 'react', 'bluevector'] },
+      { id: 'about', label: 'À propos', description: 'Version et architecture', status: 'readOnly', icon: 'info', keywords: ['version', 'docker', 'fastapi', 'react', 'govector'] },
     ],
   },
 ]);
@@ -40,7 +40,7 @@ export const MODULE_SHORTCUTS = Object.freeze([
 ]);
 
 export const INTEGRATION_CAPABILITIES = Object.freeze([
-  { id: 'praxedo', label: 'Praxedo', category: 'Orchestration', status: 'planned', description: 'Synchronisation des interventions, statuts, preuves et comptes rendus.', dependency: 'Contrat API, mapping des statuts et stratégie de résolution des conflits.', icon: 'plug' },
+  { id: 'praxedo', label: 'Connecteur terrain', category: 'Orchestration', status: 'planned', description: 'Synchronisation des interventions, statuts, preuves et comptes rendus.', dependency: 'Contrat API, mapping des statuts et stratégie de résolution des conflits.', icon: 'plug' },
   { id: 'qgis', label: 'QGIS / QField', category: 'Géographique', status: 'partial', description: 'Référentiel territorial hiérarchique et échange GeoJSON prêts côté backend ; raccordement de l’éditeur cartographique en cours.', dependency: 'Connecter la page Secteurs au référentiel TerritoryNode puis valider les flux QGIS/QField offline.', icon: 'map' },
   { id: 'mobile', label: 'Application technicien', category: 'Terrain', status: 'connected', description: 'V2 terrain : workflow, actions libres, médias, GPS et synchronisation offline.', dependency: 'Poursuivre la contractualisation backend sans réintroduire de wizard imposé.', icon: 'mobile' },
   { id: 'smtp', label: 'Notifications', category: 'Communication', status: 'planned', description: 'Alertes opérationnelles, escalades SLA et notifications ciblées.', dependency: 'Canaux, modèles, destinataires et politique de fréquence.', icon: 'mail' },

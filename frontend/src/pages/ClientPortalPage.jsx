@@ -93,7 +93,7 @@ export default function ClientPortalPage() {
         <div>
           <span>Portail entreprise · lecture seule</span>
           <h1>{data.organization?.name}</h1>
-          <p>Une vision factuelle de vos interventions, sans accès aux opérations internes BlueVector.</p>
+          <p>Une vision factuelle de vos interventions, sans accès aux opérations internes GoVector.</p>
         </div>
         <div className="client-portal-header__actions">
           <small>{data.generated_at ? `Actualisé ${formatDate(data.generated_at, { hour: '2-digit', minute: '2-digit' })}` : ''}</small>
@@ -128,7 +128,7 @@ export default function ClientPortalPage() {
         <article className="client-portal-panel client-portal-panel--map">
           <div className="client-portal-panel__title"><div><span>Cartographie</span><h2>Interventions et équipes actives</h2></div><small>{map.truncated ? 'Carte limitée aux 500 dossiers les plus récents' : `${map.planned_jobs?.length || 0} intervention(s) localisée(s)`}</small></div>
           <ClientOperationsMap plannedJobs={map.planned_jobs} liveOperations={map.live_operations} />
-          {!map.live_tracking_configured ? <p className="client-portal-privacy-note">Les positions terrain ne sont pas affichées tant que le seuil de fraîcheur GPS n’est pas configuré par BlueVector.</p> : <p className="client-portal-privacy-note">Seules les positions récentes d’équipes travaillant sur vos interventions sont visibles. Seuil : {map.stale_after_minutes} min.</p>}
+          {!map.live_tracking_configured ? <p className="client-portal-privacy-note">Les positions terrain ne sont pas affichées tant que le seuil de fraîcheur GPS n’est pas configuré par GoVector.</p> : <p className="client-portal-privacy-note">Seules les positions récentes d’équipes travaillant sur vos interventions sont visibles. Seuil : {map.stale_after_minutes} min.</p>}
         </article>
         <article className="client-portal-panel client-portal-activity">
           <div className="client-portal-panel__title"><div><span>Flux vérifié</span><h2>Dernières évolutions</h2></div></div>

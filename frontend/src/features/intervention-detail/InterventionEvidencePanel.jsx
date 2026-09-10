@@ -809,7 +809,7 @@ export default function InterventionEvidencePanel({
                     name="site_search"
                     type="search"
                     maxLength="120"
-                    placeholder="PTO, PBO, adresse ou identifiant site"
+                    placeholder="Intervention, adresse ou identifiant site"
                   />
                   <button type="submit" className="btn btn--secondary" disabled={siteMergeLoading}>
                     {siteMergeLoading ? 'Recherche…' : 'Rechercher'}

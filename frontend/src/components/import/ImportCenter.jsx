@@ -458,7 +458,7 @@ export default function ImportCenter({
 
                         <h2>
 
-                            Centre d'import BlueVector
+                            Centre d'import GoVector
 
                         </h2>
 

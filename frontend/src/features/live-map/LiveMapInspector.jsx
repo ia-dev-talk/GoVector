@@ -355,9 +355,6 @@ const LiveMapInspector = memo(function LiveMapInspector({
           </div>
 
           <div className="lm-detail-grid">
-            <Field label="NRO" value={job?.nro} />
-            <Field label="SRO" value={job?.sro} />
-            <Field label="PBO" value={job?.pbo} />
             <Field label="PTO" value={job?.pto} />
           </div>
         </section>

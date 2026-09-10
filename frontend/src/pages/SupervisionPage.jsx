@@ -1528,7 +1528,7 @@ export default function SupervisionPage({ onNavigate }) {
             <input
               className="sv-search-input"
               type="search"
-              placeholder="Technicien, client, adresse, PBO, PTO, ONT, NRO…"
+              placeholder="Intervention, client, adresse…"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               aria-label="Rechercher dans la supervision"

@@ -84,7 +84,7 @@ const SettingsModules = memo(
 
           <div>
             <strong>
-              Une seule source de vérité
+              Un référentiel central
             </strong>
             <span>
               Personnel, secteurs, stocks et interventions

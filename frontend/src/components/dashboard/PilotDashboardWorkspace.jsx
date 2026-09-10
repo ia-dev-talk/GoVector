@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 
 import MapWindow from '../MapWindow';
+import { getJobTypeLabel } from '../../lib/job-types.js';
 
 const STATUS_LABELS = Object.freeze({
   PENDING: 'À assigner',
@@ -46,7 +47,8 @@ function customer(job) {
 }
 
 function jobType(job) {
-  return text(job?.job_type ?? job?.activity ?? job?.type, 'Intervention');
+  const raw = job?.job_type ?? job?.activity ?? job?.type;
+  return getJobTypeLabel(raw, text(raw, 'Intervention'));
 }
 
 function technician(job) {

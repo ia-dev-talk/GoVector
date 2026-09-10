@@ -71,7 +71,7 @@ const CockpitHeader = memo(function CockpitHeader({
   currentDate = new Date(),
   onNewIntervention,
   locale = 'fr-FR',
-  searchPlaceholder = 'Technicien, client, adresse, PBO…',
+  searchPlaceholder = 'Intervention, client, adresse…',
 }) {
   const date = normalizeDate(currentDate);
   const normalizedLocale = normalizeText(locale, 'fr-FR');

@@ -35,7 +35,7 @@ const SettingsHeader = memo(
 
           <div>
             <span className="sv3-eyebrow">
-              Administration BlueVector
+              Administration GoVector
             </span>
 
             <div className="sv3-title-row">

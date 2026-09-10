@@ -162,9 +162,6 @@ export default function InterventionOverview({
         title="Infrastructure"
       >
         <div className="intervention-detail-fields intervention-detail-fields--three">
-          <DetailField label="NRO" value={job?.nro} mono />
-          <DetailField label="SRO" value={job?.sro} mono />
-          <DetailField label="PBO" value={job?.pbo} mono />
           <DetailField label="PTO" value={job?.pto} mono />
           <DetailField
             label="Splitter"

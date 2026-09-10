@@ -225,7 +225,7 @@ const SectorInspector = memo(function SectorInspector({
                 </div>
 
                 <div>
-                  <span>Association legacy</span>
+                  <span>Association historique</span>
                   <strong>
                     {sector.legacyJobs}
                     {' '}intervention

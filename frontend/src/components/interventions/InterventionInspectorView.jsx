@@ -363,20 +363,6 @@ export default function InterventionInspector({
 							</strong>
 						</div>
 						<div>
-							<span>NRO</span>
-							<strong className="ie-detail-mono">
-								{job.nro ||
-									'—'}
-							</strong>
-						</div>
-						<div>
-							<span>PBO</span>
-							<strong className="ie-detail-mono">
-								{job.pbo ||
-									'—'}
-							</strong>
-						</div>
-						<div>
 							<span>PTO</span>
 							<strong className="ie-detail-mono">
 								{job.pto ||

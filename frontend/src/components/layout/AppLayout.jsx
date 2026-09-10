@@ -6,6 +6,8 @@ import {
   useState,
 } from 'react';
 
+import govectorLogo from '../../assets/govector-logo.png';
+
 const PRODUCT_NAME = 'GoVector';
 const SIDEBAR_STORAGE_KEY =
   'bluevector:sidebar-collapsed';
@@ -202,34 +204,21 @@ function getInitialMobileState() {
   ).matches;
 }
 
-function ProductLogo({
-  size = 24,
-}) {
+function ProductLogo({ compact = false }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 28 28"
-      fill="none"
+    <span
+      className={[
+        'govector-product-logo',
+        compact ? 'govector-product-logo--compact' : '',
+      ].filter(Boolean).join(' ')}
       aria-hidden="true"
-      focusable="false"
-      style={{
-        display: 'block',
-        flexShrink: 0,
-      }}
     >
-      <rect
-        width="28"
-        height="28"
-        rx="6"
-        fill="var(--color-accent)"
+      <img
+        src={govectorLogo}
+        alt=""
+        draggable="false"
       />
-
-      <path
-        d="M7.5 8.5h5.25c2.35 0 3.75 1.12 3.75 3 0 1.18-.58 2.08-1.55 2.55 1.48.4 2.3 1.45 2.3 2.92 0 2.18-1.7 3.53-4.45 3.53H7.5v-12Zm3 2.35v2.28h2c.78 0 1.25-.4 1.25-1.13 0-.75-.47-1.15-1.25-1.15h-2Zm0 4.55v2.65h2.18c1.05 0 1.62-.45 1.62-1.32 0-.88-.57-1.33-1.62-1.33H10.5Z"
-        fill="#fff"
-      />
-    </svg>
+    </span>
   );
 }
 
@@ -773,10 +762,6 @@ export default function AppLayout({
                 aria-label={PRODUCT_NAME}
               >
                 <ProductLogo />
-
-                <strong>
-                  {PRODUCT_NAME}
-                </strong>
               </div>
             ) : (
               <button
@@ -795,7 +780,7 @@ export default function AppLayout({
                   padding: 0,
                 }}
               >
-                <ProductLogo />
+                <ProductLogo compact />
               </button>
             )}
 
@@ -1071,7 +1056,7 @@ export default function AppLayout({
               <NavIcon name="menu" />
             </button>
 
-            <ProductLogo size={24} />
+            <ProductLogo compact />
 
             <div
               style={{
