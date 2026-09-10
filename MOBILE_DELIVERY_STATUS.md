@@ -2,7 +2,7 @@
 
 ## Dernier commit valide
 
-- `57ad9ff pilot(web): align GoVector creation with Praxedo contract`
+- `e46ad11 pilot(mobile): align technician experience with GoVector`
 
 ## Travail terminé
 
@@ -11,6 +11,8 @@
 - Cinq types et durées confirmés, compétences fermées sans présélection.
 - Design clair GoVector et logo officiel appliqués.
 - Runtime Docker reconstruit sans suppression de volume.
+- Checkpoint A Technicien : thème clair, logo officiel, planning/détail/actions nettoyés.
+- Tous les champs photo dynamiques passent par `FreePhotoActionScreen` ; la galerie n’affirme aucune position.
 
 ## Tests effectués
 
@@ -21,10 +23,10 @@
 - Santé : `GET /health` PASS (`1.0.1`).
 - Contrôle visuel connecté `wahid` : étapes 1 à 3 PASS, sans soumission.
 - UTF-8/mojibake et `git diff --check` : PASS.
+- Mobile ciblé Technicien/formulaires/photos/responsive : 23 tests PASS, puis 21 tests PASS après ajout des contrats de source.
 
 ## Travail restant
 
-- Checkpoint A : parcours Technicien.
 - Checkpoint B : parcours Agent terrain.
 - Checkpoint C : responsive téléphone/tablette portrait.
 - Checkpoint D : tests Flutter, APK debug, contrôles des rôles et checksum.
@@ -36,4 +38,4 @@
 
 ## Prochaine action exacte
 
-- Inspecter uniquement les écrans, services et tests Flutter déjà liés aux parcours Technicien, Agent terrain, formulaires dynamiques, média et outbox.
+- Vérifier et ajuster uniquement `FieldAgentShell` et son service : périmètre équipe, consultation du dossier, retour avec motif et validation.
