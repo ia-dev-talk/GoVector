@@ -288,8 +288,8 @@ const _sortiePcoSchema = PilotFormSchema(
         PilotFieldDefinition(
           key: 'pco_label',
           label: 'Étiquetage PCO',
-          kind: PilotFieldKind.photo,
-          photoLabel: 'pco_label',
+          kind: PilotFieldKind.text,
+          helper: 'Saisir le libellé de l’étiquette posée sur le PCO.',
         ),
         PilotFieldDefinition(
           key: 'branch_cable_length_m',
