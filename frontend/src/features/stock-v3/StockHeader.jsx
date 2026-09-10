@@ -8,7 +8,6 @@ import {
   RefreshIcon,
   SearchIcon,
 } from './StockIcons';
-import SerializedEquipmentRegistry from './SerializedEquipmentRegistry';
 import StockHistoryPanel from './StockHistoryPanel';
 import { stockV3Api } from './stockV3Api';
 import './stock-scope-v08.css';
@@ -31,7 +30,6 @@ const StockHeader = memo(function StockHeader({
   technicians,
   onNavigate,
 }) {
-  const [registryOpen, setRegistryOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const snapshotStale = stockV3Api.isSnapshotStale();
   const snapshotWritable = stockV3Api.isSnapshotWritable();
@@ -47,14 +45,14 @@ const StockHeader = memo(function StockHeader({
           <div className="st3-title-row">
             <span className="st3-title-icon"><BoxIcon /></span>
             <div>
-              <h1>Stocks</h1>
-              <p>Catalogue, dépôts, quantités et traçabilité</p>
+              <h1>Stock câbles</h1>
+              <p>FO16 · FO64 · FO96 — périmètre confirmé</p>
             </div>
           </div>
         </div>
 
         <div className="st3-header-summary">
-          <div><strong>{catalogCount}</strong><span>articles</span></div>
+          <div><strong>{catalogCount}</strong><span>références</span></div>
           <div><strong>{warehouseCount}</strong><span>dépôts</span></div>
           <div><strong>{availableUnits}</strong><span>unités disponibles</span></div>
         </div>
@@ -66,14 +64,14 @@ const StockHeader = memo(function StockHeader({
               type="search"
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Référence, article, type, opérateur…"
-              aria-label="Rechercher dans le stock"
+              placeholder="FO16, FO64, FO96, dépôt…"
+              aria-label="Rechercher dans le stock câbles"
             />
           </label>
           <button type="button" className="st3-icon-button" onClick={onRefresh} disabled={refreshing} title="Actualiser" aria-label="Actualiser le stock">
             <RefreshIcon spinning={refreshing} />
           </button>
-          <button type="button" className="st3-secondary-button" onClick={() => setHistoryOpen(true)} title="Ouvrir le journal complet des mouvements">
+          <button type="button" className="st3-secondary-button" onClick={() => setHistoryOpen(true)} title="Ouvrir le journal des mouvements">
             <HistoryIcon /> Historique
           </button>
           <button type="button" className="st3-secondary-button" onClick={onExport}>
@@ -93,28 +91,23 @@ const StockHeader = memo(function StockHeader({
           {canManageCatalog ? (
             <button
               type="button"
-              className="st3-secondary-button"
-              onClick={() => setRegistryOpen(true)}
-              disabled={!snapshotWritable}
-              title={snapshotWritable ? 'Gérer les numéros de série, MAC, opérateurs et modèles' : mutationBlockedTitle}
-            >
-              <span aria-hidden="true" style={{ fontFamily: 'var(--font-mono)', fontWeight: 850 }}>SN</span>
-              Registre SN
-            </button>
-          ) : null}
-          {canManageCatalog ? (
-            <button
-              type="button"
               className="st3-primary-button"
               onClick={onCreate}
               disabled={!snapshotWritable}
               title={mutationBlockedTitle}
             >
-              <PlusIcon /> Nouvel article
+              <PlusIcon /> Ajouter un câble
             </button>
           ) : null}
         </div>
       </header>
+
+      <div className="st3-notice st3-notice--pilot" role="note">
+        <span>
+          <strong>Périmètre livraison :</strong>{' '}
+          seules les références câble FO16, FO64 et FO96 confirmées sont affichées. Les anciens articles synthétiques restent archivés côté données mais sont exclus de cette vue.
+        </span>
+      </div>
 
       {snapshotStale ? (
         <div className="st3-notice" role="alert">
@@ -125,7 +118,6 @@ const StockHeader = memo(function StockHeader({
         </div>
       ) : null}
 
-      {registryOpen ? <SerializedEquipmentRegistry onClose={() => setRegistryOpen(false)} /> : null}
       {historyOpen ? (
         <StockHistoryPanel
           warehouses={warehouses}
