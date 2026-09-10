@@ -6,6 +6,7 @@ import {
   assertWritableStockSnapshot,
   createAtomicSnapshotReader,
 } from './stockSnapshotReader.js';
+import { filterPilotStockItems } from './pilotStockScope.js';
 
 const stockSnapshotReader = createAtomicSnapshotReader({
   items: () => api.getStockItems(),
@@ -15,16 +16,24 @@ const stockSnapshotReader = createAtomicSnapshotReader({
   technicians: () => api.getTechnicians(),
 });
 
+async function getPilotItems() {
+  const response = await stockSnapshotReader.items();
+  return {
+    ...response,
+    data: filterPilotStockItems(response?.data),
+  };
+}
+
 function guardedStockMutation(action, run) {
   assertWritableStockSnapshot(stockSnapshotReader, action);
   return run();
 }
 
 export const stockV3Api = Object.freeze({
-  // StocksPage reads these five resources together. They intentionally share
-  // one all-or-nothing cohort so Promise.allSettled cannot publish a mixture
-  // of fresh and stale stock generations after a partial refresh failure.
-  getItems: stockSnapshotReader.items,
+  // Delivery scope: only the cable references confirmed from the Praxedo audit
+  // are visible in the pilot (FO16, FO64, FO96). The backend catalogue remains
+  // intact so historical or synthetic records are not destroyed.
+  getItems: getPilotItems,
 
   getWarehouses: stockSnapshotReader.warehouses,
 
