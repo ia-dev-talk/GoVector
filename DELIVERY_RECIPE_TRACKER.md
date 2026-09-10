@@ -13,9 +13,20 @@ Légende :
 
 ## Journal des checkpoints
 
+### Checkpoint web W4 — 10/09 soir — 🧪
+
+État GitHub vérifié sur le commit `5080327baee39c53072f088d08090c7eb972ffc7` :
+- workflow `BlueVector delivery validation` terminé avec tous les jobs au vert ;
+- rapport journalier Magillan implémenté avec le logo fourni, route dédiée, action depuis Rapports et test de contrat ;
+- page Agents terrain enrichie pour éviter une surface remplie de valeurs « Non renseigné » sans utilité ;
+- couche de finition visuelle appliquée aux écrans visibles du pilote ;
+- aucun merge vers `main`.
+
+Ce checkpoint reste 🧪 : la CI valide le code, pas le rendu réel Docker/navigateur ni le PDF vu par l’utilisateur.
+
 ### Checkpoint web W3 — 10/09 soir — 🧪
 
-Implémenté sur la branche, à vérifier au prochain `git pull` + rebuild :
+Implémenté sur la branche, à vérifier au prochain sync sûr + rebuild :
 - Stock pilote filtré sans destruction de données : seuls les articles correspondant à `FO16`, `FO64`, `FO96` peuvent remonter dans la vue.
 - Les anciens articles synthétiques INWI/ORANGE/ONT restent en base mais sont exclus de l’interface de livraison.
 - Header Stock simplifié : `Stock câbles`, périmètre FO16/FO64/FO96, recherche adaptée, suppression du registre SN de la surface pilote.
@@ -40,12 +51,14 @@ Reste :
 
 ## 2. Interventions — liste / carte / activité
 
-Statut : 🟠
+Statut : 🧪 / 🟠
 
-À faire :
-- Harmoniser le bandeau sombre avec le langage visuel clair global.
+Implémenté à re-tester :
+- Le bandeau principal a été ramené vers le langage visuel clair commun au pilote.
+- Les libellés techniques de configuration comme `RETARDS NON CONFIGURÉS` ne doivent plus être exposés sur la surface de livraison.
+
+Reste :
 - Revoir densité et lisibilité des KPI.
-- Retirer les libellés techniques visibles comme `RETARDS NON CONFIGURÉS`.
 - Vérifier statuts/compteurs sur vraies données.
 - Vérifier affectation technicien entre liste, dashboard et planning.
 - Clarifier les onglets Liste / Carte / Activité.
@@ -60,12 +73,14 @@ Implémenté à re-tester :
 - Corps du modal nettoyé des artefacts de bordure.
 - Nom et statut technicien forcés sur deux lignes distinctes.
 - AM/PM masqué sur le champ durée pour les navigateurs WebKit/Chromium.
+- Le moteur conserve `estimated_duration` en minutes et recalcule le créneau sans changer le contrat backend.
 
-Reste :
-- Remplacer définitivement le contrôle de durée de type horloge par un vrai composant durée `HH h MM` si le test local reste ambigu.
-- Corriger/renommer `4 chargés` selon la vraie signification métier.
+Reste prioritaire :
+- Remplacer définitivement le contrôle natif `type=time` utilisé pour la durée par un vrai composant durée `HH h MM`, tout en gardant la valeur métier en minutes.
+- Renommer le compteur `X chargés` : le code compte en réalité les techniciens actifs retournés par l’API ; le libellé doit devenir `X techniciens actifs` (ou formulation équivalente), pas « chargés ».
 - Vérifier date et format français.
 - Reprendre proprement les champs Praxedo utiles convenus : Agence, Groupe d’interventions, Description, Drapeaux, À faire avant/après, Donneur d’ordre, Client, Site, Équipement, Adresse, Code postal, Ville, Contact.
+- Ne connecter un champ que s’il possède une donnée/route réellement persistée ; aucune fausse correspondance métier.
 - Conserver `Création → Qualification → Affectation`.
 - Conserver types/durées validés.
 - Aucune compétence présélectionnée.
@@ -96,22 +111,28 @@ Reste :
 
 ## 5. Agents terrain
 
-Statut : 🟠
+Statut : 🧪 / 🟠
 
-À faire :
-- Enrichir la page trop basique actuelle.
-- N’afficher équipe/secteur/charge que si les données sont réellement disponibles.
-- Éviter les cartes remplies de `Non renseigné` sans action utile.
-- Donner un accès clair au détail de l’agent et à son équipe.
-- Conserver le rôle Agent terrain distinct.
+Implémenté à re-tester :
+- Surface enrichie avec un résumé opérationnel au lieu d’une simple grille pauvre.
+- Réduction des valeurs `Non renseigné` affichées sans action utile.
+- Accès vers les techniciens conservé.
+- Rôle Agent terrain conservé distinct du rôle Orienteur bureau.
+
+Reste :
+- Vérifier sur vraies données les rattachements équipe/secteur/techniciens.
+- Donner un accès clair au détail de l’agent et à son équipe si le contrat API le permet proprement.
+- Vérifier le rendu tablette après acceptation web desktop.
 
 ## 6. Techniciens
 
-Statut : 🟠
+Statut : 🧪 / 🟠
 
-À faire :
-- Uniformiser `Techniciens` au lieu de header `Personnel` pour cette surface.
-- Améliorer contraste et taille des textes faibles.
+Implémenté à re-tester :
+- Header visible uniformisé vers `Techniciens` au lieu de `Personnel`.
+- Contraste de certains textes faibles renforcé dans la couche de finition.
+
+Reste :
 - Corriger les métriques étranges type `INTERV. A:T 1:14 / 8:73` : format ou libellé métier exact.
 - Vérifier Disponible / Déconnecté / Pause / Hors service.
 - Vérifier détail Compétences / Équipement / Planning / Historique.
@@ -141,39 +162,54 @@ Reste :
 
 ## 8. Rapports — RAPPORT JOURNALIER Magillan
 
-Statut : 🔴
+Statut : 🧪 implémenté / validation visuelle PDF requise
 
 Référence obligatoire : `RAPPORT JOURNALIER(1).xlsx` fourni + logo Magillan fourni.
 
-À faire :
-- Remplacer le rapport générique comme livrable principal par un profil `RAPPORT JOURNALIER Magillan`.
-- Intégrer le logo Magillan.
-- Respecter la structure exacte du fichier source ; ne pas inventer de sections.
-- Champs déjà identifiés : N° demande/N° rapport, Central, Client, Adresse, GPS, Splitter, PCO, Localité, Pose câble, Raccordement, Observation, Signatures.
-- Laisser proprement vide toute donnée non disponible au lieu de fabriquer une valeur.
-- Prévoir PDF et/ou Excel fidèle au modèle source.
+Implémenté :
+- Renderer PDF spécifique `magillan_daily_report.py` séparé du rapport générique GoVector.
+- Logo Magillan fourni intégré directement au document afin que le PDF reste autonome.
+- Endpoint dédié `/api/v1/export/magillan-daily` rattaché au Centre d’Export.
+- Action `Rapport Magillan` depuis la page Rapports en conservant le périmètre/filtres sélectionnés.
+- Une page du modèle par intervention du périmètre ; page vide structurée si aucun dossier ne remonte.
+- Structure métier reprise du modèle fourni : N° demande/N° rapport, Central, Client, Adresse, GPS, Splitter, PCO, Localité, Pose câble, Raccordement, Observation et Signatures.
+- Les champs sans source autoritative restent vides : aucune équivalence inventée `PBO = PCO`, `port splitter = BR AFFECTÉE`, etc.
+- Test de contrat dédié protégeant les libellés du modèle, le vrai logo et l’absence de ces fausses correspondances.
+- Workflow GitHub vert sur le checkpoint `5080327b`.
+
+Reste :
+- Ouvrir le PDF généré depuis le runtime local et comparer visuellement au fichier source.
+- Vérifier nombre de pages et comportement avec plusieurs interventions réelles.
+- Vérifier les filtres jour/secteur/technicien/opérateur sur données locales.
+- Ne renseigner Central GPS, PCO, BR affectée, type/n°/départ/arrivée câble, type de pose et signatures que lorsqu’une source autoritative existe réellement.
+- Décider seulement après recette si un export Excel fidèle est nécessaire en plus du PDF.
 
 ## 9. Paramètres administrateur
 
-Statut : 🔴 / backend partiel
+Statut : 🟠 backend/catalogue présent / 🔴 couverture complète
 
-À rendre simple et visible :
+Déjà présent dans le référentiel métier :
+- Types d’interventions.
+- Priorités.
+- Statuts d’affichage.
+- Actions terrain.
+- Types de pose.
+- Types de câble.
+- Compétences technicien.
+- Indicateurs Orienteur.
+- Ajout / modification / activation-désactivation ; suppression des lignes métier personnalisées sous contrôle du backend.
+
+Reste à rendre simple et visible sans exposer la complexité interne :
 - Types d’activités.
 - Types de créneaux.
 - Types de sites.
 - Types d’équipements.
-- Indicateurs.
-- Compétences technicien.
 - Formulaires.
 - Listes de références.
 - Champs personnalisés.
-- Types d’interventions.
 - Scénarios de notification.
 - Types de notes.
 - Groupes d’interventions.
-- Types de pose.
-
-Règle : ajouter / modifier / désactiver ou supprimer sans exposer la complexité interne.
 
 ## 10. Champs personnalisés / formulaires dynamiques
 
@@ -212,10 +248,11 @@ Statut : 🧪 / 🟠
 
 Implémenté à re-tester :
 - Nouvelle couche `delivery-final-fixes.css` chargée après la couche pilote afin de corriger les défauts constatés sans réécrire les anciens écrans.
+- Interventions, Agents terrain, Techniciens, wizard, sidebar et dashboard ont reçu des corrections ciblées de livraison.
 
 Reste :
-- Unifier dashboard / interventions / planning / techniciens / stock / rapports.
-- Corriger les zones sombres isolées.
+- Unifier définitivement dashboard / interventions / planning / techniciens / stock / rapports après la prochaine recette visuelle.
+- Corriger les zones sombres isolées restantes.
 - Uniformiser titres, cartes, boutons, champs, espacements, badges et tableaux.
 - Zéro texte coupé, débordement ou concaténation.
 
@@ -237,14 +274,17 @@ Après acceptation web :
 
 Statut : 🧪
 
-Après corrections visibles :
+Déjà vérifié sur le checkpoint GitHub `5080327b` :
+- workflow `BlueVector delivery validation` entièrement vert.
+
+À vérifier sur le runtime final après les prochains correctifs :
 - `git diff --check`
 - mojibake / UTF-8
 - frontend lint + tests + build
 - backend tests
 - PostgreSQL / migrations
 - Docker `/health`
-- rapport Magillan
+- génération et ouverture du rapport Magillan
 - Flutter analyze + tests
 - APK release vraie URL
 - test PC
