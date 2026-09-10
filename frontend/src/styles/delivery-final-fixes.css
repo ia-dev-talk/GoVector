@@ -146,6 +146,139 @@
   --text-subtle: #8796a8;
 }
 
+/* Agents terrain: make empty organisation data informative rather than dominant. */
+.field-agents-header--delivery {
+  display: grid !important;
+  grid-template-columns: minmax(280px, 1.2fr) auto auto;
+  align-items: center;
+  gap: 18px;
+  background: #ffffff !important;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.field-agents-header-summary,
+.field-agents-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field-agents-header-summary > div {
+  min-width: 82px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--surface-panel-alt);
+}
+
+.field-agents-header-summary strong,
+.field-agents-header-summary span {
+  display: block;
+}
+
+.field-agents-header-summary strong {
+  color: var(--text-primary);
+  font-size: 18px;
+}
+
+.field-agents-header-summary span {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.field-agent-card--delivery {
+  display: grid !important;
+  gap: 14px;
+  align-content: start;
+}
+
+.field-agent-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.field-agent-card-heading h2 {
+  margin: 0;
+}
+
+.field-agent-state {
+  display: inline-flex;
+  margin-top: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.field-agent-state.is-active {
+  color: #087443;
+  background: #e8f8ef;
+}
+
+.field-agent-state.is-inactive {
+  color: #8a3a3a;
+  background: #fff0f0;
+}
+
+.field-agent-card--delivery dl {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.field-agent-card--delivery dl > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-panel-alt);
+}
+
+.field-agent-card--delivery dt {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.field-agent-card--delivery dd {
+  margin: 4px 0 0;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.field-agent-card-note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.field-agent-team-button {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid rgba(8, 105, 237, .25);
+  border-radius: 9px;
+  color: var(--color-accent);
+  background: var(--color-accent-bg);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* The Magillan report is the delivery report; keep it visually distinct from generic exports. */
+.rv3-magillan-button {
+  background: #0b4f8a !important;
+  border-color: #0b4f8a !important;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .field-agents-header--delivery {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 900px) {
   .app-layout.sidebar-open .app-sidebar {
     width: min(86vw, 300px) !important;
@@ -166,5 +299,10 @@
 
   .wizard-header {
     padding-inline: 16px !important;
+  }
+
+  .field-agents-header-summary,
+  .field-agents-header-actions {
+    flex-wrap: wrap;
   }
 }
