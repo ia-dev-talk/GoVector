@@ -10,7 +10,7 @@ import {
 
 const wizardSource = readFileSync('src/components/JobWizard.jsx', 'utf8');
 
-test('GoVector exposes only the validated Praxedo intervention types', () => {
+test('BlueVector exposes only the validated Praxedo intervention types', () => {
   assert.deepEqual(
     WIZARD_JOB_TYPE_OPTIONS.map((option) => option.label),
     ['FTTH Réalisable', 'PB', 'PM', 'PTO', 'SORTIE DE PCO IAM'],
@@ -25,7 +25,7 @@ test('GoVector exposes only the validated Praxedo intervention types', () => {
   }
 });
 
-test('the GoVector wizard wires only creation qualification and assignment', () => {
+test('the BlueVector wizard wires only creation qualification and assignment', () => {
   assert.deepEqual(
     WIZARD_STEPS.map((step) => step.id),
     ['creation', 'qualification', 'affectation'],
@@ -67,14 +67,15 @@ test('required skills are a closed catalog-backed Praxedo reference', () => {
   assert.match(wizardSource, /type="checkbox"/);
 });
 
-test('the official supplied logo asset is used by login and navigation', () => {
+test('login and navigation expose the BlueVector identity without legacy logo dependencies', () => {
   const appLayout = readFileSync('src/components/layout/AppLayout.jsx', 'utf8');
   const login = readFileSync('src/components/login.jsx', 'utf8');
-  const logo = readFileSync('src/assets/govector-logo.png');
 
-  assert.ok(logo.length > 1000);
-  assert.match(appLayout, /import govectorLogo from '\.\.\/\.\.\/assets\/govector-logo\.png'/);
-  assert.match(login, /import govectorLogo from '\.\.\/assets\/govector-logo\.png'/);
-  assert.match(appLayout, /src=\{govectorLogo\}/);
-  assert.match(login, /src=\{govectorLogo\}/);
+  assert.match(appLayout, /const PRODUCT_NAME = 'BlueVector'/);
+  assert.match(login, /const PRODUCT_NAME = 'BlueVector'/);
+  assert.match(appLayout, /function ProductMark/);
+  assert.match(appLayout, /\{PRODUCT_NAME\}/);
+  assert.match(login, /\{PRODUCT_NAME\}/);
+  assert.doesNotMatch(appLayout, /govector-logo\.png|GoVector|GOVECTOR/);
+  assert.doesNotMatch(login, /govector-logo\.png|GoVector|GOVECTOR/);
 });
