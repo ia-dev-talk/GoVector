@@ -7,10 +7,13 @@ const interventionsSource = readFileSync('src/pages/InterventionsPage.jsx', 'utf
 const layoutSource = readFileSync('src/components/layout/AppLayout.jsx', 'utf8');
 const appSource = readFileSync('src/App.jsx', 'utf8');
 
-test('pilot exposes a dedicated planning workspace instead of duplicating Interventions', () => {
+test('pilot exposes a real weekly technician planning workspace', () => {
   assert.match(planningSource, /<h1>Planning<\/h1>/);
-  assert.match(planningSource, /api\.getJobs\(\{ scheduled_date:/);
+  assert.match(planningSource, /scheduled_from:/);
+  assert.match(planningSource, /scheduled_to:/);
   assert.match(planningSource, /api\.getTechnicians\(\)/);
+  assert.match(planningSource, /Semaine du/);
+  assert.match(planningSource, /Planning hebdomadaire par technicien/);
   assert.match(planningSource, /Non affectées/);
   assert.match(planningSource, /Filtrer par technicien/);
   assert.match(planningSource, /onNavigate\(\s*'interventions'/);
