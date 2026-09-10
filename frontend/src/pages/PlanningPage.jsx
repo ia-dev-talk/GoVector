@@ -20,6 +20,10 @@ const COMPLETED_STATUSES = new Set([
   'termine',
 ]);
 
+const WEEKDAY_SHORT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' });
+const DAY_MONTH = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit' });
+const WEEK_RANGE = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' });
+
 function text(value, fallback = '') {
   if (value === null || value === undefined) return fallback;
   const normalized = String(value).trim();
@@ -61,16 +65,38 @@ function shiftDate(date, delta) {
   return result;
 }
 
-function formatDisplayDate(date) {
-  return new Intl.DateTimeFormat('fr-FR', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
+function startOfWeek(date) {
+  const result = new Date(date);
+  result.setHours(12, 0, 0, 0);
+  const weekday = result.getDay();
+  const distance = weekday === 0 ? -6 : 1 - weekday;
+  result.setDate(result.getDate() + distance);
+  return result;
+}
+
+function buildWeek(date) {
+  const start = startOfWeek(date);
+  return Array.from({ length: 7 }, (_, index) => shiftDate(start, index));
+}
+
+function scheduledDateKey(job) {
+  const raw = text(
+    job?.scheduled_date ??
+      job?.scheduled_at ??
+      job?.appointment_date ??
+      job?.date,
+  );
+  if (!raw) return '';
+  const direct = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (direct) return direct[1];
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? '' : dateKey(parsed);
 }
 
 function formatTime(job) {
+  const direct = text(job?.time_slot_start);
+  if (direct) return direct.slice(0, 5);
+
   const candidates = [
     job?.scheduled_start,
     job?.scheduled_at,
@@ -82,20 +108,22 @@ function formatTime(job) {
   for (const value of candidates) {
     const normalized = text(value);
     if (!normalized) continue;
-
-    const direct = normalized.match(/(?:T|\s)(\d{2}:\d{2})/);
-    if (direct) return direct[1];
-
-    const timeOnly = normalized.match(/^(\d{2}:\d{2})/);
-    if (timeOnly) return timeOnly[1];
+    const match = normalized.match(/(?:T|\s)(\d{2}:\d{2})/) || normalized.match(/^(\d{2}:\d{2})/);
+    if (match) return match[1];
   }
 
   return '—';
 }
 
+function formatEndTime(job) {
+  const direct = text(job?.time_slot_end);
+  return direct ? direct.slice(0, 5) : '';
+}
+
 function jobLabel(job) {
   return text(
-    job?.reference ??
+    job?.job_number ??
+      job?.reference ??
       job?.external_id ??
       job?.client_reference ??
       job?.title,
@@ -104,16 +132,30 @@ function jobLabel(job) {
 }
 
 function jobType(job) {
-  return text(job?.job_type ?? job?.type ?? job?.activity, '—');
+  return text(job?.job_type ?? job?.type ?? job?.activity, '—').replace(/_/g, ' ');
+}
+
+function jobClient(job) {
+  return text(job?.customer_name ?? job?.client_name ?? job?.site_name, '');
 }
 
 function jobSector(job) {
   return text(
     job?.sector_name ??
+      job?.sector_raw ??
       job?.sector ??
       job?.route_criteria ??
       job?.zone,
-    '—',
+    '',
+  );
+}
+
+function assignedTechnicianId(job) {
+  return text(
+    job?.assignment?.technician_id ??
+      job?.assigned_tech_id ??
+      job?.assigned_technician_id ??
+      job?.technician_id,
   );
 }
 
@@ -121,15 +163,12 @@ function technicianName(job, technicianById) {
   const inline = text(
     job?.assigned_tech_name ??
       job?.assigned_technician_name ??
-      job?.technician_name,
+      job?.technician_name ??
+      job?.assignment?.technician?.name,
   );
   if (inline) return inline;
 
-  const identifier = text(
-    job?.assigned_tech_id ??
-      job?.assigned_technician_id ??
-      job?.technician_id,
-  );
+  const identifier = assignedTechnicianId(job);
   if (!identifier) return 'Non affecté';
 
   const technician = technicianById.get(identifier);
@@ -165,6 +204,32 @@ function errorMessage(error) {
   return text(error?.message, 'Le planning est momentanément indisponible.');
 }
 
+function isToday(date) {
+  return dateKey(date) === dateKey(new Date());
+}
+
+function Card({ job, technicianById, onOpen }) {
+  const start = formatTime(job);
+  const end = formatEndTime(job);
+  const status = normalizeStatus(job?.status) || 'unknown';
+  const client = jobClient(job);
+  const sector = jobSector(job);
+
+  return (
+    <button
+      type="button"
+      className={`bp-week-job bp-week-job--${status}`}
+      onClick={() => onOpen(job)}
+      title={`${jobLabel(job)} · ${technicianName(job, technicianById)}`}
+    >
+      <span className="bp-week-job-time">{start}{end ? `–${end}` : ''}</span>
+      <strong>{jobLabel(job)}</strong>
+      <span>{jobType(job)}</span>
+      {(client || sector) && <small>{client || sector}</small>}
+    </button>
+  );
+}
+
 export default function PlanningPage({ onNavigate }) {
   const [viewDate, setViewDate] = useState(() => new Date());
   const [jobs, setJobs] = useState([]);
@@ -175,6 +240,10 @@ export default function PlanningPage({ onNavigate }) {
   const [search, setSearch] = useState('');
   const [technicianFilter, setTechnicianFilter] = useState('');
 
+  const week = useMemo(() => buildWeek(viewDate), [viewDate]);
+  const weekStart = week[0];
+  const weekEnd = week[6];
+
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setRefreshing(true);
     setError('');
@@ -182,7 +251,11 @@ export default function PlanningPage({ onNavigate }) {
     try {
       const [techniciansResponse, jobsResponse] = await Promise.all([
         api.getTechnicians(),
-        api.getJobs({ scheduled_date: dateKey(viewDate) }),
+        api.getJobs({
+          scheduled_from: dateKey(weekStart),
+          scheduled_to: dateKey(weekEnd),
+          limit: 500,
+        }),
       ]);
 
       setTechnicians(records(techniciansResponse?.data));
@@ -193,7 +266,7 @@ export default function PlanningPage({ onNavigate }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [viewDate]);
+  }, [weekEnd, weekStart]);
 
   useEffect(() => {
     setLoading(true);
@@ -203,84 +276,86 @@ export default function PlanningPage({ onNavigate }) {
 
   const technicianById = useMemo(
     () => new Map(
-      technicians.map((technician) => [
-        text(technician?.id),
-        technician,
-      ]),
+      technicians.map((technician) => [text(technician?.id), technician]),
     ),
     [technicians],
   );
 
   const technicianOptions = useMemo(
-    () => [...technicians]
-      .sort((left, right) =>
-        text(left?.name ?? left?.full_name)
-          .localeCompare(text(right?.name ?? right?.full_name), 'fr'),
-      ),
+    () => [...technicians].sort((left, right) =>
+      text(left?.name ?? left?.full_name)
+        .localeCompare(text(right?.name ?? right?.full_name), 'fr'),
+    ),
     [technicians],
   );
 
-  const filteredJobs = useMemo(() => {
+  const visibleJobs = useMemo(() => {
     const query = text(search).toLocaleLowerCase('fr');
 
-    return jobs
-      .filter((job) => {
-        const technicianId = text(
-          job?.assigned_tech_id ??
-            job?.assigned_technician_id ??
-            job?.technician_id,
-        );
+    return jobs.filter((job) => {
+      const technicianId = assignedTechnicianId(job);
+      if (technicianFilter && technicianId !== technicianFilter) return false;
+      if (!query) return true;
 
-        if (technicianFilter && technicianId !== technicianFilter) return false;
-        if (!query) return true;
+      const haystack = [
+        jobLabel(job),
+        jobType(job),
+        jobClient(job),
+        jobSector(job),
+        technicianName(job, technicianById),
+        statusLabel(job?.status),
+        text(job?.operator),
+        text(job?.service_address ?? job?.address),
+      ].join(' ').toLocaleLowerCase('fr');
 
-        const haystack = [
-          jobLabel(job),
-          jobType(job),
-          jobSector(job),
-          technicianName(job, technicianById),
-          statusLabel(job?.status),
-          text(job?.operator),
-          text(job?.client_name),
-          text(job?.address),
-        ]
-          .join(' ')
-          .toLocaleLowerCase('fr');
-
-        return haystack.includes(query);
-      })
-      .sort((left, right) => {
-        const leftTime = formatTime(left);
-        const rightTime = formatTime(right);
-        if (leftTime === '—' && rightTime !== '—') return 1;
-        if (rightTime === '—' && leftTime !== '—') return -1;
-        return leftTime.localeCompare(rightTime);
-      });
+      return haystack.includes(query);
+    });
   }, [jobs, search, technicianById, technicianFilter]);
 
+  const jobsByTechnicianAndDay = useMemo(() => {
+    const result = new Map();
+
+    visibleJobs.forEach((job) => {
+      const technicianId = assignedTechnicianId(job) || 'unassigned';
+      const day = scheduledDateKey(job);
+      const key = `${technicianId}|${day}`;
+      const current = result.get(key) || [];
+      current.push(job);
+      current.sort((left, right) => formatTime(left).localeCompare(formatTime(right)));
+      result.set(key, current);
+    });
+
+    return result;
+  }, [visibleJobs]);
+
+  const unassignedJobs = useMemo(
+    () => visibleJobs.filter((job) => !assignedTechnicianId(job)),
+    [visibleJobs],
+  );
+
+  const visibleTechnicians = useMemo(() => {
+    const base = technicianFilter
+      ? technicianOptions.filter((technician) => text(technician?.id) === technicianFilter)
+      : technicianOptions;
+
+    if (!search.trim()) return base;
+    const idsWithJobs = new Set(
+      visibleJobs.map((job) => assignedTechnicianId(job)).filter(Boolean),
+    );
+    return base.filter((technician) => idsWithJobs.has(text(technician?.id)));
+  }, [search, technicianFilter, technicianOptions, visibleJobs]);
+
   const summary = useMemo(() => {
-    let unassigned = 0;
     let active = 0;
     let completed = 0;
-
     jobs.forEach((job) => {
-      const assigned = text(
-        job?.assigned_tech_id ??
-          job?.assigned_technician_id ??
-          job?.technician_id ??
-          job?.assigned_tech_name ??
-          job?.assigned_technician_name,
-      );
       const status = normalizeStatus(job?.status);
-
-      if (!assigned) unassigned += 1;
       if (ACTIVE_STATUSES.has(status)) active += 1;
       if (COMPLETED_STATUSES.has(status)) completed += 1;
     });
-
     return {
       total: jobs.length,
-      unassigned,
+      unassigned: jobs.filter((job) => !assignedTechnicianId(job)).length,
       active,
       completed,
     };
@@ -291,11 +366,11 @@ export default function PlanningPage({ onNavigate }) {
     const parsedId = Number(job?.id);
     onNavigate(
       'interventions',
-      Number.isInteger(parsedId) && parsedId > 0
-        ? { id: parsedId }
-        : null,
+      Number.isInteger(parsedId) && parsedId > 0 ? { id: parsedId } : null,
     );
   }, [onNavigate]);
+
+  const weekLabel = `${WEEK_RANGE.format(weekStart)} – ${WEEK_RANGE.format(weekEnd)} ${weekEnd.getFullYear()}`;
 
   return (
     <div className="bp-planning-page">
@@ -303,16 +378,12 @@ export default function PlanningPage({ onNavigate }) {
         <div>
           <span className="bp-planning-eyebrow">ORIENTATION FTTH</span>
           <h1>Planning</h1>
-          <p>{formatDisplayDate(viewDate)}</p>
+          <p>Semaine du {weekLabel}</p>
         </div>
 
         <div className="bp-planning-date-controls" aria-label="Navigation du planning">
-          <button type="button" onClick={() => setViewDate((date) => shiftDate(date, -1))}>
-            ‹ Jour précédent
-          </button>
-          <button type="button" onClick={() => setViewDate(new Date())}>
-            Aujourd’hui
-          </button>
+          <button type="button" onClick={() => setViewDate((date) => shiftDate(date, -7))}>‹ Semaine</button>
+          <button type="button" onClick={() => setViewDate(new Date())}>Aujourd’hui</button>
           <input
             type="date"
             value={dateKey(viewDate)}
@@ -322,9 +393,7 @@ export default function PlanningPage({ onNavigate }) {
             }}
             aria-label="Date du planning"
           />
-          <button type="button" onClick={() => setViewDate((date) => shiftDate(date, 1))}>
-            Jour suivant ›
-          </button>
+          <button type="button" onClick={() => setViewDate((date) => shiftDate(date, 7))}>Semaine ›</button>
           <button type="button" onClick={() => load()} disabled={refreshing}>
             {refreshing ? 'Actualisation…' : 'Actualiser'}
           </button>
@@ -343,7 +412,7 @@ export default function PlanningPage({ onNavigate }) {
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Rechercher une intervention, un secteur, un technicien…"
+          placeholder="Rechercher une intervention, un client, un secteur…"
           aria-label="Rechercher dans le planning"
         />
         <select
@@ -354,14 +423,11 @@ export default function PlanningPage({ onNavigate }) {
           <option value="">Tous les techniciens</option>
           {technicianOptions.map((technician) => (
             <option key={text(technician?.id)} value={text(technician?.id)}>
-              {text(
-                technician?.name ?? technician?.full_name ?? technician?.username,
-                `Technicien #${technician?.id ?? '—'}`,
-              )}
+              {text(technician?.name ?? technician?.full_name ?? technician?.username, `Technicien #${technician?.id ?? '—'}`)}
             </option>
           ))}
         </select>
-        <span>{filteredJobs.length} affichée{filteredJobs.length !== 1 ? 's' : ''}</span>
+        <span>{visibleJobs.length} intervention{visibleJobs.length !== 1 ? 's' : ''}</span>
       </section>
 
       {error && (
@@ -371,69 +437,63 @@ export default function PlanningPage({ onNavigate }) {
         </div>
       )}
 
-      <section className="bp-planning-table-card" aria-label="Interventions planifiées">
-        {loading ? (
-          <div className="bp-planning-empty" role="status">Chargement du planning…</div>
-        ) : filteredJobs.length === 0 ? (
-          <div className="bp-planning-empty">
-            Aucune intervention ne correspond à cette journée et à ces filtres.
+      {unassignedJobs.length > 0 && (
+        <section className="bp-planning-unassigned-strip" aria-label="Interventions non affectées">
+          <div>
+            <strong>Non affectées</strong>
+            <span>{unassignedJobs.length} à planifier</span>
           </div>
-        ) : (
-          <div className="bp-planning-table-scroll">
-            <table className="bp-planning-table">
-              <thead>
-                <tr>
-                  <th>Heure</th>
-                  <th>Intervention</th>
-                  <th>Type</th>
-                  <th>Secteur</th>
-                  <th>Technicien</th>
-                  <th>Statut</th>
-                  <th>Priorité</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredJobs.map((job, index) => {
-                  const rowKey = text(job?.id, `${jobLabel(job)}-${index}`);
-                  const assignedTechnician = technicianName(job, technicianById);
-                  const unassigned = assignedTechnician === 'Non affecté';
+          <div className="bp-planning-unassigned-cards">
+            {unassignedJobs.map((job) => (
+              <Card key={text(job?.id, jobLabel(job))} job={job} technicianById={technicianById} onOpen={openJob} />
+            ))}
+          </div>
+        </section>
+      )}
 
-                  return (
-                    <tr
-                      key={rowKey}
-                      tabIndex={0}
-                      onClick={() => openJob(job)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          openJob(job);
-                        }
-                      }}
-                      title="Ouvrir l’intervention"
-                    >
-                      <td className="bp-planning-time">{formatTime(job)}</td>
-                      <td>
-                        <strong>{jobLabel(job)}</strong>
-                        <small>{text(job?.client_name ?? job?.customer_name)}</small>
-                      </td>
-                      <td>{jobType(job)}</td>
-                      <td>{jobSector(job)}</td>
-                      <td className={unassigned ? 'bp-planning-unassigned' : ''}>
-                        {assignedTechnician}
-                      </td>
-                      <td>
-                        <span className={`bp-planning-status bp-planning-status--${normalizeStatus(job?.status) || 'unknown'}`}>
-                          {statusLabel(job?.status)}
-                        </span>
-                      </td>
-                      <td>{text(job?.priority, '—')}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      <section className="bp-week-board" aria-label="Planning hebdomadaire par technicien">
+        <div className="bp-week-scroll">
+          <div className="bp-week-grid bp-week-grid--header">
+            <div className="bp-week-resource-header">Ressources</div>
+            {week.map((day) => (
+              <div key={dateKey(day)} className={`bp-week-day-header ${isToday(day) ? 'is-today' : ''}`}>
+                <span>{WEEKDAY_SHORT.format(day).replace('.', '')}</span>
+                <strong>{DAY_MONTH.format(day)}</strong>
+              </div>
+            ))}
           </div>
-        )}
+
+          {loading ? (
+            <div className="bp-planning-empty" role="status">Chargement du planning…</div>
+          ) : visibleTechnicians.length === 0 ? (
+            <div className="bp-planning-empty">Aucun technicien ne correspond à ces filtres.</div>
+          ) : (
+            visibleTechnicians.map((technician) => {
+              const technicianId = text(technician?.id);
+              const name = text(technician?.name ?? technician?.full_name ?? technician?.username, `Technicien #${technicianId}`);
+              const status = text(technician?.status, '—').replace(/_/g, ' ');
+
+              return (
+                <div className="bp-week-grid bp-week-resource-row" key={technicianId}>
+                  <div className="bp-week-resource">
+                    <span className="bp-week-avatar">{name.slice(0, 1).toUpperCase()}</span>
+                    <div><strong>{name}</strong><small>{status}</small></div>
+                  </div>
+                  {week.map((day) => {
+                    const dayJobs = jobsByTechnicianAndDay.get(`${technicianId}|${dateKey(day)}`) || [];
+                    return (
+                      <div key={dateKey(day)} className={`bp-week-cell ${isToday(day) ? 'is-today' : ''}`}>
+                        {dayJobs.map((job) => (
+                          <Card key={text(job?.id, jobLabel(job))} job={job} technicianById={technicianById} onOpen={openJob} />
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })
+          )}
+        </div>
       </section>
     </div>
   );
