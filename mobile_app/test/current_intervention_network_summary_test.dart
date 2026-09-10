@@ -32,7 +32,7 @@ Job _job({
 
 Widget _screen(Job job) {
   return MaterialApp(
-    theme: BlueVectorTheme.dark,
+    theme: BlueVectorTheme.light,
     home: Scaffold(
       body: CurrentInterventionScreen(
         job: job,
@@ -67,31 +67,31 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -1400));
     await tester.pump();
 
-    expect(find.text('Réseau préparé'), findsNothing);
+    expect(find.text('Informations utiles'), findsNothing);
   });
 
   testWidgets('current intervention shows only populated network references', (
     tester,
   ) async {
     await tester.pumpWidget(
-      _screen(_job(operator: 'Orange', pbo: 'PBO-CASA-42')),
+      _screen(_job(operator: 'Orange', pto: 'PTO-CASA-42')),
     );
     await tester.pump();
 
     await tester.scrollUntilVisible(
-      find.text('Réseau préparé'),
+      find.text('Informations utiles'),
       250,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pump();
 
-    expect(find.text('Réseau préparé'), findsOneWidget);
+    expect(find.text('Informations utiles'), findsOneWidget);
     expect(find.text('Opérateur'), findsOneWidget);
     expect(find.text('Orange'), findsOneWidget);
-    expect(find.text('PBO'), findsOneWidget);
-    expect(find.text('PBO-CASA-42'), findsOneWidget);
+    expect(find.text('PTO'), findsOneWidget);
+    expect(find.text('PTO-CASA-42'), findsOneWidget);
     expect(find.text('NRO'), findsNothing);
     expect(find.text('SRO'), findsNothing);
-    expect(find.text('PTO'), findsNothing);
+    expect(find.text('PBO'), findsNothing);
   });
 }

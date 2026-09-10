@@ -199,7 +199,7 @@ void main() {
     var opened = false;
     await tester.pumpWidget(
       MaterialApp(
-        theme: BlueVectorTheme.dark,
+        theme: BlueVectorTheme.light,
         home: Scaffold(
           body: MobileProfileScreen(
             technicianId: 3,
@@ -238,7 +238,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
-        theme: BlueVectorTheme.dark,
+        theme: BlueVectorTheme.light,
         home: Scaffold(
           body: CurrentInterventionScreen(
             job: job,
@@ -283,7 +283,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
-        theme: BlueVectorTheme.dark,
+        theme: BlueVectorTheme.light,
         home: TechnicianHistoryDetailScreen(
           ownerUserId: 3,
           technicianId: 3,
@@ -334,7 +334,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
-        theme: BlueVectorTheme.dark,
+        theme: BlueVectorTheme.light,
         home: TechnicianHistoryScreen.personal(
           ownerUserId: 3,
           technicianId: 3,

@@ -11,9 +11,8 @@ class BlueVectorMobileApp extends StatelessWidget {
     return MaterialApp(
       title: 'GoVector',
       debugShowCheckedModeBanner: false,
-      theme: BlueVectorTheme.dark,
-      darkTheme: BlueVectorTheme.dark,
-      themeMode: ThemeMode.dark,
+      theme: BlueVectorTheme.light,
+      themeMode: ThemeMode.light,
       themeAnimationDuration: const Duration(milliseconds: 220),
       themeAnimationCurve: Curves.easeOutCubic,
       builder: (context, child) {

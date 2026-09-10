@@ -609,21 +609,13 @@ class _NetworkDataCard extends StatelessWidget {
 
   final Job job;
 
-  static bool hasData(Job job) => [
-    job.operator,
-    job.nro,
-    job.sro,
-    job.pbo,
-    job.pto,
-  ].any((value) => value?.trim().isNotEmpty == true);
+  static bool hasData(Job job) =>
+      [job.operator, job.pto].any((value) => value?.trim().isNotEmpty == true);
 
   @override
   Widget build(BuildContext context) {
     final values = [
       ('Opérateur', job.operator),
-      ('NRO', job.nro),
-      ('SRO', job.sro),
-      ('PBO', job.pbo),
       ('PTO', job.pto),
     ].where((value) => value.$2?.trim().isNotEmpty == true).toList();
 
@@ -646,7 +638,7 @@ class _NetworkDataCard extends StatelessWidget {
               ),
               SizedBox(width: BlueVectorSpacing.xs),
               Text(
-                'Réseau préparé',
+                'Informations utiles',
                 style: TextStyle(
                   color: BlueVectorColors.textPrimary,
                   fontSize: 12,
@@ -658,7 +650,8 @@ class _NetworkDataCard extends StatelessWidget {
           const SizedBox(height: BlueVectorSpacing.xs),
           LayoutBuilder(
             builder: (context, constraints) {
-              final itemWidth = (constraints.maxWidth - BlueVectorSpacing.xs) / 2;
+              final itemWidth =
+                  (constraints.maxWidth - BlueVectorSpacing.xs) / 2;
 
               return Wrap(
                 spacing: BlueVectorSpacing.xs,

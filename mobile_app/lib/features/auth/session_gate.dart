@@ -100,10 +100,7 @@ class _BootScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              BlueVectorColors.backgroundDeep,
-              BlueVectorColors.background,
-            ],
+            colors: [BlueVectorColors.surface, BlueVectorColors.background],
           ),
         ),
         child: SafeArea(

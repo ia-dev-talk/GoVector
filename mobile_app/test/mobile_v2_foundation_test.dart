@@ -18,18 +18,19 @@ void main() {
     );
   });
 
-  testWidgets('Mobile V2 foundation renders the GoVector dark brand', (
+  testWidgets('Mobile V2 foundation renders the GoVector light brand', (
     tester,
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: BlueVectorTheme.dark,
+        theme: BlueVectorTheme.light,
         home: const Scaffold(body: BlueVectorBrand()),
       ),
     );
 
-    expect(find.text('GoVector'), findsOneWidget);
-    expect(BlueVectorTheme.dark.brightness, Brightness.dark);
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.bySemanticsLabel('GoVector'), findsOneWidget);
+    expect(BlueVectorTheme.light.brightness, Brightness.light);
   });
 
   testWidgets('Mobile action sheet exposes the field action grid', (
@@ -54,7 +55,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: BlueVectorTheme.dark,
+        theme: BlueVectorTheme.light,
         home: Builder(
           builder: (context) => Scaffold(
             body: Center(

@@ -55,7 +55,6 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
     ('cable_departure', 'Câble — départ'),
     ('cable_arrival', 'Câble — arrivée'),
     ('splitter', 'Splitter'),
-    ('pbo', 'PBO'),
     ('pto', 'PTO'),
     ('ont', 'ONT'),
     ('router', 'Routeur'),

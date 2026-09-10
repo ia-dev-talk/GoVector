@@ -98,9 +98,7 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
     }
   }
 
-  Future<dynamic> _downloadCommunicationAsset(
-    Map<String, dynamic> item,
-  ) async {
+  Future<dynamic> _downloadCommunicationAsset(Map<String, dynamic> item) async {
     final assetType = item['asset_type']?.toString();
     final assetId = item['asset_id']?.toString();
     if (assetId == null || assetId.isEmpty) {
@@ -202,9 +200,9 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Annotation impossible : $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Annotation impossible : $error')));
     }
   }
 
@@ -365,7 +363,8 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                   .map((item) => Map<String, dynamic>.from(item))
                   .toList()
             : <Map<String, dynamic>>[];
-        final attributeObservations = data['site_attribute_observations'] is List
+        final attributeObservations =
+            data['site_attribute_observations'] is List
             ? (data['site_attribute_observations'] as List)
                   .whereType<Map>()
                   .map((item) => Map<String, dynamic>.from(item))
@@ -374,12 +373,15 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
         final reference = data['field_reference_location'] is Map
             ? Map<String, dynamic>.from(data['field_reference_location'] as Map)
             : null;
-        final textValues = [
-          ...officeNotes.map((item) => item['text']),
-          instructions['special_instructions'],
-          instructions['coordinator_comments'],
-          instructions['notes'],
-        ].where((value) => value?.toString().trim().isNotEmpty == true).toList();
+        final textValues =
+            [
+                  ...officeNotes.map((item) => item['text']),
+                  instructions['special_instructions'],
+                  instructions['coordinator_comments'],
+                  instructions['notes'],
+                ]
+                .where((value) => value?.toString().trim().isNotEmpty == true)
+                .toList();
         if (textValues.isEmpty &&
             attachments.isEmpty &&
             communications.isEmpty &&
@@ -401,7 +403,10 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.info_outline, color: BlueVectorColors.primaryBright),
+                  Icon(
+                    Icons.info_outline,
+                    color: BlueVectorColors.primaryBright,
+                  ),
                   SizedBox(width: BlueVectorSpacing.xs),
                   Text(
                     'Dossier bureau & repères terrain',
@@ -434,10 +439,10 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                         item['type'] == 'correction_request'
                             ? 'Correction demandée'
                             : item['type'] == 'instruction'
-                              ? 'Instruction bureau'
-                              : item['type'] == 'reply'
-                                ? 'Réponse terrain'
-                                : 'Échange opérationnel',
+                            ? 'Instruction bureau'
+                            : item['type'] == 'reply'
+                            ? 'Réponse terrain'
+                            : 'Échange opérationnel',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       if (item['body']?.toString().trim().isNotEmpty ==
@@ -453,9 +458,10 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                                 final asset = Map<String, dynamic>.from(
                                   rawAsset,
                                 );
-                                final isImage = asset['mime_type']
-                                        ?.toString()
-                                        .startsWith('image/') ==
+                                final isImage =
+                                    asset['mime_type']?.toString().startsWith(
+                                      'image/',
+                                    ) ==
                                     true;
                                 return Padding(
                                   padding: const EdgeInsets.only(
@@ -550,7 +556,7 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                   const Padding(
                     padding: EdgeInsets.only(bottom: BlueVectorSpacing.xs),
                     child: Text(
-                      'Position de référence validée du site BlueVector.',
+                      'Position de référence validée du site GoVector.',
                       style: TextStyle(color: BlueVectorColors.success),
                     ),
                   ),
@@ -589,7 +595,9 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                   child: Text(
                     '${observation['type'] == 'cable_entry' ? 'Entrée' : 'Sortie'} câble · '
                     '${observation['latitude']}, ${observation['longitude']}',
-                    style: const TextStyle(color: BlueVectorColors.textSecondary),
+                    style: const TextStyle(
+                      color: BlueVectorColors.textSecondary,
+                    ),
                   ),
                 ),
               if (resolvedAttributes.isNotEmpty) ...[
@@ -646,7 +654,8 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                         ? item['title'].toString()
                         : item['filename']?.toString() ?? 'Pièce jointe',
                   ),
-                  subtitle: item['comment']?.toString().trim().isNotEmpty == true
+                  subtitle:
+                      item['comment']?.toString().trim().isNotEmpty == true
                       ? Text(item['comment'].toString())
                       : null,
                   trailing: const Icon(Icons.visibility_outlined),

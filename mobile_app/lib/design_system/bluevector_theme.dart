@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'bluevector_tokens.dart';
 
 abstract final class BlueVectorTheme {
-  static ThemeData get dark {
-    const scheme = ColorScheme.dark(
+  static ThemeData get light {
+    const scheme = ColorScheme.light(
       primary: BlueVectorColors.primaryBright,
       onPrimary: Colors.white,
       secondary: BlueVectorColors.cyan,
-      onSecondary: BlueVectorColors.backgroundDeep,
+      onSecondary: Colors.white,
       error: BlueVectorColors.danger,
       onError: Colors.white,
       surface: BlueVectorColors.surface,
@@ -19,11 +19,11 @@ abstract final class BlueVectorTheme {
 
     final baseText = Typography.material2021(
       platform: TargetPlatform.android,
-    ).white;
+    ).black;
 
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
       colorScheme: scheme,
       scaffoldBackgroundColor: BlueVectorColors.background,
       canvasColor: BlueVectorColors.surface,
@@ -75,7 +75,7 @@ abstract final class BlueVectorTheme {
       appBarTheme: const AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: BlueVectorColors.background,
+        backgroundColor: BlueVectorColors.surface,
         foregroundColor: BlueVectorColors.textPrimary,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
@@ -153,7 +153,7 @@ abstract final class BlueVectorTheme {
         ),
       ),
       navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: BlueVectorColors.backgroundDeep,
+        backgroundColor: BlueVectorColors.surface,
         indicatorColor: BlueVectorColors.primarySoft,
         surfaceTintColor: Colors.transparent,
       ),

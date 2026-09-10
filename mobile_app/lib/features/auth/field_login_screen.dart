@@ -43,7 +43,8 @@ class _FieldLoginScreenState extends State<FieldLoginScreen> {
     if (!success) {
       setState(() {
         _busy = false;
-        _error = AuthService.lastLoginFailure?.message ??
+        _error =
+            AuthService.lastLoginFailure?.message ??
             'Connexion impossible. Vérifiez les identifiants et la connexion au serveur.';
       });
       return;
@@ -60,9 +61,9 @@ class _FieldLoginScreenState extends State<FieldLoginScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              BlueVectorColors.backgroundDeep,
+              Color(0xFFFFFFFF),
               BlueVectorColors.background,
-              Color(0xFF081925),
+              Color(0xFFEAF4FF),
             ],
           ),
         ),
@@ -84,9 +85,8 @@ class _FieldLoginScreenState extends State<FieldLoginScreen> {
                       const SizedBox(height: BlueVectorSpacing.xxl),
                       Text(
                         'Accès terrain',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.w900,
-                            ),
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: BlueVectorSpacing.xs),
                       const Text(
@@ -104,7 +104,8 @@ class _FieldLoginScreenState extends State<FieldLoginScreen> {
                           labelText: 'Identifiant',
                           prefixIcon: Icon(Icons.person_outline_rounded),
                         ),
-                        validator: (value) => value == null || value.trim().isEmpty
+                        validator: (value) =>
+                            value == null || value.trim().isEmpty
                             ? 'Identifiant requis'
                             : null,
                       ),
@@ -121,8 +122,14 @@ class _FieldLoginScreenState extends State<FieldLoginScreen> {
                           prefixIcon: const Icon(Icons.lock_outline_rounded),
                           suffixIcon: IconButton(
                             tooltip: _obscure ? 'Afficher' : 'Masquer',
-                            onPressed: _busy ? null : () => setState(() => _obscure = !_obscure),
-                            icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                            onPressed: _busy
+                                ? null
+                                : () => setState(() => _obscure = !_obscure),
+                            icon: Icon(
+                              _obscure
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
                           ),
                         ),
                         validator: (value) => value == null || value.isEmpty
@@ -131,7 +138,12 @@ class _FieldLoginScreenState extends State<FieldLoginScreen> {
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: BlueVectorSpacing.md),
-                        Text(_error!, style: const TextStyle(color: BlueVectorColors.danger)),
+                        Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: BlueVectorColors.danger,
+                          ),
+                        ),
                       ],
                       const SizedBox(height: BlueVectorSpacing.lg),
                       FilledButton.icon(
@@ -139,16 +151,21 @@ class _FieldLoginScreenState extends State<FieldLoginScreen> {
                         icon: _busy
                             ? const SizedBox.square(
                                 dimension: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.login_rounded),
                         label: Text(_busy ? 'Connexion…' : 'Se connecter'),
                       ),
                       const SizedBox(height: BlueVectorSpacing.sm),
                       const Text(
-                        'En 4G, cette connexion utilise uniquement l’API GoVector HTTPS. Le dashboard et PostgreSQL restent dans l’entreprise.',
+                        'Connexion sécurisée · mode hors ligne disponible après authentification.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 11, color: BlueVectorColors.textMuted),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: BlueVectorColors.textMuted,
+                        ),
                       ),
                     ],
                   ),

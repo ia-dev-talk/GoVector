@@ -58,7 +58,7 @@ void main() {
     ];
     await tester.pumpWidget(
       MaterialApp(
-        theme: BlueVectorTheme.dark,
+        theme: BlueVectorTheme.light,
         home: Builder(
           builder: (context) => Scaffold(
             body: FilledButton(

@@ -347,8 +347,8 @@ Future<void> showMobileActionSheet({
                     ),
                     items: const [
                       DropdownMenuItem(value: 'pto', child: Text('PTO')),
-                      DropdownMenuItem(value: 'pbo', child: Text('PBO')),
-                      DropdownMenuItem(value: 'pm', child: Text('PM / SRO')),
+                      DropdownMenuItem(value: 'pco', child: Text('PCO')),
+                      DropdownMenuItem(value: 'ont', child: Text('ONT')),
                     ],
                     onChanged: (value) {
                       if (value != null) {
@@ -533,7 +533,7 @@ Future<void> showMobileActionSheet({
         _MobileAction(
           code: 'network_reference',
           category: _ActionCategory.relever,
-          label: label('network_reference', 'PBO / PM / PTO'),
+          label: label('network_reference', 'PCO / PTO / ONT'),
           icon: Icons.inventory_2_outlined,
           color: BlueVectorColors.violet,
           onTap: promptNetworkReference,
@@ -745,9 +745,6 @@ Future<void> _showJobInformation(BuildContext context, Job job) {
     ('Client', job.customerName),
     ('Téléphone', job.customerPhone),
     ('Adresse', job.serviceAddress),
-    ('NRO', job.nro),
-    ('SRO', job.sro),
-    ('PBO', job.pbo),
     ('PTO', job.pto),
   ];
 

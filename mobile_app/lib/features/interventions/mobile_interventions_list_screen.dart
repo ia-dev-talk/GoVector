@@ -105,10 +105,7 @@ class _MobileInterventionsListScreenState
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const BlueVectorBrand(
-                        compact: true,
-                        showSubtitle: false,
-                      ),
+                      const BlueVectorBrand(compact: true, showSubtitle: false),
                       const SizedBox(height: BlueVectorSpacing.xs),
                       _ConnectionBadge(
                         isOnline: widget.isOnline,
@@ -120,10 +117,7 @@ class _MobileInterventionsListScreenState
 
                 return Row(
                   children: [
-                    const BlueVectorBrand(
-                      compact: true,
-                      showSubtitle: false,
-                    ),
+                    const BlueVectorBrand(compact: true, showSubtitle: false),
                     const Spacer(),
                     _ConnectionBadge(
                       isOnline: widget.isOnline,
@@ -191,7 +185,7 @@ class _MobileInterventionsListScreenState
                 });
               },
               decoration: const InputDecoration(
-                hintText: 'Client, adresse, DTLI, PBO…',
+                hintText: 'Intervention, client, adresse…',
                 prefixIcon: Icon(Icons.search_rounded),
                 isDense: true,
               ),
@@ -416,7 +410,7 @@ class _JobCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (job.operator != null || job.pbo != null) ...[
+                    if (job.operator != null) ...[
                       const SizedBox(height: BlueVectorSpacing.sm),
                       Wrap(
                         spacing: BlueVectorSpacing.xs,
@@ -426,11 +420,6 @@ class _JobCard extends StatelessWidget {
                             _MetaChip(
                               icon: Icons.cell_tower_rounded,
                               label: job.operator!,
-                            ),
-                          if (job.pbo != null)
-                            _MetaChip(
-                              icon: Icons.hub_outlined,
-                              label: 'PBO ${job.pbo}',
                             ),
                         ],
                       ),

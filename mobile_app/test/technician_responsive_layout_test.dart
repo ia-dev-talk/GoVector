@@ -30,16 +30,13 @@ Job _job({
   );
 }
 
-Future<void> _pumpPlanning(
-  WidgetTester tester, {
-  required Size size,
-}) async {
+Future<void> _pumpPlanning(WidgetTester tester, {required Size size}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
 
   await tester.pumpWidget(
     MaterialApp(
-      theme: BlueVectorTheme.dark,
+      theme: BlueVectorTheme.light,
       home: Scaffold(
         body: MobileInterventionsListScreen(
           jobs: [
@@ -87,32 +84,28 @@ void main() {
   };
 
   for (final entry in viewports.entries) {
-    testWidgets(
-      'technician planning stays usable on ${entry.key}',
-      (tester) async {
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
+    testWidgets('technician planning stays usable on ${entry.key}', (
+      tester,
+    ) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
-        await _pumpPlanning(tester, size: entry.value);
+      await _pumpPlanning(tester, size: entry.value);
 
-        expect(find.text('Mes interventions'), findsOneWidget);
-        expect(find.byType(TextField), findsOneWidget);
-        expect(find.text('Aujourd’hui'), findsOneWidget);
-        expect(find.text('À venir'), findsOneWidget);
-        expect(
-          find.text('DTLI-2026-000042-LONGUE-REFERENCE'),
-          findsOneWidget,
-        );
+      expect(find.text('Mes interventions'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('Aujourd’hui'), findsOneWidget);
+      expect(find.text('À venir'), findsOneWidget);
+      expect(find.text('DTLI-2026-000042-LONGUE-REFERENCE'), findsOneWidget);
 
-        expect(
-          tester.takeException(),
-          isNull,
-          reason: 'No Flutter overflow/layout exception on ${entry.key}',
-        );
-      },
-    );
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'No Flutter overflow/layout exception on ${entry.key}',
+      );
+    });
   }
 
   testWidgets('technician can switch planning tabs on a long tablet', (

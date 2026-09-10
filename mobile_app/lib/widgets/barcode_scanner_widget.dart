@@ -245,7 +245,8 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                   ),
                   const SizedBox(height: BlueVectorSpacing.xs),
                   TextButton(
-                    onPressed: widget.onClose ?? () => Navigator.maybePop(context),
+                    onPressed:
+                        widget.onClose ?? () => Navigator.maybePop(context),
                     child: const Text('Revenir à l’intervention'),
                   ),
                 ],
@@ -314,7 +315,7 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                     0,
                   ),
                   child: Text(
-                    'Cadrez le QR code ou le code-barres imprimé sur le routeur, ONT ou boîtier. BlueVector vérifiera ensuite le SN, le modèle et l’opérateur.',
+                    'Cadrez le QR code ou le code-barres imprimé sur le routeur, ONT ou boîtier. GoVector vérifiera ensuite le SN, le modèle et l’opérateur.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -336,13 +337,16 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                             : BlueVectorColors.cyan,
                         width: 2.5,
                       ),
-                      borderRadius: BorderRadius.circular(BlueVectorRadius.large),
+                      borderRadius: BorderRadius.circular(
+                        BlueVectorRadius.large,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: (_processing
-                                  ? BlueVectorColors.success
-                                  : BlueVectorColors.cyan)
-                              .withValues(alpha: .2),
+                          color:
+                              (_processing
+                                      ? BlueVectorColors.success
+                                      : BlueVectorColors.cyan)
+                                  .withValues(alpha: .2),
                           blurRadius: 18,
                           spreadRadius: 2,
                         ),
@@ -370,11 +374,19 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                             ? Container(
                                 key: const ValueKey('captured'),
                                 width: double.infinity,
-                                padding: const EdgeInsets.all(BlueVectorSpacing.md),
+                                padding: const EdgeInsets.all(
+                                  BlueVectorSpacing.md,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: BlueVectorColors.surface.withValues(alpha: .95),
-                                  border: Border.all(color: BlueVectorColors.borderStrong),
-                                  borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+                                  color: BlueVectorColors.surface.withValues(
+                                    alpha: .95,
+                                  ),
+                                  border: Border.all(
+                                    color: BlueVectorColors.borderStrong,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    BlueVectorRadius.medium,
+                                  ),
                                 ),
                                 child: Column(
                                   children: [
@@ -385,7 +397,9 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
-                                    const SizedBox(height: BlueVectorSpacing.xs),
+                                    const SizedBox(
+                                      height: BlueVectorSpacing.xs,
+                                    ),
                                     Text(
                                       _lastCode ?? '—',
                                       maxLines: 2,
@@ -397,10 +411,14 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                                       ),
                                     ),
                                     if (widget.jobId != null) ...[
-                                      const SizedBox(height: BlueVectorSpacing.sm),
+                                      const SizedBox(
+                                        height: BlueVectorSpacing.sm,
+                                      ),
                                       OutlinedButton.icon(
                                         onPressed: _resume,
-                                        icon: const Icon(Icons.qr_code_scanner_rounded),
+                                        icon: const Icon(
+                                          Icons.qr_code_scanner_rounded,
+                                        ),
                                         label: const Text('Scanner de nouveau'),
                                       ),
                                     ],
@@ -416,7 +434,9 @@ class _BarcodeScannerWidgetState extends State<BarcodeScannerWidget> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withValues(alpha: .58),
-                                  borderRadius: BorderRadius.circular(BlueVectorRadius.pill),
+                                  borderRadius: BorderRadius.circular(
+                                    BlueVectorRadius.pill,
+                                  ),
                                 ),
                                 child: const Text(
                                   'Détection automatique · gardez le code net dans le cadre',
