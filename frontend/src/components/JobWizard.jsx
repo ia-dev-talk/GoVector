@@ -944,8 +944,8 @@ export default function JobWizard({
         code,
         config: {
           ...config,
-          label: configured.get(code)?.label || config.label,
-          color: configured.get(code)?.color || config.color,
+          label: config.label,
+          color: config.color,
           avgDuration: catalogEstimatedDuration(
             configured.get(code),
             config.avgDuration,
@@ -2267,7 +2267,7 @@ export default function JobWizard({
         ref={stepHeadingRef}
         tabIndex="-1"
       >
-        Quel type d’intervention ?
+        Qualification
       </h3>
 
       {isEdit && (
@@ -2291,83 +2291,22 @@ export default function JobWizard({
         </div>
       )}
 
-      <div
-        className="step-type-grid"
-        role="radiogroup"
-        aria-label="Type d’intervention"
-        aria-describedby={
-          errors.job_type
-            ? fieldId(
-                'job_type-error',
-              )
-            : undefined
-        }
-      >
-        {displayedJobTypes.map(({ code: key, config }) => {
-          const selected =
-            form.job_type === key;
-
-          return (
-            <button
-              key={key}
-              type="button"
-              className={[
-                'type-card',
-                selected
-                  ? 'selected'
-                  : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              role="radio"
-              aria-checked={selected}
-              disabled={
-                isEdit ||
-                submitting ||
-                Boolean(
-                  savedOutcome,
-                )
-              }
-              onClick={() =>
-                update(
-                  'job_type',
-                  key,
-                )
-              }
-            >
-              <span
-                className="type-card-icon"
-                aria-hidden="true"
-              >
-                {config.icon}
-              </span>
-
-              <span className="type-card-label">
-                {config.label}
-              </span>
-
-              <span className="type-card-desc">
-                {config.description}
-              </span>
-
-              <span className="type-card-meta">
-                <span>
-                  Durée moyenne :{' '}
-                  {config.avgDuration}{' '}
-                  min
-                </span>
-
-                <span>
-                  Photos attendues :{' '}
-                  {
-                    config.expectedPhotos
-                  }
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <label className="form-group praxedo-type-field">
+        <span>Type d’intervention</span>
+        <select
+          className="form-select"
+          value={form.job_type}
+          disabled={isEdit || submitting || Boolean(savedOutcome)}
+          aria-describedby={errors.job_type ? fieldId('job_type-error') : undefined}
+          onChange={(event) => update('job_type', event.target.value)}
+        >
+          <option value="">Sélectionner un type</option>
+          {displayedJobTypes.map(({ code, config }) => (
+            <option key={code} value={code}>{config.label}</option>
+          ))}
+        </select>
+        <small>Liste opérationnelle alignée sur le périmètre Praxedo validé.</small>
+      </label>
 
       {errors.job_type && (
         <span

@@ -402,6 +402,15 @@ export default function InterventionsPage({
 		setNewJobOpen,
 	] = useState(false);
 
+	useEffect(() => {
+		if (
+			navigationPayload?.action === 'new' &&
+			canManageInterventions
+		) {
+			setNewJobOpen(true);
+		}
+	}, [canManageInterventions, navigationPayload]);
+
 	const [
 		importOpen,
 		setImportOpen,

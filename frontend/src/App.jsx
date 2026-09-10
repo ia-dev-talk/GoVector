@@ -26,38 +26,39 @@ const PAGE_ROLES = Object.freeze({
   client: ['CLIENT'],
   dashboard: [
     'ADMIN',
-    'CHEF_ORIENTEUR',
     'ORIENTEUR',
-    'TECHNICIAN',
   ],
   supervision: [
     'ADMIN',
-    'CHEF_ORIENTEUR',
-    'ORIENTEUR',
   ],
   carte: [
     'ADMIN',
-    'CHEF_ORIENTEUR',
     'ORIENTEUR',
-    'TECHNICIAN',
   ],
   interventions: [
     'ADMIN',
-    'CHEF_ORIENTEUR',
+    'ORIENTEUR',
+  ],
+  planning: [
+    'ADMIN',
+    'ORIENTEUR',
+  ],
+  'agents-terrain': [
+    'ADMIN',
+    'ORIENTEUR',
+  ],
+  techniciens: [
+    'ADMIN',
     'ORIENTEUR',
   ],
   personnel: [
     'ADMIN',
-    'CHEF_ORIENTEUR',
-    'ORIENTEUR',
   ],
   secteurs: [
     'ADMIN',
-    'CHEF_ORIENTEUR',
   ],
   stocks: [
     'ADMIN',
-    'CHEF_ORIENTEUR',
     'ORIENTEUR',
   ],
   rapports: [
@@ -95,6 +96,10 @@ const PersonnelPage = lazy(
   () => import('./pages/PersonnelPage'),
 );
 
+const FieldAgentsPage = lazy(
+  () => import('./pages/FieldAgentsPage'),
+);
+
 const SecteursPage = lazy(
   () => import('./pages/SecteursPage'),
 );
@@ -121,6 +126,9 @@ const PAGE_COMPONENTS = Object.freeze({
   supervision: ExploitationPage,
   carte: CarteLivePage,
   interventions: InterventionsPage,
+  planning: InterventionsPage,
+  'agents-terrain': FieldAgentsPage,
+  techniciens: PersonnelPage,
   personnel: PersonnelPage,
   secteurs: SecteursPage,
   stocks: StocksPage,
@@ -951,6 +959,7 @@ function App() {
   const pageProps = user
     ? {
         userRole: user.role,
+        currentPage: activePage,
         onNavigate:
           handleNavigate,
         navigationPayload:

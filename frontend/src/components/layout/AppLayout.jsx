@@ -21,34 +21,11 @@ const NAV_ITEMS = Object.freeze([
   },
   {
     id: 'dashboard',
-    label: 'Cockpit',
+    label: 'Tableau de bord',
     icon: 'dashboard',
     roles: [
       'ADMIN',
-      'CHEF_ORIENTEUR',
       'ORIENTEUR',
-      'TECHNICIAN',
-    ],
-  },
-  {
-    id: 'supervision',
-    label: 'Supervision',
-    icon: 'supervision',
-    roles: [
-      'ADMIN',
-      'CHEF_ORIENTEUR',
-      'ORIENTEUR',
-    ],
-  },
-  {
-    id: 'carte',
-    label: 'Carte live',
-    icon: 'map',
-    roles: [
-      'ADMIN',
-      'CHEF_ORIENTEUR',
-      'ORIENTEUR',
-      'TECHNICIAN',
     ],
   },
   {
@@ -57,36 +34,42 @@ const NAV_ITEMS = Object.freeze([
     icon: 'jobs',
     roles: [
       'ADMIN',
-      'CHEF_ORIENTEUR',
       'ORIENTEUR',
     ],
   },
   {
-    id: 'personnel',
-    label: 'Personnel',
+    id: 'planning',
+    label: 'Planning',
+    icon: 'planning',
+    roles: [
+      'ADMIN',
+      'ORIENTEUR',
+    ],
+  },
+  {
+    id: 'agents-terrain',
+    label: 'Agents terrain',
     icon: 'personnel',
     roles: [
       'ADMIN',
-      'CHEF_ORIENTEUR',
       'ORIENTEUR',
     ],
   },
   {
-    id: 'secteurs',
-    label: 'Secteurs',
-    icon: 'sectors',
+    id: 'techniciens',
+    label: 'Techniciens',
+    icon: 'technicians',
     roles: [
       'ADMIN',
-      'CHEF_ORIENTEUR',
+      'ORIENTEUR',
     ],
   },
   {
     id: 'stocks',
-    label: 'Stocks',
+    label: 'Stock',
     icon: 'stock',
     roles: [
       'ADMIN',
-      'CHEF_ORIENTEUR',
       'ORIENTEUR',
     ],
   },
@@ -96,9 +79,32 @@ const NAV_ITEMS = Object.freeze([
     icon: 'reports',
     roles: [
       'ADMIN',
-      'CHEF_ORIENTEUR',
       'ORIENTEUR',
     ],
+  },
+  {
+    id: 'supervision',
+    label: 'Supervision',
+    icon: 'supervision',
+    roles: ['ADMIN'],
+  },
+  {
+    id: 'carte',
+    label: 'Carte live',
+    icon: 'map',
+    roles: ['ADMIN'],
+  },
+  {
+    id: 'personnel',
+    label: 'Personnel',
+    icon: 'personnel',
+    roles: ['ADMIN'],
+  },
+  {
+    id: 'secteurs',
+    label: 'Secteurs',
+    icon: 'sectors',
+    roles: ['ADMIN'],
   },
   {
     id: 'parametres',
@@ -122,13 +128,13 @@ const ROLE_CONFIG = Object.freeze({
     color: 'var(--color-warning)',
   },
   CHEF_ORIENTEUR: {
-    label: 'Chef orienteur',
-    shortLabel: 'CO',
+    label: 'Agent terrain',
+    shortLabel: 'AT',
     color: 'var(--color-accent)',
   },
   ORIENTEUR: {
-    label: 'Orienteur',
-    shortLabel: 'O',
+    label: 'Orienteur Bureau',
+    shortLabel: 'OB',
     color: 'var(--color-success)',
   },
   TECHNICIAN: {
@@ -316,6 +322,23 @@ function NavIcon({
           />
           <path d="M7 7h6M7 10h6M7 13h4" />
           <path d="M7 1.8h6v2.4H7z" />
+        </svg>
+      );
+
+    case 'planning':
+      return (
+        <svg {...commonProps}>
+          <rect x="3" y="4" width="14" height="13" rx="2" />
+          <path d="M6 2v4M14 2v4M3 8h14M6 11h3M11 11h3M6 14h3" />
+        </svg>
+      );
+
+    case 'technicians':
+      return (
+        <svg {...commonProps}>
+          <circle cx="7" cy="6" r="2.5" />
+          <circle cx="14" cy="7" r="2" />
+          <path d="M2.5 17c.4-3.5 2-5.5 4.5-5.5s4.1 2 4.5 5.5M11 13c2.7-.5 4.8 1 5.5 4" />
         </svg>
       );
 

@@ -69,6 +69,7 @@ const CockpitHeader = memo(function CockpitHeader({
   onSearchChange,
   onSearchSubmit,
   currentDate = new Date(),
+  onNewIntervention,
   locale = 'fr-FR',
   searchPlaceholder = 'Technicien, client, adresse, PBO…',
 }) {
@@ -106,10 +107,10 @@ const CockpitHeader = memo(function CockpitHeader({
   return (
     <header className="cockpit-header cockpit-header--v3" aria-label="En-tête du pilotage de la journée">
       <div className="cockpit-header-identity">
-        <span className="cockpit-header-eyebrow">Cockpit opérationnel</span>
+        <span className="cockpit-header-eyebrow">Bonjour, {normalizeText(userName, 'Orienteur')}</span>
 
         <div className="cockpit-header-title-row">
-          <h1>Pilotage du jour</h1>
+          <h1>Voici votre activité du jour</h1>
 
           <span
             className={`cockpit-live-state ${
@@ -125,7 +126,7 @@ const CockpitHeader = memo(function CockpitHeader({
           </span>
         </div>
 
-        <p>Progression, capacité et qualité de la journée</p>
+        <p>{dateLabel}</p>
       </div>
 
       <div className="cockpit-header-context">
@@ -165,6 +166,16 @@ const CockpitHeader = memo(function CockpitHeader({
             }}
           />
         </form>
+
+        <button
+          type="button"
+          className="cockpit-new-intervention"
+          onClick={onNewIntervention}
+          disabled={typeof onNewIntervention !== 'function'}
+        >
+          <span aria-hidden="true">＋</span>
+          Nouvelle intervention
+        </button>
 
         <button
           type="button"

@@ -64,6 +64,42 @@ const SECTIONS = [
     prefix: 'action',
     newLabel: 'Nouvelle action',
   },
+  {
+    key: 'installation_modes',
+    title: 'Types de pose',
+    shortTitle: 'Pose câble',
+    copy: 'Valeurs proposées au technicien lors des relevés de câble.',
+    extensible: true,
+    prefix: 'pose',
+    newLabel: 'Nouveau type de pose',
+  },
+  {
+    key: 'cable_types',
+    title: 'Types de câble',
+    shortTitle: 'Câbles',
+    copy: 'Références câble métier disponibles pour les formulaires terrain.',
+    extensible: true,
+    prefix: 'cable',
+    newLabel: 'Nouveau type de câble',
+  },
+  {
+    key: 'technician_skills',
+    title: 'Compétences technicien',
+    shortTitle: 'Compétences',
+    copy: 'Compétences opérationnelles utilisées pour qualifier les techniciens.',
+    extensible: true,
+    prefix: 'competence',
+    newLabel: 'Nouvelle compétence',
+  },
+  {
+    key: 'dashboard_indicators',
+    title: 'Indicateurs Orienteur',
+    shortTitle: 'Indicateurs',
+    copy: 'Indicateurs disponibles pour composer le tableau de bord Orienteur.',
+    extensible: true,
+    prefix: 'indicateur',
+    newLabel: 'Nouvel indicateur',
+  },
 ];
 
 function errorMessage(error) {

@@ -17,7 +17,7 @@ import {
 import { api } from '../api/client';
 import CockpitHeader from '../components/cockpit/CockpitHeader';
 import CockpitDataNotice from '../components/cockpit/CockpitDataNotice';
-import CockpitPilotageWorkspace from '../components/cockpit/CockpitPilotageWorkspace';
+import PilotDashboardWorkspace from '../components/dashboard/PilotDashboardWorkspace';
 import {
   cockpitJobSector,
   isCockpitInProgressStatus,
@@ -855,7 +855,7 @@ export default function DashboardHome({
     return (
       <div className="loading-screen" role="status" aria-live="polite">
         <div className="loading-spinner" aria-hidden="true" />
-        Chargement du cockpit GoVector…
+        Chargement du tableau de bord GoVector…
       </div>
     );
   }
@@ -877,6 +877,9 @@ export default function DashboardHome({
         onSearchChange={setSearchQuery}
         onSearchSubmit={handleSearchSubmit}
         notifCount={null}
+        onNewIntervention={() =>
+          handleNavigate('interventions', { action: 'new' })
+        }
       />
 
       <SimBar
@@ -892,9 +895,10 @@ export default function DashboardHome({
         onRetry={() => loadData({ manual: true })}
       />
 
-      <CockpitPilotageWorkspace
+      <PilotDashboardWorkspace
         summary={effectiveSummary}
         jobs={jobs}
+        technicians={technicians}
         personnelSummary={personnelSummary}
         sectorLoad={sectorLoad}
         positionedCounts={positionedCounts}
