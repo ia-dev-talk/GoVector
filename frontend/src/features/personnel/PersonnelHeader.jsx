@@ -20,7 +20,7 @@ export default function PersonnelHeader({
         </span>
 
         <div className="personnel-v3-title-row">
-          <h1>Personnel</h1>
+          <h1>Techniciens</h1>
 
           <span
             className={[
@@ -38,7 +38,7 @@ export default function PersonnelHeader({
         </div>
 
         <p>
-          Disponibilité, charge et compétences de l’équipe terrain
+          Disponibilité, interventions et compétences de l’équipe terrain
         </p>
       </div>
 
@@ -78,7 +78,7 @@ export default function PersonnelHeader({
           aria-label={
             refreshing
               ? 'Actualisation en cours'
-              : 'Actualiser le personnel'
+              : 'Actualiser les techniciens'
           }
           title="Actualiser"
         >
