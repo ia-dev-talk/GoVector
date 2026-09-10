@@ -233,7 +233,7 @@ const StockIssueModal = memo(function StockIssueModal({
             <WarehouseIcon />
             <span>
               Une dotation validée transfère physiquement le matériel du dépôt vers le stock de garde du technicien.
-              Les deux côtés du mouvement restent tracés dans GoVector.
+              Les deux côtés du mouvement restent tracés dans BlueVector.
             </span>
           </div>
 
