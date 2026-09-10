@@ -121,7 +121,7 @@ const ReportsQualityPanel = memo(function ReportsQualityPanel({
             Excel, CSV, PDF et ZIP
           </strong>
           <p>
-            Générez un export, utilisez les modèles existants et consultez l’historique depuis le workflow sécurisé GoVector.
+            Générez un export, utilisez les modèles existants et consultez l’historique depuis le workflow sécurisé BlueVector.
           </p>
         </div>
 
