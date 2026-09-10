@@ -1,0 +1,138 @@
+name: BlueVector delivery validation
+
+on:
+  push:
+    branches:
+      - delivery/bluevector-final-chatgpt-20260910
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bluevector-delivery-validation
+  cancel-in-progress: true
+
+jobs:
+  source-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Branding repair is idempotent
+        run: |
+          python scripts/repair_bluevector_visible_branding.py
+          git diff --exit-code
+      - name: Patch integrity
+        run: git diff --check
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: python -m alembic heads
+      - run: python -m pytest -q backend/tests
+
+  postgres-contracts:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: fieldopt
+          POSTGRES_PASSWORD: fieldopt
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fieldopt -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BLUEVECTOR_POSTGRES_CONTRACT_ADMIN_URL: postgresql://fieldopt:fieldopt@localhost:5432/postgres
+      BLUEVECTOR_TEST_DATABASE_ADMIN_URL: postgresql://fieldopt:fieldopt@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Validate clean PostgreSQL bootstrap
+        env:
+          DATABASE_URL: postgresql+asyncpg://fieldopt:fieldopt@localhost:5432/postgres
+        run: |
+          python -m backend.database.bootstrap_schema
+          python -m backend.database.bootstrap_schema
+          python -m alembic current
+      - run: python -m pytest -q -rs backend/tests
+
+  pilot-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate local and 4G Docker profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SECRET_KEY=ci-only-strong-secret-for-compose-validation
+          docker compose --profile pilot-4g config --quiet
+          services="$(docker compose --profile pilot-4g config --services)"
+          grep -qx 'pilot-edge' <<<"$services"
+          grep -qx 'pilot-tunnel' <<<"$services"
+      - name: Build pilot image and PDF renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -t bluevector-pilot-validation .
+          docker run --rm bluevector-pilot-validation python -c "from weasyprint import HTML; pdf = HTML(string='<h1>BlueVector PDF smoke test</h1>').write_pdf(); assert pdf.startswith(b'%PDF-'); print('PDF_OK', len(pdf))"
+
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: mobile_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.0'
+          channel: stable
+          cache: true
+      - run: flutter --version
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test
+      - name: Build pilot release APK
+        timeout-minutes: 20
+        env:
+          ORG_GRADLE_PROJECT_pilotSigning: 'true'
+        run: >-
+          flutter build apk --release --no-pub
+          --dart-define=API_BASE_URL=https://api.invalid/api/v1
