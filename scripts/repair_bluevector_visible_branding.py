@@ -32,12 +32,6 @@ REPLACEMENTS: dict[str, tuple[tuple[str, str], ...]] = {
         ("export_govector.xlsx", "export_bluevector.xlsx"),
         ('"BlueVector" not in name', '"GoVector" not in name'),
     ),
-    ".github/workflows/quality.yml": (
-        ("name: GoVector quality", "name: BlueVector quality"),
-        ("govector-pilot-ci", "bluevector-pilot-ci"),
-        ("GoVector PDF smoke test", "BlueVector PDF smoke test"),
-        ("govector-pilot-apk", "bluevector-pilot-apk"),
-    ),
 }
 
 MOJIBAKE_MARKERS = ("Ã", "Â", "â€", "ðŸ")
@@ -49,8 +43,7 @@ def replace_checked(path: Path, pairs: tuple[tuple[str, str], ...]) -> bool:
     before = text
 
     for old, new in pairs:
-        count = text.count(old)
-        if count:
+        if old in text:
             text = text.replace(old, new)
 
     if text == before:
@@ -77,9 +70,6 @@ def main() -> None:
         if replace_checked(path, pairs):
             changed.append(relative)
 
-    # Livraison web : les surfaces explicitement gardées par le test ne doivent plus
-    # exposer l'ancien nom. Les occurrences techniques hors de ce périmètre ne sont
-    # pas renommées automatiquement afin d'éviter les régressions de protocole.
     guarded = [
         ROOT / "frontend/src/pages/DashboardHome.jsx",
         ROOT / "frontend/src/components/export/ExportCenter.jsx",
