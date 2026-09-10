@@ -134,7 +134,7 @@ export default function SketchDialog({
       <section className="bv-annotation-dialog">
         <header>
           <div>
-            <span>Preuve graphique GoVector</span>
+            <span>Preuve graphique BlueVector</span>
             <h2>{title}</h2>
           </div>
           <button type="button" className="btn btn--secondary" onClick={onCancel}>
