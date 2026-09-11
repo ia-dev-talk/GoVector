@@ -30,10 +30,10 @@ class CableEndpointScreen extends StatefulWidget {
 class _CableEndpointScreenState extends State<CableEndpointScreen> {
   static const _fallbackModes = <Map<String, String>>[
     {'code': 'CONDUITE_PEHD', 'label': 'Pose câble FO en conduite / sous PEHD'},
-    {'code': 'FACADE_IMMEUBLE', 'label': 'Pose câble FO en façade ou immeuble'},
+    {'code': 'FACADE', 'label': 'Pose câble FO en façade ou immeuble'},
     {'code': 'AERIEN', 'label': 'Pose câble FO en aérien'},
   ];
-
+  static const _pilotCodes = {'FO16', 'FO64', 'FO96'};
   static const _segmentKeyPrefix = 'govector_cable_segment';
   static const _segmentStartKeyPrefix = 'govector_cable_segment_start';
   static const _uuid = Uuid();
@@ -41,7 +41,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
   final _meterController = TextEditingController();
   List<Map<String, dynamic>> _cables = const [];
   List<Map<String, String>> _installationModes = _fallbackModes;
-  int? _selectedCableId;
+  String? _selectedCableCode;
   String? _selectedModeCode;
   double? _activeStartMeter;
   bool _loading = true;
@@ -60,27 +60,22 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     super.dispose();
   }
 
-  static String _normalized(Object? value) {
-    return value?.toString().trim().toLowerCase() ?? '';
+  String _cableCode(Map<String, dynamic> item) {
+    final raw = (item['code'] ?? item['reference'] ?? item['label'] ?? '')
+        .toString()
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    for (final code in _pilotCodes) {
+      if (raw.contains(code)) return code;
+    }
+    return raw;
   }
 
-  static bool _isCableItem(Map<String, dynamic> item) {
-    final type = _normalized(item['equipment_type']);
-    final unit = _normalized(item['unit']);
-    return type.contains('cabl') ||
-        const {
-          'm',
-          'metre',
-          'mètre',
-          'metres',
-          'mètres',
-          'meter',
-          'meters',
-        }.contains(unit);
+  int? _itemId(Map<String, dynamic> item) {
+    final parsed = int.tryParse(item['item_id']?.toString() ?? '');
+    return parsed != null && parsed > 0 ? parsed : null;
   }
-
-  int _itemId(Map<String, dynamic> item) =>
-      int.tryParse(item['item_id']?.toString() ?? '') ?? 0;
 
   int _available(Map<String, dynamic> item) =>
       int.tryParse(item['available_quantity']?.toString() ?? '') ?? 0;
@@ -91,45 +86,39 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     return _available(item) > 0;
   }
 
-  String _segmentPreferenceKey(int cableItemId) =>
-      '$_segmentKeyPrefix:${widget.jobId}:${widget.segmentSlot}:$cableItemId';
+  String _segmentPreferenceKey(String cableCode) =>
+      '$_segmentKeyPrefix:${widget.jobId}:${widget.segmentSlot}:$cableCode';
 
-  String _segmentStartPreferenceKey(int cableItemId) =>
-      '$_segmentStartKeyPrefix:${widget.jobId}:${widget.segmentSlot}:$cableItemId';
+  String _segmentStartPreferenceKey(String cableCode) =>
+      '$_segmentStartKeyPrefix:${widget.jobId}:${widget.segmentSlot}:$cableCode';
 
-  Future<void> _loadActiveStart(int cableItemId) async {
+  Future<void> _loadActiveStart(String cableCode) async {
     if (widget.isEntry) return;
     final prefs = await SharedPreferences.getInstance();
-    final start = prefs.getDouble(_segmentStartPreferenceKey(cableItemId));
-    if (!mounted || _selectedCableId != cableItemId) return;
+    final start = prefs.getDouble(_segmentStartPreferenceKey(cableCode));
+    if (!mounted || _selectedCableCode != cableCode) return;
     setState(() => _activeStartMeter = start);
   }
 
-  Future<void> _selectCable(int? cableItemId) async {
+  Future<void> _selectCable(String? code) async {
     setState(() {
-      _selectedCableId = cableItemId;
+      _selectedCableCode = code;
       _activeStartMeter = null;
     });
-    if (cableItemId != null) await _loadActiveStart(cableItemId);
+    if (code != null) await _loadActiveStart(code);
   }
 
-  Future<String> _resolveSegmentId(int cableItemId) async {
+  Future<String> _resolveSegmentId(String cableCode) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = _segmentPreferenceKey(cableItemId);
+    final key = _segmentPreferenceKey(cableCode);
     if (widget.isEntry) {
-      // Starting a new entry means starting a new logical segment. A later exit
-      // automatically reuses this id; a repeated exit is therefore a correction
-      // of the same segment rather than an accidental second consumption.
       final segmentId = _uuid.v4();
       await prefs.setString(key, segmentId);
       return segmentId;
     }
-
     final active = prefs.getString(key)?.trim();
     if (active == null || active.isEmpty) {
-      throw StateError(
-        'Enregistrez d’abord le départ de ce câble avant son arrivée.',
-      );
+      throw StateError('Enregistrez d’abord l’entrée de ce câble.');
     }
     return active;
   }
@@ -140,10 +129,30 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       _error = null;
     });
     try {
-      // Do not hide a governed cable just because prior technician allocation
-      // is missing from GoVector. Field truth can legitimately start at zero.
       final catalogue = await TechnicianStockService.getCableCatalogue();
-      final cables = catalogue.where(_isCableItem).toList(growable: false);
+      final byCode = <String, Map<String, dynamic>>{};
+      for (final item in catalogue) {
+        final code = _cableCode(item);
+        if (_pilotCodes.contains(code)) byCode[code] = item;
+      }
+
+      // The three governed field families remain selectable even when the
+      // technician has no prior allocation or the catalogue cache is empty.
+      final cables = <Map<String, dynamic>>[
+        for (final code in const ['FO16', 'FO64', 'FO96'])
+          byCode[code] ??
+              <String, dynamic>{
+                'item_id': null,
+                'reference': code,
+                'code': code,
+                'label': code,
+                'unit': 'm',
+                'available_quantity': 0,
+                'stock_known': false,
+                'stock_registered': false,
+                'stock_reconciliation_required': true,
+              },
+      ];
 
       var modes = _fallbackModes;
       try {
@@ -162,9 +171,19 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                   'label': item['label']?.toString().trim() ?? '',
                 },
               )
-              .where(
-                (item) => item['code']!.isNotEmpty && item['label']!.isNotEmpty,
-              )
+              .where((item) {
+                final code = item['code'];
+                return code != null &&
+                    {'CONDUITE_PEHD', 'FACADE', 'FACADE_IMMEUBLE', 'AERIEN'}
+                        .contains(code) &&
+                    (item['label']?.isNotEmpty ?? false);
+              })
+              .map((item) {
+                if (item['code'] == 'FACADE_IMMEUBLE') {
+                  return {'code': 'FACADE', 'label': item['label']!};
+                }
+                return item;
+              })
               .toList(growable: false);
           if (configured.isNotEmpty) modes = configured;
         }
@@ -173,31 +192,37 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       }
 
       if (!mounted) return;
-      final selectedCableId =
-          _selectedCableId ??
-          (cables.length == 1 ? _itemId(cables.first) : null);
+      final selectedCode = _selectedCableCode ?? (cables.length == 1 ? _cableCode(cables.first) : null);
       setState(() {
         _cables = cables;
         _installationModes = modes;
-        _selectedCableId = selectedCableId;
+        _selectedCableCode = selectedCode;
         if (_selectedModeCode == null && modes.length == 1) {
           _selectedModeCode = modes.first['code'];
         }
       });
-      if (selectedCableId != null) await _loadActiveStart(selectedCableId);
+      if (selectedCode != null) await _loadActiveStart(selectedCode);
     } catch (error) {
+      // Network failure must not hide the governed cable vocabulary.
       if (!mounted) return;
-      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      setState(() {
+        _cables = const [
+          {'reference': 'FO16', 'code': 'FO16', 'label': 'FO16', 'unit': 'm', 'available_quantity': 0, 'stock_known': false},
+          {'reference': 'FO64', 'code': 'FO64', 'label': 'FO64', 'unit': 'm', 'available_quantity': 0, 'stock_known': false},
+          {'reference': 'FO96', 'code': 'FO96', 'label': 'FO96', 'unit': 'm', 'available_quantity': 0, 'stock_known': false},
+        ];
+        _error = 'Catalogue hors ligne : FO16, FO64 et FO96 restent utilisables. La consommation sera régularisée à la synchronisation.';
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Map<String, dynamic>? get _selectedCable {
-    final id = _selectedCableId;
-    if (id == null) return null;
+    final code = _selectedCableCode;
+    if (code == null) return null;
     for (final cable in _cables) {
-      if (_itemId(cable) == id) return cable;
+      if (_cableCode(cable) == code) return cable;
     }
     return null;
   }
@@ -215,7 +240,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     final raw = _meterController.text.trim();
     if (raw.isEmpty) return null;
     final parsed = double.tryParse(raw.replaceAll(',', '.'));
-    if (parsed == null || parsed < 0) {
+    if (parsed == null || !parsed.isFinite || parsed < 0) {
       throw const FormatException('Repère métrique invalide');
     }
     return parsed;
@@ -226,7 +251,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     final cable = _selectedCable;
     final mode = _selectedMode;
     if (cable == null) {
-      setState(() => _error = 'Choisissez le type de câble utilisé.');
+      setState(() => _error = 'Choisissez FO16, FO64 ou FO96.');
       return;
     }
     if (mode == null) {
@@ -238,9 +263,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     try {
       meterMark = _parseMeterMark();
     } on FormatException {
-      setState(
-        () => _error = 'Le repère métrique doit être un nombre positif.',
-      );
+      setState(() => _error = 'Le repère métrique doit être un nombre positif.');
       return;
     }
 
@@ -249,11 +272,11 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       _error = null;
     });
     try {
+      final cableCode = _cableCode(cable);
       final cableItemId = _itemId(cable);
-      final segmentId = await _resolveSegmentId(cableItemId);
-
-      // Helpful evidence, never a blocker. Photo evidence captures its own GPS.
+      final segmentId = await _resolveSegmentId(cableCode);
       final position = await LocationService.getCurrentPosition();
+      final stockKnown = _stockKnown(cable);
       final data = <String, dynamic>{
         'job_id': widget.jobId,
         'cable_segment_id': segmentId,
@@ -264,12 +287,13 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
           'accuracy': position.accuracy,
           'gps_observed_at': DateTime.now().toUtc().toIso8601String(),
         },
-        'cable_item_id': cableItemId,
-        'cable_reference': cable['reference'],
-        'cable_type_code': cable['reference'],
-        'cable_type_label': cable['label'],
+        if (cableItemId != null) 'cable_item_id': cableItemId,
+        'cable_reference': cableCode,
+        'cable_type_code': cableCode,
+        'cable_type_label': cableCode,
         'cable_stock_available_at_capture': _available(cable),
-        'cable_stock_known_at_capture': _stockKnown(cable),
+        'cable_stock_known_at_capture': stockKnown,
+        'stock_reconciliation_required': !stockKnown,
         'installation_mode_code': mode['code'],
         'installation_mode_label': mode['label'],
         'created_at': DateTime.now().toUtc().toIso8601String(),
@@ -282,7 +306,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       );
       if (widget.isEntry) {
         final prefs = await SharedPreferences.getInstance();
-        final startKey = _segmentStartPreferenceKey(cableItemId);
+        final startKey = _segmentStartPreferenceKey(cableCode);
         if (meterMark == null) {
           await prefs.remove(startKey);
         } else {
@@ -293,18 +317,56 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       final persisted = await OfflineService.getAction(queued.eventId);
       final status = persisted?.status.name ?? 'retryable';
       if (status == 'conflict' || status == 'rejected') {
-        throw Exception(
-          persisted?.lastError ?? 'Relevé câble refusé par GoVector',
-        );
+        throw Exception(persisted?.lastError ?? 'Relevé câble refusé par GoVector');
       }
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      setState(() => _error = error.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _chooseCable() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (context) => _ChoiceSheet(
+        title: 'Type de câble',
+        options: [
+          for (final cable in _cables)
+            _ChoiceOption(
+              value: _cableCode(cable),
+              title: _cableCode(cable),
+              subtitle: _stockKnown(cable)
+                  ? 'Stock enregistré : ${_available(cable)} ${cable['unit'] ?? 'm'}'
+                  : 'Stock non renseigné — utilisation autorisée, à régulariser',
+            ),
+        ],
+        selected: _selectedCableCode,
+      ),
+    );
+    if (selected != null) await _selectCable(selected);
+  }
+
+  Future<void> _chooseMode() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (context) => _ChoiceSheet(
+        title: 'Mode de pose',
+        options: [
+          for (final mode in _installationModes)
+            _ChoiceOption(value: mode['code']!, title: mode['label']!),
+        ],
+        selected: _selectedModeCode,
+      ),
+    );
+    if (selected != null) setState(() => _selectedModeCode = selected);
   }
 
   @override
@@ -316,12 +378,16 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
             startMeter: _activeStartMeter,
             endMeterInput: _meterController.text,
           );
+    final cable = _selectedCable;
+    final selectedMode = _selectedMode;
+
     return Scaffold(
       appBar: AppBar(title: Text(endpointLabel)),
       body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.all(BlueVectorSpacing.md),
                 children: [
                   Container(
@@ -329,14 +395,12 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     decoration: BoxDecoration(
                       color: BlueVectorColors.primarySoft,
                       border: Border.all(color: BlueVectorColors.border),
-                      borderRadius: BorderRadius.circular(
-                        BlueVectorRadius.medium,
-                      ),
+                      borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
                     ),
                     child: Text(
                       widget.isEntry
-                          ? 'Sélectionnez le câble et son mode de pose avant d’enregistrer le départ.'
-                          : 'Sélectionnez le même câble : GoVector reprend automatiquement son dernier départ et calcule le métrage utilisé.',
+                          ? 'Choisissez le câble et son mode de pose. Le stock n’est jamais bloquant : une utilisation sans dotation sera marquée à régulariser.'
+                          : 'Choisissez le même câble. GoVector reprend le départ et calcule la longueur avec les repères métriques.',
                       style: const TextStyle(
                         color: BlueVectorColors.textSecondary,
                         fontSize: 12,
@@ -345,82 +409,30 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     ),
                   ),
                   const SizedBox(height: BlueVectorSpacing.md),
-                  if (_cables.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(BlueVectorSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: BlueVectorColors.danger.withValues(alpha: 0.08),
-                        border: Border.all(
-                          color: BlueVectorColors.danger.withValues(
-                            alpha: 0.35,
-                          ),
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          BlueVectorRadius.small,
-                        ),
-                      ),
-                      child: const Text(
-                        'Aucun type de câble n’est configuré dans GoVector.',
-                        style: TextStyle(color: BlueVectorColors.danger),
-                      ),
-                    )
-                  else
-                    DropdownButtonFormField<int>(
-                      initialValue: _selectedCableId,
-                      decoration: const InputDecoration(
-                        labelText: 'Type de câble *',
-                        prefixIcon: Icon(Icons.cable_rounded),
-                      ),
-                      items: _cables
-                          .map((item) {
-                            final id = _itemId(item);
-                            final label =
-                                item['label']?.toString() ?? 'Câble #$id';
-                            final reference =
-                                item['reference']?.toString() ?? '';
-                            final available = _available(item);
-                            final unit = item['unit']?.toString() ?? '';
-                            final stock = _stockKnown(item)
-                                ? '$available $unit disponibles'
-                                : 'stock connu 0 $unit';
-                            return DropdownMenuItem<int>(
-                              value: id,
-                              child: Text(
-                                '$label${reference.isEmpty ? '' : ' · $reference'} · $stock',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          })
-                          .toList(growable: false),
-                      onChanged: _saving ? null : _selectCable,
-                    ),
-                  const SizedBox(height: BlueVectorSpacing.sm),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedModeCode,
-                    decoration: const InputDecoration(
-                      labelText: 'Mode de pose *',
-                      prefixIcon: Icon(Icons.route_rounded),
-                    ),
-                    items: _installationModes
-                        .map(
-                          (mode) => DropdownMenuItem<String>(
-                            value: mode['code'],
-                            child: Text(mode['label'] ?? mode['code'] ?? ''),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: _saving
+                  _SelectorField(
+                    label: 'Type de câble *',
+                    icon: Icons.cable_rounded,
+                    value: _selectedCableCode ?? 'Sélectionner FO16, FO64 ou FO96',
+                    subtitle: cable == null
                         ? null
-                        : (value) => setState(() => _selectedModeCode = value),
+                        : _stockKnown(cable)
+                        ? 'Disponible : ${_available(cable)} ${cable['unit'] ?? 'm'}'
+                        : 'Stock 0/non renseigné — sélection autorisée',
+                    onTap: _saving ? null : _chooseCable,
+                  ),
+                  const SizedBox(height: BlueVectorSpacing.sm),
+                  _SelectorField(
+                    label: 'Mode de pose *',
+                    icon: Icons.route_rounded,
+                    value: selectedMode?['label'] ?? 'Sélectionner le mode de pose',
+                    onTap: _saving ? null : _chooseMode,
                   ),
                   const SizedBox(height: BlueVectorSpacing.sm),
                   TextField(
                     controller: _meterController,
                     enabled: !_saving,
                     onChanged: (_) => setState(() {}),
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: widget.isEntry
                           ? 'Repère métrique au départ (m)'
@@ -430,40 +442,33 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     ),
                   ),
                   if (!widget.isEntry && _activeStartMeter != null) ...[
-                    const SizedBox(height: BlueVectorSpacing.xs),
+                    const SizedBox(height: BlueVectorSpacing.sm),
                     Container(
                       padding: const EdgeInsets.all(BlueVectorSpacing.sm),
                       decoration: BoxDecoration(
                         color: BlueVectorColors.surface,
                         border: Border.all(color: BlueVectorColors.border),
-                        borderRadius: BorderRadius.circular(
-                          BlueVectorRadius.small,
-                        ),
+                        borderRadius: BorderRadius.circular(BlueVectorRadius.small),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.calculate_outlined,
-                            color: BlueVectorColors.cyan,
-                          ),
-                          const SizedBox(width: BlueVectorSpacing.xs),
+                          const Icon(Icons.calculate_outlined, color: BlueVectorColors.cyan),
+                          const SizedBox(width: BlueVectorSpacing.sm),
                           Expanded(
                             child: Text(
                               immediateLength == null
-                                  ? 'Départ ${formatCableMeter(_activeStartMeter!)} m · saisissez l’arrivée pour calculer la longueur.'
-                                  : 'Longueur calculée : ${formatCableMeter(immediateLength)} m = |arrivée − départ|',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
+                                  ? 'Départ ${formatCableMeter(_activeStartMeter!)} m — saisissez l’arrivée pour calculer la longueur.'
+                                  : 'Longueur calculée : ${formatCableMeter(immediateLength)} m',
+                              style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ],
-                  const SizedBox(height: BlueVectorSpacing.xs),
+                  const SizedBox(height: BlueVectorSpacing.sm),
                   const Text(
-                    'Le GPS du relevé est ajouté automatiquement s’il est disponible. Il ne bloque pas la saisie. Les photos prises dans GoVector portent leur propre GPS.',
+                    'Le GPS est ajouté s’il est réellement disponible. Il ne bloque pas la saisie.',
                     style: TextStyle(
                       color: BlueVectorColors.textMuted,
                       fontSize: 11,
@@ -471,32 +476,164 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     ),
                   ),
                   if (_error != null) ...[
-                    const SizedBox(height: BlueVectorSpacing.md),
-                    Text(
-                      _error!,
-                      style: const TextStyle(color: BlueVectorColors.danger),
+                    const SizedBox(height: BlueVectorSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: BlueVectorColors.warning.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+                        border: Border.all(color: BlueVectorColors.warning.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: BlueVectorColors.textPrimary, fontSize: 11),
+                      ),
                     ),
                   ],
                   const SizedBox(height: BlueVectorSpacing.lg),
                   FilledButton.icon(
-                    onPressed: _saving || _cables.isEmpty ? null : _save,
+                    onPressed: _saving ? null : _save,
                     icon: _saving
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.save_rounded),
+                        : const Icon(Icons.save_outlined),
                     label: Text(_saving ? 'Enregistrement…' : 'Enregistrer'),
                   ),
                   const SizedBox(height: BlueVectorSpacing.sm),
                   OutlinedButton.icon(
                     onPressed: _saving ? null : _load,
                     icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Actualiser les câbles'),
+                    label: const Text('Actualiser le catalogue'),
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class _SelectorField extends StatelessWidget {
+  const _SelectorField({
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final String label;
+  final IconData icon;
+  final String value;
+  final String? subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          suffixIcon: const Icon(Icons.expand_more_rounded),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: BlueVectorColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (subtitle?.isNotEmpty == true) ...[
+              const SizedBox(height: 2),
+              Text(
+                subtitle!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: BlueVectorColors.textSecondary,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChoiceOption {
+  const _ChoiceOption({required this.value, required this.title, this.subtitle});
+
+  final String value;
+  final String title;
+  final String? subtitle;
+}
+
+class _ChoiceSheet extends StatelessWidget {
+  const _ChoiceSheet({
+    required this.title,
+    required this.options,
+    required this.selected,
+  });
+
+  final String title;
+  final List<_ChoiceOption> options;
+  final String? selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: BlueVectorSpacing.sm),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                BlueVectorSpacing.md,
+                0,
+                BlueVectorSpacing.md,
+                BlueVectorSpacing.xs,
+              ),
+              child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+            ),
+            for (final option in options)
+              ListTile(
+                leading: Icon(
+                  selected == option.value
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_off,
+                  color: selected == option.value
+                      ? BlueVectorColors.primaryBright
+                      : BlueVectorColors.textMuted,
+                ),
+                title: Text(
+                  option.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: option.subtitle == null
+                    ? null
+                    : Text(option.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis),
+                onTap: () => Navigator.pop(context, option.value),
+              ),
+          ],
+        ),
       ),
     );
   }
