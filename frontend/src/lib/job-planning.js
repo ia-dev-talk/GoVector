@@ -13,6 +13,50 @@ function finiteDuration(value) {
     : null;
 }
 
+export function durationInputParts(value) {
+  const duration = finiteDuration(value);
+
+  if (duration === null) {
+    return { hours: '', minutes: '' };
+  }
+
+  return {
+    hours: Math.floor(duration / 60),
+    minutes: duration % 60,
+  };
+}
+
+export function durationMinutesFromParts(hours, minutes) {
+  const parsedHours = Number(hours);
+  const parsedMinutes = Number(minutes);
+
+  if (
+    !Number.isInteger(parsedHours) ||
+    !Number.isInteger(parsedMinutes) ||
+    parsedHours < 0 ||
+    parsedHours > 8 ||
+    parsedMinutes < 0 ||
+    parsedMinutes > 59
+  ) {
+    return null;
+  }
+
+  return finiteDuration((parsedHours * 60) + parsedMinutes);
+}
+
+export function formatDurationHoursMinutes(value) {
+  const parts = durationInputParts(value);
+
+  if (parts.hours === '' || parts.minutes === '') {
+    return '';
+  }
+
+  return (
+    `${String(parts.hours).padStart(2, '0')} h ` +
+    `${String(parts.minutes).padStart(2, '0')}`
+  );
+}
+
 export function catalogEstimatedDuration(catalogItem, fallback) {
   return (
     finiteDuration(

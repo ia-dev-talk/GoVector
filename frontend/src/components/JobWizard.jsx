@@ -32,6 +32,9 @@ import {
   FALLBACK_ESTIMATED_DURATION_MINUTES,
   applyPlanningFieldChange,
   deriveTimeSlotEnd,
+  durationInputParts,
+  durationMinutesFromParts,
+  formatDurationHoursMinutes,
 } from '../lib/job-planning';
 import '../styles/wizard.css';
 
@@ -235,20 +238,6 @@ function dateInputValue(value) {
   )
     ? ''
     : localDateString(parsed);
-}
-
-function durationTimeValue(value) {
-  const minutes = Number(value);
-  if (!Number.isFinite(minutes) || minutes < 0) return '';
-  const hours = Math.floor(minutes / 60);
-  const remainder = Math.round(minutes % 60);
-  return `${String(hours).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
-}
-
-function durationMinutesValue(value) {
-  const match = normalizeText(value).match(/^(\d{2}):(\d{2})$/);
-  if (!match) return '';
-  return String((Number(match[1]) * 60) + Number(match[2]));
 }
 
 function uniqueStringList(value) {
@@ -708,6 +697,94 @@ function Field({
           {error}
         </span>
       )}
+    </div>
+  );
+}
+
+const DURATION_HOUR_OPTIONS = Array.from({ length: 9 }, (_, index) => index);
+const DURATION_MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => index);
+
+function DurationInput({
+  id,
+  value,
+  onChange,
+  disabled = false,
+  className = '',
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
+}) {
+  const parts = durationInputParts(value);
+
+  const commit = (hours, minutes) => {
+    const nextDuration = durationMinutesFromParts(hours, minutes);
+
+    if (nextDuration !== null) {
+      onChange(String(nextDuration));
+    }
+  };
+
+  const changeHours = (event) => {
+    const nextHours = Number(event.target.value);
+    let nextMinutes = Number.isInteger(parts.minutes) ? parts.minutes : 0;
+
+    if (nextHours === 0 && nextMinutes < 15) {
+      nextMinutes = 15;
+    }
+    if (nextHours === 8) {
+      nextMinutes = 0;
+    }
+
+    commit(nextHours, nextMinutes);
+  };
+
+  const changeMinutes = (event) => {
+    const nextMinutes = Number(event.target.value);
+    const nextHours = Number.isInteger(parts.hours) ? parts.hours : 0;
+
+    commit(nextHours, nextMinutes);
+  };
+
+  return (
+    <div
+      className={['wizard-duration-input', className].filter(Boolean).join(' ')}
+      role="group"
+      aria-describedby={ariaDescribedBy}
+    >
+      <select
+        id={id}
+        aria-label="Heures de durée"
+        aria-invalid={ariaInvalid}
+        value={parts.hours}
+        onChange={changeHours}
+        disabled={disabled}
+      >
+        {parts.hours === '' && <option value="">--</option>}
+        {DURATION_HOUR_OPTIONS.map((hours) => (
+          <option key={hours} value={hours}>{String(hours).padStart(2, '0')}</option>
+        ))}
+      </select>
+      <span aria-hidden="true">h</span>
+      <select
+        id={`${id}-minutes`}
+        aria-label="Minutes de durée"
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
+        value={parts.minutes}
+        onChange={changeMinutes}
+        disabled={disabled || parts.hours === 8}
+      >
+        {parts.minutes === '' && <option value="">--</option>}
+        {DURATION_MINUTE_OPTIONS.map((minutes) => (
+          <option
+            key={minutes}
+            value={minutes}
+            disabled={parts.hours === 0 && minutes < 15}
+          >
+            {String(minutes).padStart(2, '0')}
+          </option>
+        ))}
+      </select>
+      <span aria-hidden="true">min</span>
     </div>
   );
 }
@@ -2338,16 +2415,13 @@ export default function JobWizard({
             label="Durée prévue"
             required
             error={errors.estimated_duration}
+            hint="Entre 00 h 15 et 08 h 00."
           >
-            <input
-              type="time"
-              min="00:15"
-              max="08:00"
-              step="900"
-              value={durationTimeValue(form.estimated_duration)}
-              onChange={(event) => update(
+            <DurationInput
+              value={form.estimated_duration}
+              onChange={(value) => update(
                 'estimated_duration',
-                durationMinutesValue(event.target.value),
+                value,
               )}
               disabled={submitting || Boolean(savedOutcome)}
             />
@@ -4034,11 +4108,10 @@ export default function JobWizard({
             {
               sortedTechnicians.length
             }{' '}
-            chargé
-            {sortedTechnicians.length >
-            1
-              ? 's'
-              : ''}
+            technicien
+            {sortedTechnicians.length !== 1 ? 's' : ''}{' '}
+            actif
+            {sortedTechnicians.length !== 1 ? 's' : ''}
           </label>
 
           <div
@@ -4453,7 +4526,7 @@ export default function JobWizard({
               form
                 .estimated_duration
                 ? (
-                    `${form.estimated_duration} min`
+                    formatDurationHoursMinutes(form.estimated_duration)
                   )
                 : ''
             }

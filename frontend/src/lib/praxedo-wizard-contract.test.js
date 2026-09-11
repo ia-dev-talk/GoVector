@@ -39,6 +39,18 @@ test('the BlueVector wizard wires only creation qualification and assignment', (
   assert.doesNotMatch(wizardSource, /Modifier une intervention FTTH/);
 });
 
+test('the active wizard uses an explicit duration control and truthful technician count', () => {
+  const start = wizardSource.indexOf('const renderPilotQualification');
+  const end = wizardSource.indexOf('const LEGACY_RENDER_STEP_TYPE');
+  const activeQualificationFlow = wizardSource.slice(start, end);
+
+  assert.ok(start >= 0 && end > start);
+  assert.match(activeQualificationFlow, /<DurationInput/);
+  assert.doesNotMatch(activeQualificationFlow, /type="time"/);
+  assert.match(wizardSource, /technicien[\s\S]*actif/);
+  assert.doesNotMatch(wizardSource, /chargé/);
+});
+
 test('active wizard copy does not expose internal product or audit terminology', () => {
   const start = wizardSource.indexOf('const renderPilotCreation');
   const end = wizardSource.indexOf('const LEGACY_RENDER_STEP_TYPE');

@@ -875,6 +875,31 @@
 		box-shadow 100ms ease;
 }
 
+.wizard-duration-input {
+	display: grid;
+	grid-template-columns: minmax(70px, 1fr) auto minmax(70px, 1fr) auto;
+	align-items: center;
+	gap: var(--space-sm);
+	min-width: 0;
+}
+
+.wizard-duration-input > span {
+	color: var(--text-secondary);
+	font-size: var(--font-size-sm);
+	font-weight: 700;
+}
+
+.wizard-duration-input > select {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+}
+
+.wizard-duration-input.error > select {
+	background: var(--color-danger-dim);
+	border-color: var(--color-danger);
+}
+
 .wizard-field textarea {
 	min-height: 58px;
 	max-height: 220px;

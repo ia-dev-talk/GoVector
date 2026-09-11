@@ -13,6 +13,17 @@ Légende :
 
 ## Journal des checkpoints
 
+### Checkpoint web W5 — 11/09 — 🧪
+
+État local sur la branche `delivery/bluevector-final-chatgpt-20260910` :
+- checkout synchronisé en avance rapide jusqu’au checkpoint GitHub `543b695d92c56a0a0a625e9ebceff9345da69c6e`, sans divergence ni écrasement local ;
+- durée du wizard remplacée par une saisie explicite `HH h MM`, bornée de `00 h 15` à `08 h 00` ;
+- stockage métier `estimated_duration` conservé en minutes et recalcul du créneau inchangé ;
+- compteur d’affectation renommé en `X techniciens actifs` ;
+- 282 tests frontend, lint et build de production passés localement.
+
+Ce checkpoint reste 🧪 jusqu’à la recette visuelle du wizard dans le runtime Docker.
+
 ### Checkpoint web W4 — 10/09 soir — 🧪
 
 État GitHub vérifié sur le commit `5080327baee39c53072f088d08090c7eb972ffc7` :
@@ -37,7 +48,7 @@ Ce checkpoint n’est pas marqué ✅ tant qu’il n’a pas été vu dans le na
 
 ## 1. Tableau de bord Orienteur
 
-Statut : 🧪 / 🟠
+Statut : 🧪 composant durée corrigé / 🟠 recette et champs complémentaires
 
 Implémenté à re-tester :
 - Réduction du poids visuel du titre « Voici votre activité du jour ».
@@ -74,10 +85,11 @@ Implémenté à re-tester :
 - Nom et statut technicien forcés sur deux lignes distinctes.
 - AM/PM masqué sur le champ durée pour les navigateurs WebKit/Chromium.
 - Le moteur conserve `estimated_duration` en minutes et recalcule le créneau sans changer le contrat backend.
+- Le contrôle natif ambigu a été remplacé par une saisie explicite `HH h MM`, bornée de `00 h 15` à `08 h 00`.
+- Le compteur d’affectation indique maintenant `X techniciens actifs` au lieu de `X chargés`.
 
 Reste prioritaire :
-- Remplacer définitivement le contrôle natif `type=time` utilisé pour la durée par un vrai composant durée `HH h MM`, tout en gardant la valeur métier en minutes.
-- Renommer le compteur `X chargés` : le code compte en réalité les techniciens actifs retournés par l’API ; le libellé doit devenir `X techniciens actifs` (ou formulation équivalente), pas « chargés ».
+- Vérifier visuellement la saisie durée et le compteur sur le runtime Docker.
 - Vérifier date et format français.
 - Reprendre proprement les champs Praxedo utiles convenus : Agence, Groupe d’interventions, Description, Drapeaux, À faire avant/après, Donneur d’ordre, Client, Site, Équipement, Adresse, Code postal, Ville, Contact.
 - Ne connecter un champ que s’il possède une donnée/route réellement persistée ; aucune fausse correspondance métier.

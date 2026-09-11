@@ -6,6 +6,9 @@ import {
   applyPlanningFieldChange,
   catalogEstimatedDuration,
   deriveTimeSlotEnd,
+  durationInputParts,
+  durationMinutesFromParts,
+  formatDurationHoursMinutes,
 } from './job-planning.js';
 
 test('Raccordement resolves to the backend catalog duration', () => {
@@ -84,4 +87,19 @@ test('an explicit end remains editable and unrelated fields do not rewrite it', 
     applyPlanningFieldChange(form, 'customer_name', 'Client').time_slot_end,
     '12:00',
   );
+});
+
+test('duration input exposes hours and minutes while preserving minute storage', () => {
+  assert.deepEqual(durationInputParts(90), { hours: 1, minutes: 30 });
+  assert.equal(durationMinutesFromParts(1, 30), 90);
+  assert.equal(formatDurationHoursMinutes(90), '01 h 30');
+});
+
+test('duration input enforces the existing 15 to 480 minute contract', () => {
+  assert.equal(durationMinutesFromParts(0, 14), null);
+  assert.equal(durationMinutesFromParts(0, 15), 15);
+  assert.equal(durationMinutesFromParts(8, 0), 480);
+  assert.equal(durationMinutesFromParts(8, 1), null);
+  assert.deepEqual(durationInputParts('invalid'), { hours: '', minutes: '' });
+  assert.equal(formatDurationHoursMinutes('invalid'), '');
 });
