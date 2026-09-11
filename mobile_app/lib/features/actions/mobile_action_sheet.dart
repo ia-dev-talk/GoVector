@@ -126,7 +126,13 @@ Future<void> showMobileActionSheet({
         .trim()
         .toUpperCase()
         .replaceAll(RegExp(r'[\s_-]+'), ' ');
-    return type.contains('RACCORDEMENT') ||
+    final isFtthRealisable = type.contains('FTTH') &&
+        (type.contains('RÉALISABLE') || type.contains('REALISABLE'));
+    return type == 'PB' ||
+        type == 'PM' ||
+        type == 'PTO' ||
+        isFtthRealisable ||
+        type.contains('RACCORDEMENT') ||
         type.contains('SORTIE DE PCO') ||
         type == 'TUBAGE';
   }
