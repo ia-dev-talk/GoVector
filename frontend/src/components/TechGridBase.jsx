@@ -450,7 +450,7 @@ function JobCountCellRenderer({ data }) {
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--font-size-xs)',
       }}
-      title="Interventions affectées : terminées"
+      title="Interventions actives / terminées"
     >
       {assignedJobs ?? '—'}
       <span
@@ -458,7 +458,7 @@ function JobCountCellRenderer({ data }) {
           color: 'var(--text-muted)',
         }}
       >
-        :
+        {' / '}
       </span>
       {completedJobs ?? '—'}
     </span>
@@ -636,8 +636,8 @@ const TechGrid = forwardRef(function TechGrid(
         },
       },
       {
-        headerName: 'Interv. A:T',
-        width: 85,
+        headerName: 'Actives / terminées',
+        width: 132,
         cellRenderer: JobCountCellRenderer,
         valueGetter: (params) => {
           const assigned = parseNonNegativeInteger(

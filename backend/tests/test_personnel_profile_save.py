@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -10,7 +11,7 @@ from backend.api.routes.technicians import (
     save_technician_profile,
 )
 from backend.api.schemas import TechnicianUpdate
-from backend.database.models import Technician, TechnicianLiveStatus
+from backend.database.models import Technician, TechnicianLiveStatus, UserRole
 
 
 class _ScalarResult:
@@ -108,6 +109,54 @@ async def test_profile_save_commits_profile_and_assignment_once():
     assert db.commit_count == 1
     assert db.rollback_count == 0
     assert db.execute_count == 2
+
+
+@pytest.mark.asyncio
+async def test_office_orienteur_can_save_skills_for_own_technician():
+    current = datetime(2026, 8, 23, 18, 30, tzinfo=timezone.utc)
+    technician = _technician(current)
+    technician.orienteur_id = 4
+    db = _FakeDb(technician)
+    payload = TechnicianProfileSave(
+        expected_updated_at=current,
+        updates=TechnicianUpdate(skills=["PB", "POSE_CABLE_SPCO"]),
+        sector_ids=[],
+    )
+
+    result = await save_technician_profile(
+        7,
+        payload,
+        db=db,
+        current_user=SimpleNamespace(role=UserRole.ORIENTEUR, orienteur_id=4),
+    )
+
+    assert result["success"] is True
+    assert technician.skills == ["PB", "POSE_CABLE_SPCO"]
+    assert db.commit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_office_orienteur_cannot_save_another_team_technician():
+    current = datetime(2026, 8, 23, 18, 30, tzinfo=timezone.utc)
+    technician = _technician(current)
+    technician.orienteur_id = 4
+    db = _FakeDb(technician)
+    payload = TechnicianProfileSave(
+        expected_updated_at=current,
+        updates=TechnicianUpdate(skills=["PB"]),
+        sector_ids=[],
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await save_technician_profile(
+            7,
+            payload,
+            db=db,
+            current_user=SimpleNamespace(role=UserRole.ORIENTEUR, orienteur_id=5),
+        )
+
+    assert exc_info.value.status_code == 403
+    assert db.commit_count == 0
 
 
 @pytest.mark.asyncio

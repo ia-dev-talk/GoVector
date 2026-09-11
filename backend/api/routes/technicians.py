@@ -197,8 +197,6 @@ async def save_technician_profile(
     current_user: User = Depends(require_chef_orienteur),
 ):
     """Persist Personnel profile + sectors + optional live status in one transaction."""
-    del current_user
-
     result = await db.execute(
         select(Technician)
         .where(Technician.id == tech_id)
@@ -207,6 +205,15 @@ async def save_technician_profile(
     technician = result.scalar_one_or_none()
     if technician is None:
         raise HTTPException(status_code=404, detail=f"Technicien {tech_id} non trouvé")
+
+    if getattr(current_user, "role", None) == UserRole.ORIENTEUR and (
+        not getattr(current_user, "orienteur_id", None)
+        or technician.orienteur_id != current_user.orienteur_id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Vous ne pouvez modifier que les techniciens de votre équipe.",
+        )
 
     if _revision_key(payload.expected_updated_at) != _revision_key(technician.updated_at):
         raise HTTPException(

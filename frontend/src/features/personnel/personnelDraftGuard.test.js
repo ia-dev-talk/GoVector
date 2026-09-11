@@ -83,4 +83,25 @@ test('Personnel general save uses the revision-guarded atomic profile endpoint',
   assert.doesNotMatch(saveBlock, /personnelSectorApi\.updateAssignment\(/);
   assert.match(saveBlock, /error\?\.response\?\.status === 409/);
   assert.doesNotMatch(source, /OVERWRITE_TECHNICIAN_CHANGES_MESSAGE/);
+  assert.match(source, /userRole === 'ADMIN' \|\| userRole === 'ORIENTEUR'/);
+});
+
+test('technician skills use the governed FTTH checklist and keep backend codes', () => {
+  const source = readFileSync(
+    new URL('./PersonnelInspector.jsx', import.meta.url),
+    'utf8',
+  );
+  for (const code of [
+    'PB',
+    'PM',
+    'POSE_CABLE_SPCO',
+    'PTO',
+    'RACCORDEMENT_REALISABLE',
+    'RACCORDEMENT_SAV',
+  ]) {
+    assert.match(source, new RegExp(`code: '${code}'`));
+  }
+  assert.match(source, /type="checkbox"/);
+  assert.match(source, /toggleSkill\(skill\.code\)/);
+  assert.doesNotMatch(source, /value=\{form\.skills\.join/);
 });

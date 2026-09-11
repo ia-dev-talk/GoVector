@@ -135,6 +135,75 @@
   --text-subtle: #8796a8;
 }
 
+.personnel-v3-panel-header h2,
+.personnel-v3-inspector-heading strong,
+.personnel-v3-inspector-metric > strong,
+.personnel-v3-inspector-section-title > span,
+.personnel-v3-linked-data-note strong {
+  color: #10233c !important;
+}
+
+.personnel-v3-grid-body .ag-cell {
+  color: #2d4662 !important;
+}
+
+.personnel-v3-grid-body .ag-header-cell-label,
+.personnel-v3-inspector-heading small,
+.personnel-v3-inspector-metric > span,
+.personnel-v3-field > span,
+.personnel-v3-inspector-footer > span {
+  color: #61758e !important;
+}
+
+.personnel-v3-inspector-tabs button {
+  color: #536a85 !important;
+}
+
+.personnel-v3-inspector-tabs button:hover,
+.personnel-v3-inspector-tabs button.is-active {
+  color: #075bc9 !important;
+  background: #eef5ff !important;
+}
+
+.personnel-v3-linked-data-note span,
+.personnel-v3-field-help,
+.personnel-v3-section-empty {
+  color: #536a85 !important;
+}
+
+.personnel-v3-skill-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.personnel-v3-skill-picker label {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 9px;
+  gap: 8px;
+  color: #2d4662;
+  background: #ffffff;
+  border: 1px solid #dfe7f1;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.personnel-v3-skill-picker label.is-selected {
+  color: #075bc9;
+  background: #eef5ff;
+  border-color: rgba(8, 105, 237, .38);
+}
+
+.personnel-v3-skill-picker input {
+  width: 15px;
+  height: 15px;
+  accent-color: #0869ed;
+}
+
 /* Agents terrain: make empty organisation data informative rather than dominant. */
 .field-agents-header--delivery {
   display: grid !important;

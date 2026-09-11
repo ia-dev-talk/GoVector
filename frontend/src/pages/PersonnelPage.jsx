@@ -150,6 +150,7 @@ export default function PersonnelPage({
   const [jobs, setJobs] = useState([]);
   const [orienteurs, setOrienteurs] = useState([]);
   const [sectors, setSectors] = useState([]);
+  const [technicianSkills, setTechnicianSkills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -177,7 +178,7 @@ export default function PersonnelPage({
   const conflictToastRef = useRef('');
 
   const canEditGeneral =
-    userRole === 'ADMIN' || userRole === 'CHEF_ORIENTEUR';
+    userRole === 'ADMIN' || userRole === 'ORIENTEUR';
 
   const toast = useCallback((message, type = 'info') => {
     const id = toastSequence.current + 1;
@@ -249,6 +250,7 @@ export default function PersonnelPage({
           api.getOrienteurs(),
           api.getSectors(),
           personnelSectorApi.getAssignments(),
+          api.getBusinessCatalog(),
         ]);
 
         const [
@@ -257,6 +259,7 @@ export default function PersonnelPage({
           orienteurResult,
           sectorResult,
           assignmentResult,
+          catalogResult,
         ] = results;
 
         if (technicianResult.status === 'rejected') {
@@ -301,6 +304,12 @@ export default function PersonnelPage({
                   sensitivity: 'base',
                 }),
               )
+            : [],
+        );
+        setTechnicianSkills(
+          catalogResult.status === 'fulfilled' &&
+          Array.isArray(catalogResult.value?.data?.values?.technician_skills)
+            ? catalogResult.value.data.values.technician_skills
             : [],
         );
 
@@ -1004,6 +1013,7 @@ export default function PersonnelPage({
               todayJobs={detailTodayJobs}
               canEditGeneral={canEditGeneral}
               sectors={sectors}
+              technicianSkills={technicianSkills}
               referenceNow={referenceNow}
               gpsStaleAfterMinutes={gpsStaleAfterMinutes}
               onClose={requestCloseTechnician}

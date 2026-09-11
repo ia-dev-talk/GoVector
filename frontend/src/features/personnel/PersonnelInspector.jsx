@@ -36,6 +36,31 @@ const TABS = Object.freeze([
   { id: 'history', label: 'Historique', Icon: HistoryIcon },
 ]);
 
+const DEFAULT_TECHNICIAN_SKILLS = Object.freeze([
+  { code: 'PB', label: 'PB' },
+  { code: 'PM', label: 'PM' },
+  { code: 'POSE_CABLE_SPCO', label: 'Pose de câble SPCO' },
+  { code: 'PTO', label: 'PTO' },
+  { code: 'RACCORDEMENT_REALISABLE', label: 'Raccordement réalisable' },
+  { code: 'RACCORDEMENT_SAV', label: 'Raccordement SAV' },
+]);
+
+const SKILL_LABELS = Object.freeze(
+  Object.fromEntries(DEFAULT_TECHNICIAN_SKILLS.map((skill) => [skill.code, skill.label])),
+);
+
+function normalizeTechnicianSkills(values) {
+  const source = Array.isArray(values) && values.length > 0
+    ? values
+    : DEFAULT_TECHNICIAN_SKILLS;
+  return source
+    .filter((skill) => skill?.active !== false && text(skill?.code))
+    .map((skill) => ({
+      code: text(skill.code),
+      label: SKILL_LABELS[text(skill.code)] || text(skill.label, skill.code),
+    }));
+}
+
 function normalizeForm(tech) {
   return {
     name: text(tech?.name),
@@ -153,6 +178,7 @@ function PersonnelInspectorContent({
   todayJobs,
   canEditGeneral,
   sectors,
+  technicianSkills,
   referenceNow,
   gpsStaleAfterMinutes,
   onClose,
@@ -201,6 +227,19 @@ function PersonnelInspectorContent({
     () => new Set(form.sector_ids.map(String)),
     [form.sector_ids],
   );
+  const displayedSkills = useMemo(
+    () => normalizeTechnicianSkills(technicianSkills),
+    [technicianSkills],
+  );
+
+  const toggleSkill = (code) => {
+    setForm((current) => {
+      const next = new Set(current.skills);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return { ...current, skills: [...next] };
+    });
+  };
 
   const setPrimarySector = (value) => {
     const normalizedValue = text(value);
@@ -502,24 +541,30 @@ function PersonnelInspectorContent({
             <div className="personnel-v3-inspector-section-title">
               <span>Compétences et secteurs</span>
             </div>
-            <Field label="Compétences" wide>
-              <textarea
-                value={form.skills.join(', ')}
-                disabled={!canEditGeneral}
-                placeholder="Raccordement, SAV, mesures optiques…"
-                onChange={(event) => updateForm(
-                  'skills',
-                  event.target.value
-                    .split(',')
-                    .map((value) => value.trim())
-                    .filter(Boolean),
-                )}
-              />
-            </Field>
-            <div className="personnel-v3-chip-list">
-              {form.skills.length > 0
-                ? form.skills.map((skill) => <span key={skill}>{skill}</span>)
-                : <small>Aucune compétence renseignée.</small>}
+            <div className="personnel-v3-field personnel-v3-field--wide">
+              <span>Compétences FTTH</span>
+              <div className="personnel-v3-skill-picker">
+                {displayedSkills.map((skill) => {
+                  const checked = form.skills.includes(skill.code);
+                  return (
+                    <label
+                      key={skill.code}
+                      className={checked ? 'is-selected' : undefined}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!canEditGeneral}
+                        onChange={() => toggleSkill(skill.code)}
+                      />
+                      <span>{skill.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <small className="personnel-v3-field-help">
+                Cochez ou décochez les compétences, puis enregistrez la fiche.
+              </small>
             </div>
             <div className="personnel-v3-field personnel-v3-field--wide">
               <span>Secteurs affectés</span>
@@ -674,6 +719,7 @@ export default function PersonnelInspector({
   todayJobs = [],
   canEditGeneral = false,
   sectors = [],
+  technicianSkills = [],
   referenceNow = 0,
   gpsStaleAfterMinutes = null,
   onClose,
@@ -691,6 +737,7 @@ export default function PersonnelInspector({
       todayJobs={todayJobs}
       canEditGeneral={canEditGeneral}
       sectors={sectors}
+      technicianSkills={technicianSkills}
       referenceNow={referenceNow}
       gpsStaleAfterMinutes={gpsStaleAfterMinutes}
       onClose={onClose}
