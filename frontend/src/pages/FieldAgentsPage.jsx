@@ -128,7 +128,7 @@ export default function FieldAgentsPage({ onNavigate }) {
 
               {!sector && !team ? (
                 <p className="field-agent-card-note">
-                  Organisation à compléter dans l’administration ; aucune donnée n’est inventée.
+                  Données organisationnelles non renseignées
                 </p>
               ) : null}
 
@@ -137,7 +137,7 @@ export default function FieldAgentsPage({ onNavigate }) {
                 className="field-agent-team-button"
                 onClick={() => onNavigate?.('techniciens')}
               >
-                Ouvrir l’équipe technique
+                Voir l’équipe
               </button>
             </article>
           );
