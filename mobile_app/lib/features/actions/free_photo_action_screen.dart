@@ -62,10 +62,12 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
     'splitter_after': 'Splitter après',
     'joint_before': 'Joint avant',
     'joint_after': 'Joint après',
+    'pco': 'PCO',
     'pco_progress': 'PCO en cours',
     'pco_after': 'PCO après',
-    'pto': 'PTO',
+    'pto': 'Prise (PTO)',
     'ont_signal': 'ONT + signal',
+    'ont_serial': 'N° Série ONT (GPON SN)',
     'technician_signature': 'Signature technicien',
   };
 
@@ -100,7 +102,8 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
     try {
       final photo = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 92,
+        imageQuality: 76,
+        maxWidth: 1920,
       );
       if (photo == null) return;
       final position = await LocationService.getCurrentPosition();
@@ -125,7 +128,10 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
     if (_capturing || _saving) return;
     setState(() => _capturing = true);
     try {
-      final files = await _picker.pickMultiImage(imageQuality: 92);
+      final files = await _picker.pickMultiImage(
+        imageQuality: 76,
+        maxWidth: 1920,
+      );
       if (files.isEmpty || !mounted) return;
       final importedAt = DateTime.now().toUtc();
       setState(() {
