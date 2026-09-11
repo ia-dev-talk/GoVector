@@ -65,6 +65,16 @@ void main() {
     );
   });
 
+  test('configured SORTIE DE PCO IAM uses its dedicated form', () {
+    final schema = pilotFormSchemaForJobType('SORTIE DE PCO IAM');
+    final fields = schema.sections.expand((section) => section.fields).toList();
+
+    expect(schema.id, 'sortie_pco_iam');
+    expect(fields.any((field) => field.key == 'cable_departure_photo'), isTrue);
+    expect(fields.any((field) => field.key == 'splitter_before'), isTrue);
+    expect(fields.any((field) => field.key == 'splitter_after'), isTrue);
+  });
+
   test('Raccordement only reveals the reason when the intervention fails', () {
     final schema = pilotFormSchemaForJobType('RACCORDEMENT');
     final fields = schema.sections.expand((section) => section.fields).toList();
