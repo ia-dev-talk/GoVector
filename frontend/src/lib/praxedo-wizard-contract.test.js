@@ -10,7 +10,7 @@ import {
 
 const wizardSource = readFileSync('src/components/JobWizard.jsx', 'utf8');
 
-test('BlueVector exposes only the validated Praxedo intervention types', () => {
+test('GoVector exposes only the validated Praxedo intervention types', () => {
   assert.deepEqual(
     WIZARD_JOB_TYPE_OPTIONS.map((option) => option.label),
     ['FTTH Réalisable', 'PB', 'PM', 'PTO', 'SORTIE DE PCO IAM'],
@@ -25,7 +25,7 @@ test('BlueVector exposes only the validated Praxedo intervention types', () => {
   }
 });
 
-test('the BlueVector wizard wires only creation qualification and assignment', () => {
+test('the GoVector wizard wires only creation qualification and assignment', () => {
   assert.deepEqual(
     WIZARD_STEPS.map((step) => step.id),
     ['creation', 'qualification', 'affectation'],
@@ -79,15 +79,15 @@ test('required skills are a closed catalog-backed Praxedo reference', () => {
   assert.match(wizardSource, /type="checkbox"/);
 });
 
-test('login and navigation expose the BlueVector identity without legacy logo dependencies', () => {
+test('login and navigation expose the GoVector identity without legacy logo dependencies', () => {
   const appLayout = readFileSync('src/components/layout/AppLayout.jsx', 'utf8');
   const login = readFileSync('src/components/login.jsx', 'utf8');
 
-  assert.match(appLayout, /const PRODUCT_NAME = 'BlueVector'/);
-  assert.match(login, /const PRODUCT_NAME = 'BlueVector'/);
+  assert.match(appLayout, /const PRODUCT_NAME = 'GoVector'/);
+  assert.match(login, /const PRODUCT_NAME = 'GoVector'/);
   assert.match(appLayout, /function ProductMark/);
   assert.match(appLayout, /\{PRODUCT_NAME\}/);
   assert.match(login, /\{PRODUCT_NAME\}/);
-  assert.doesNotMatch(appLayout, /govector-logo\.png|GoVector|GOVECTOR/);
-  assert.doesNotMatch(login, /govector-logo\.png|GoVector|GOVECTOR/);
+  assert.doesNotMatch(appLayout, /govector-logo\.png|BlueVector|BLUEVECTOR/);
+  assert.doesNotMatch(login, /govector-logo\.png|BlueVector|BLUEVECTOR/);
 });

@@ -6,7 +6,7 @@ from backend.config import Settings
 
 def test_development_configuration_keeps_local_setup_available():
     settings = Settings(ENVIRONMENT="development")
-    assert settings.APP_NAME == "BlueVector"
+    assert settings.APP_NAME == "GoVector"
 
 
 def test_production_refuses_known_development_defaults():

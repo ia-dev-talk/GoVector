@@ -8,7 +8,7 @@ import {
 
 import { api } from '../api/client';
 
-const PRODUCT_NAME = 'BlueVector';
+const PRODUCT_NAME = 'GoVector';
 const PRODUCT_VERSION = '0.0.8';
 
 function isRecord(value) {
@@ -138,7 +138,7 @@ function getLoginErrorMessage(error) {
     status <= 599
   ) {
     return (
-      'Le serveur BlueVector rencontre un problème. ' +
+      'Le serveur GoVector rencontre un problème. ' +
       'Veuillez réessayer.'
     );
   }
@@ -169,7 +169,7 @@ function getLoginErrorMessage(error) {
   ) {
     return (
       'Serveur inaccessible. Vérifiez la connexion réseau ' +
-      'et que le backend BlueVector est démarré.'
+      'et que le serveur GoVector est démarré.'
     );
   }
 

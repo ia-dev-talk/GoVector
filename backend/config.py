@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Application
-    APP_NAME: str = "BlueVector"
+    APP_NAME: str = "GoVector"
     APP_VERSION: str = "1.0.1"
     DEBUG: bool = True
     ENVIRONMENT: str = "development"

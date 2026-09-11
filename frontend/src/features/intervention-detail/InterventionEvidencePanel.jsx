@@ -778,7 +778,7 @@ export default function InterventionEvidencePanel({
           <div className="intervention-detail-comment-list">
             {fieldRecord?.site ? (
               <article>
-                <span>Site BlueVector · révision {fieldRecord.site.revision}</span>
+                <span>Site GoVector · révision {fieldRecord.site.revision}</span>
                 <p>
                   {fieldRecord.site.pto_reference || fieldRecord.site.pbo_reference || fieldRecord.site.public_id}
                 </p>

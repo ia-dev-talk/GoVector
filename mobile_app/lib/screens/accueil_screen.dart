@@ -146,7 +146,7 @@ class _AccueilScreenState extends State<AccueilScreen> with SingleTickerProvider
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('BlueVector'),
+        title: const Text('GoVector'),
         actions: [
           IconButton(
             icon: const Icon(Icons.history_rounded),

@@ -28,9 +28,9 @@ async def test_excel_workbook_uses_bluevector_visible_brand(monkeypatch):
     payload = await FieldOptExportService.export_excel(object(), ["date"], {})
     workbook = load_workbook(io.BytesIO(payload), read_only=True)
 
-    assert workbook.sheetnames[0] == "Export BlueVector"
+    assert workbook.sheetnames[0] == "Export GoVector"
     assert all(
-        "FieldOpt" not in name and "GoVector" not in name
+        "FieldOpt" not in name and "BlueVector" not in name
         for name in workbook.sheetnames
     )
 

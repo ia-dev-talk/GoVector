@@ -49,7 +49,7 @@ async def main() -> None:
         if existing is not None:
             raise RuntimeError(
                 "Un compte utilisant déjà cet identifiant ou cet email existe. "
-                "Utilisez l’administration BlueVector pour gérer ses accès."
+                "Utilisez l’administration GoVector pour gérer ses accès."
             )
 
         user = User(

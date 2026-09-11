@@ -153,10 +153,10 @@ class LocationService {
         distanceFilter: 0,
         intervalDuration: Duration(seconds: intervalSeconds),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: 'BlueVector · suivi terrain actif',
+          notificationTitle: 'GoVector · suivi terrain actif',
           notificationText:
               'La position est partagée avec la supervision pendant l’intervention.',
-          notificationChannelName: 'Suivi terrain BlueVector',
+          notificationChannelName: 'Suivi terrain GoVector',
           enableWakeLock: true,
           setOngoing: true,
         ),

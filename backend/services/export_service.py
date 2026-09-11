@@ -750,7 +750,7 @@ class FieldOptExportService:
 
         wb = Workbook()
         ws = wb.active
-        ws.title = "Export BlueVector"
+        ws.title = "Export GoVector"
 
         # En-têtes
         if not rows:
@@ -875,7 +875,7 @@ class FieldOptExportService:
         settings = get_settings()
         html_parts.append(f"""
         <div class="header">
-            <h1>Rapport BlueVector - Export FTTH</h1>
+            <h1>Rapport GoVector - Export FTTH</h1>
             <p class="date">Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</p>
             <p class="date">{settings.APP_NAME} v{settings.APP_VERSION}</p>
         </div>
@@ -933,7 +933,7 @@ class FieldOptExportService:
 
         html_parts.append("""
         <div class="footer">
-            <p>Ce rapport est généré automatiquement par BlueVector.</p>
+            <p>Ce rapport est généré automatiquement par GoVector.</p>
         </div>
         </body></html>
         """)

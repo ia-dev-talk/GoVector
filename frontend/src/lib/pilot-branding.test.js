@@ -24,24 +24,24 @@ const visiblePilotFiles = [
 ];
 
 const forbiddenVisibleFragments = [
-  'GoVector',
-  'GOVECTOR',
+  'BlueVector',
+  'BlueVecto',
   'FieldOpt',
-  'govector-stock-',
+  'bluevector-stock-',
 ];
 
-test('pilot web surfaces expose BlueVector without legacy visible branding', () => {
+test('pilot web surfaces expose GoVector without historical visible branding', () => {
   for (const path of visiblePilotFiles) {
     const source = readFileSync(path, 'utf8');
 
     if (coreVisiblePilotFiles.includes(path)) {
-      assert.match(source, /BlueVector/i, `${path} doit afficher BlueVector`);
+      assert.match(source, /GoVector/i, `${path} doit afficher GoVector`);
     }
 
     for (const fragment of forbiddenVisibleFragments) {
       assert.ok(
         !source.includes(fragment),
-        `${path} contient encore le branding historique ${fragment}`,
+        `${path} contient encore le branding visible historique ${fragment}`,
       );
     }
   }

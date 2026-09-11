@@ -1,11 +1,11 @@
 {
-    "name": "BlueVector Terrain",
-    "short_name": "BlueVector",
+    "name": "GoVector Terrain",
+    "short_name": "GoVector",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Application terrain offline-first BlueVector.",
+    "description": "Application terrain offline-first GoVector.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

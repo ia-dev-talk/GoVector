@@ -1,5 +1,5 @@
 /**
- * StocksPage — workspace logistique FTTH BlueVector.
+ * StocksPage — workspace logistique FTTH GoVector.
  *
  * Catalogue, dépôts, quantités, dotations et mouvements restent reliés
  * au même journal de stock autoritatif côté API.

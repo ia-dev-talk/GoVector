@@ -304,3 +304,16 @@ Déjà vérifié sur le checkpoint GitHub `5080327b` :
 - test terrain
 
 Aucun merge vers `main` avant validation finale explicite.
+
+## Checkpoint local 2026-09-11 — quota de fin de passe
+
+- ✅ Fiche intervention : contraste restauré et liste des candidats bornée.
+- ✅ Techniciens : contraste, métrique `Actives / terminées` et compétences FTTH persistées par l’Orienteur sur son équipe.
+- 🧪 Stock : FO16/FO64/FO96 seuls, dépôts synthétiques masqués, dotation atomique ADMIN/ORIENTEUR et Agent terrain refusé. Le runtime ne contient aucun stock FO réel, donc aucune dotation n’a été simulée.
+- ✅ Agents terrain : cartes compactes, bouton `Voir l’équipe`, absence d’organisation présentée discrètement.
+- ✅ Wizard : durée heures/minutes et zéro compétence présélectionnée vérifiées dans le Docker réel.
+- 🧪 Branding : sources web, exports génériques et plateformes mobile passées à GoVector ; tests ciblés verts. Rebuild Docker et capture Login restent à faire au prochain checkpoint.
+- ✅ Rapport Magillan : 3 interventions, 3 pages, aucune page blanche lors de la recette précédente.
+- ⏸️ Suites complètes, Flutter analyze/build APK et recette physique différés au prochain checkpoint par contrainte de quota.
+
+Aucun push ni merge vers `main` sur ce checkpoint.

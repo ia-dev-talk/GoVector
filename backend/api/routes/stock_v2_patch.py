@@ -61,7 +61,7 @@ async def _technician_warehouse(
         address=None,
         is_active=True,
         description=(
-            "Dotation terrain BlueVector. Dépôt de garde créé automatiquement "
+            "Dotation terrain GoVector. Dépôt de garde créé automatiquement "
             f"pour le technicien #{technician.id}."
         ),
     )

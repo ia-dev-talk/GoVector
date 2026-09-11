@@ -2158,7 +2158,7 @@ export default function Dashboard({
     return (
       <div className="loading-screen">
         <div className="loading-spinner" />
-        Chargement de BlueVector...
+        Chargement de GoVector...
       </div>
     );
   }
@@ -2212,7 +2212,7 @@ export default function Dashboard({
       >
         <div className="header-brand">
           <div className="header-brand-icon" />
-          <strong>BlueVector</strong>
+          <strong>GoVector</strong>
           <span className="header-version">
             v{__APP_VERSION__}
           </span>

@@ -129,7 +129,7 @@ async def require_internal_user(
     if current_user.role == UserRole.CLIENT:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès interne BlueVector requis",
+            detail="Accès interne GoVector requis",
         )
     return current_user
 

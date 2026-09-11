@@ -1,5 +1,5 @@
 /**
- * ExportCenter — génération d'exports FTTH BlueVector.
+ * ExportCenter — génération d'exports FTTH GoVector.
  *
  * Le composant conserve le workflow historique en trois étapes, les profils,
  * les modèles et l'historique. Il s'aligne sur le contrat réel du backend :
@@ -537,7 +537,7 @@ export default function ExportCenter({
       export_name:
         sanitizeBaseName(
           exportName,
-          `Export BlueVector ${localDateKey()}`,
+          `Export GoVector ${localDateKey()}`,
         ),
     }),
     [
@@ -1109,7 +1109,7 @@ export default function ExportCenter({
       const fallbackName = ensureExtension(
         sanitizeBaseName(
           exportPayload.export_name,
-          `Export BlueVector ${localDateKey()}`,
+          `Export GoVector ${localDateKey()}`,
         ),
         effectiveFormat,
       );
@@ -1583,7 +1583,7 @@ export default function ExportCenter({
                             );
                             invalidatePreview();
                           }}
-                          placeholder={`Export BlueVector ${localDateKey()}`}
+                          placeholder={`Export GoVector ${localDateKey()}`}
                           disabled={busy}
                         />
                       </div>

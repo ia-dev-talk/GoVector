@@ -5,7 +5,7 @@ import {
   useState,
 } from 'react';
 
-const PRODUCT_NAME = 'BlueVector';
+const PRODUCT_NAME = 'GoVector';
 const SIDEBAR_STORAGE_KEY = 'bluevector:sidebar-collapsed';
 const MOBILE_MEDIA_QUERY = '(max-width: 768px)';
 
@@ -419,7 +419,7 @@ export default function AppLayout({
         <aside
           id="bluevector-sidebar"
           className="app-sidebar"
-          aria-label="Navigation principale BlueVector"
+          aria-label="Navigation principale GoVector"
           style={{
             width: sidebarWidth,
             maxWidth: isMobile ? '300px' : undefined,
@@ -514,7 +514,7 @@ export default function AppLayout({
             )}
           </div>
 
-          <nav className="sidebar-nav" aria-label="Espaces BlueVector">
+          <nav className="sidebar-nav" aria-label="Espaces GoVector">
             {visibleNavItems.map((item) => {
               const active = normalizedCurrentPage === item.id;
 

@@ -62,7 +62,7 @@ export default function InterventionGraphicalTools({
       const data = new FormData();
       data.append('kind', 'plan');
       data.append('title', `Croquis — intervention ${job.job_number || job.id}`);
-      data.append('comment', 'Croquis BlueVector créé depuis la fiche intervention.');
+      data.append('comment', 'Croquis GoVector créé depuis la fiche intervention.');
       data.append('metadata', JSON.stringify(metadata));
       data.append('file', blob, `croquis-${job.id}-${Date.now()}.png`);
 

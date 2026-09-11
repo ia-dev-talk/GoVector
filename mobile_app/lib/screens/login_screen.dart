@@ -323,7 +323,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
                         // Version
                         Text(
-                          'BlueVector v1.0.0',
+                          'GoVector v1.0.0',
                           style: TextStyle(
                             color: Colors.white.withOpacity(0.5),
                             fontSize: 12,
@@ -368,7 +368,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
         const SizedBox(height: 20),
         Text(
-          'BlueVector',
+          'GoVector',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w800,

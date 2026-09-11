@@ -1,5 +1,5 @@
 /**
- * DashboardHome — cockpit opérationnel BlueVector.
+ * DashboardHome — cockpit opérationnel GoVector.
  *
  * La page orchestre les données du jour, les KPI, les priorités,
  * la carte partagée et le flux temps réel. Le rendu cartographique
@@ -855,7 +855,7 @@ export default function DashboardHome({
     return (
       <div className="loading-screen" role="status" aria-live="polite">
         <div className="loading-spinner" aria-hidden="true" />
-        Chargement du tableau de bord BlueVector…
+        Chargement du tableau de bord GoVector…
       </div>
     );
   }
