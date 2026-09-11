@@ -75,6 +75,50 @@ void main() {
     expect(fields.any((field) => field.key == 'splitter_after'), isTrue);
   });
 
+  test('PB and PM use the confirmed Raccordement form', () {
+    expect(pilotFormSchemaForJobType('PB').id, 'raccordement');
+    expect(pilotFormSchemaForJobType('PM').id, 'raccordement');
+    final fields = pilotFormSchemaForJobType('PB')
+        .sections
+        .expand((section) => section.fields)
+        .toList();
+    expect(fields.any((field) => field.key == 'photo_before'), isTrue);
+    expect(fields.any((field) => field.key == 'photo_during'), isTrue);
+    expect(fields.any((field) => field.key == 'photo_after'), isTrue);
+    expect(fields.any((field) => field.key == 'msan'), isTrue);
+  });
+
+  test('PTO uses its own confirmed report fields', () {
+    final schema = pilotFormSchemaForJobType('PTO');
+    final fields = schema.sections.expand((section) => section.fields).toList();
+
+    expect(schema.id, 'pto');
+    expect(fields.any((field) => field.key == 'num_port'), isTrue);
+    expect(fields.any((field) => field.key == 'observations'), isTrue);
+    expect(fields.any((field) => field.key == 'photo_before'), isTrue);
+    expect(fields.any((field) => field.key == 'photo_during'), isTrue);
+    expect(fields.any((field) => field.key == 'photo_after'), isTrue);
+    final reason = fields.singleWhere((field) => field.key == 'failure_reason');
+    expect(reason.condition?.field, 'completed');
+    expect(reason.condition?.equals, false);
+  });
+
+  test('FTTH Réalisable uses its dedicated confirmed fields only', () {
+    final schema = pilotFormSchemaForJobType('FTTH Réalisable');
+    final fields = schema.sections.expand((section) => section.fields).toList();
+
+    expect(schema.id, 'ftth_realisable');
+    expect(fields.any((field) => field.key == 'branch_cable_length_m'), isTrue);
+    expect(fields.any((field) => field.key == 'pco'), isTrue);
+    expect(fields.any((field) => field.key == 'pco_label'), isTrue);
+    expect(fields.any((field) => field.key == 'pto'), isTrue);
+    expect(fields.any((field) => field.key == 'ont_signal'), isTrue);
+    expect(fields.any((field) => field.key == 'ont_serial'), isTrue);
+    expect(fields.any((field) => field.key == 'client_connected'), isTrue);
+    expect(fields.any((field) => field.key == 'photo_before'), isFalse);
+    expect(fields.any((field) => field.key == 'photo_after'), isFalse);
+  });
+
   test('Raccordement only reveals the reason when the intervention fails', () {
     final schema = pilotFormSchemaForJobType('RACCORDEMENT');
     final fields = schema.sections.expand((section) => section.fields).toList();
