@@ -20,10 +20,9 @@ def _technician(*, orienteur_id: int | None = None):
     return SimpleNamespace(orienteur_id=orienteur_id)
 
 
-@pytest.mark.parametrize("role", [UserRole.ADMIN, UserRole.CHEF_ORIENTEUR])
-def test_admin_and_chef_can_allocate_to_any_active_technician(role):
+def test_admin_can_allocate_to_any_active_technician():
     enforce_technician_allocation_scope(
-        current_user=_user(role, orienteur_id=11),
+        current_user=_user(UserRole.ADMIN, orienteur_id=11),
         technician=_technician(orienteur_id=99),
     )
 
@@ -46,10 +45,11 @@ def test_orienteur_cannot_allocate_outside_scope(user_scope, technician_scope):
     assert exc_info.value.status_code == 403
 
 
-def test_unexpected_role_fails_closed():
+@pytest.mark.parametrize("role", [UserRole.CHEF_ORIENTEUR, UserRole.TECHNICIAN])
+def test_field_roles_fail_closed(role):
     with pytest.raises(HTTPException) as exc_info:
         enforce_technician_allocation_scope(
-            current_user=_user(UserRole.TECHNICIAN, orienteur_id=7),
+            current_user=_user(role, orienteur_id=7),
             technician=_technician(orienteur_id=7),
         )
 

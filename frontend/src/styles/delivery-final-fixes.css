@@ -324,6 +324,23 @@
   cursor: pointer;
 }
 
+/* Stock pilot: the surrounding workspace is light, so section identities and
+ * the holder picker must remain readable without mixing a dark popover into it. */
+.st3-scopebar__identity strong,
+.st3-warehouse-rail > header strong,
+.st3-panel-header strong,
+.st3-inspector-header strong {
+  color: #14233a !important;
+}
+
+.st3-scopebar__identity small,
+.st3-holder-picker > label,
+.st3-warehouse-rail > header span,
+.st3-panel-header span,
+.st3-inspector-header span {
+  color: #5d6f88 !important;
+}
+
 /* The Magillan report is the delivery report; keep it visually distinct from generic exports. */
 .rv3-magillan-button {
   background: #0b4f8a !important;

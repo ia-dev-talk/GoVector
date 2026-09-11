@@ -213,7 +213,7 @@ const StockHistoryPanel = memo(function StockHistoryPanel({
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `bluevector-stock-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.download = `govector-stock-history-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

@@ -12,13 +12,14 @@ def enforce_technician_allocation_scope(
 ) -> None:
     """Fail closed when the caller cannot allocate stock to ``technician``.
 
-    ADMIN and CHEF_ORIENTEUR keep their operational scope. ORIENTEUR may only
-    allocate to an active technician affiliated with the same orienteur scope.
+    ADMIN keeps the global operational scope. ORIENTEUR may only allocate to
+    an active technician affiliated with the same orienteur scope. Field agents
+    never allocate depot stock.
     The endpoint itself is still protected by ``require_orienteur_or_above``;
     this helper deliberately re-checks the role so a future direct call cannot
     silently widen the policy.
     """
-    if current_user.role in {UserRole.ADMIN, UserRole.CHEF_ORIENTEUR}:
+    if current_user.role == UserRole.ADMIN:
         return
 
     if current_user.role == UserRole.ORIENTEUR:

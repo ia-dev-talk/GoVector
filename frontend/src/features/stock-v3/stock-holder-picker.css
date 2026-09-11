@@ -20,9 +20,10 @@
   grid-template-columns: minmax(0, 1fr) 36px;
   align-items: center;
   min-height: 40px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid #cbd7e6;
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.72);
+  color: #14233a;
+  background: #ffffff;
   overflow: hidden;
 }
 
@@ -63,8 +64,9 @@
   padding: 6px;
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 12px;
-  background: #111827;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+  color: #14233a;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(31, 54, 84, 0.18);
 }
 
 .st3-holder-picker__group {
@@ -76,8 +78,8 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #8291a8;
-  background: #111827;
+  color: #5d6f88;
+  background: #f6f9fd;
 }
 
 .st3-holder-option {
@@ -121,19 +123,19 @@
 }
 
 .st3-holder-option small {
-  color: #91a0b5;
+  color: #64748b;
 }
 
 .st3-holder-option em {
   flex: 0 0 auto;
   font-size: 10px;
   font-style: normal;
-  color: #91a0b5;
+  color: #64748b;
 }
 
 .st3-holder-picker__empty {
   padding: 14px 10px;
-  color: #91a0b5;
+  color: #64748b;
   text-align: center;
   font-size: 12px;
 }

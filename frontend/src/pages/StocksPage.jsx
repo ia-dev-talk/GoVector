@@ -24,6 +24,7 @@ import StockReceptionModal from '../features/stock-v3/StockReceptionModal';
 import StockTable from '../features/stock-v3/StockTable';
 import WarehouseEditorModal from '../features/stock-v3/WarehouseEditorModal';
 import WarehouseRail from '../features/stock-v3/WarehouseRail';
+import { filterPilotStockWarehouses } from '../features/stock-v3/pilotStockScope';
 import { scopeForWarehouseSelection } from '../features/stock-v3/stockHolderScope';
 import { stockV3Api } from '../features/stock-v3/stockV3Api';
 import {
@@ -89,7 +90,7 @@ function downloadCsv(items) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `bluevector-stock-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `govector-stock-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -261,11 +262,7 @@ export default function StocksPage({
   const realtimeRefreshTimerRef = useRef(null);
 
   const role = text(userRole).toUpperCase();
-  const canManageCatalog = [
-    'ADMIN',
-    'ADMINISTRATEUR',
-    'CHEF_ORIENTEUR',
-  ].includes(role);
+  const canManageCatalog = ['ADMIN', 'ADMINISTRATEUR'].includes(role);
   const canMoveStock = canManageCatalog || role === 'ORIENTEUR';
 
   const requestedTechnicianId = useMemo(
@@ -346,7 +343,7 @@ export default function StocksPage({
     }
 
     if (warehousesResult.status === 'fulfilled') {
-      setWarehouses(asRecords(warehousesResult.value?.data));
+      setWarehouses(filterPilotStockWarehouses(asRecords(warehousesResult.value?.data)));
     } else {
       errors.push(errorMessage(warehousesResult.reason, 'Dépôts indisponibles'));
     }
@@ -699,7 +696,17 @@ export default function StocksPage({
         await stockV3Api.createIssue(document);
         setIssueOpen(false);
         setIssueItem(null);
-        toast('Stock affecté au technicien et mouvement journalisé.', 'success');
+        const line = document.items?.[0];
+        const quantity = Number(line?.quantity) || 0;
+        const technician = technicians.find(
+          (candidate) => normalizeIdentifier(candidate?.id) === document.technician_id,
+        );
+        const reference = text(issueItem?.reference, 'article');
+        const technicianName = text(technician?.name, 'au technicien');
+        toast(
+          `${quantity} ${reference} affecté${quantity > 1 ? 's' : ''} à ${technicianName}`,
+          'success',
+        );
         await loadData({ manual: true });
       } catch (error) {
         setFormError(errorMessage(error, 'Impossible de valider la dotation.'));
@@ -707,7 +714,7 @@ export default function StocksPage({
         setSaving(false);
       }
     },
-    [loadData, toast],
+    [issueItem, loadData, technicians, toast],
   );
 
   const physicalWarehouses = warehouses.filter(

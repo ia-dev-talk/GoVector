@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   filterPilotStockItems,
+  filterPilotStockWarehouses,
   getPilotStockCodes,
   isPilotStockItem,
 } from './pilotStockScope.js';
@@ -21,6 +22,19 @@ test('pilot stock only exposes confirmed FO16 FO64 FO96 cable references', () =>
   assert.deepEqual(
     filterPilotStockItems(source).map((item) => item.reference),
     ['FO16', 'CABLE-FO-64', 'REF-096'],
+  );
+});
+
+test('pilot stock hides synthetic depots without hiding technician custody', () => {
+  const warehouses = [
+    { id: 1, code: 'CASA-01', name: 'Dépôt Casablanca', type: 'DEPOT' },
+    { id: 2, code: 'SYN-CASA', name: 'Dépôt central synthétique Casablanca', type: 'DEPOT' },
+    { id: 3, code: 'TECH-7', name: 'Stock Karim Tazi', type: 'TECHNICIEN' },
+  ];
+
+  assert.deepEqual(
+    filterPilotStockWarehouses(warehouses).map((warehouse) => warehouse.id),
+    [1, 3],
   );
 });
 
