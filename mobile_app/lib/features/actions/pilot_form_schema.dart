@@ -46,6 +46,7 @@ class PilotFormSchema {
   final List<PilotFormSection> sections;
 }
 
+// Praxedo "Raccordement" is the form used by PB and PM in the pilot evidence.
 const _raccordementSchema = PilotFormSchema(
   id: 'raccordement',
   label: 'Raccordement',
@@ -126,6 +127,123 @@ const _raccordementSchema = PilotFormSchema(
           key: 'pco',
           label: 'PCO',
           kind: PilotFieldKind.text,
+        ),
+        PilotFieldDefinition(
+          key: 'msan',
+          label: 'MSAN',
+          kind: PilotFieldKind.text,
+        ),
+      ],
+    ),
+  ],
+);
+
+// Praxedo FTTH Réalisable: keep only the fields observed in the supplied form.
+const _ftthRealisableSchema = PilotFormSchema(
+  id: 'ftth_realisable',
+  label: 'FTTH Réalisable',
+  sections: [
+    PilotFormSection(
+      title: 'Compte rendu FTTH',
+      fields: [
+        PilotFieldDefinition(
+          key: 'branch_cable_length_m',
+          label: 'Câble de branchement (ml)',
+          kind: PilotFieldKind.number,
+        ),
+        PilotFieldDefinition(
+          key: 'pco',
+          label: 'PCO',
+          kind: PilotFieldKind.text,
+        ),
+        PilotFieldDefinition(
+          key: 'pco_label',
+          label: 'Étiquetage PCO',
+          kind: PilotFieldKind.text,
+        ),
+        PilotFieldDefinition(
+          key: 'pto',
+          label: 'Prise (PTO)',
+          kind: PilotFieldKind.text,
+        ),
+        PilotFieldDefinition(
+          key: 'ont_signal',
+          label: 'ONT + Signal',
+          kind: PilotFieldKind.text,
+        ),
+        PilotFieldDefinition(
+          key: 'ont_serial',
+          label: 'N° Série ONT (GPON SN)',
+          kind: PilotFieldKind.text,
+        ),
+        PilotFieldDefinition(
+          key: 'client_connected',
+          label: 'Client connecté ?',
+          kind: PilotFieldKind.yesNo,
+        ),
+        PilotFieldDefinition(
+          key: 'comment',
+          label: 'Commentaire',
+          kind: PilotFieldKind.text,
+        ),
+      ],
+    ),
+  ],
+);
+
+// Praxedo PTO evidence supplied previously: NUM_PORT + OBSERVATIONS, the three
+// before/during/after photo stages, GPS and the realised/failure branch.
+const _ptoSchema = PilotFormSchema(
+  id: 'pto',
+  label: 'PTO',
+  sections: [
+    PilotFormSection(
+      title: 'Compte rendu PTO',
+      fields: [
+        PilotFieldDefinition(
+          key: 'num_port',
+          label: 'NUM_PORT',
+          kind: PilotFieldKind.text,
+        ),
+        PilotFieldDefinition(
+          key: 'observations',
+          label: 'OBSERVATIONS',
+          kind: PilotFieldKind.text,
+        ),
+        PilotFieldDefinition(
+          key: 'photo_before',
+          label: 'Photos avant',
+          kind: PilotFieldKind.photo,
+          photoLabel: 'before',
+        ),
+        PilotFieldDefinition(
+          key: 'photo_during',
+          label: 'Photos pendant',
+          kind: PilotFieldKind.photo,
+          photoLabel: 'during',
+        ),
+        PilotFieldDefinition(
+          key: 'photo_after',
+          label: 'Photos après',
+          kind: PilotFieldKind.photo,
+          photoLabel: 'after',
+        ),
+        PilotFieldDefinition(
+          key: 'site_gps',
+          label: 'Point GPS de l’intervention',
+          kind: PilotFieldKind.action,
+          action: 'site_location',
+        ),
+        PilotFieldDefinition(
+          key: 'completed',
+          label: 'REALISEE',
+          kind: PilotFieldKind.yesNo,
+        ),
+        PilotFieldDefinition(
+          key: 'failure_reason',
+          label: 'POURQUOI',
+          kind: PilotFieldKind.text,
+          condition: PilotFieldCondition('completed', false),
         ),
       ],
     ),
@@ -337,6 +455,16 @@ PilotFormSchema pilotFormSchemaForJobType(String jobType) {
   final normalized = _normalizedJobType(jobType);
   if (normalized == 'TUBAGE' || normalized.contains('SORTIE DE PCO')) {
     return _sortiePcoSchema;
+  }
+  if (normalized == 'PTO') return _ptoSchema;
+  if (normalized.contains('FTTH') &&
+      (normalized.contains('RÉALISABLE') || normalized.contains('REALISABLE'))) {
+    return _ftthRealisableSchema;
+  }
+  if (normalized == 'PB' ||
+      normalized == 'PM' ||
+      normalized.contains('RACCORDEMENT')) {
+    return _raccordementSchema;
   }
   return _raccordementSchema;
 }
