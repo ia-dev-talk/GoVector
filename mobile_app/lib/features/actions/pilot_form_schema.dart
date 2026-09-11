@@ -328,8 +328,15 @@ const _sortiePcoSchema = PilotFormSchema(
   ],
 );
 
+String _normalizedJobType(String value) => value
+    .trim()
+    .toUpperCase()
+    .replaceAll(RegExp(r'[\s_-]+'), ' ');
+
 PilotFormSchema pilotFormSchemaForJobType(String jobType) {
-  return jobType.trim().toUpperCase() == 'TUBAGE'
-      ? _sortiePcoSchema
-      : _raccordementSchema;
+  final normalized = _normalizedJobType(jobType);
+  if (normalized == 'TUBAGE' || normalized.contains('SORTIE DE PCO')) {
+    return _sortiePcoSchema;
+  }
+  return _raccordementSchema;
 }
