@@ -46,30 +46,28 @@ class _PendingPhoto {
 }
 
 class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
-  static const _labels = <(String?, String)>[
+  // Generic capture stays intentionally small. Specific FTTH evidence such as
+  // splitter/PTO/PCO photos is requested by the business form itself.
+  static const _genericLabels = <(String?, String)>[
     (null, 'Libre'),
     ('before', 'Avant'),
     ('during', 'Pendant'),
     ('after', 'Après'),
-    ('cable', 'Câble'),
-    ('cable_departure', 'Câble — départ'),
-    ('cable_arrival', 'Câble — arrivée'),
-    ('splitter', 'Splitter'),
-    ('pto', 'PTO'),
-    ('ont', 'ONT'),
-    ('router', 'Routeur'),
-    ('incident', 'Incident'),
-    ('joint_before', 'JOINT AVANT'),
-    ('joint_after', 'JOINT APRÈS'),
-    ('splitter_before', 'SPLITTER AVANT'),
-    ('splitter_after', 'SPLITTER APRÈS'),
-    ('pco_progress', 'PCO EN COURS'),
-    ('pco_after', 'PCO APRÈS'),
-    ('pco_label', 'Étiquetage PCO'),
-    ('ont_signal', 'ONT + Signal'),
-    ('technician_signature', 'Signature technicien'),
-    ('other', 'Autre'),
   ];
+
+  static const _contextLabels = <String, String>{
+    'cable_departure': 'Photo départ câble',
+    'cable_arrival': 'Photo arrivée câble',
+    'splitter_before': 'Splitter avant',
+    'splitter_after': 'Splitter après',
+    'joint_before': 'Joint avant',
+    'joint_after': 'Joint après',
+    'pco_progress': 'PCO en cours',
+    'pco_after': 'PCO après',
+    'pto': 'PTO',
+    'ont_signal': 'ONT + signal',
+    'technician_signature': 'Signature technicien',
+  };
 
   final _comment = TextEditingController();
   final _picker = ImagePicker();
@@ -78,10 +76,16 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
   bool _saving = false;
   bool _capturing = false;
 
+  bool get _isContextualEvidence {
+    final initial = widget.initialLabel?.trim();
+    if (initial == null || initial.isEmpty) return false;
+    return !_genericLabels.any((item) => item.$1 == initial);
+  }
+
   @override
   void initState() {
     super.initState();
-    _label = widget.initialLabel;
+    _label = widget.initialLabel?.trim().isEmpty == true ? null : widget.initialLabel?.trim();
   }
 
   @override
@@ -99,9 +103,6 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
         imageQuality: 92,
       );
       if (photo == null) return;
-
-      // The device is at the photo location. Capture GPS automatically and as
-      // close as possible to camera return; GPS failure never invents a point.
       final position = await LocationService.getCurrentPosition();
       final selectedAt = DateTime.now().toUtc();
       final pending = _PendingPhoto(
@@ -127,11 +128,17 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
       final files = await _picker.pickMultiImage(imageQuality: 92);
       if (files.isEmpty || !mounted) return;
       final importedAt = DateTime.now().toUtc();
-      final additions = [
-        for (final file in files)
-          _PendingPhoto(file: file, source: 'gallery', selectedAt: importedAt),
-      ];
-      setState(() => _photos = [..._photos, ...additions]);
+      setState(() {
+        _photos = [
+          ..._photos,
+          for (final file in files)
+            _PendingPhoto(
+              file: file,
+              source: 'gallery',
+              selectedAt: importedAt,
+            ),
+        ];
+      });
     } finally {
       if (mounted) setState(() => _capturing = false);
     }
@@ -141,51 +148,75 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
     final choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
+      useSafeArea: true,
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: BlueVectorSpacing.sm),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text(
+                'Ajouter des photos',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: Text(
+                'La caméra ajoute le GPS uniquement s’il est réellement disponible.',
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Prendre une photo'),
+              subtitle: const Text('Heure + GPS réel si disponible'),
+              onTap: () => Navigator.pop(context, 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choisir dans la galerie'),
+              subtitle: const Text('Sélection multiple, sans GPS inventé'),
+              onTap: () => Navigator.pop(context, 'gallery'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == 'camera') await _takePhoto();
+    if (choice == 'gallery') await _pickGalleryBatch();
+  }
+
+  void _removePhoto(int index) {
+    if (_saving) return;
+    setState(() => _photos = [..._photos]..removeAt(index));
+  }
+
+  Future<void> _preview(_PendingPhoto photo) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: SafeArea(
+          child: Stack(
             children: [
-              const ListTile(
-                title: Text(
-                  'Ajouter des preuves',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                subtitle: Text(
-                  'La caméra ajoute automatiquement le GPS. La galerie permet un envoi multiple.',
+              Positioned.fill(
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 5,
+                  child: Center(
+                    child: Image.file(File(photo.file.path), fit: BoxFit.contain),
+                  ),
                 ),
               ),
-              ListTile(
-                leading: const Icon(Icons.photo_camera_outlined),
-                title: const Text('Prendre une photo'),
-                subtitle: const Text('GPS + heure ajoutés automatiquement'),
-                onTap: () => Navigator.pop(context, 'camera'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Choisir plusieurs photos'),
-                subtitle: const Text('Envoi groupé depuis la galerie'),
-                onTap: () => Navigator.pop(context, 'gallery'),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton.filled(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
               ),
             ],
           ),
         ),
       ),
     );
-    if (choice == 'camera') {
-      await _takePhoto();
-    } else if (choice == 'gallery') {
-      await _pickGalleryBatch();
-    }
-  }
-
-  void _removePhoto(int index) {
-    if (_saving) return;
-    setState(() {
-      final next = [..._photos]..removeAt(index);
-      _photos = next;
-    });
   }
 
   Future<void> _save() async {
@@ -200,7 +231,7 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
         final metadata = <String, dynamic>{
           if (_label != null) 'label': _label,
           if (comment.isNotEmpty) 'comment': comment,
-          'evidence_role': 'field_photo',
+          'evidence_role': _isContextualEvidence ? 'business_form_photo' : 'field_photo',
           'source': photo.source,
           'batch_id': batchId,
           'batch_index': index + 1,
@@ -212,8 +243,7 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
               'latitude': photo.latitude,
               'longitude': photo.longitude,
               if (photo.accuracy != null) 'accuracy': photo.accuracy,
-              'gps_observed_at': (photo.gpsObservedAt ?? photo.selectedAt)
-                  .toIso8601String(),
+              'gps_observed_at': (photo.gpsObservedAt ?? photo.selectedAt).toIso8601String(),
             },
           } else ...{
             'imported_at': photo.selectedAt.toIso8601String(),
@@ -229,17 +259,14 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
           metadata: metadata,
         );
       }
-      // One sync attempt for the whole batch. If 4G is unavailable, every
-      // file remains durably queued and will retry later.
       unawaited(OfflineService.syncPendingActions());
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$error'.replaceFirst('Bad state: ', ''))),
-        );
-        setState(() => _saving = false);
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$error'.replaceFirst('Bad state: ', ''))),
+      );
+      setState(() => _saving = false);
     }
   }
 
@@ -254,8 +281,6 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final first = _photos.isEmpty ? null : _photos.first;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Photos terrain')),
       body: SafeArea(
@@ -264,8 +289,7 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
           children: [
             Expanded(
               child: ListView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.fromLTRB(
                   BlueVectorSpacing.md,
                   BlueVectorSpacing.sm,
@@ -273,289 +297,155 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                   BlueVectorSpacing.lg,
                 ),
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(BlueVectorSpacing.sm),
-                    decoration: BoxDecoration(
-                      color: BlueVectorColors.surface,
-                      borderRadius: BorderRadius.circular(
-                        BlueVectorRadius.small,
+                  _JobContext(job: widget.job),
+                  const SizedBox(height: BlueVectorSpacing.md),
+                  if (_isContextualEvidence)
+                    Container(
+                      padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: BlueVectorColors.primarySoft,
+                        borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+                        border: Border.all(color: BlueVectorColors.border),
                       ),
-                      border: Border.all(color: BlueVectorColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: BlueVectorColors.primarySoft,
-                            borderRadius: BorderRadius.circular(
-                              BlueVectorRadius.small,
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.fact_check_outlined,
+                            color: BlueVectorColors.primaryBright,
+                          ),
+                          const SizedBox(width: BlueVectorSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              'Preuve demandée : ${_contextLabels[_label] ?? _label}',
+                              style: const TextStyle(fontWeight: FontWeight.w800),
                             ),
                           ),
-                          child: const Icon(
-                            Icons.photo_camera_outlined,
-                            color: BlueVectorColors.primaryBright,
+                        ],
+                      ),
+                    )
+                  else ...[
+                    const Text(
+                      'Type de photo',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: BlueVectorSpacing.xs),
+                    Wrap(
+                      spacing: BlueVectorSpacing.xs,
+                      runSpacing: BlueVectorSpacing.xs,
+                      children: [
+                        for (final option in _genericLabels)
+                          ChoiceChip(
+                            label: Text(option.$2),
+                            selected: _label == option.$1,
+                            onSelected: _saving
+                                ? null
+                                : (_) => setState(() => _label = option.$1),
                           ),
-                        ),
-                        const SizedBox(width: BlueVectorSpacing.sm),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.job.jobNumber,
-                                style: const TextStyle(
-                                  color: BlueVectorColors.textPrimary,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                widget.job.customerName.isEmpty
-                                    ? 'Client non renseigné'
-                                    : widget.job.customerName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: BlueVectorColors.textSecondary,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          _photos.isEmpty
-                              ? 'PHOTO'
-                              : '${_photos.length} PHOTO${_photos.length > 1 ? 'S' : ''}',
-                          style: const TextStyle(
-                            color: BlueVectorColors.primaryBright,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.1,
-                          ),
-                        ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: BlueVectorSpacing.md),
-                  AspectRatio(
-                    aspectRatio: 4 / 3,
-                    child: Material(
-                      color: BlueVectorColors.surface,
-                      borderRadius: BorderRadius.circular(
-                        BlueVectorRadius.medium,
-                      ),
-                      child: InkWell(
-                        onTap: _saving || _capturing ? null : _chooseSource,
-                        borderRadius: BorderRadius.circular(
-                          BlueVectorRadius.medium,
-                        ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            if (first == null)
-                              const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_a_photo_outlined,
-                                    size: 42,
-                                    color: BlueVectorColors.primaryBright,
-                                  ),
-                                  SizedBox(height: BlueVectorSpacing.sm),
-                                  Text(
-                                    'Ajouter une ou plusieurs photos',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    'Caméra géolocalisée ou galerie multiple',
-                                    style: TextStyle(
-                                      color: BlueVectorColors.textSecondary,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  BlueVectorRadius.medium,
-                                ),
-                                child: Image.file(
-                                  File(first.file.path),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Center(
-                                    child: Icon(Icons.image_rounded, size: 48),
-                                  ),
-                                ),
-                              ),
-                            if (first != null)
-                              Positioned(
-                                left: BlueVectorSpacing.sm,
-                                bottom: BlueVectorSpacing.sm,
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.62),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    child: Text(
-                                      first.source == 'camera'
-                                          ? (first.hasGps
-                                                ? 'GPS enregistré'
-                                                : 'GPS indisponible')
-                                          : 'Galerie',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (first != null)
-                              Positioned(
-                                right: BlueVectorSpacing.sm,
-                                bottom: BlueVectorSpacing.sm,
-                                child: FilledButton.tonalIcon(
-                                  onPressed: _saving || _capturing
-                                      ? null
-                                      : _chooseSource,
-                                  icon: const Icon(
-                                    Icons.add_photo_alternate_outlined,
-                                  ),
-                                  label: const Text('Ajouter'),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_photos.length > 1) ...[
-                    const SizedBox(height: BlueVectorSpacing.sm),
-                    SizedBox(
-                      height: 78,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _photos.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(width: BlueVectorSpacing.xs),
-                        itemBuilder: (context, index) {
-                          final photo = _photos[index];
-                          return Stack(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(
-                                  BlueVectorRadius.small,
-                                ),
-                                child: Image.file(
-                                  File(photo.file.path),
-                                  width: 78,
-                                  height: 78,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              Positioned(
-                                right: 2,
-                                top: 2,
-                                child: InkWell(
-                                  onTap: _saving
-                                      ? null
-                                      : () => _removePhoto(index),
-                                  child: Container(
-                                    decoration: const BoxDecoration(
-                                      color: Colors.black54,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    padding: const EdgeInsets.all(3),
-                                    child: const Icon(
-                                      Icons.close,
-                                      size: 14,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
                     ),
                   ],
                   const SizedBox(height: BlueVectorSpacing.md),
-                  const Text(
-                    'Type de preuve (facultatif)',
-                    style: TextStyle(
-                      color: BlueVectorColors.textPrimary,
-                      fontWeight: FontWeight.w800,
+                  OutlinedButton.icon(
+                    onPressed: _saving || _capturing ? null : _chooseSource,
+                    icon: _capturing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.add_a_photo_outlined),
+                    label: Text(
+                      _photos.isEmpty
+                          ? 'Ajouter une ou plusieurs photos'
+                          : 'Ajouter une autre photo',
                     ),
                   ),
-                  const SizedBox(height: BlueVectorSpacing.xs),
-                  const Text(
-                    'Laissez « Libre » pour envoyer simplement un lot de photos. Le même type s’applique au lot.',
-                    style: TextStyle(
-                      color: BlueVectorColors.textSecondary,
-                      fontSize: 11,
+                  if (_photos.isNotEmpty) ...[
+                    const SizedBox(height: BlueVectorSpacing.sm),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _photos.length,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemBuilder: (context, index) {
+                        final photo = _photos[index];
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            InkWell(
+                              onTap: () => _preview(photo),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+                                child: Image.file(
+                                  File(photo.file.path),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const ColoredBox(
+                                    color: BlueVectorColors.surfaceSoft,
+                                    child: Icon(Icons.broken_image_outlined),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 3,
+                              top: 3,
+                              child: InkWell(
+                                onTap: _saving ? null : () => _removePhoto(index),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 3,
+                              bottom: 3,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  photo.source == 'camera'
+                                      ? (photo.hasGps ? 'GPS' : 'Sans GPS')
+                                      : 'Galerie',
+                                  style: const TextStyle(color: Colors.white, fontSize: 8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ),
-                  const SizedBox(height: BlueVectorSpacing.sm),
-                  Wrap(
-                    spacing: BlueVectorSpacing.xs,
-                    runSpacing: BlueVectorSpacing.xs,
-                    children: [
-                      for (final option in _labels)
-                        ChoiceChip(
-                          label: Text(option.$2),
-                          selected: _label == option.$1,
-                          onSelected: _saving
-                              ? null
-                              : (_) => setState(() => _label = option.$1),
-                        ),
-                    ],
-                  ),
+                  ],
                   const SizedBox(height: BlueVectorSpacing.md),
                   TextField(
                     controller: _comment,
                     minLines: 2,
                     maxLines: 4,
                     textInputAction: TextInputAction.done,
-                    onSubmitted: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
                     decoration: const InputDecoration(
                       labelText: 'Commentaire (facultatif)',
-                      hintText: 'Ex. passage câble validé, splitter posé…',
+                      hintText: 'Observation utile pour le dossier…',
                     ),
                   ),
                   const SizedBox(height: BlueVectorSpacing.sm),
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.cloud_sync_outlined,
-                        size: 16,
-                        color: BlueVectorColors.textMuted,
-                      ),
-                      SizedBox(width: BlueVectorSpacing.xs),
-                      Expanded(
-                        child: Text(
-                          'Les photos sont conservées localement puis synchronisées. Les photos caméra enregistrent le GPS automatiquement quand il est disponible.',
-                          style: TextStyle(
-                            color: BlueVectorColors.textMuted,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ),
-                    ],
+                  const Text(
+                    'Les photos restent sur le téléphone jusqu’à leur synchronisation. Une photo prise avec la caméra ne reçoit un GPS que si le téléphone fournit réellement une position.',
+                    style: TextStyle(
+                      color: BlueVectorColors.textMuted,
+                      fontSize: 10,
+                      height: 1.35,
+                    ),
                   ),
                 ],
               ),
@@ -578,19 +468,76 @@ class _FreePhotoActionScreenState extends State<FreePhotoActionScreen> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.check_rounded),
+                      : const Icon(Icons.save_outlined),
                   label: Text(
                     _saving
                         ? 'Enregistrement…'
                         : _photos.length <= 1
                         ? 'Enregistrer la photo'
-                        : 'Envoyer ${_photos.length} photos',
+                        : 'Enregistrer ${_photos.length} photos',
                   ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _JobContext extends StatelessWidget {
+  const _JobContext({required this.job});
+
+  final Job job;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+      decoration: BoxDecoration(
+        color: BlueVectorColors.surface,
+        borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+        border: Border.all(color: BlueVectorColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: BlueVectorColors.primarySoft,
+              borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+            ),
+            child: const Icon(
+              Icons.photo_camera_outlined,
+              color: BlueVectorColors.primaryBright,
+            ),
+          ),
+          const SizedBox(width: BlueVectorSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  job.jobNumber.isEmpty ? 'Intervention #${job.id}' : job.jobNumber,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text(
+                  job.customerName.isEmpty ? 'Client non renseigné' : job.customerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: BlueVectorColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

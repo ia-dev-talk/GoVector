@@ -76,8 +76,6 @@ _ACTION_LABELS = {
     "client_call": "Appel client enregistré",
 }
 
-# Read-only source for the governed presentation catalog. Business support is
-# still enforced by SUPPORTED_FIELD_ACTION_TYPES, not by a client-side list.
 FIELD_ACTION_LABELS = {
     "intervention_photo": "Photo",
     "intervention_video": "Vidéo",
@@ -124,8 +122,6 @@ async def _require_enabled_action(
     )
     if item is None or item.get("active") is not False:
         return
-    # An action captured before the administrator archived its type remains a
-    # legitimate offline fact and must not be lost during a later sync.
     if document.updated_at is not None and occurred_at <= document.updated_at:
         return
     raise TechnicianJobMutationError(
@@ -141,6 +137,43 @@ def _non_empty(payload: dict[str, Any], *keys: str) -> Any | None:
         if value is not None and (not isinstance(value, str) or value.strip()):
             return value
     return None
+
+
+def _validate_coordinates(payload: dict[str, Any], *, required: bool) -> None:
+    latitude = payload.get("latitude")
+    longitude = payload.get("longitude")
+    has_latitude = isinstance(latitude, (int, float))
+    has_longitude = isinstance(longitude, (int, float))
+
+    if required and (not has_latitude or not has_longitude):
+        raise TechnicianJobMutationError(
+            "rejected",
+            "invalid_payload",
+            "Latitude et longitude sont obligatoires",
+        )
+
+    # Cable observations deliberately allow no GPS. When one coordinate is
+    # present, however, require the pair so we never persist half a location.
+    if has_latitude != has_longitude:
+        raise TechnicianJobMutationError(
+            "rejected",
+            "invalid_payload",
+            "Latitude et longitude doivent être renseignées ensemble",
+        )
+    if not has_latitude:
+        return
+
+    if not -90 <= float(latitude) <= 90 or not -180 <= float(longitude) <= 180:
+        raise TechnicianJobMutationError(
+            "rejected", "invalid_payload", "Coordonnées GPS invalides"
+        )
+    accuracy = payload.get("accuracy")
+    if accuracy is not None and (
+        not isinstance(accuracy, (int, float)) or float(accuracy) < 0
+    ):
+        raise TechnicianJobMutationError(
+            "rejected", "invalid_payload", "Précision GPS invalide"
+        )
 
 
 async def _validate_payload(
@@ -186,28 +219,12 @@ async def _validate_payload(
             )
         return
 
-    if event_type in {"gps_position", "site_location", "cable_entry", "cable_exit"}:
-        if not isinstance(payload.get("latitude"), (int, float)) or not isinstance(
-            payload.get("longitude"), (int, float)
-        ):
-            raise TechnicianJobMutationError(
-                "rejected",
-                "invalid_payload",
-                "Latitude et longitude sont obligatoires",
-            )
-        if not -90 <= float(payload["latitude"]) <= 90 or not -180 <= float(
-            payload["longitude"]
-        ) <= 180:
-            raise TechnicianJobMutationError(
-                "rejected", "invalid_payload", "Coordonnées GPS invalides"
-            )
-        accuracy = payload.get("accuracy")
-        if accuracy is not None and (
-            not isinstance(accuracy, (int, float)) or float(accuracy) < 0
-        ):
-            raise TechnicianJobMutationError(
-                "rejected", "invalid_payload", "Précision GPS invalide"
-            )
+    if event_type in {"gps_position", "site_location"}:
+        _validate_coordinates(payload, required=True)
+        return
+
+    if event_type in {"cable_entry", "cable_exit"}:
+        _validate_coordinates(payload, required=False)
         return
 
     required_keys = {
@@ -311,13 +328,18 @@ async def record_technician_field_action(
     db.add(action)
     await db.flush()
     if event_type in {"site_location", "cable_entry", "cable_exit"}:
-        observation = JobSiteObservation(
+        # A cable endpoint without GPS is still a valid field fact. Only create
+        # a geographic observation when both coordinates were actually seen.
+        latitude = payload.get("latitude")
+        longitude = payload.get("longitude")
+        if isinstance(latitude, (int, float)) and isinstance(longitude, (int, float)):
+            observation = JobSiteObservation(
                 job_id=job_id,
                 visit_id=visit.id if visit is not None else None,
                 field_action_id=action.id,
                 observation_type=event_type,
-                latitude=float(payload["latitude"]),
-                longitude=float(payload["longitude"]),
+                latitude=float(latitude),
+                longitude=float(longitude),
                 accuracy_m=(
                     float(payload["accuracy"])
                     if isinstance(payload.get("accuracy"), (int, float))
@@ -330,15 +352,15 @@ async def record_technician_field_action(
                 source="mobile",
                 occurred_at=occurred_at,
             )
-        db.add(observation)
-        if isinstance(db, AsyncSession):
-            await db.flush()
-            await attach_observation_to_site(
-                db,
-                job=job,
-                observation=observation,
-                current_user=current_user,
-            )
+            db.add(observation)
+            if isinstance(db, AsyncSession):
+                await db.flush()
+                await attach_observation_to_site(
+                    db,
+                    job=job,
+                    observation=observation,
+                    current_user=current_user,
+                )
     if event_type in {"network_reference", "equipment_scan"} and isinstance(
         db, AsyncSession
     ):
