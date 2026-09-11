@@ -315,13 +315,36 @@
 
 .field-agent-team-button {
   width: 100%;
+  grid-column: 1 / -1;
+  justify-self: stretch;
   min-height: 38px;
+  white-space: nowrap;
   border: 1px solid rgba(8, 105, 237, .25);
   border-radius: 9px;
   color: var(--color-accent);
   background: var(--color-accent-bg);
   font-weight: 700;
   cursor: pointer;
+}
+
+/* Carte live is hosted inside the light delivery shell. Keep its operational
+ * rails readable and use explicit light-surface tokens instead of inherited
+ * dark-dashboard values. */
+.lm-rail,
+.lm-inspector {
+  --text-primary: #14233a;
+  --text-secondary: #42566f;
+  --text-muted: #65758a;
+  --surface-panel: #ffffff;
+  --surface-panel-alt: #f7f9fc;
+  --surface-input: #ffffff;
+  --surface-elevated: #eef3f9;
+}
+
+.lm-rail-header strong,
+.lm-tabs button.active,
+.lm-inspector-header strong {
+  color: #14233a !important;
 }
 
 /* Stock pilot: the surrounding workspace is light, so section identities and

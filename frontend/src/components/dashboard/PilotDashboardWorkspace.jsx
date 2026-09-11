@@ -53,9 +53,11 @@ function jobType(job) {
 
 function technician(job) {
   return text(
-    job?.assigned_technician_name ??
+    job?.assigned_tech_name ??
+      job?.assigned_technician_name ??
       job?.technician_name ??
-      job?.assignment?.technician_name,
+      job?.assignment?.technician_name ??
+      job?.assignment?.technician?.name,
   );
 }
 

@@ -32,10 +32,10 @@ const DEFAULT_CENTER = Object.freeze([
 ]);
 
 const TILE_URL =
-  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 const ATTRIBUTION =
-  '&copy; OpenStreetMap contributors &copy; CARTO';
+  '&copy; OpenStreetMap contributors';
 
 const iconCache = new Map();
 
