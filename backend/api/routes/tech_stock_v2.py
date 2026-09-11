@@ -171,19 +171,6 @@ async def get_technician_stock_history_v2(
     ]
 
 
-@tech_jobs.router.get("/stock-v2/serialized")
-async def get_technician_serialized_custody_v2(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_technician),
-) -> list[dict[str, Any]]:
-    """Compatibility route retained by the mobile stock profile."""
-    if current_user.technician_id is None:
-        raise HTTPException(status_code=400, detail="Profil technicien manquant")
-    # The dedicated serialized-custody implementation may be mounted elsewhere;
-    # preserve this route contract without fabricating rows here.
-    return []
-
-
 @tech_jobs.router.post("/scan/resolve")
 async def resolve_technician_equipment_scan(
     payload: EquipmentScanRequest,
