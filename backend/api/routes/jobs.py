@@ -28,7 +28,7 @@ from backend.logic import assignments as assignment_logic
 from backend.logic.workflow.engine import WorkflowEngine
 from backend.logic.job_access import require_job_operations_access, require_job_read_access
 from backend.logic.job_contract import job_create_kwargs
-from backend.auth.dependencies import get_current_user, require_orienteur, require_chef_orienteur
+from backend.auth.dependencies import get_current_user, require_orienteur, require_admin
 from backend.services.realtime.dashboard_service import DashboardService
 
 router = APIRouter(tags=["Jobs"])
@@ -47,12 +47,11 @@ async def create_job(
         f"--- [PAYLOAD REÇU FROM FLUTTER] --- : {job_data.model_dump()}"
     )
 
-    # Assignation automatique de l'orienteur_id
+    # Assignation automatique de l'orienteur_id pour l'Orienteur bureau.
+    # CHEF_ORIENTEUR est l'Agent terrain et n'entre jamais par cette route.
     orienteur_id = None
     if current_user.role == UserRole.ORIENTEUR and current_user.orienteur_id:
         orienteur_id = current_user.orienteur_id
-    elif current_user.role == UserRole.CHEF_ORIENTEUR and job_data.orienteur_id:
-        orienteur_id = job_data.orienteur_id
 
     if (
         current_user.role == UserRole.ORIENTEUR
@@ -60,7 +59,7 @@ async def create_job(
     ):
         raise HTTPException(
             status_code=403,
-            detail="Seul un chef orienteur ou un administrateur peut choisir l'entreprise cliente.",
+            detail="Seul un administrateur peut choisir l'entreprise cliente.",
         )
 
     effective_job_data = job_data
@@ -121,7 +120,7 @@ async def get_jobs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get all jobs with optional status and date filtering, filtered by user role"""
+    """Get jobs with role scoping. Field agents use /orienteur-agent/me only."""
     import logging
     logger = logging.getLogger("uvicorn.error")
 
@@ -146,7 +145,7 @@ async def get_jobs(
             detail="scheduled_from cannot be after scheduled_to.",
         )
 
-    if current_user.role in [UserRole.CHEF_ORIENTEUR, UserRole.ADMIN]:
+    if current_user.role == UserRole.ADMIN:
         jobs = await job_logic.get_all_jobs(
             db,
             status=status,
@@ -156,7 +155,7 @@ async def get_jobs(
             skip=skip,
             limit=limit,
         )
-        logger.info(f"[TECH_JOBS] ADMIN/CHEF jobs count={len(jobs)}")
+        logger.info(f"[TECH_JOBS] ADMIN jobs count={len(jobs)}")
         return await job_responses(db, jobs)
 
     if current_user.role == UserRole.ORIENTEUR:
@@ -228,6 +227,12 @@ async def get_jobs(
         logger.info(f"[TECH_JOBS] Retour API = {len(jobs)} jobs")
         return await job_responses(db, jobs)
 
+    if current_user.role == UserRole.CHEF_ORIENTEUR:
+        raise HTTPException(
+            status_code=403,
+            detail="L'Agent terrain doit utiliser son espace équipe dédié.",
+        )
+
     raise HTTPException(status_code=403, detail="Accès insuffisant pour voir les interventions.")
 
 
@@ -261,8 +266,8 @@ async def get_pending_jobs(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get all pending (unassigned) jobs, filtered by user role"""
-    if current_user.role == UserRole.CHEF_ORIENTEUR or current_user.role == UserRole.ADMIN:
+    """Get pending jobs. Field agents never receive the global pending queue."""
+    if current_user.role == UserRole.ADMIN:
         jobs = await job_logic.get_pending_jobs(db, scheduled_date=scheduled_date)
     elif current_user.role == UserRole.ORIENTEUR:
         if not current_user.orienteur_id:
@@ -279,8 +284,8 @@ async def get_jobs_summary(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get summary statistics of jobs by status, filtered by user role"""
-    if current_user.role == UserRole.CHEF_ORIENTEUR or current_user.role == UserRole.ADMIN:
+    """Get summary statistics of jobs by status, filtered by user role."""
+    if current_user.role == UserRole.ADMIN:
         summary = await job_logic.get_jobs_summary(db, target_date=target_date)
     elif current_user.role == UserRole.ORIENTEUR:
         if not current_user.orienteur_id:
@@ -317,9 +322,9 @@ async def search_jobs(
 ):
     """
     Multi-criteria job search — historical, current, and future jobs.
-    At least one search criteria should be provided, filtered by user role.
+    Field agents use their dedicated team-scoped endpoints instead.
     """
-    if current_user.role == UserRole.CHEF_ORIENTEUR or current_user.role == UserRole.ADMIN:
+    if current_user.role == UserRole.ADMIN:
         jobs = await job_logic.search_jobs(
             db,
             date_from=date_from,
@@ -413,7 +418,7 @@ async def update_job(
     ):
         raise HTTPException(
             status_code=403,
-            detail="Seul un chef orienteur ou un administrateur peut modifier l'entreprise cliente.",
+            detail="Seul un administrateur peut modifier l'entreprise cliente.",
         )
     try:
         updated = await job_logic.update_job(db, job_id, **update_data)
@@ -534,9 +539,9 @@ async def cancel_job(
 async def delete_job(
     job_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_chef_orienteur),
+    current_user: User = Depends(require_admin),
 ):
-    """Archive a cancelled job while preserving audit history."""
+    """Archive a cancelled job. Pilot deletion is restricted to ADMIN."""
     job = await job_logic.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
