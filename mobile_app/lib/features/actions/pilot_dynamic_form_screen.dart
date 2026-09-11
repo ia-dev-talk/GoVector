@@ -36,13 +36,17 @@ class _PilotDynamicFormScreenState extends State<PilotDynamicFormScreen> {
     return condition == null || _values[condition.field] == condition.equals;
   }
 
+  String _label(PilotFieldDefinition field) =>
+      field.isRequired ? '* ${field.label}' : field.label;
+
   Future<void> _openAction(PilotFieldDefinition field) async {
     final action = field.action;
     final actionParts = action?.split(':') ?? const <String>[];
     final actionType = actionParts.isEmpty ? null : actionParts.first;
+
     if (actionType == 'cable_entry' || actionType == 'cable_exit') {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
+      final saved = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
           builder: (_) => CableEndpointScreen(
             jobId: widget.job.id,
             actionType: actionType!,
@@ -50,29 +54,37 @@ class _PilotDynamicFormScreenState extends State<PilotDynamicFormScreen> {
           ),
         ),
       );
-      if (mounted) setState(() => _values[field.key] = true);
+      if (mounted && saved == true) {
+        setState(() => _values[field.key] = true);
+      }
       return;
     }
+
     if (action == 'client_signature') {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
+      final saved = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
           builder: (_) => ClientSignatureScreen(
             jobId: widget.job.id,
             customerName: widget.job.customerName,
           ),
         ),
       );
-      if (mounted) setState(() => _values[field.key] = true);
+      if (mounted && saved == true) {
+        setState(() => _values[field.key] = true);
+      }
       return;
     }
+
     if (action == 'site_location') {
       final position = await LocationService.getCurrentPosition();
       if (position == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
-                'Position GPS indisponible. La saisie reste possible.',
+                field.isRequired
+                    ? 'Position GPS indisponible. Réessayez avant de valider le compte rendu.'
+                    : 'Position GPS indisponible. La saisie reste possible.',
               ),
             ),
           );
@@ -86,6 +98,7 @@ class _PilotDynamicFormScreenState extends State<PilotDynamicFormScreen> {
           'latitude': position.latitude,
           'longitude': position.longitude,
           'accuracy': position.accuracy,
+          'observed_at': DateTime.now().toUtc().toIso8601String(),
         },
       );
       unawaited(OfflineService.syncPendingActions());
@@ -94,83 +107,149 @@ class _PilotDynamicFormScreenState extends State<PilotDynamicFormScreen> {
   }
 
   Future<void> _openPhoto(PilotFieldDefinition field) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => FreePhotoActionScreen(
           job: widget.job,
           initialLabel: field.photoLabel,
         ),
       ),
     );
-    if (mounted) setState(() => _values[field.key] = true);
+    if (mounted && saved == true) {
+      setState(() => _values[field.key] = true);
+    }
   }
 
   Widget _field(PilotFieldDefinition field) {
     if (!_visible(field)) return const SizedBox.shrink();
+
     switch (field.kind) {
       case PilotFieldKind.yesNo:
+        final realisedChoice = field.key == 'completed';
         return DropdownButtonFormField<bool>(
           initialValue: _values[field.key] as bool?,
-          decoration: InputDecoration(labelText: field.label),
-          items: const [
-            DropdownMenuItem(value: true, child: Text('Oui')),
-            DropdownMenuItem(value: false, child: Text('Non')),
+          decoration: InputDecoration(
+            labelText: _label(field),
+            helperText: field.helper,
+          ),
+          items: [
+            DropdownMenuItem(
+              value: true,
+              child: Text(realisedChoice ? 'Intervention réalisée' : 'Oui'),
+            ),
+            DropdownMenuItem(
+              value: false,
+              child: Text(realisedChoice ? 'Intervention en échec' : 'Non'),
+            ),
           ],
           onChanged: (value) => setState(() => _values[field.key] = value),
         );
+
       case PilotFieldKind.number:
         return TextFormField(
           initialValue: _values[field.key]?.toString(),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
-            labelText: field.label,
+            labelText: _label(field),
             helperText: field.helper,
           ),
           onChanged: (value) =>
               _values[field.key] = double.tryParse(value.replaceAll(',', '.')),
         );
+
       case PilotFieldKind.text:
+        final multiline = field.multiline ||
+            field.key.contains('comment') ||
+            field.key.contains('observation');
         return TextFormField(
           initialValue: _values[field.key]?.toString(),
-          minLines:
-              field.key.contains('comment') || field.key.contains('observation')
-              ? 3
-              : 1,
-          maxLines:
-              field.key.contains('comment') || field.key.contains('observation')
-              ? 5
-              : 1,
+          minLines: multiline ? 3 : 1,
+          maxLines: multiline ? 5 : 1,
           decoration: InputDecoration(
-            labelText: field.label,
+            labelText: _label(field),
             helperText: field.helper,
           ),
           onChanged: (value) => _values[field.key] = value.trim(),
         );
+
       case PilotFieldKind.photo:
+        final captured = _values[field.key] == true;
         return OutlinedButton.icon(
           onPressed: () => _openPhoto(field),
           icon: Icon(
-            _values[field.key] == true
-                ? Icons.check_circle
-                : Icons.photo_camera_outlined,
+            captured ? Icons.check_circle : Icons.photo_camera_outlined,
+            color: captured ? BlueVectorColors.success : null,
           ),
-          label: Text(field.label),
+          label: Text(captured ? '${_label(field)} · ajoutée' : _label(field)),
         );
+
       case PilotFieldKind.action:
+        final captured = _values[field.key] == true;
         return OutlinedButton.icon(
           onPressed: () => _openAction(field),
           icon: Icon(
-            field.action == 'site_location'
-                ? Icons.location_on_outlined
-                : Icons.arrow_forward_rounded,
+            captured
+                ? Icons.check_circle
+                : field.action == 'site_location'
+                    ? Icons.location_on_outlined
+                    : Icons.arrow_forward_rounded,
+            color: captured ? BlueVectorColors.success : null,
           ),
-          label: Text(field.label),
+          label: Text(captured ? '${_label(field)} · enregistré' : _label(field)),
         );
     }
   }
 
+  List<PilotFieldDefinition> _visibleRequiredFields() => widget.schema.sections
+      .expand((section) => section.fields)
+      .where((field) => field.isRequired && _visible(field))
+      .toList(growable: false);
+
+  bool _hasValue(PilotFieldDefinition field) {
+    final value = _values[field.key];
+    switch (field.kind) {
+      case PilotFieldKind.text:
+        return value is String && value.trim().isNotEmpty;
+      case PilotFieldKind.number:
+        return value is num;
+      case PilotFieldKind.yesNo:
+        return value is bool;
+      case PilotFieldKind.photo:
+      case PilotFieldKind.action:
+        return value == true;
+    }
+  }
+
+  Map<String, dynamic> _visibleValues() {
+    final result = <String, dynamic>{};
+    for (final field in widget.schema.sections.expand((section) => section.fields)) {
+      if (!_visible(field)) continue;
+      if (!_values.containsKey(field.key)) continue;
+      result[field.key] = _values[field.key];
+    }
+    return result;
+  }
+
   Future<void> _save() async {
     if (_saving) return;
+
+    final missing = _visibleRequiredFields()
+        .where((field) => !_hasValue(field))
+        .toList(growable: false);
+    if (missing.isNotEmpty) {
+      final first = missing.first;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            missing.length == 1
+                ? 'Champ obligatoire manquant : ${first.label}.'
+                : '${missing.length} éléments obligatoires manquent. Commencez par : ${first.label}.',
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       await OfflineService.addPendingAction(
@@ -179,8 +258,9 @@ class _PilotDynamicFormScreenState extends State<PilotDynamicFormScreen> {
           'job_id': widget.job.id,
           'work_type': widget.schema.id,
           'value': widget.schema.label,
-          'form_schema': 'govector.pilot.v1',
-          'fields': Map<String, dynamic>.from(_values),
+          'form_schema': 'govector.praxedo.v1',
+          'fields': _visibleValues(),
+          'submitted_at': DateTime.now().toUtc().toIso8601String(),
         },
       );
       unawaited(OfflineService.syncPendingActions());
@@ -202,6 +282,22 @@ class _PilotDynamicFormScreenState extends State<PilotDynamicFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(BlueVectorSpacing.md),
           children: [
+            Container(
+              padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+              decoration: BoxDecoration(
+                color: BlueVectorColors.primarySoft,
+                border: Border.all(color: BlueVectorColors.border),
+                borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+              ),
+              child: const Text(
+                '* Champ ou preuve obligatoire selon le formulaire Praxedo.',
+                style: TextStyle(
+                  color: BlueVectorColors.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+            const SizedBox(height: BlueVectorSpacing.sm),
             for (final section in widget.schema.sections) ...[
               Card(
                 child: Padding(
