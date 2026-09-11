@@ -33,7 +33,7 @@ void main() {
     expect(BlueVectorTheme.light.brightness, Brightness.light);
   });
 
-  testWidgets('Mobile action sheet exposes the field action grid', (
+  testWidgets('Mobile action sheet exposes the pilot field workflow', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -81,13 +81,21 @@ void main() {
     expect(find.text('Ajouter une action'), findsOneWidget);
     expect(find.text('DOCUMENTER'), findsOneWidget);
     expect(find.text('Photo'), findsOneWidget);
-    expect(find.text('Vidéo'), findsOneWidget);
-    expect(find.text('Signature client'), findsOneWidget);
+    expect(find.text('Voir les photos'), findsOneWidget);
     expect(find.text('RELEVER SUR LE TERRAIN'), findsOneWidget);
     expect(find.text('Mesure / test'), findsOneWidget);
-    expect(find.text('OTDR'), findsOneWidget);
-    expect(find.text('Scan QR / code-barres'), findsOneWidget);
+    expect(find.text('Entrée câble'), findsOneWidget);
+    expect(find.text('Sortie câble'), findsOneWidget);
+    expect(find.text('Matériel utilisé'), findsOneWidget);
     expect(find.text('RENDRE COMPTE'), findsOneWidget);
-    expect(find.text('Autre action'), findsOneWidget);
+    expect(find.text('Commentaire'), findsOneWidget);
+    expect(find.text('Incident / anomalie'), findsOneWidget);
+
+    // Legacy BlueVector toolbox actions are deliberately hidden from the pilot.
+    expect(find.text('Vidéo'), findsNothing);
+    expect(find.text('Signature client'), findsNothing);
+    expect(find.text('OTDR'), findsNothing);
+    expect(find.text('Scan QR / code-barres'), findsNothing);
+    expect(find.text('Autre action'), findsNothing);
   });
 }
