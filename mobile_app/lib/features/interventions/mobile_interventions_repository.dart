@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../models/job.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
@@ -37,61 +39,50 @@ class MobileInterventionsRepository {
         message: 'Session technicien absente.',
       );
     }
-    final internetAvailable = await OfflineService.isOnline();
 
-    if (internetAvailable) {
-      try {
-        var jobs = await ApiService.getMyJobs();
+    // Start local reads immediately. They are cheap and can complete while the
+    // single authoritative jobs request is in flight.
+    final cachedFuture = _cachedForTechnician(ownerUserId, technicianId);
+    final summaryFuture = OfflineService.getOutboxSummary();
+    final lastSyncFuture = OfflineService.getLastSync();
 
-        if (jobs.isEmpty) {
-          final allJobs = await ApiService.getJobs();
+    try {
+      // Do not preflight /health here: it added a full network round-trip before
+      // every refresh. /jobs/my is itself the connectivity check and already
+      // has a short timeout with a local-cache fallback.
+      final jobs = await ApiService.getMyJobs();
 
-          jobs = allJobs
-              .where((job) => job.assignedTechId == technicianId)
-              .toList();
-        }
-
-        await OfflineService.cacheJobs(
+      // Persist the fresh list without delaying first paint.
+      unawaited(
+        OfflineService.cacheJobs(
           jobs,
           ownerUserId: ownerUserId,
           technicianId: technicianId,
-        );
-        final lastSync = await OfflineService.getLastSync();
+        ),
+      );
 
-        final summary = await OfflineService.getOutboxSummary();
-        return MobileInterventionsSnapshot(
-          jobs: _sorted(jobs),
-          isOnline: true,
-          pendingActions: summary.toSynchronize,
-          attentionActions: summary.toReview,
-          lastSync: lastSync,
-        );
-      } catch (_) {
-        final cached = await _cachedForTechnician(ownerUserId, technicianId);
-
-        final summary = await OfflineService.getOutboxSummary();
-        return MobileInterventionsSnapshot(
-          jobs: cached,
-          isOnline: false,
-          pendingActions: summary.toSynchronize,
-          attentionActions: summary.toReview,
-          lastSync: await OfflineService.getLastSync(),
-          message: 'Serveur indisponible. Données locales affichées.',
-        );
-      }
+      final summary = await summaryFuture;
+      final lastSync = await lastSyncFuture;
+      return MobileInterventionsSnapshot(
+        jobs: _sorted(jobs),
+        isOnline: true,
+        pendingActions: summary.toSynchronize,
+        attentionActions: summary.toReview,
+        lastSync: lastSync,
+      );
+    } catch (_) {
+      final cached = await cachedFuture;
+      final summary = await summaryFuture;
+      final lastSync = await lastSyncFuture;
+      return MobileInterventionsSnapshot(
+        jobs: cached,
+        isOnline: false,
+        pendingActions: summary.toSynchronize,
+        attentionActions: summary.toReview,
+        lastSync: lastSync,
+        message: 'Serveur indisponible. Données locales affichées.',
+      );
     }
-
-    final cached = await _cachedForTechnician(ownerUserId, technicianId);
-
-    final summary = await OfflineService.getOutboxSummary();
-    return MobileInterventionsSnapshot(
-      jobs: cached,
-      isOnline: false,
-      pendingActions: summary.toSynchronize,
-      attentionActions: summary.toReview,
-      lastSync: await OfflineService.getLastSync(),
-      message: 'Mode hors ligne. Les actions seront synchronisées plus tard.',
-    );
   }
 
   Future<List<Job>> _cachedForTechnician(
@@ -122,7 +113,6 @@ class MobileInterventionsRepository {
       }
 
       final aDate = DateTime.tryParse(a.scheduledDate ?? '');
-
       final bDate = DateTime.tryParse(b.scheduledDate ?? '');
 
       if (aDate == null && bDate == null) {
