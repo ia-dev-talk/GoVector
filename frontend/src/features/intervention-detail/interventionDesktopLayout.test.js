@@ -14,6 +14,10 @@ const responsiveStyles = readFileSync(
   new URL('../../styles/intervention-v08-layout.css', import.meta.url),
   'utf8',
 );
+const assessmentStyles = readFileSync(
+  new URL('./orienteur-assessment.css', import.meta.url),
+  'utf8',
+);
 const workspaceStyles = readFileSync(
   new URL('../../styles/interventions-v3.css', import.meta.url),
   'utf8',
@@ -108,5 +112,19 @@ test('desktop operations grid receives the remaining vertical workspace', () => 
   assert.match(
     workspaceStyles,
     /\.intervention-technician-rail,[^{]*\.intervention-planning-panel,[^{]*\.intervention-inspector-panel\s*\{[^}]*min-height:\s*0\s*!important/s,
+  );
+});
+
+test('delivery detail keeps main and secondary copy readable on dark cards', () => {
+  assert.match(styles, /--intervention-text-main:\s*#f5f7fb/);
+  assert.match(styles, /--intervention-text-secondary:\s*#c6d2e3/);
+  assert.match(
+    styles,
+    /\.intervention-detail-assignment-copy strong,[\s\S]*color:\s*var\(--intervention-text-main\)/,
+  );
+  assert.match(assessmentStyles, /\.orienteur-assessment\s*\{[^}]*color:\s*#f5f7fb/s);
+  assert.match(
+    assessmentStyles,
+    /\.orienteur-candidates\s*>\s*div\[aria-live="polite"\]\s*\{[^}]*max-height:\s*430px[^}]*overflow-y:\s*auto/s,
   );
 });

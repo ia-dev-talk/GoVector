@@ -1,12 +1,19 @@
-.orienteur-assessment { padding: 16px; color: var(--text-primary, #dce8fb); }
+.orienteur-assessment { padding: 16px; color: #f5f7fb; }
 .orienteur-assessment-heading { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.orienteur-assessment h3,
+.orienteur-assessment h4,
+.orienteur-assessment strong,
+.orienteur-assessment summary { color: #f5f7fb; }
 .orienteur-assessment h3 { margin: 0; }
+.orienteur-assessment p,
+.orienteur-assessment li { color: #c6d2e3; }
 .orienteur-assessment p { margin: 8px 0; line-height: 1.5; }
 .orienteur-assessment li { margin: 6px 0; }
 .orienteur-assessment ul { padding-left: 20px; margin: 10px 0; }
 .orienteur-assessment li[data-severity="blocking"] { font-weight: 700; }
 .orienteur-assessment summary { cursor: pointer; }
 .orienteur-candidates { border-top: 1px solid var(--surface-divider, #334155); margin-top: 18px; padding-top: 16px; }
+.orienteur-candidates > div[aria-live="polite"] { max-height: 430px; padding-right: 5px; overflow-y: auto; scrollbar-width: thin; }
 .orienteur-candidate { margin: 10px 0; padding: 12px; border: 1px solid var(--surface-divider, #334155); border-radius: 8px; overflow-wrap: anywhere; }
-.orienteur-candidate small { display: block; color: var(--text-secondary, #a8b4c7); margin-top: 4px; }
+.orienteur-candidate small { display: block; color: #aebbd0; margin-top: 4px; }
 .orienteur-candidate [data-check-state="FAIL"] { color: #ffb4b4; }

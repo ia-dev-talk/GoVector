@@ -84,7 +84,7 @@
 
 .intervention-detail-current-visit-empty small,
 .intervention-detail-comment-list article.is-historical p {
-  color: #8091aa;
+  color: #aebbd0;
 }
 
 .intervention-detail-comment-list article.is-historical {
@@ -96,6 +96,45 @@
   position: relative;
   z-index: 0;
   isolation: isolate;
+}
+
+/* Delivery readability: the detail page remains dark, with explicit contrast. */
+.intervention-detail-page {
+  --intervention-text-main: #f5f7fb;
+  --intervention-text-secondary: #c6d2e3;
+  --intervention-text-label: #91a8c7;
+}
+
+.intervention-detail-heading p,
+.intervention-detail-card-header > div > span,
+.intervention-detail-field > span,
+.intervention-detail-assignment-copy span,
+.intervention-detail-map-footer,
+.intervention-detail-evidence-summary small,
+.intervention-detail-file-link small,
+.intervention-detail-comment-list small,
+.intervention-detail-timeline-actor {
+  color: var(--intervention-text-label);
+}
+
+.intervention-detail-card-header h2,
+.intervention-detail-field > strong,
+.intervention-detail-assignment-copy strong,
+.intervention-detail-evidence-summary h3,
+.intervention-detail-file-link strong,
+.intervention-detail-measure-grid strong,
+.intervention-detail-equipment-list strong,
+.intervention-detail-stock-list strong,
+.intervention-detail-timeline-title-row strong,
+.intervention-detail-empty-state strong {
+  color: var(--intervention-text-main);
+}
+
+.intervention-detail-comment-list p,
+.intervention-detail-timeline-content,
+.intervention-detail-empty-state,
+.intervention-detail-evidence-summary > span {
+  color: var(--intervention-text-secondary);
 }
 
 @container intervention-detail (min-width: 900px) {
