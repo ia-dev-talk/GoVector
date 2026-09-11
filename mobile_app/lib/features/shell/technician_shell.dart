@@ -52,23 +52,40 @@ class _TechnicianShellState extends State<TechnicianShell> {
   String _technicianName = '';
   JobWorkflowCapabilities? _workflowCapabilities;
 
-  Job? get _selectedJob {
-    if (_snapshot.jobs.isEmpty) {
-      return null;
-    }
+  bool _isStartedJob(Job job) {
+    final status = MobileJobPresenter.normalizedStatus(job);
+    return const {
+      'accepted',
+      'en_route',
+      'on_site',
+      'arrived',
+      'in_progress',
+      'work_in_progress',
+      'en_cours',
+      'ftth_install',
+      'installation_done',
+      'client_validation',
+    }.contains(status);
+  }
 
+  Job? get _selectedJob {
+    if (_snapshot.jobs.isEmpty) return null;
+
+    // A job explicitly opened from "Mes interventions" remains selectable
+    // while it is non-terminal, including the initial ASSIGNED state.
     if (_selectedJobId != null) {
       for (final job in _snapshot.jobs) {
-        if (job.id == _selectedJobId && MobileJobPresenter.isActive(job)) {
+        if (job.id == _selectedJobId && !MobileJobPresenter.isTerminal(job)) {
           return job;
         }
       }
     }
 
+    // "En cours" must never silently jump to the next merely-assigned job
+    // after the technician validates/completes the current one. Only a job
+    // that has actually started may be auto-restored here.
     for (final job in _snapshot.jobs) {
-      if (MobileJobPresenter.isActive(job)) {
-        return job;
-      }
+      if (_isStartedJob(job)) return job;
     }
 
     return null;
@@ -118,9 +135,7 @@ class _TechnicianShellState extends State<TechnicianShell> {
     final name = await AuthService.getTechnicianName();
     final snapshot = await _repository.load(technicianId: widget.technicianId);
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _technicianName = name ?? '';
@@ -128,12 +143,7 @@ class _TechnicianShellState extends State<TechnicianShell> {
       _loading = false;
 
       final current = _selectedJob;
-
-      if (current != null) {
-        _selectedJobId = current.id;
-      } else {
-        _selectedJobId = null;
-      }
+      _selectedJobId = current?.id;
       if (_workflowCapabilities?.jobId != _selectedJobId) {
         _workflowCapabilities = null;
       }
@@ -143,11 +153,8 @@ class _TechnicianShellState extends State<TechnicianShell> {
     _refreshLiveGpsTracking();
 
     final message = snapshot.message;
-
     if (message != null && message.isNotEmpty && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -191,16 +198,11 @@ class _TechnicianShellState extends State<TechnicianShell> {
   }
 
   Future<void> _sync() async {
-    if (_syncing) {
-      return;
-    }
+    if (_syncing) return;
     _syncing = true;
     try {
       final result = await OfflineService.syncPendingActions();
-
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       final message = result.offline
           ? 'Mode hors ligne : synchronisation différée.'
@@ -210,10 +212,7 @@ class _TechnicianShellState extends State<TechnicianShell> {
           ? '${result.synced} action(s) synchronisée(s).'
           : 'Aucune action en attente.';
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       await _load();
     } finally {
       _syncing = false;
@@ -222,7 +221,6 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
   Future<void> _openActions() async {
     final job = _selectedJob;
-
     if (job == null) {
       _showNoJob();
       return;
@@ -300,10 +298,6 @@ class _TechnicianShellState extends State<TechnicianShell> {
           );
           break;
         case 'start_work':
-          // One visible technician intention: the internal start-work transition
-          // is audited, then completion is durably queued immediately. If 4G
-          // disappears after the first request, complete_job remains retryable
-          // and the technician never needs to understand the internal state.
           await InterventionService.updateStatus(
             jobId: job.id,
             newStatus: 'in_progress',
@@ -413,14 +407,12 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
   Future<void> _callClient() async {
     final phone = _selectedJob?.customerPhone?.trim();
-
     if (phone == null || phone.isEmpty) {
       _message('Téléphone client non renseigné.');
       return;
     }
 
     final uri = Uri(scheme: 'tel', path: phone);
-
     if (!await launchUrl(uri)) {
       _message('Impossible d’ouvrir l’application téléphone.');
     }
@@ -428,15 +420,11 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
   Future<void> _navigate() async {
     final job = _selectedJob;
-
     if (job == null) {
       _showNoJob();
       return;
     }
 
-    // Navigation always targets the planned service location. gpsLatitude /
-    // gpsLongitude are field observations from the technician and must never
-    // become a destination implicitly.
     if (job.hasServiceCoordinates) {
       await LocationService.openNavigation(
         latitude: job.latitude,
@@ -499,13 +487,8 @@ class _TechnicianShellState extends State<TechnicianShell> {
   }
 
   void _message(String message) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -558,10 +541,6 @@ class _TechnicianShellState extends State<TechnicianShell> {
     ];
 
     return Scaffold(
-      // The current-intervention screen owns a workflow action bar at the
-      // bottom of its body. Extending the body below BottomAppBar placed that
-      // action bar behind the navigation/FAB, making valid server commands
-      // such as `accept_and_start` impossible to see or tap.
       extendBody: false,
       body: IndexedStack(index: _pageIndex, children: pages),
       floatingActionButton: FloatingActionButton(
