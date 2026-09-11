@@ -15,7 +15,10 @@ from backend.api.routes import tech_jobs
 from backend.auth.dependencies import require_technician
 from backend.database.connection import get_db
 from backend.database.models import Job, StockItem, StockMovement, User
-from backend.logic.cable_classification import is_cable_catalog_item
+from backend.logic.cable_classification import (
+    PILOT_CABLE_TYPES,
+    pilot_cable_code,
+)
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_stock import (
     resolve_equipment_scan,
@@ -59,56 +62,59 @@ async def get_technician_cable_catalogue_v2(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_technician),
 ) -> list[dict[str, Any]]:
-    """Return governed cable references, including zero/unknown technician stock.
+    """Return the governed FO16/FO64/FO96 pilot catalogue.
 
-    Real field consumption must remain recordable even when the system never
-    received a prior allocation for that reel/reference.  The mobile therefore
-    sees the governed catalogue and an informational custody quantity side by
-    side instead of hiding references whose technician stock is zero.
+    The catalogue is deliberately independent from custody: the field worker
+    must be able to report real cable use even when no prior allocation has yet
+    been entered. Existing real StockItem rows are linked when present; missing
+    rows are returned as governed virtual families with zero stock and an
+    explicit reconciliation flag. Legacy synthetic IAM/INWI/ORANGE cables are
+    never exposed by this endpoint.
     """
-    if current_user.technician_id is None:
+    technician_id = current_user.technician_id
+    if technician_id is None:
         raise HTTPException(status_code=400, detail="Profil technicien manquant")
 
-    custody = await technician_stock_payload(
-        db,
-        technician_id=current_user.technician_id,
-    )
+    custody = await technician_stock_payload(db, technician_id=technician_id)
     by_item_id = {int(row["item_id"]): row for row in custody}
     items = (
         await db.execute(
             select(StockItem)
             .where(StockItem.is_active.is_(True))
-            .order_by(
-                StockItem.equipment_type.asc(),
-                StockItem.label.asc(),
-                StockItem.reference.asc(),
-                StockItem.id.asc(),
-            )
+            .order_by(StockItem.id.asc())
         )
     ).scalars().all()
 
-    result: list[dict[str, Any]] = []
+    real_by_code: dict[str, StockItem] = {}
     for item in items:
-        if not is_cable_catalog_item(item):
-            continue
-        known = by_item_id.get(item.id)
+        code = pilot_cable_code(item)
+        if code is not None and code not in real_by_code:
+            real_by_code[code] = item
+
+    result: list[dict[str, Any]] = []
+    for code, label in PILOT_CABLE_TYPES.items():
+        item = real_by_code.get(code)
+        known = by_item_id.get(item.id) if item is not None else None
+        available = int(known.get("available_quantity", 0)) if known else 0
         result.append(
             {
-                "item_id": item.id,
-                "reference": item.reference,
-                "label": item.label,
-                "equipment_type": item.equipment_type,
-                "operator": item.operator,
-                "manufacturer": item.manufacturer,
-                "model": item.model,
-                "unit": item.unit,
+                "item_id": item.id if item is not None else None,
+                "reference": code,
+                "code": code,
+                "label": label,
+                "equipment_type": "CABLE_FO",
+                "operator": getattr(item, "operator", None) if item is not None else None,
+                "manufacturer": getattr(item, "manufacturer", None) if item is not None else None,
+                "model": getattr(item, "model", None) if item is not None else None,
+                "unit": getattr(item, "unit", None) if item is not None else "m",
                 "warehouse_id": known.get("warehouse_id") if known else None,
                 "warehouse_name": known.get("warehouse_name") if known else None,
                 "quantity": int(known.get("quantity", 0)) if known else 0,
                 "reserved_quantity": int(known.get("reserved_quantity", 0)) if known else 0,
-                "available_quantity": int(known.get("available_quantity", 0)) if known else 0,
+                "available_quantity": available,
                 "stock_registered": known is not None,
-                "stock_known": bool(known and int(known.get("available_quantity", 0)) > 0),
+                "stock_known": available > 0,
+                "stock_reconciliation_required": known is None or available <= 0,
             }
         )
     return result
@@ -163,6 +169,19 @@ async def get_technician_stock_history_v2(
         }
         for movement, item_reference, item_label, item_unit, job_number in rows
     ]
+
+
+@tech_jobs.router.get("/stock-v2/serialized")
+async def get_technician_serialized_custody_v2(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_technician),
+) -> list[dict[str, Any]]:
+    """Compatibility route retained by the mobile stock profile."""
+    if current_user.technician_id is None:
+        raise HTTPException(status_code=400, detail="Profil technicien manquant")
+    # The dedicated serialized-custody implementation may be mounted elsewhere;
+    # preserve this route contract without fabricating rows here.
+    return []
 
 
 @tech_jobs.router.post("/scan/resolve")
