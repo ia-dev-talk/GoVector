@@ -8,6 +8,7 @@ import '../../services/offline_service.dart';
 import 'cable_endpoint_screen.dart';
 import 'free_measurement_action_screen.dart';
 import 'free_photo_action_screen.dart';
+import 'intervention_photos_screen.dart';
 import 'material_used_screen.dart';
 import 'pilot_dynamic_form_screen.dart';
 
@@ -138,6 +139,14 @@ Future<void> showMobileActionSheet({
       icon: Icons.photo_camera_outlined,
       color: BlueVectorColors.primaryBright,
       onTap: () => openScreen(FreePhotoActionScreen(job: job)),
+    ),
+    _PilotAction(
+      section: 'Documenter',
+      label: 'Voir les photos',
+      subtitle: 'Galerie de cette intervention',
+      icon: Icons.photo_library_outlined,
+      color: BlueVectorColors.primaryBright,
+      onTap: () => openScreen(InterventionPhotosScreen(job: job)),
     ),
     _PilotAction(
       section: 'Relever sur le terrain',
