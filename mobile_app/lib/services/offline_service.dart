@@ -46,7 +46,9 @@ class OfflineService {
       store: _outboxStore,
       endpoint: endpoint,
       tokenProvider: AuthService.getToken,
-      onlineProbe: isOnline,
+      // syncPendingActions already probes the real GoVector backend once before
+      // media upload. A second /health round-trip here only delayed every sync.
+      onlineProbe: () async => true,
       onAcknowledgedBatch: _recordLastSync,
     );
   }
@@ -79,7 +81,6 @@ class OfflineService {
       final prefs = await SharedPreferences.getInstance();
       final json = prefs.getString(_jobsCacheKey(owner));
       if (json == null || json.isEmpty) return [];
-
       final List data = jsonDecode(json);
       return data.map((e) => Job.fromJson(e)).toList();
     } catch (_) {
@@ -88,13 +89,14 @@ class OfflineService {
   }
 
   /// Verify that the actual GoVector backend is reachable. Generic Internet
-  /// access is insufficient for the 4G pilot.
+  /// access is insufficient for the field pilot. Keep this probe short: it is
+  /// only a routing hint, never a reason to freeze the field UI.
   static Future<bool> isOnline({http.Client? client}) async {
     final requestClient = client ?? http.Client();
     try {
       final response = await requestClient
           .get(AppConfig.healthUri)
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 3));
       return response.statusCode == 200;
     } on TimeoutException {
       return false;
