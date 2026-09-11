@@ -37,6 +37,7 @@ const PAGE_ROLES = Object.freeze({
   ],
   interventions: [
     'ADMIN',
+    'CHEF_ORIENTEUR',
     'ORIENTEUR',
   ],
   planning: [
@@ -63,7 +64,6 @@ const PAGE_ROLES = Object.freeze({
   ],
   rapports: [
     'ADMIN',
-    'CHEF_ORIENTEUR',
     'ORIENTEUR',
   ],
   parametres: [
@@ -956,6 +956,11 @@ function App() {
       ? navigationPayload
       : null;
 
+  const pageResetKey = useMemo(
+    () => `${activePage || ''}:${JSON.stringify(activeNavigationPayload ?? null)}`,
+    [activeNavigationPayload, activePage],
+  );
+
   const pageProps = user
     ? {
         userRole: user.role,
@@ -1024,7 +1029,7 @@ function App() {
         onLogout={handleLogout}
       >
         <PageErrorBoundary
-          resetKey={activePage}
+          resetKey={pageResetKey}
         >
           <Suspense
             fallback={<PageLoader />}
