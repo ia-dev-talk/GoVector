@@ -374,6 +374,8 @@ export default function RapportsPage({ onNavigate }) {
         refreshing={refreshing}
         onRefresh={() => loadData()}
         onExport={() => setExportOpen(true)}
+        onMagillan={generateMagillanReport}
+        magillanBusy={magillanGenerating}
         exportDisabled={!hasSnapshot || scopeTransition}
         exactDate={exactDate}
         onExactDateChange={setExactDate}
@@ -443,15 +445,6 @@ export default function RapportsPage({ onNavigate }) {
             title="Réinitialiser les filtres"
           >
             ×
-          </button>
-          <button
-            type="button"
-            className="rv3-primary-button rv3-magillan-button"
-            onClick={generateMagillanReport}
-            disabled={!exportScopeFilters || magillanGenerating}
-            title="Générer le RAPPORT JOURNALIER Magillan pour le périmètre affiché"
-          >
-            {magillanGenerating ? 'Génération Magillan…' : 'Rapport Magillan'}
           </button>
         </div>
       )}

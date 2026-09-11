@@ -1,3 +1,4 @@
+import base64
 from types import SimpleNamespace
 
 from backend.services.magillan_daily_report import _report_page
@@ -24,25 +25,30 @@ def test_magillan_daily_report_keeps_supplied_template_labels_and_real_logo():
 
     for label in (
         "RAPPORT JOURNALIER",
-        "N° de demande :",
-        "N° de rapport :",
+        "N° DEMANDE:",
+        "N° RAPPORT",
         "CENTRAL",
         "CLIENT",
         "ADRESSE",
-        "G.P.S du Central",
-        "1° SPLITTER",
-        "G.P.S",
-        "N° SPLITTER",
-        "N° BR AFFECTÉE",
+        "GPS",
+        "SPLITTER",
         "PCO",
         "LOCALITE",
         "POSE CABLE",
         "RACCORDEMENT",
+        "TYPE",
+        "CODE",
+        "DEPART",
+        "ARRIVE",
+        "CONDUITE",
+        "FACADE",
+        "AERIEN",
+        "JOINT",
+        "TIROIR",
+        "PRISE",
         "OBSERVATION",
-        "TYPE DE POSE",
-        "Signature de technicien :",
-        "Signature de responsable d 'équipe :",
-        "Responsable MAGILLAN",
+        "REPRESENTANT DE LA SOCIETE",
+        "Surveillant CMO/CHEF DE SECTEUR",
     ):
         assert label in html
 
@@ -51,8 +57,16 @@ def test_magillan_daily_report_keeps_supplied_template_labels_and_real_logo():
     assert "CENTRAL CASA" in html
     assert "Client test" in html
     assert "33.573100, -7.589800" in html
-    assert "125" in html
     assert "Observation terrain" in html
+
+    # A total length cannot be attributed to one of the three pose columns.
+    assert "125" not in html
+
+    encoded_logo = MAGILLAN_LOGO_DATA_URI.split(",", 1)[1]
+    logo_bytes = base64.b64decode(encoded_logo, validate=True)
+    assert len(logo_bytes) > 20_000
+    assert logo_bytes.startswith(b"\xff\xd8")
+    assert logo_bytes.endswith(b"\xff\xd9")
 
 
 def test_magillan_report_does_not_guess_unsupported_ftth_fields():
@@ -75,7 +89,7 @@ def test_magillan_report_does_not_guess_unsupported_ftth_fields():
 
     html = _report_page(job)
 
-    # The current model has no authoritative PCO / BR AFFECTÉE mapping.
+    # The current model has no authoritative PCO mapping.
     assert "PBO-42" not in html
     assert ">8<" not in html
     assert "SPL-5" in html

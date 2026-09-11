@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { apiClient } from '../../api/client';
 import {
   CalendarIcon,
   ExportIcon,
@@ -27,26 +26,6 @@ const RANGE_OPTIONS = Object.freeze([
   { value: 'exact', label: 'Jour exact' },
   { value: 'custom', label: 'Période personnalisée' },
 ]);
-
-function civilDateKey(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-  ].join('-');
-}
-
-function downloadBlob(blob, filename) {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-}
 
 function FrenchCivilDateField({
   value,
@@ -145,6 +124,8 @@ const ReportsHeader = memo(function ReportsHeader({
   refreshing,
   onRefresh,
   onExport,
+  onMagillan,
+  magillanBusy = false,
   exportDisabled = false,
   exactDate = '',
   onExactDateChange,
@@ -154,9 +135,6 @@ const ReportsHeader = memo(function ReportsHeader({
   onCustomEndChange,
   periodError = '',
 }) {
-  const [magillanBusy, setMagillanBusy] = useState(false);
-  const [magillanError, setMagillanError] = useState('');
-
   const realtimeStatus = useMemo(
     () => resolveReportRealtimeStatus(range, connected),
     [connected, range],
@@ -170,48 +148,6 @@ const ReportsHeader = memo(function ReportsHeader({
         ? 'rv3-live-pill--reconnecting'
         : '',
   ].filter(Boolean).join(' ');
-
-  const exportMagillan = async () => {
-    if (magillanBusy || exportDisabled || periodError) return;
-
-    const startDate = civilDateKey(range?.start);
-    const endDate = civilDateKey(range?.end);
-    if (!startDate || !endDate) {
-      setMagillanError('Période invalide pour le rapport Magillan.');
-      return;
-    }
-
-    setMagillanBusy(true);
-    setMagillanError('');
-
-    try {
-      const response = await apiClient.post(
-        '/export/magillan-daily',
-        {
-          filters: {
-            start_date: startDate,
-            end_date: endDate,
-          },
-        },
-        { responseType: 'blob' },
-      );
-
-      const filename = startDate === endDate
-        ? `RAPPORT_JOURNALIER_MAGILLAN_${startDate}.pdf`
-        : `RAPPORT_JOURNALIER_MAGILLAN_${startDate}_${endDate}.pdf`;
-      downloadBlob(
-        new Blob([response.data], { type: 'application/pdf' }),
-        filename,
-      );
-    } catch (error) {
-      setMagillanError(
-        error?.response?.data?.detail ||
-        'Impossible de générer le rapport journalier Magillan.',
-      );
-    } finally {
-      setMagillanBusy(false);
-    }
-  };
 
   return (
     <header className="rv3-header">
@@ -293,9 +229,6 @@ const ReportsHeader = memo(function ReportsHeader({
         {periodError && (
           <span className="rv3-period-error" role="alert">{periodError}</span>
         )}
-        {magillanError && (
-          <span className="rv3-period-error" role="alert">{magillanError}</span>
-        )}
       </div>
 
       <div className="rv3-header-actions">
@@ -326,7 +259,7 @@ const ReportsHeader = memo(function ReportsHeader({
         <button
           type="button"
           className="rv3-primary-button rv3-magillan-button"
-          onClick={exportMagillan}
+          onClick={onMagillan}
           disabled={magillanBusy || exportDisabled || Boolean(periodError)}
           title="Générer le modèle RAPPORT JOURNALIER Magillan fourni"
         >
