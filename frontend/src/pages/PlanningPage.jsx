@@ -364,9 +364,15 @@ export default function PlanningPage({ onNavigate }) {
   const openJob = useCallback((job) => {
     if (typeof onNavigate !== 'function') return;
     const parsedId = Number(job?.id);
+    const scheduledDate = scheduledDateKey(job);
     onNavigate(
       'interventions',
-      Number.isInteger(parsedId) && parsedId > 0 ? { id: parsedId } : null,
+      Number.isInteger(parsedId) && parsedId > 0
+        ? {
+            id: parsedId,
+            ...(scheduledDate ? { scheduled_date: scheduledDate } : {}),
+          }
+        : null,
     );
   }, [onNavigate]);
 
@@ -471,7 +477,10 @@ export default function PlanningPage({ onNavigate }) {
             visibleTechnicians.map((technician) => {
               const technicianId = text(technician?.id);
               const name = text(technician?.name ?? technician?.full_name ?? technician?.username, `Technicien #${technicianId}`);
-              const status = text(technician?.status, '—').replace(/_/g, ' ');
+              const status = text(
+                technician?.live_status ?? technician?.status,
+                '—',
+              ).replace(/_/g, ' ');
 
               return (
                 <div className="bp-week-grid bp-week-resource-row" key={technicianId}>
