@@ -68,7 +68,7 @@ const NAV_ITEMS = Object.freeze([
     id: 'carte',
     label: 'Carte live',
     icon: 'map',
-    roles: ['ADMIN'],
+    roles: ['ADMIN', 'ORIENTEUR'],
   },
   {
     id: 'personnel',
@@ -180,7 +180,7 @@ function ProductMark({ compact = false }) {
         letterSpacing: '-0.04em',
       }}
     >
-      BV
+      GV
     </span>
   );
 }
