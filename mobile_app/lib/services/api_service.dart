@@ -10,6 +10,10 @@ import '../models/equipment.dart';
 import 'auth_service.dart';
 
 class ApiService {
+  // Reuse the connection for the hot technician jobs path. Reopening a client
+  // for every refresh wastes time on mobile networks and local Wi-Fi alike.
+  static final http.Client _jobsClient = http.Client();
+
   /// Helper pour ajouter le header Authorization Bearer
   static Future<Map<String, String>> _authHeaders({
     Map<String, String>? extra,
@@ -166,17 +170,25 @@ class ApiService {
     return [];
   }
 
-  /// Récupérer les jobs assignés au technicien connecté
+  /// Récupérer les jobs assignés au technicien connecté.
+  ///
+  /// This endpoint is the authoritative technician scope. Do not follow an
+  /// empty successful response with the heavier /jobs/ collection: an empty
+  /// assignment list is valid, and the old fallback doubled network and DB
+  /// work precisely when the technician had nothing assigned.
   static Future<List<Job>> getMyJobs() async {
     final headers = await _authHeaders();
-    final response = await http
+    final response = await _jobsClient
         .get(AppConfig.apiUri('jobs/my'), headers: headers)
-        .timeout(AppConfig.httpTimeout);
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
       return data.map((e) => Job.fromJson(e as Map<String, dynamic>)).toList();
     }
-    return [];
+    if (response.statusCode == 401) {
+      throw Exception('Token expiré');
+    }
+    throw Exception('Erreur chargement interventions: ${response.statusCode}');
   }
 
   static Future<void> completeJob(int id) async {
