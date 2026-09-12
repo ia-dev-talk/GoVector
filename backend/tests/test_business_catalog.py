@@ -50,11 +50,16 @@ def test_govector_pilot_reference_lists_match_confirmed_praxedo_values():
     values = settings._catalog_defaults()
 
     assert [item.label for item in values.installation_modes] == [
-        "Pose câble FO en conduite / sous PEHD",
-        "Pose câble FO en façade ou immeuble",
-        "Pose câble FO en aérien",
+        "Sous PEHD · conduite / souterrain",
+        "Travée / tronçon · aérien",
+        "Façade / sous-dalle · immeuble",
     ]
-    assert [item.label for item in values.cable_types] == ["FO 16", "FO 64", "FO 96"]
+    assert [item.code for item in values.installation_modes] == ["SP", "TR", "FSD"]
+    assert [item.code for item in values.cable_types] == ["FO16", "FO64"]
+    assert [item.label for item in values.cable_types] == [
+        "FO16 · 16 fibres",
+        "FO64 · 64 fibres",
+    ]
     assert [item.label for item in values.technician_skills] == [
         "PB",
         "PM",
@@ -63,6 +68,34 @@ def test_govector_pilot_reference_lists_match_confirmed_praxedo_values():
         "RACCORDEMENT REALISABLE",
         "RACCORDEMENT SAV",
     ]
+
+
+def test_legacy_catalog_is_upgraded_for_web_and_mobile_without_fo96():
+    defaults = settings._catalog_defaults()
+    document = ApplicationSetting(
+        namespace="business_catalog",
+        schema_version=3,
+        revision=4,
+        values={
+            **defaults.model_dump(),
+            "installation_modes": [
+                {"code": "CONDUITE_PEHD", "label": "Conduite", "sort_order": 0},
+                {"code": "AERIEN", "label": "Aérien", "sort_order": 10},
+                {"code": "FACADE_IMMEUBLE", "label": "Façade", "sort_order": 20},
+            ],
+            "cable_types": [
+                {"code": "FO_16", "label": "FO 16", "sort_order": 0},
+                {"code": "FO_64", "label": "FO 64", "sort_order": 10},
+                {"code": "FO_96", "label": "FO 96", "sort_order": 20},
+            ],
+        },
+    )
+
+    response = settings._catalog_response(document)
+
+    assert response.schema_version == 4
+    assert [item.code for item in response.values.installation_modes] == ["SP", "TR", "FSD"]
+    assert [item.code for item in response.values.cable_types] == ["FO16", "FO64"]
 
 
 def test_catalog_write_is_admin_only_but_read_is_authenticated():

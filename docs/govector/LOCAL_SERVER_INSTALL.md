@@ -54,9 +54,9 @@ administrateur, le créer explicitement sans mot de passe par défaut :
 
 ```bash
 docker compose exec \
-  -e BLUEVECTOR_ADMIN_USERNAME=admin \
-  -e BLUEVECTOR_ADMIN_EMAIL=admin@entreprise.local \
-  -e BLUEVECTOR_ADMIN_PASSWORD='REMPLACER_PAR_UN_SECRET_DE_14_CARACTERES_MINIMUM' \
+  -e GOVECTOR_ADMIN_USERNAME=admin \
+  -e GOVECTOR_ADMIN_EMAIL=admin@entreprise.local \
+  -e GOVECTOR_ADMIN_PASSWORD='REMPLACER_PAR_UN_SECRET_DE_14_CARACTERES_MINIMUM' \
   app python -m backend.create_admin
 ```
 

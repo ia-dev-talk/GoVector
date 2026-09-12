@@ -55,7 +55,7 @@ router = APIRouter()
 _OPERATIONAL_NAMESPACE = "operational"
 _OPERATIONAL_SCHEMA_VERSION = 3
 _CATALOG_NAMESPACE = "business_catalog"
-_CATALOG_SCHEMA_VERSION = 3
+_CATALOG_SCHEMA_VERSION = 4
 
 
 _CATALOG_COLORS = (
@@ -163,14 +163,13 @@ def _catalog_defaults() -> BusinessCatalogValues:
             for index, code in enumerate(sorted(SUPPORTED_FIELD_ACTION_TYPES))
         ],
         installation_modes=[
-            _item("CONDUITE_PEHD", "Pose câble FO en conduite / sous PEHD", 0),
-            _item("FACADE_IMMEUBLE", "Pose câble FO en façade ou immeuble", 1),
-            _item("AERIEN", "Pose câble FO en aérien", 2),
+            _item("SP", "Sous PEHD · conduite / souterrain", 0),
+            _item("TR", "Travée / tronçon · aérien", 1),
+            _item("FSD", "Façade / sous-dalle · immeuble", 2),
         ],
         cable_types=[
-            _item("FO_16", "FO 16", 0),
-            _item("FO_64", "FO 64", 1),
-            _item("FO_96", "FO 96", 2),
+            _item("FO16", "FO16 · 16 fibres", 0),
+            _item("FO64", "FO64 · 64 fibres", 1),
         ],
         technician_skills=[
             _item("PB", "PB", 0),
@@ -415,6 +414,39 @@ def _catalog_response(
             }
         )
 
+    if document is not None and document.schema_version < _CATALOG_SCHEMA_VERSION:
+        installation_codes = {
+            "CONDUITE_PEHD": ("SP", "Sous PEHD · conduite / souterrain"),
+            "AERIEN": ("TR", "Travée / tronçon · aérien"),
+            "FACADE_IMMEUBLE": ("FSD", "Façade / sous-dalle · immeuble"),
+        }
+        cable_codes = {
+            "FO_16": ("FO16", "FO16 · 16 fibres"),
+            "FO_64": ("FO64", "FO64 · 64 fibres"),
+        }
+
+        def upgrade_items(items, replacements):
+            upgraded = []
+            for item in items:
+                replacement = replacements.get(item.code)
+                if replacement is None:
+                    if item.code in {"FO_96", "FO96"}:
+                        continue
+                    upgraded.append(item)
+                    continue
+                code, label = replacement
+                upgraded.append(item.model_copy(update={"code": code, "label": label}))
+            return upgraded
+
+        values = values.model_copy(
+            update={
+                "installation_modes": upgrade_items(
+                    values.installation_modes, installation_codes
+                ),
+                "cable_types": upgrade_items(values.cable_types, cable_codes),
+            }
+        )
+
     if document is not None:
         default_job_types = {item.code: item for item in defaults.job_types}
         values = values.model_copy(
@@ -436,7 +468,7 @@ def _catalog_response(
         )
     return BusinessCatalogDocumentResponse(
         namespace=_CATALOG_NAMESPACE,
-        schema_version=_CATALOG_SCHEMA_VERSION if document is None else document.schema_version,
+        schema_version=_CATALOG_SCHEMA_VERSION,
         revision=document.revision if document is not None else 0,
         values=values,
         updated_by=document.updated_by if document is not None else None,

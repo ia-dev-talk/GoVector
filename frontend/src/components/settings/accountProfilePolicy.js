@@ -1,13 +1,13 @@
 const PROFILE_POLICIES = Object.freeze({
   ADMIN: Object.freeze({ field: null, label: null }),
-  CHEF_ORIENTEUR: Object.freeze({ field: null, label: null }),
+  CHEF_ORIENTEUR: Object.freeze({ field: 'orienteur_id', label: 'profil équipe' }),
   ORIENTEUR: Object.freeze({ field: 'orienteur_id', label: 'profil orienteur' }),
   TECHNICIAN: Object.freeze({ field: 'technician_id', label: 'profil technicien' }),
 });
 
 const ROLE_LABELS = Object.freeze({
   ADMIN: 'Administrateur',
-  CHEF_ORIENTEUR: 'Chef orienteur',
+  CHEF_ORIENTEUR: 'Agent terrain',
   ORIENTEUR: 'Orienteur',
   TECHNICIAN: 'Technicien',
 });
@@ -154,7 +154,9 @@ export function buildOperationalAccountProfilePayload(
     if (orienteurIdValue === null) {
       return {
         valid: false,
-        error: 'Choisissez le profil orienteur lié à ce compte.',
+        error: policy.role === 'CHEF_ORIENTEUR'
+          ? 'Choisissez le profil équipe lié à cet agent terrain.'
+          : 'Choisissez le profil orienteur lié à ce compte.',
         technician_id: null,
         orienteur_id: null,
       };

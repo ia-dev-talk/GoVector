@@ -59,7 +59,7 @@ const ROLE_CONFIG = {
     color: 'var(--color-warning)',
   },
   CHEF_ORIENTEUR: {
-    label: 'Chef Orienteur',
+    label: 'Agent terrain',
     icon: '🗺️',
     color: 'var(--color-primary-light)',
   },

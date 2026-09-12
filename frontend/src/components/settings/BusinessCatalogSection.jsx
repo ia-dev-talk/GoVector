@@ -25,8 +25,8 @@ const SECTIONS = [
   },
   {
     key: 'job_types',
-    title: 'Types d’intervention',
-    shortTitle: 'Types',
+    title: 'Types d’activités / interventions',
+    shortTitle: 'Activités',
     copy: 'Ajoutez un libellé métier et rattachez-le à un comportement technique existant.',
     extensible: true,
     canonicalized: true,
@@ -103,7 +103,14 @@ const SECTIONS = [
 ];
 
 function errorMessage(error) {
-  return error?.response?.data?.detail || error?.message || 'Référentiel indisponible.';
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (typeof detail?.message === 'string') return detail.message;
+  if (Array.isArray(detail)) {
+    const messages = detail.map((item) => item?.msg || item?.message).filter(Boolean);
+    if (messages.length) return messages.join(' · ');
+  }
+  return error?.message || 'Référentiel indisponible.';
 }
 
 function copyValues(values) {

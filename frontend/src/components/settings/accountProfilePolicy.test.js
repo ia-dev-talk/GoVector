@@ -17,7 +17,7 @@ test('account directory uses readable role labels and combined filters', () => {
     { username: 'field', email: 'field@example.test', role: 'TECHNICIAN', is_active: false },
   ];
 
-  assert.equal(operationalAccountRoleLabel('CHEF_ORIENTEUR'), 'Chef orienteur');
+  assert.equal(operationalAccountRoleLabel('CHEF_ORIENTEUR'), 'Agent terrain');
   assert.equal(operationalAccountRoleLabel('TECHNICIAN'), 'Technicien');
   assert.deepEqual(
     filterOperationalAccounts(accounts, { query: 'technicien', status: 'INACTIVE' }),
@@ -43,7 +43,12 @@ test('account profile policy mirrors backend role requirements', () => {
     label: 'profil orienteur',
   });
   assert.equal(resolveOperationalAccountProfilePolicy('ADMIN').field, null);
-  assert.equal(resolveOperationalAccountProfilePolicy('CHEF_ORIENTEUR').field, null);
+  assert.deepEqual(resolveOperationalAccountProfilePolicy('CHEF_ORIENTEUR'), {
+    role: 'CHEF_ORIENTEUR',
+    supported: true,
+    field: 'orienteur_id',
+    label: 'profil équipe',
+  });
 });
 
 test('technician accounts require exactly one valid technician profile', () => {
@@ -84,21 +89,16 @@ test('orienteur accounts require exactly one valid orienteur profile', () => {
   );
 });
 
-test('admin and chef accounts cannot carry stale field profile links', () => {
-  for (const role of ['ADMIN', 'CHEF_ORIENTEUR']) {
-    assert.deepEqual(
-      buildOperationalAccountProfilePayload(role, {
-        technicianId: '42',
-        orienteurId: '7',
-      }),
-      {
-        valid: true,
-        error: '',
-        technician_id: null,
-        orienteur_id: null,
-      },
-    );
-  }
+test('admin drops stale links while field agent requires its team profile', () => {
+  assert.deepEqual(
+    buildOperationalAccountProfilePayload('ADMIN', { technicianId: '42', orienteurId: '7' }),
+    { valid: true, error: '', technician_id: null, orienteur_id: null },
+  );
+  assert.equal(buildOperationalAccountProfilePayload('CHEF_ORIENTEUR', {}).valid, false);
+  assert.deepEqual(
+    buildOperationalAccountProfilePayload('CHEF_ORIENTEUR', { orienteurId: '7' }),
+    { valid: true, error: '', technician_id: null, orienteur_id: 7 },
+  );
 });
 
 test('unsupported roles fail closed', () => {

@@ -4,7 +4,7 @@ export const SETTINGS_NAV_GROUPS = Object.freeze([
     label: 'Centre de contrôle',
     items: [
       { id: 'overview', label: 'Vue d’ensemble', description: 'État de la configuration active', status: 'active', icon: 'overview', keywords: ['général', 'plateforme', 'runtime', 'configuration'] },
-      { id: 'completion-policy', label: 'Clôture terrain', description: 'Preuves requises par activité et opérateur', status: 'connected', icon: 'modules', keywords: ['clôture', 'photo', 'signature', 'preuve', 'opérateur', 'personnalisation'] },
+      { id: 'completion-policy', label: 'Clôture terrain & formulaires', description: 'Champs, preuves et mesures requis par activité, client et opérateur', status: 'connected', icon: 'modules', keywords: ['clôture', 'formulaire', 'champ personnalisé', 'photo', 'signature', 'preuve', 'mesure', 'opérateur', 'personnalisation'] },
       { id: 'operational', label: 'Exploitation', description: 'Règles terrain persistées', status: 'connected', icon: 'location', keywords: ['gps', 'supervision', 'cockpit', 'seuil', 'clôture'] },
     ],
   },
@@ -47,7 +47,7 @@ export const INTEGRATION_CAPABILITIES = Object.freeze([
 ]);
 
 export const ROADMAP_CAPABILITIES = Object.freeze([
-  { id: 'identity', label: 'Utilisateurs et rôles', status: 'partial', description: 'Comptes, permissions granulaires, délégations et sessions.', nextStep: 'Compléter le CRUD des comptes, la désactivation, la réinitialisation et l’audit des sessions.' },
+  { id: 'identity', label: 'Utilisateurs et rôles', status: 'connected', description: 'Création des comptes nominatifs, rattachement métier, désactivation, réinitialisation et audit.', nextStep: 'Les délégations temporaires et la gestion détaillée des sessions restent hors du périmètre actuel.' },
   { id: 'workflow', label: 'Statuts et workflows', status: 'connected', description: 'Transitions, motifs, validations et règles par activité/opérateur.', nextStep: 'Étendre les politiques par activité sans rendre les transitions techniques modifiables.' },
   { id: 'forms', label: 'Formulaires terrain', status: 'partial', description: 'Champs dynamiques, preuves obligatoires, mesures et contrôles qualité.', nextStep: 'Ajouter les formulaires spécifiques client/opérateur au-dessus des actions terrain libres.' },
   { id: 'security', label: 'Sécurité et audit', status: 'partial', description: 'Journal d’audit existant, politiques de sécurité encore à administrer.', nextStep: 'Ajouter des endpoints de politique avant toute interface d’édition.' },

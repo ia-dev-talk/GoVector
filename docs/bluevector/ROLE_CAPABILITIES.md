@@ -3,7 +3,7 @@
 | Rôle | Portée | Écritures attendues | Interdictions |
 |---|---|---|---|
 | Admin | plateforme entière | clients, comptes, paramètres, équipes, référentiels | aucune donnée inventée; actions auditées |
-| Chef orienteur | organisation opérationnelle | équipes, techniciens, secteurs, arbitrage | pas d’accès client hors périmètre futur |
+| Agent terrain (`CHEF_ORIENTEUR` historique) | contrôle terrain de son équipe | interventions de son équipe, preuves, retour ou validation | aucun droit global d’administration |
 | Orienteur | dossiers/équipes sous responsabilité | préparation, affectation, consignes, pièces, validation, stock opérationnel | ne peut agir hors périmètre |
 | Technicien | jobs affectés, et dossiers auxquels il a réellement participé | commandes terrain pendant le passage; observations, médias, réponses et compléments append-only après le passage | pas de mutation stock autoritative, de réouverture implicite ni job d’un autre technicien |
 | Client entreprise | son organisation | aucune en V1 | lecture seule stricte, jamais stock/personnel interne |

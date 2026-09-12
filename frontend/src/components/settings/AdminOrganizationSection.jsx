@@ -13,7 +13,14 @@ import {
 import '../../styles/settings-v1-admin.css';
 
 function message(error) {
-  return error?.response?.data?.detail || error?.message || 'Opération impossible.';
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (typeof detail?.message === 'string') return detail.message;
+  if (Array.isArray(detail)) {
+    const messages = detail.map((item) => item?.msg || item?.message).filter(Boolean);
+    if (messages.length) return messages.join(' · ');
+  }
+  return error?.message || 'Opération impossible.';
 }
 
 export default function AdminOrganizationSection({
@@ -363,11 +370,11 @@ export default function AdminOrganizationSection({
 
       {isAdmin ? <section className="v1-admin-card v1-admin-card--wide">
         <header><span>Identités et accès</span><h2>Comptes opérationnels</h2></header>
-        <p className="v1-admin-help">Les profils métier existent séparément des identifiants de connexion. Un compte technicien ou orienteur doit être relié au bon profil.</p>
+        <p className="v1-admin-help">Les profils métier existent séparément des identifiants de connexion. Un compte technicien, orienteur ou agent terrain doit être relié au bon profil.</p>
         <form onSubmit={createOfficeAccount} className="v1-admin-form v1-admin-form--accounts">
           <input name="username" required minLength="3" placeholder="Identifiant de connexion" aria-label="Identifiant de connexion" />
           <input name="email" required type="email" placeholder="Email" aria-label="Email du compte" />
-          <input name="password" required type="password" minLength="12" placeholder="Mot de passe initial · 12 caractères" aria-label="Mot de passe initial" />
+          <input name="password" required type="password" minLength="14" placeholder="Mot de passe initial · 14 caractères" aria-label="Mot de passe initial" />
           <select
             name="role"
             required
@@ -376,13 +383,13 @@ export default function AdminOrganizationSection({
           >
             <option value="" disabled>Rôle</option>
             <option value="ADMIN">Administrateur</option>
-            <option value="CHEF_ORIENTEUR">Chef orienteur</option>
+            <option value="CHEF_ORIENTEUR">Agent terrain</option>
             <option value="ORIENTEUR">Orienteur</option>
             <option value="TECHNICIAN">Technicien</option>
           </select>
           {accountProfilePolicy.field === 'orienteur_id' ? (
             <select name="orienteur_id" required defaultValue="" disabled={mutationsLocked}>
-              <option value="" disabled>Profil orienteur requis</option>
+              <option value="" disabled>{accountRole === 'CHEF_ORIENTEUR' ? 'Profil équipe requis' : 'Profil orienteur requis'}</option>
               {orienteurs.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           ) : null}
@@ -412,7 +419,7 @@ export default function AdminOrganizationSection({
           >
             <option value="ALL">Tous les rôles</option>
             <option value="ADMIN">Administrateurs</option>
-            <option value="CHEF_ORIENTEUR">Chefs orienteurs</option>
+            <option value="CHEF_ORIENTEUR">Agents terrain</option>
             <option value="ORIENTEUR">Orienteurs</option>
             <option value="TECHNICIAN">Techniciens</option>
           </select>
@@ -437,7 +444,7 @@ export default function AdminOrganizationSection({
               </small>
             </div>
             <button type="button" disabled={mutationsLocked} onClick={() => toggleAccount(account)}>{account.is_active ? 'Désactiver' : 'Réactiver'}</button>
-            <details><summary>Réinitialiser le mot de passe</summary><form onSubmit={(event) => resetAccountPassword(event, account.id)}><input name="password" type="password" minLength="12" required placeholder="Nouveau mot de passe" /><button type="submit" disabled={mutationsLocked}>Remplacer</button></form></details>
+            <details><summary>Réinitialiser le mot de passe</summary><form onSubmit={(event) => resetAccountPassword(event, account.id)}><input name="password" type="password" minLength="14" required placeholder="Nouveau mot de passe · 14 caractères" /><button type="submit" disabled={mutationsLocked}>Remplacer</button></form></details>
           </article>)}
           {filteredAccounts.length === 0 ? (
             <p className="v1-admin-account-empty">Aucun compte ne correspond à ces filtres.</p>
@@ -451,7 +458,7 @@ export default function AdminOrganizationSection({
           <select name="organization_id" required defaultValue="" disabled={mutationsLocked}><option value="" disabled>Entreprise</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select>
           <input name="username" required placeholder="Identifiant" />
           <input name="email" type="email" required placeholder="Email" />
-          <input name="password" type="password" minLength="12" required placeholder="Mot de passe initial · 12 caractères" />
+          <input name="password" type="password" minLength="14" required placeholder="Mot de passe initial · 14 caractères" />
           <button type="submit" disabled={mutationsLocked}>Créer le compte</button>
         </form>
       </section> : null}

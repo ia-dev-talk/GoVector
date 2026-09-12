@@ -33,7 +33,7 @@ class ClientOrganizationResponse(ClientOrganizationWrite):
 class ClientAccountCreate(BaseModel):
     username: str = Field(min_length=3, max_length=100)
     email: str = Field(min_length=3, max_length=255)
-    password: str = Field(min_length=12, max_length=200)
+    password: str = Field(min_length=14, max_length=200)
     organization_id: int = Field(gt=0)
 
 
@@ -48,7 +48,7 @@ class ClientAccountResponse(BaseModel):
 class AdminAccountCreate(BaseModel):
     username: str = Field(min_length=3, max_length=100)
     email: str = Field(min_length=3, max_length=255)
-    password: str = Field(min_length=12, max_length=200)
+    password: str = Field(min_length=14, max_length=200)
     role: Literal["ADMIN", "CHEF_ORIENTEUR", "ORIENTEUR", "TECHNICIAN"]
     technician_id: Optional[int] = Field(default=None, gt=0)
     orienteur_id: Optional[int] = Field(default=None, gt=0)
@@ -61,7 +61,7 @@ class AdminAccountPatch(BaseModel):
 
 
 class AdminPasswordReset(BaseModel):
-    password: str = Field(min_length=12, max_length=200)
+    password: str = Field(min_length=14, max_length=200)
 
 
 class AdminAccountResponse(BaseModel):
