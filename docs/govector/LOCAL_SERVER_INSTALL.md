@@ -49,10 +49,22 @@ http://IP_DU_SERVEUR:8080
 
 ## 3. Administration initiale
 
-Ne pas activer `IS_DEMO` en entreprise. Utiliser le compte administrateur déjà
-fourni par l'entreprise ou le mécanisme de seed explicite documenté par le
-projet. Ne jamais conserver un mot de passe par défaut. Vérifier ensuite les
-trois profils : administrateur/orienteur, agent terrain et technicien.
+Ne pas activer `IS_DEMO` en entreprise. S'il n'existe pas encore de compte
+administrateur, le créer explicitement sans mot de passe par défaut :
+
+```bash
+docker compose exec \
+  -e BLUEVECTOR_ADMIN_USERNAME=admin \
+  -e BLUEVECTOR_ADMIN_EMAIL=admin@entreprise.local \
+  -e BLUEVECTOR_ADMIN_PASSWORD='REMPLACER_PAR_UN_SECRET_DE_14_CARACTERES_MINIMUM' \
+  app python -m backend.create_admin
+```
+
+Remplacer l'identifiant, l'adresse et le secret avant exécution. Le script
+refuse les champs absents, les secrets de moins de 14 caractères et les
+doublons. Créer ensuite les comptes nominatifs depuis l'administration et
+vérifier les trois profils : administrateur/orienteur, agent terrain et
+technicien.
 
 Dans **Stocks**, créer chaque bobine avec son unique `CODE`, son type FO16 ou
 FO64, son repère courant, puis l'affecter au technicien. Un transfert vers un
