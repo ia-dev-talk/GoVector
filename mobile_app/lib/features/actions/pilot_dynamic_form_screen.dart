@@ -290,7 +290,7 @@ class _PilotDynamicFormScreenState extends State<PilotDynamicFormScreen> {
                 borderRadius: BorderRadius.circular(BlueVectorRadius.small),
               ),
               child: const Text(
-                '* Champ ou preuve obligatoire selon le formulaire Praxedo.',
+                '* Champ ou preuve obligatoire selon la configuration GoVector.',
                 style: TextStyle(
                   color: BlueVectorColors.textSecondary,
                   fontSize: 11,

@@ -93,6 +93,7 @@ void main() {
 
   test('SORTIE DE PCO locks confirmed raccordement photo types', () {
     expect(field('TUBAGE', 'pco_progress').kind, PilotFieldKind.photo);
+    expect(field('TUBAGE', 'pco_progress').photoLabel, 'pco_during');
     expect(field('TUBAGE', 'pco_progress').isRequired, isTrue);
     expect(field('TUBAGE', 'pco_after').kind, PilotFieldKind.photo);
     expect(field('TUBAGE', 'pco_after').isRequired, isTrue);

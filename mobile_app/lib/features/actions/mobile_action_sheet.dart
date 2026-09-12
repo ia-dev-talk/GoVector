@@ -164,7 +164,7 @@ Future<void> showMobileActionSheet({
     _PilotAction(
       section: 'Relever sur le terrain',
       label: 'Entrée câble',
-      subtitle: 'FO16, FO64 ou FO96',
+      subtitle: 'FO16 ou FO64',
       icon: Icons.login_rounded,
       color: BlueVectorColors.cyan,
       onTap: () => openScreen(

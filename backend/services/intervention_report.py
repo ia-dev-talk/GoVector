@@ -34,6 +34,7 @@ PHOTO_LABELS = {
     "pco_during": "PCO en cours", "pco_after": "PCO après",
     "pco_label": "Étiquetage PCO", "pto": "PTO", "ont": "ONT",
     "ont_signal": "ONT + signal", "gpon_sn": "SN ONT", "sn_ont": "SN ONT",
+    "ont_serial": "SN ONT", "pco_progress": "PCO en cours",
     "splitter_before": "Splitter avant", "splitter_after": "Splitter après",
     "before": "Avant intervention", "during": "Pendant intervention",
     "after": "Après intervention", "incident": "Incident", "other": "Photo terrain",

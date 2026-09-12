@@ -387,7 +387,7 @@ const _sortiePcoSchema = PilotFormSchema(
           key: 'pco_progress',
           label: 'PCO EN COURS',
           kind: PilotFieldKind.photo,
-          photoLabel: 'pco_progress',
+          photoLabel: 'pco_during',
           isRequired: true,
         ),
         PilotFieldDefinition(

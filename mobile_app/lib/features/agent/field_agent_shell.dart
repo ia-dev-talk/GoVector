@@ -272,7 +272,7 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
   int _listCount(Map<String, dynamic>? root, List<String> keys) {
     if (root == null) return 0;
     for (final key in keys) {
-      final value = root![key];
+      final value = root[key];
       if (value is List) return value.length;
       if (value is Map) return value.length;
     }

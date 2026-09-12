@@ -2,9 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geolocator_android/geolocator_android.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/config.dart';
@@ -13,13 +11,11 @@ import 'auth_service.dart';
 class LocationService {
   static bool _isInitialized = false;
   static StreamSubscription<Position>? _liveGpsSubscription;
-  static Timer? _statusTimer;
   static bool _isLiveGpsRunning = false;
   static double? _lastLatitude;
   static double? _lastLongitude;
   static double? _lastAccuracy;
   static DateTime? _lastPositionAt;
-  static int? _currentTechnicianId;
   static int? _currentJobId;
 
   static bool get isLiveGpsRunning => _isLiveGpsRunning;
@@ -44,13 +40,11 @@ class LocationService {
     if (heading != null && heading >= 0 && heading <= 360) 'heading': heading,
     if (accuracy != null && accuracy >= 0) 'accuracy': accuracy,
     if (observedAt != null) 'observed_at': observedAt.toUtc().toIso8601String(),
-    if (jobId != null) 'job_id': jobId,
+    'job_id': ?jobId,
   };
 
   static Future<void> initialize({int? technicianId}) async {
     if (_isInitialized) return;
-
-    _currentTechnicianId = technicianId;
 
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -95,8 +89,10 @@ class LocationService {
 
     try {
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
-        timeLimit: const Duration(seconds: 10),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
     } catch (e) {
       debugPrint('Error getting position: $e');

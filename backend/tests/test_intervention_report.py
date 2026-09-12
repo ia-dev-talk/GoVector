@@ -76,3 +76,17 @@ def test_report_embeds_all_photos_with_business_labels(tmp_path):
     assert "data:image/jpeg;base64,cmVhbC10d28=" in html
     assert "Joint avant" in html
     assert "ONT + signal" in html
+
+
+def test_report_translates_mobile_pco_and_ont_serial_photo_labels(tmp_path):
+    (tmp_path / "pco.jpg").write_bytes(b"pco")
+    (tmp_path / "sn.jpg").write_bytes(b"sn")
+    media = [
+        SimpleNamespace(storage_key="pco.jpg", mime_type="image/jpeg", meta_data={"label": "pco_during"}, created_at="2026-09-12"),
+        SimpleNamespace(storage_key="sn.jpg", mime_type="image/jpeg", meta_data={"label": "ont_serial"}, created_at="2026-09-12"),
+    ]
+
+    html = _render(tmp_path, media=media)
+
+    assert "PCO en cours" in html
+    assert "SN ONT" in html
