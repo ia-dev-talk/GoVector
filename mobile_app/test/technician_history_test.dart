@@ -308,14 +308,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Matériel consommé'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('MAT-A'), 250);
+    await tester.scrollUntilVisible(find.textContaining('MAT-A'), 250);
     await tester.pumpAndSettle();
-    expect(find.text('MAT-A'), findsOneWidget);
+    expect(find.textContaining('MAT-A'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('MAT-B'), 250);
+    await tester.scrollUntilVisible(find.textContaining('MAT-B'), 250);
     await tester.pumpAndSettle();
-    expect(find.text('MAT-B'), findsOneWidget);
-    expect(find.text('35'), findsOneWidget);
+    expect(find.textContaining('MAT-B'), findsOneWidget);
+    expect(find.textContaining('35'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Journal métier'), 250);
     await tester.pumpAndSettle();

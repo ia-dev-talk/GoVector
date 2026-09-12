@@ -602,6 +602,14 @@ class Job(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     notes: Mapped[Optional[str]] = mapped_column(Text)
     special_instructions: Mapped[Optional[str]] = mapped_column(Text)
+    # Valeurs métier issues des imports opérationnels. Le JSON conserve les
+    # colonnes sources sans les confondre avec les champs historiques du Job.
+    operational_data: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+        nullable=False,
+    )
     equipment_type: Mapped[Optional[EquipmentType]] = mapped_column(Enum(EquipmentType), nullable=True)
     serial_number: Mapped[Optional[str]] = mapped_column(String(100))
     gps_latitude: Mapped[Optional[float]] = mapped_column(Float)
@@ -721,6 +729,101 @@ class JobVisit(Base):
     )
     assignments: Mapped[List["Assignment"]] = relationship(
         "Assignment", back_populates="visit", lazy="selectin"
+    )
+
+
+class CableDrum(Base):
+    """One physical cable drum; ``code`` is the sole business identifier."""
+
+    __tablename__ = "cable_drums"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    cable_type: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    current_mark_m: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="ACTIVE", server_default="ACTIVE", index=True
+    )
+    assigned_technician_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("technicians.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+    assigned_technician: Mapped[Optional["Technician"]] = relationship(
+        "Technician", lazy="selectin"
+    )
+
+
+class CableDrumAssignment(Base):
+    """Append-only custody history for a physical drum."""
+
+    __tablename__ = "cable_drum_assignments"
+    __table_args__ = (
+        Index(
+            "uq_cable_drum_assignments_active",
+            "drum_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    drum_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("cable_drums.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    technician_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("technicians.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    assigned_by_user_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"), nullable=False
+    )
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)
+    end_reason: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class CableDrumConsumption(Base):
+    """Immutable measured use of one drum on one intervention."""
+
+    __tablename__ = "cable_drum_consumptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_id: Mapped[str] = mapped_column(String(80), nullable=False, unique=True, index=True)
+    drum_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("cable_drums.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    job_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    visit_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("job_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    technician_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("technicians.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    cable_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    cable_code: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    start_mark_m: Mapped[float] = mapped_column(Float, nullable=False)
+    end_mark_m: Mapped[float] = mapped_column(Float, nullable=False)
+    quantity_m: Mapped[float] = mapped_column(Float, nullable=False)
+    installation_mode: Mapped[str] = mapped_column(String(8), nullable=False)
+    continuity_justification: Mapped[Optional[str]] = mapped_column(Text)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow,
+        server_default=text("CURRENT_TIMESTAMP"), nullable=False
     )
 
 

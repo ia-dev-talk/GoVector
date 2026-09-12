@@ -61,7 +61,7 @@ def test_excel_numeric_dates_are_preserved_as_scheduled_dates():
     assert second.isoformat() == "2026-08-12T15:00:00+00:00"
 
 
-def test_source_action_date_does_not_steal_the_planning_date_mapping():
+def test_source_action_date_is_preserved_without_stealing_planning_date():
     workbook = [{
         "sheet": "Feuil1",
         "rows": [
@@ -79,7 +79,49 @@ def test_source_action_date_does_not_steal_the_planning_date_mapping():
         item for item in mapped[0]["column_matches"]
         if item["header"] == "DATE D'ACTION"
     )
-    assert action_match["method"] == "unmapped"
+    assert action_match["method"] == "exact"
+    assert action_match["field"] == "DATE_ACTION"
+    assert job["operational_data"]["date_action"].startswith("2026-06-23T12:20")
+
+
+def test_magillan_workbook_columns_have_distinct_canonical_destinations():
+    headers = [
+        "SECTEUR", "DATE", "COMMANDE", "INTITULÉ CLIENT", "CONTACT",
+        "ADRESSE", "AVANCEMENT MAGILLAN", "DATE D'ACTION", "OBSERVATION",
+        "SPLITTER/MSAN", "PCO", "SN", "POSITION PCO", "GPS PCO",
+        "GPS DERIVATION", "GPS SPLITTER", "STATUT", "TECH CB", "TECH RAC",
+        "TECH CABLE", "CB", "CABLE", "CODE", "DEPART", "ARRIVE",
+        "CONDUITE", "F/I", "A", "SIGNAL", "REMARQUE",
+    ]
+    values = [
+        "ZENATA", "12/09/2026", "CM-1", "Client", "0600000000",
+        "Adresse", "Terminé", "12/09/2026 16:00", "Observation",
+        "MSAN-1", "PCO-9", "ONT-123", "Poteau 4", "33.1,-7.5",
+        "33.2,-7.6", "33.3,-7.7", "TERMINE", "Tech CB", "Tech RAC",
+        "Tech Cable", "12", "FO16", "4475", 2003, 1921,
+        82, 0, 0, -18.5, "RAS",
+    ]
+    workbook = [{
+        "sheet": "Magillan",
+        "rows": [
+            [_cell(1, i, value) for i, value in enumerate(headers, 1)],
+            [_cell(2, i, value) for i, value in enumerate(values, 1)],
+        ],
+    }]
+
+    mapped = ExcelMapper(workbook).map()
+    job = JobsBuilder(mapped).build()[0]
+
+    assert mapped[0]["unmapped_headers"] == []
+    assert len(mapped[0]["mapping"]) == 30
+    assert job["job_number"] == "CM-1"
+    assert job["operational_data"]["cable_code"] == "4475"
+    assert job["operational_data"]["cable_depart_m"] == 2003
+    assert job["operational_data"]["cable_arrive_m"] == 1921
+    assert job["cable_length_m"] == 82
+    assert job["optical_power_dbm"] == -18.5
+    assert job["ont_serial"] == "ONT-123"
+    assert job["assigned_technician_name"] == "Tech Cable"
 
 
 def test_import_mapping_override_accepts_a_real_file_header_without_code_change():

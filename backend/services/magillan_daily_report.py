@@ -11,10 +11,26 @@ from html import escape
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from weasyprint import HTML
+
+HTML = None
 
 from backend.services.export_service import FieldOptExportService
 from backend.services.magillan_logo_data import MAGILLAN_LOGO_DATA_URI
+
+
+def _html_renderer():
+    global HTML
+    if HTML is not None:
+        return HTML
+    try:
+        from weasyprint import HTML as renderer
+    except (ImportError, OSError) as exc:  # pragma: no cover - host dependency
+        raise RuntimeError(
+            "Le moteur PDF Magillan est indisponible. "
+            "Installez les bibliothèques Pango/Harfbuzz ou utilisez l'image Docker."
+        ) from exc
+    HTML = renderer
+    return renderer
 
 
 def _text(value: Any) -> str:
@@ -35,8 +51,11 @@ def _gps(latitude: Any, longitude: Any) -> str:
 
 
 def _observation(job: Any) -> str:
+    operational = getattr(job, "operational_data", None) or {}
     return _text(
-        getattr(job, "coordinator_comments", None)
+        operational.get("observation")
+        or operational.get("remarque")
+        or getattr(job, "coordinator_comments", None)
         or getattr(job, "notes", None)
         or getattr(job, "description", None)
     )
@@ -45,7 +64,8 @@ def _observation(job: Any) -> str:
 def _report_page(job: Any) -> str:
     """Return one page matching the supplied Magillan workbook."""
 
-    # Values supported directly by the current Job model.
+    operational = getattr(job, "operational_data", None) or {}
+    # Values supported directly by the current Job model or preserved import.
     request_number = _text(getattr(job, "job_number", None))
     central = _text(getattr(job, "nro_raw", None))
     client = _text(getattr(job, "customer_name", None))
@@ -54,27 +74,24 @@ def _report_page(job: Any) -> str:
         getattr(job, "latitude", None),
         getattr(job, "longitude", None),
     )
-    splitter_number = _text(getattr(job, "splitter_raw", None))
+    splitter_number = _text(operational.get("splitter_msan") or getattr(job, "splitter_raw", None))
     locality = _text(getattr(job, "service_city", None))
     observation = _observation(job)
 
-    # Intentionally blank until BlueVector owns authoritative fields. PBO is
-    # not silently relabelled as PCO, and a total cable length is not assigned
-    # to CONDUITE, FACADE or AERIEN without an explicit pose classification.
-    report_number = ""
-    pco = ""
-    cable_type = ""
-    cable_code = ""
-    cable_departure = ""
-    cable_arrival = ""
-    conduit = ""
-    facade = ""
-    aerial = ""
-    raccord_pco = ""
+    report_number = _text(operational.get("report_number"))
+    pco = _text(operational.get("pco"))
+    cable_type = _text(operational.get("cable_type"))
+    cable_code = _text(operational.get("cable_code"))
+    cable_departure = _text(operational.get("cable_depart_m"))
+    cable_arrival = _text(operational.get("cable_arrive_m"))
+    conduit = _text(operational.get("pose_sp_m"))
+    facade = _text(operational.get("pose_fsd_m"))
+    aerial = _text(operational.get("pose_tr_m"))
+    raccord_pco = _text(operational.get("raccord_pco"))
     joint = ""
-    raccord_splitter = ""
-    drawer = ""
-    outlet = ""
+    raccord_splitter = _text(operational.get("raccord_splitter"))
+    drawer = _text(operational.get("tiroir"))
+    outlet = _text(operational.get("prise"))
 
     first_work_row = "".join(
         f"<td>{value}</td>"
@@ -220,4 +237,5 @@ async def export_magillan_daily_report(
     </html>
     """
 
-    return HTML(string=html).write_pdf()
+    renderer = _html_renderer()
+    return renderer(string=html).write_pdf()

@@ -2088,3 +2088,21 @@
     display: none;
   }
 }
+.st3-cable-drums { margin: 18px 24px; padding: 20px; border: 1px solid var(--border, #dbe5ef); border-radius: 16px; background: #fff; }
+.st3-cable-drums__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.st3-cable-drums__heading h2 { margin: 2px 0 4px; font-size: 1.15rem; }
+.st3-cable-drums__heading p { margin: 0; color: #64748b; }
+.st3-cable-drums__eyebrow { color: #087f8c; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.st3-cable-drums__form { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)) auto; gap: 10px; align-items: end; margin: 18px 0; }
+.st3-cable-drums__form label { display: grid; gap: 5px; color: #475569; font-size: .78rem; font-weight: 700; }
+.st3-cable-drums__form input, .st3-cable-drums__form select, .st3-cable-drums select { min-height: 38px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 7px 9px; background: #fff; }
+.st3-cable-drums__grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: 16px; margin-top: 14px; }
+.st3-cable-drums__table-wrap { overflow-x: auto; }
+.st3-cable-drums table { width: 100%; border-collapse: collapse; }
+.st3-cable-drums th, .st3-cable-drums td { padding: 10px 8px; border-bottom: 1px solid #edf2f7; text-align: left; white-space: nowrap; }
+.st3-cable-drums th { color: #64748b; font-size: .72rem; text-transform: uppercase; }
+.st3-cable-drums__history { border-left: 1px solid #e2e8f0; padding-left: 16px; }
+.st3-cable-drums__history h3 { margin: 0 0 10px; font-size: .95rem; }
+.st3-cable-drums__history div { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid #edf2f7; }
+.st3-cable-drums__history span, .st3-cable-drums__history small, .st3-cable-drums__empty { color: #64748b; }
+@media (max-width: 900px) { .st3-cable-drums__form { grid-template-columns: 1fr 1fr; } .st3-cable-drums__grid { grid-template-columns: 1fr; } .st3-cable-drums__history { border-left: 0; border-top: 1px solid #e2e8f0; padding: 14px 0 0; } }

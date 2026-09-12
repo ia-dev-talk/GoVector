@@ -29,16 +29,16 @@ class CableEndpointScreen extends StatefulWidget {
 
 class _CableEndpointScreenState extends State<CableEndpointScreen> {
   static const _fallbackModes = <Map<String, String>>[
-    {'code': 'CONDUITE_PEHD', 'label': 'Pose câble FO en conduite / sous PEHD'},
-    {'code': 'FACADE', 'label': 'Pose câble FO en façade ou immeuble'},
-    {'code': 'AERIEN', 'label': 'Pose câble FO en aérien'},
+    {'code': 'SP', 'label': 'SP — Sous PEHD / conduite / souterrain'},
+    {'code': 'TR', 'label': 'TR — Travée / Tronçon / aérien'},
+    {'code': 'FSD', 'label': 'FSD — Façade / Sous-Dalle / immeuble'},
   ];
-  static const _pilotCodes = {'FO16', 'FO64', 'FO96'};
   static const _segmentKeyPrefix = 'govector_cable_segment';
   static const _segmentStartKeyPrefix = 'govector_cable_segment_start';
   static const _uuid = Uuid();
 
   final _meterController = TextEditingController();
+  final _justificationController = TextEditingController();
   List<Map<String, dynamic>> _cables = const [];
   List<Map<String, String>> _installationModes = _fallbackModes;
   String? _selectedCableCode;
@@ -57,6 +57,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
   @override
   void dispose() {
     _meterController.dispose();
+    _justificationController.dispose();
     super.dispose();
   }
 
@@ -66,16 +67,12 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
         .trim()
         .toUpperCase()
         .replaceAll(RegExp(r'[^A-Z0-9]'), '');
-    for (final code in _pilotCodes) {
-      if (raw.contains(code)) return code;
-    }
     return raw;
   }
 
-  int? _itemId(Map<String, dynamic> item) {
-    final parsed = int.tryParse(item['item_id']?.toString() ?? '');
-    return parsed != null && parsed > 0 ? parsed : null;
-  }
+  String _cableType(Map<String, dynamic> item) =>
+      (item['cable_type'] ?? item['cable_type_code'] ?? '')
+          .toString().trim().toUpperCase();
 
   int _available(Map<String, dynamic> item) =>
       int.tryParse(item['available_quantity']?.toString() ?? '') ?? 0;
@@ -105,6 +102,11 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       _selectedCableCode = code;
       _activeStartMeter = null;
     });
+    if (code != null && widget.isEntry) {
+      final cable = _selectedCable;
+      final current = cable?['current_mark_m'];
+      if (current != null) _meterController.text = current.toString();
+    }
     if (code != null) await _loadActiveStart(code);
   }
 
@@ -130,29 +132,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     });
     try {
       final catalogue = await TechnicianStockService.getCableCatalogue();
-      final byCode = <String, Map<String, dynamic>>{};
-      for (final item in catalogue) {
-        final code = _cableCode(item);
-        if (_pilotCodes.contains(code)) byCode[code] = item;
-      }
-
-      // The three governed field families remain selectable even when the
-      // technician has no prior allocation or the catalogue cache is empty.
-      final cables = <Map<String, dynamic>>[
-        for (final code in const ['FO16', 'FO64', 'FO96'])
-          byCode[code] ??
-              <String, dynamic>{
-                'item_id': null,
-                'reference': code,
-                'code': code,
-                'label': code,
-                'unit': 'm',
-                'available_quantity': 0,
-                'stock_known': false,
-                'stock_registered': false,
-                'stock_reconciliation_required': true,
-              },
-      ];
+      final cables = catalogue
+          .where((item) => {'FO16', 'FO64'}.contains(_cableType(item)))
+          .toList(growable: false);
 
       var modes = _fallbackModes;
       try {
@@ -174,15 +156,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
               .where((item) {
                 final code = item['code'];
                 return code != null &&
-                    {'CONDUITE_PEHD', 'FACADE', 'FACADE_IMMEUBLE', 'AERIEN'}
+                    {'SP', 'TR', 'FSD'}
                         .contains(code) &&
                     (item['label']?.isNotEmpty ?? false);
-              })
-              .map((item) {
-                if (item['code'] == 'FACADE_IMMEUBLE') {
-                  return {'code': 'FACADE', 'label': item['label']!};
-                }
-                return item;
               })
               .toList(growable: false);
           if (configured.isNotEmpty) modes = configured;
@@ -201,17 +177,20 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
           _selectedModeCode = modes.first['code'];
         }
       });
+      if (selectedCode != null && widget.isEntry) {
+        final selected = cables.where((item) => _cableCode(item) == selectedCode);
+        if (selected.isNotEmpty && selected.first['current_mark_m'] != null) {
+          _meterController.text = selected.first['current_mark_m'].toString();
+        }
+      }
       if (selectedCode != null) await _loadActiveStart(selectedCode);
     } catch (error) {
-      // Network failure must not hide the governed cable vocabulary.
+      // The cached assigned drums are returned by the service when available.
+      // With no cache, block capture rather than inventing a physical CODE.
       if (!mounted) return;
       setState(() {
-        _cables = const [
-          {'reference': 'FO16', 'code': 'FO16', 'label': 'FO16', 'unit': 'm', 'available_quantity': 0, 'stock_known': false},
-          {'reference': 'FO64', 'code': 'FO64', 'label': 'FO64', 'unit': 'm', 'available_quantity': 0, 'stock_known': false},
-          {'reference': 'FO96', 'code': 'FO96', 'label': 'FO96', 'unit': 'm', 'available_quantity': 0, 'stock_known': false},
-        ];
-        _error = 'Catalogue hors ligne : FO16, FO64 et FO96 restent utilisables. La consommation sera régularisée à la synchronisation.';
+        _cables = const [];
+        _error = 'Aucune bobine affectée disponible. Connectez-vous puis demandez une affectation Web.';
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -251,7 +230,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     final cable = _selectedCable;
     final mode = _selectedMode;
     if (cable == null) {
-      setState(() => _error = 'Choisissez FO16, FO64 ou FO96.');
+      setState(() => _error = 'Choisissez un CODE bobine affecté.');
       return;
     }
     if (mode == null) {
@@ -266,6 +245,10 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       setState(() => _error = 'Le repère métrique doit être un nombre positif.');
       return;
     }
+    if (!widget.isEntry && _activeStartMeter != null && meterMark != null && meterMark >= _activeStartMeter!) {
+      setState(() => _error = 'L’arrivée doit être inférieure au départ : le compteur doit décroître.');
+      return;
+    }
 
     setState(() {
       _saving = true;
@@ -273,7 +256,6 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     });
     try {
       final cableCode = _cableCode(cable);
-      final cableItemId = _itemId(cable);
       final segmentId = await _resolveSegmentId(cableCode);
       final position = await LocationService.getCurrentPosition();
       final stockKnown = _stockKnown(cable);
@@ -287,10 +269,11 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
           'accuracy': position.accuracy,
           'gps_observed_at': DateTime.now().toUtc().toIso8601String(),
         },
-        if (cableItemId != null) 'cable_item_id': cableItemId,
+        if (cable['drum_id'] != null) 'cable_drum_id': cable['drum_id'],
+        'cable_code': cableCode,
         'cable_reference': cableCode,
-        'cable_type_code': cableCode,
-        'cable_type_label': cableCode,
+        'cable_type_code': _cableType(cable),
+        'cable_type_label': _cableType(cable),
         'cable_stock_available_at_capture': _available(cable),
         'cable_stock_known_at_capture': stockKnown,
         'stock_reconciliation_required': !stockKnown,
@@ -298,6 +281,10 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
         'installation_mode_label': mode['label'],
         'created_at': DateTime.now().toUtc().toIso8601String(),
       };
+      final justification = _justificationController.text.trim();
+      if (justification.isNotEmpty) {
+        data['continuity_justification'] = justification;
+      }
       if (meterMark != null) data['meter_mark_m'] = meterMark;
 
       final queued = await OfflineService.addPendingAction(
@@ -340,10 +327,8 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
           for (final cable in _cables)
             _ChoiceOption(
               value: _cableCode(cable),
-              title: _cableCode(cable),
-              subtitle: _stockKnown(cable)
-                  ? 'Stock enregistré : ${_available(cable)} ${cable['unit'] ?? 'm'}'
-                  : 'Stock non renseigné — utilisation autorisée, à régulariser',
+              title: '${_cableCode(cable)} · ${_cableType(cable)}',
+              subtitle: 'Repère courant : ${cable['current_mark_m'] ?? _available(cable)} m',
             ),
         ],
         selected: _selectedCableCode,
@@ -399,7 +384,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     ),
                     child: Text(
                       widget.isEntry
-                          ? 'Choisissez le câble et son mode de pose. Le stock n’est jamais bloquant : une utilisation sans dotation sera marquée à régulariser.'
+                          ? 'Choisissez le CODE de la bobine affectée et son mode de pose. Le départ proposé est son dernier repère connu.'
                           : 'Choisissez le même câble. GoVector reprend le départ et calcule la longueur avec les repères métriques.',
                       style: const TextStyle(
                         color: BlueVectorColors.textSecondary,
@@ -412,12 +397,10 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                   _SelectorField(
                     label: 'Type de câble *',
                     icon: Icons.cable_rounded,
-                    value: _selectedCableCode ?? 'Sélectionner FO16, FO64 ou FO96',
+                    value: _selectedCableCode ?? 'Sélectionner un CODE bobine',
                     subtitle: cable == null
                         ? null
-                        : _stockKnown(cable)
-                        ? 'Disponible : ${_available(cable)} ${cable['unit'] ?? 'm'}'
-                        : 'Stock 0/non renseigné — sélection autorisée',
+                        : '${_cableType(cable)} · repère courant ${cable['current_mark_m'] ?? _available(cable)} m',
                     onTap: _saving ? null : _chooseCable,
                   ),
                   const SizedBox(height: BlueVectorSpacing.sm),
@@ -439,6 +422,17 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                           : 'Repère métrique à l’arrivée (m)',
                       hintText: 'Ex. 125,5',
                       prefixIcon: const Icon(Icons.straighten_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: BlueVectorSpacing.sm),
+                  TextField(
+                    controller: _justificationController,
+                    enabled: !_saving,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Justification d’écart (si nécessaire)',
+                      hintText: 'Obligatoire uniquement si le départ diffère du dernier repère',
+                      prefixIcon: Icon(Icons.report_outlined),
                     ),
                   ),
                   if (!widget.isEntry && _activeStartMeter != null) ...[

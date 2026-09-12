@@ -188,6 +188,10 @@ class ImportJobItem(BaseModel):
     estimated_duration: Optional[int] = None
     equipment_type: Optional[str] = None
     serial_number: Optional[str] = None
+    optical_power_dbm: Optional[float] = None
+    cable_length_m: Optional[int] = None
+    ont_serial: Optional[str] = None
+    operational_data: dict = Field(default_factory=dict)
     import_id: Optional[str] = Field(
         default=None,
         alias="_import_id",
@@ -595,6 +599,10 @@ async def _create_job_from_dict(db: AsyncSession, item: dict) -> Job:
         pto_raw=item.get("pto"),
         splitter_raw=item.get("splitter"),
         splitter_port_raw=item.get("splitter_port"),
+        optical_power_dbm=item.get("optical_power_dbm"),
+        cable_length_m=item.get("cable_length_m"),
+        ont_serial=item.get("ont_serial"),
+        operational_data=item.get("operational_data") or {},
         commit=False,  # We manage the transaction externally
     )
     return job
@@ -623,6 +631,10 @@ async def _update_job_from_dict(db: AsyncSession, job: Job, item: dict) -> Job:
         "splitter": "splitter_raw",
         "splitter_port": "splitter_port_raw",
         "estimated_duration": "estimated_duration",
+        "optical_power_dbm": "optical_power_dbm",
+        "cable_length_m": "cable_length_m",
+        "ont_serial": "ont_serial",
+        "operational_data": "operational_data",
 
     }
 

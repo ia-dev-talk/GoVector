@@ -38,5 +38,5 @@ test('pilot sidebar keeps office workspaces explicit and uses field-agent busine
 
   assert.match(layoutSource, /CHEF_ORIENTEUR:[\s\S]*label: 'Agent terrain'/);
   assert.match(layoutSource, /ORIENTEUR:[\s\S]*label: 'Orienteur Bureau'/);
-  assert.match(layoutSource, /const PRODUCT_NAME = 'BlueVector'/);
+  assert.match(layoutSource, /const PRODUCT_NAME = 'GoVector'/);
 });

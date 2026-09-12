@@ -42,6 +42,7 @@ async def create_job(
     description: Optional[str] = None,
     notes: Optional[str] = None,
     special_instructions: Optional[str] = None,
+    operational_data: Optional[dict] = None,
     # --- Champs FTTH / Réseau ---
     operator: Optional[str] = None,
     nro_raw: Optional[str] = None,
@@ -122,6 +123,7 @@ async def create_job(
         description=description,
         notes=notes,
         special_instructions=special_instructions,
+        operational_data=operational_data or {},
         # Champs FTTH
         operator=operator,
         nro_raw=nro_raw,

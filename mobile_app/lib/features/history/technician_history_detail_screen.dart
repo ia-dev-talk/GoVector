@@ -474,7 +474,7 @@ class _TechnicianHistoryDetailScreenState
                 const SizedBox(width: BlueVectorSpacing.xs),
                 const Expanded(
                   child: Text(
-                    'Résultat clôturé · dossier consultable',
+                    'Résultat clôturé · compléments autorisés',
                     style: TextStyle(
                       color: BlueVectorColors.textMuted,
                       fontSize: 12,

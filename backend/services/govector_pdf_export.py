@@ -13,9 +13,26 @@ from html import escape
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from weasyprint import HTML
+
+HTML = None
 
 from backend.services.export_service import FieldOptExportService
+
+
+def _html_renderer():
+    """Load WeasyPrint only when a PDF is actually requested."""
+    global HTML
+    if HTML is not None:
+        return HTML
+    try:
+        from weasyprint import HTML as renderer
+    except (ImportError, OSError) as exc:  # pragma: no cover - host dependency
+        raise RuntimeError(
+            "Le moteur PDF GoVector est indisponible. "
+            "Installez les bibliothèques Pango/Harfbuzz ou utilisez l'image Docker."
+        ) from exc
+    HTML = renderer
+    return renderer
 
 
 def _display(value: Any) -> str:
@@ -194,7 +211,8 @@ async def export_govector_pdf(
 </html>
 """
 
-    pdf = HTML(string=html).write_pdf()
+    renderer = _html_renderer()
+    pdf = renderer(string=html).write_pdf()
     if not pdf.startswith(b"%PDF-"):
         raise RuntimeError("Le moteur GoVector n'a pas produit un PDF valide")
     return pdf

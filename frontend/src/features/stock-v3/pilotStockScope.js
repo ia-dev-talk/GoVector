@@ -1,4 +1,4 @@
-const PILOT_STOCK_CODES = Object.freeze(['FO16', 'FO64', 'FO96']);
+const PILOT_STOCK_CODES = Object.freeze(['FO16', 'FO64']);
 
 function canonicalStockText(value) {
   return String(value ?? '')

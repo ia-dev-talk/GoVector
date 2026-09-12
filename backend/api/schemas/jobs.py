@@ -660,6 +660,7 @@ class JobResponse(JobBase):
     cable_length_m: int | None = None
     ont_serial: str | None = None
     router_serial: str | None = None
+    operational_data: dict = Field(default_factory=dict)
 
     validation_status: str | None = None
     rejected_by_operator: bool = False
@@ -775,6 +776,7 @@ class JobResponse(JobBase):
             "cable_length_m": getattr(job, "cable_length_m", None),
             "ont_serial": getattr(job, "ont_serial", None),
             "router_serial": getattr(job, "router_serial", None),
+            "operational_data": getattr(job, "operational_data", None) or {},
             "mac_address": getattr(job, "mac_address", None),
             "wifi_box_serial": getattr(job, "wifi_box_serial", None),
             "validation_status": getattr(job, "validation_status", None),

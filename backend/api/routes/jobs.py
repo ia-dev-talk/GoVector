@@ -541,7 +541,7 @@ async def delete_job(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    """Archive a cancelled job. Pilot deletion is restricted to ADMIN."""
+    """Archive a cancelled job while preserving audit history. Pilot deletion is restricted to ADMIN."""
     job = await job_logic.get_job(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")

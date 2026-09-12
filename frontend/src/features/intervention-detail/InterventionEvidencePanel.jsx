@@ -559,9 +559,15 @@ export default function InterventionEvidencePanel({
           <h2>Preuves et données</h2>
         </div>
 
-        <span className="intervention-detail-card-count">
-          {totalEvidence}
-        </span>
+        <div className="intervention-detail-card-actions">
+          <button
+            type="button"
+            onClick={() => openBlob(() => api.downloadInterventionReport(job.id))}
+          >
+            Rapport PDF
+          </button>
+          <span className="intervention-detail-card-count">{totalEvidence}</span>
+        </div>
       </header>
 
       <div className="intervention-detail-card-body intervention-detail-evidence-body">

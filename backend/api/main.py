@@ -64,6 +64,8 @@ from backend.api.routes import (
     client_portal,
     job_context,
     geocoding,
+    cable_stock,
+    intervention_reports,
 )
 
 
@@ -144,13 +146,8 @@ SERVE_FRONTEND = (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print(
-        f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} started"
-    )
-
-    print(
-        f"📄 API Documentation: http://localhost:{settings.API_PORT}/docs"
-    )
+    logger.info("%s v%s started", settings.APP_NAME, settings.APP_VERSION)
+    logger.info("API Documentation: http://localhost:%s/docs", settings.API_PORT)
 
     reseed_task = None
     gps_retention_task = asyncio.create_task(
@@ -160,7 +157,7 @@ async def lifespan(app: FastAPI):
 
     if settings.IS_DEMO:
 
-        print("🎬 IS_DEMO=true — simulation engine active")
+        logger.info("IS_DEMO=true - simulation engine active")
 
         reseed_task = asyncio.create_task(
             _daily_reseed_loop(),
@@ -185,9 +182,8 @@ async def lifespan(app: FastAPI):
     # Fermer proprement le pool de connexions SQLAlchemy
     from backend.database.connection import engine
     await engine.dispose()
-    print("🔌 Pool de connexions SQLAlchemy fermé")
-
-    print(f"🛑 {settings.APP_NAME} shutting down")
+    logger.info("SQLAlchemy connection pool closed")
+    logger.info("%s shutting down", settings.APP_NAME)
 
 
 app = FastAPI(
@@ -471,6 +467,16 @@ app.include_router(
 app.include_router(
     stock_ftth.simple_router,
     tags=["Stock"],
+)
+
+app.include_router(
+    intervention_reports.router,
+    prefix=settings.API_V1_PREFIX,
+)
+
+app.include_router(
+    cable_stock.router,
+    prefix=settings.API_V1_PREFIX,
 )
 
 # =====================================================

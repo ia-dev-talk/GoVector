@@ -14,11 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.routes import tech_jobs
 from backend.auth.dependencies import require_technician
 from backend.database.connection import get_db
-from backend.database.models import Job, StockItem, StockMovement, User
-from backend.logic.cable_classification import (
-    PILOT_CABLE_TYPES,
-    pilot_cable_code,
-)
+from backend.database.models import CableDrum, Job, StockItem, StockMovement, User
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_stock import (
     resolve_equipment_scan,
@@ -62,62 +58,40 @@ async def get_technician_cable_catalogue_v2(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_technician),
 ) -> list[dict[str, Any]]:
-    """Return the governed FO16/FO64/FO96 pilot catalogue.
-
-    The catalogue is deliberately independent from custody: the field worker
-    must be able to report real cable use even when no prior allocation has yet
-    been entered. Existing real StockItem rows are linked when present; missing
-    rows are returned as governed virtual families with zero stock and an
-    explicit reconciliation flag. Legacy synthetic IAM/INWI/ORANGE cables are
-    never exposed by this endpoint.
-    """
+    """Return only physical CODE drums assigned to this technician."""
     technician_id = current_user.technician_id
     if technician_id is None:
         raise HTTPException(status_code=400, detail="Profil technicien manquant")
 
-    custody = await technician_stock_payload(db, technician_id=technician_id)
-    by_item_id = {int(row["item_id"]): row for row in custody}
-    items = (
+    drums = (
         await db.execute(
-            select(StockItem)
-            .where(StockItem.is_active.is_(True))
-            .order_by(StockItem.id.asc())
+            select(CableDrum)
+            .where(
+                CableDrum.assigned_technician_id == technician_id,
+                CableDrum.status == "ACTIVE",
+            )
+            .order_by(CableDrum.code.asc())
         )
     ).scalars().all()
-
-    real_by_code: dict[str, StockItem] = {}
-    for item in items:
-        code = pilot_cable_code(item)
-        if code is not None and code not in real_by_code:
-            real_by_code[code] = item
-
-    result: list[dict[str, Any]] = []
-    for code, label in PILOT_CABLE_TYPES.items():
-        item = real_by_code.get(code)
-        known = by_item_id.get(item.id) if item is not None else None
-        available = int(known.get("available_quantity", 0)) if known else 0
-        result.append(
-            {
-                "item_id": item.id if item is not None else None,
-                "reference": code,
-                "code": code,
-                "label": label,
-                "equipment_type": "CABLE_FO",
-                "operator": getattr(item, "operator", None) if item is not None else None,
-                "manufacturer": getattr(item, "manufacturer", None) if item is not None else None,
-                "model": getattr(item, "model", None) if item is not None else None,
-                "unit": getattr(item, "unit", None) if item is not None else "m",
-                "warehouse_id": known.get("warehouse_id") if known else None,
-                "warehouse_name": known.get("warehouse_name") if known else None,
-                "quantity": int(known.get("quantity", 0)) if known else 0,
-                "reserved_quantity": int(known.get("reserved_quantity", 0)) if known else 0,
-                "available_quantity": available,
-                "stock_registered": known is not None,
-                "stock_known": available > 0,
-                "stock_reconciliation_required": known is None or available <= 0,
-            }
-        )
-    return result
+    return [
+        {
+            "drum_id": drum.id,
+            "item_id": None,
+            "reference": drum.code,
+            "code": drum.code,
+            "label": f"{drum.code} · {drum.cable_type}",
+            "cable_type": drum.cable_type,
+            "equipment_type": "CABLE_FO",
+            "unit": "m",
+            "quantity": drum.current_mark_m,
+            "available_quantity": drum.current_mark_m,
+            "current_mark_m": drum.current_mark_m,
+            "stock_registered": True,
+            "stock_known": True,
+            "stock_reconciliation_required": False,
+        }
+        for drum in drums
+    ]
 
 
 @tech_jobs.router.get("/stock-v2/history")

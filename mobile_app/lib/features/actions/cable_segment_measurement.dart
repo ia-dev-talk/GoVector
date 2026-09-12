@@ -13,7 +13,8 @@ double? cableSegmentLength({
 }) {
   final endMeter = parseCableMeterInput(endMeterInput);
   if (startMeter == null || endMeter == null) return null;
-  return (endMeter - startMeter).abs();
+  if (endMeter >= startMeter) return null;
+  return startMeter - endMeter;
 }
 
 String formatCableMeter(double value) {

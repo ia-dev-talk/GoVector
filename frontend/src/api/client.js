@@ -1648,6 +1648,12 @@ export const api = {
       { responseType: 'blob' },
     ),
 
+  downloadInterventionReport: (jobId) =>
+    apiClient.get(
+      `/interventions/${pathSegment(jobId, 'Intervention')}.pdf`,
+      { responseType: 'blob' },
+    ),
+
   // APPLICATION SETTINGS
   getRuntimeSettings: () =>
     apiClient.get(

@@ -2,10 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_app/features/actions/cable_segment_measurement.dart';
 
 void main() {
-  test('cable length is the absolute physical meter delta', () {
+  test('cable length follows a decreasing physical counter', () {
     expect(cableSegmentLength(startMeter: 1000, endMeterInput: '700'), 300);
     expect(cableSegmentLength(startMeter: 1500, endMeterInput: '1400'), 100);
-    expect(cableSegmentLength(startMeter: 1400, endMeterInput: '1500'), 100);
+    expect(cableSegmentLength(startMeter: 1400, endMeterInput: '1500'), isNull);
     expect(
       cableSegmentLength(startMeter: 125.5, endMeterInput: '100,25'),
       25.25,

@@ -202,6 +202,27 @@ def _parse_job_type(value: Any) -> JobType:
 def _parse_int(value: Any) -> Optional[int]:
     if value is None:
         return None
+
+
+def _json_value(value: Any) -> Any:
+    """Return a JSON-safe source value without inventing a replacement."""
+    if value is None or isinstance(value, (str, int, bool)):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, (datetime, date_type)):
+        return value.isoformat()
+    return str(value).strip() or None
+
+
+def _parse_float(value: Any) -> Optional[float]:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        parsed = float(str(value).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
     try:
         return int(float(str(value).strip()))
     except (TypeError, ValueError):
@@ -383,7 +404,7 @@ def build_job_record(
     sro = _clean(col("SRO"))
     pbo = _clean(col("PBO"))
     pto = _clean(col("PTO"))
-    splitter = _clean(col("SPLITTER"))
+    splitter = _clean(col("SPLITTER_MSAN")) or _clean(col("SPLITTER"))
     splitter_port = _parse_int(col("PORT"))
     reference = _clean_identifier(col("REFERENCE"))
 
@@ -393,8 +414,15 @@ def build_job_record(
     color_status = _dominant_color_status(row_cells)
     status = _parse_status(col("STATUT"), color_status)
 
-    comment = _clean(col("COMMENTAIRE"))
-    technician = _clean(col("TECHNICIEN"))
+    observation = _clean(col("OBSERVATION"))
+    remark = _clean(col("REMARQUE"))
+    comment = observation or remark or _clean(col("COMMENTAIRE"))
+    technician = (
+        _clean(col("TECH_CABLE"))
+        or _clean(col("TECH_RAC"))
+        or _clean(col("TECH_CB"))
+        or _clean(col("TECHNICIEN"))
+    )
 
     detected_operator = _clean(col("OPERATEUR")) or operator
     if detected_operator == "UNKNOWN":
@@ -429,6 +457,54 @@ def build_job_record(
 
     route_criteria = nro or sro
 
+    cable_start = _parse_float(col("CABLE_DEPART"))
+    cable_end = _parse_float(col("CABLE_ARRIVE"))
+    cable_length = None
+    if cable_start is not None and cable_end is not None:
+        if cable_start < cable_end:
+            import_warnings.append(
+                "Repères câble incohérents : le départ doit être supérieur ou égal à l'arrivée."
+            )
+        else:
+            cable_length = int(round(cable_start - cable_end))
+
+    operational_fields = {
+        "avancement_magillan": "AVANCEMENT_MAGILLAN",
+        "date_action": "DATE_ACTION",
+        "observation": "OBSERVATION",
+        "splitter_msan": "SPLITTER_MSAN",
+        "pco": "PCO",
+        "sn": "SN",
+        "position_pco": "POSITION_PCO",
+        "gps_pco": "GPS_PCO",
+        "gps_derivation": "GPS_DERIVATION",
+        "gps_splitter": "GPS_SPLITTER",
+        "statut_source": "STATUT",
+        "tech_cb": "TECH_CB",
+        "tech_rac": "TECH_RAC",
+        "tech_cable": "TECH_CABLE",
+        "cb": "CB",
+        "cable_type": "CABLE",
+        "cable_code": "CABLE_CODE",
+        "cable_depart_m": "CABLE_DEPART",
+        "cable_arrive_m": "CABLE_ARRIVE",
+        "pose_sp_m": "POSE_SP",
+        "pose_fsd_m": "POSE_FSD",
+        "pose_tr_m": "POSE_TR",
+        "signal": "SIGNAL",
+        "remarque": "REMARQUE",
+    }
+    operational_data = {
+        key: _json_value(col(field))
+        for key, field in operational_fields.items()
+        if _json_value(col(field)) is not None
+    }
+    action_date = _parse_datetime(col("DATE_ACTION"))
+    if action_date is not None:
+        operational_data["date_action"] = action_date.isoformat()
+    if cable_length is not None:
+        operational_data["cable_length_m"] = cable_length
+
     return {
         "job_number": job_number,
         "customer_name": customer_name,
@@ -457,6 +533,10 @@ def build_job_record(
         "pto": pto,
         "splitter": splitter,
         "splitter_port": splitter_port,
+        "optical_power_dbm": _parse_float(col("SIGNAL")),
+        "cable_length_m": cable_length,
+        "ont_serial": _clean(col("SN")),
+        "operational_data": operational_data,
         "_import_id": f"{sheet_name}:{row_index}:{job_number or row_index}",
         "_meta": {
             "sheet": sheet_name,

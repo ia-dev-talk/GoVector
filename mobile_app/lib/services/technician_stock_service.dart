@@ -154,9 +154,8 @@ class TechnicianStockService {
     );
   }
 
-  /// Governed cable references visible even when known technician stock is 0.
-  /// This is the field truth path: a real measured cable use must not disappear
-  /// merely because its prior allocation was missing from the system.
+  /// Physical FO16/FO64 drums currently assigned to this technician.
+  /// The API deliberately excludes virtual, exhausted and unassigned codes.
   static Future<List<Map<String, dynamic>>> getCableCatalogue() {
     return _getCustodyRows(
       path: cableCataloguePath,

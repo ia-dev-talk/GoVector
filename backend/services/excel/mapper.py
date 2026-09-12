@@ -78,7 +78,7 @@ BASE_COLUMN_ALIASES: dict[str, list[str]] = {
 
     # ── Colonnes SAV FTTH DOWN ──
     "ID_CLIENT": [
-        "ID CLIENT", "IDCLIENT", "CODE TICKET", "CODE",
+        "ID CLIENT", "IDCLIENT", "CODE TICKET",
     ],
     "NOM_CLIENT": [
         "NOM CLIENT", "NOM", "CLIENT",
@@ -135,9 +135,33 @@ BASE_COLUMN_ALIASES: dict[str, list[str]] = {
     ],
     "GPS_SPLITTER": ["GPS SPLITTER", "GPS_SPLITTER"],
     "TELEPHONE": ["TÉLÉPHONE", "TELEPHONE", "TEL", "MOBILE", "PHONE"],
-    "COMMENTAIRE": ["COMMENTAIRE", "COMMENT", "OBSERVATION", "REMARQUE", "NOTE"],
+    "COMMENTAIRE": ["COMMENTAIRE", "COMMENT", "NOTE"],
     "REFERENCE": ["REFERENCE", "RÉFÉRENCE", "REF", "N° DOSSIER", "NUM DOSSIER", "ID"],
     "OPERATEUR": ["OPERATEUR", "OPÉRATEUR", "OPERATOR"],
+
+    # Modèle opérationnel Magillan / GoVector. Ces champs ont chacun une
+    # destination distincte afin qu'aucune colonne ne soit absorbée par un
+    # alias générique (notamment CODE et les trois techniciens).
+    "AVANCEMENT_MAGILLAN": ["AVANCEMENT MAGILLAN", "AVANCEMENT  MAGILLAN"],
+    "DATE_ACTION": ["DATE D'ACTION", "DATE DACTION", "DATE ACTION"],
+    "OBSERVATION": ["OBSERVATION"],
+    "SPLITTER_MSAN": ["SPLITTER/MSAN", "SPLITTER MSAN"],
+    "PCO": ["PCO"],
+    "SN": ["SN"],
+    "POSITION_PCO": ["POSITION PCO"],
+    "TECH_CB": ["TECH CB"],
+    "TECH_RAC": ["TECH RAC"],
+    "TECH_CABLE": ["TECH CABLE", "TECH  CABLE"],
+    "CB": ["CB"],
+    "CABLE": ["CABLE", "CÂBLE"],
+    "CABLE_CODE": ["CODE"],
+    "CABLE_DEPART": ["DEPART", "DÉPART"],
+    "CABLE_ARRIVE": ["ARRIVE", "ARRIVÉE", "ARRIVEE"],
+    "POSE_SP": ["CONDUITE"],
+    "POSE_FSD": ["F/I", "FI"],
+    "POSE_TR": ["A"],
+    "SIGNAL": ["SIGNAL"],
+    "REMARQUE": ["REMARQUE"],
 }
 
 
@@ -224,14 +248,6 @@ class ExcelMapper:
         if norm in self._explicit_header_mapping:
             explicit = self._explicit_header_mapping[norm]
             return explicit, "manual" if explicit else "ignored"
-
-        # A source action date is not the planned appointment. Until a
-        # dedicated destination exists, keep it reviewable and unmapped rather
-        # than silently scheduling the job on the wrong day. An administrator
-        # can still map it explicitly when a customer contract defines it as
-        # the appointment date.
-        if norm in {"DATE D'ACTION", "DATE DACTION", "DATE ACTION", "DATE_ACTION"}:
-            return None, "unmapped"
 
         # 1. Match exact dans l'index
         if norm in self._alias_index:

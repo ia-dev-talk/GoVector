@@ -31,7 +31,7 @@ function guardedStockMutation(action, run) {
 
 export const stockV3Api = Object.freeze({
   // Delivery scope: only the cable references confirmed from the Praxedo audit
-  // are visible in the pilot (FO16, FO64, FO96). The backend catalogue remains
+  // are visible in the pilot (FO16 and FO64). The backend catalogue remains
   // intact so historical or synthetic records are not destroyed.
   getItems: getPilotItems,
 

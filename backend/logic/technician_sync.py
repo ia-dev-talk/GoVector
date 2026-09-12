@@ -180,6 +180,7 @@ async def _dispatch(
                 db,
                 payload=field_payload,
                 current_user=current_user,
+                event_type=event.type,
             )
             await apply_cable_endpoint_projection(
                 db,

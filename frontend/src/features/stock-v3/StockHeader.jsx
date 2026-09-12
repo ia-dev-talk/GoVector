@@ -46,7 +46,7 @@ const StockHeader = memo(function StockHeader({
             <span className="st3-title-icon"><BoxIcon /></span>
             <div>
               <h1>Stock câbles</h1>
-              <p>FO16 · FO64 · FO96 — périmètre confirmé</p>
+              <p>FO16 · FO64 — périmètre confirmé</p>
             </div>
           </div>
         </div>
@@ -64,7 +64,7 @@ const StockHeader = memo(function StockHeader({
               type="search"
               value={searchQuery}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="FO16, FO64, FO96, dépôt…"
+              placeholder="FO16, FO64, dépôt…"
               aria-label="Rechercher dans le stock câbles"
             />
           </label>
@@ -105,7 +105,7 @@ const StockHeader = memo(function StockHeader({
       <div className="st3-notice st3-notice--pilot" role="note">
         <span>
           <strong>Périmètre livraison :</strong>{' '}
-          seules les références câble FO16, FO64 et FO96 confirmées sont affichées. Les anciens articles synthétiques restent archivés côté données mais sont exclus de cette vue.
+          seules les références câble FO16 et FO64 confirmées sont affichées. Les anciens articles synthétiques restent archivés côté données mais sont exclus de cette vue.
         </span>
       </div>
 

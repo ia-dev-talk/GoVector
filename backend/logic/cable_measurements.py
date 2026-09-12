@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import Job, TechnicianFieldAction, User
 from backend.logic.observed_cable_stock import record_observed_cable_consumption
+from backend.logic.cable_drums import record_consumption as record_drum_consumption
 from backend.logic.technician_jobs import TechnicianJobMutationError
 
 
@@ -303,6 +304,16 @@ async def apply_cable_endpoint_projection(
                 "paired_event_id": candidate.event_id,
             }
         )
+
+        if payload.get("cable_drum_id"):
+            await record_drum_consumption(
+                db,
+                event_id=event_id if event_type == "cable_exit" else str(candidate.event_id),
+                job_id=job_id,
+                technician_id=technician_id,
+                payload=payload,
+                occurred_at=occurred_at,
+            )
 
         existing = await _existing_completed_segments(
             db,

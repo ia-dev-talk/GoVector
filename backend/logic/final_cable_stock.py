@@ -117,6 +117,11 @@ async def commit_final_cable_stock(
     committed_m = 0
     finalized_at = occurred_at or datetime.now(timezone.utc)
     for key, (_action, payload) in latest.items():
+        # Physical CODE drums are debited atomically when the exit event is
+        # synchronized. Do not duplicate that history in the legacy quantity
+        # ledger during Agent validation.
+        if payload.get("cable_drum_id"):
+            continue
         quantity_m = _computed_length(payload)
         raw_item_id = payload.get("cable_item_id")
         try:

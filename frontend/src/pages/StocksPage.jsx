@@ -27,6 +27,7 @@ import WarehouseRail from '../features/stock-v3/WarehouseRail';
 import { filterPilotStockWarehouses } from '../features/stock-v3/pilotStockScope';
 import { scopeForWarehouseSelection } from '../features/stock-v3/stockHolderScope';
 import { stockV3Api } from '../features/stock-v3/stockV3Api';
+import CableDrumPanel from '../features/stock-v3/CableDrumPanel';
 import {
   aggregateItems,
   asRecords,
@@ -741,6 +742,8 @@ export default function StocksPage({
         technicians={technicians}
         onNavigate={onNavigate}
       />
+
+      <CableDrumPanel technicians={technicians} canManage={canMoveStock} />
 
       {technicianContext ? (
         <div className="st3-notice st3-notice--context" role="status">
