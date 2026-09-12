@@ -161,7 +161,7 @@ async def get_technicians(
     current_user: User = Depends(get_current_user),
 ):
 	"""Get all technicians with job counts, filtered by user role"""
-	if current_user.role == UserRole.CHEF_ORIENTEUR or current_user.role == UserRole.ADMIN:
+	if current_user.role == UserRole.ADMIN:
 		techs = await tech_logic.get_all_technicians(db, skip=skip, limit=limit)
 	elif current_user.role == UserRole.ORIENTEUR:
 		if not current_user.orienteur_id:
@@ -178,7 +178,7 @@ async def get_available_technicians(
     current_user: User = Depends(get_current_user),
 ):
 	"""Get all available technicians, filtered by user role"""
-	if current_user.role == UserRole.CHEF_ORIENTEUR or current_user.role == UserRole.ADMIN:
+	if current_user.role == UserRole.ADMIN:
 		techs = await tech_logic.get_available_technicians(db)
 	elif current_user.role == UserRole.ORIENTEUR:
 		if not current_user.orienteur_id:
@@ -367,9 +367,9 @@ async def update_technician_status(
 	db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-	"""Update technician's status — accessible to ORIENTEUR (own team), CHEF_ORIENTEUR, ADMIN"""
+	"""Update technician status — accessible to ORIENTEUR (own team) and ADMIN."""
 	# Vérifier les permissions
-	if current_user.role not in [UserRole.ADMIN, UserRole.CHEF_ORIENTEUR, UserRole.ORIENTEUR]:
+	if current_user.role not in [UserRole.ADMIN, UserRole.ORIENTEUR]:
 		raise HTTPException(status_code=403, detail="Accès insuffisant pour modifier le statut d'un technicien.")
 
 	# Si ORIENTEUR, vérifier que le technicien est dans son équipe

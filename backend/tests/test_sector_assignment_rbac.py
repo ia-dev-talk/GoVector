@@ -17,12 +17,17 @@ def _user(role, orienteur_id=None):
     )
 
 
-@pytest.mark.parametrize(
-    "role",
-    [UserRole.ADMIN, UserRole.CHEF_ORIENTEUR],
-)
-def test_assignment_scope_allows_global_supervision_roles(role):
-    assert _assignment_orienteur_scope(_user(role)) is None
+def test_assignment_scope_allows_admin_global_supervision():
+    assert _assignment_orienteur_scope(_user(UserRole.ADMIN)) is None
+
+
+def test_assignment_scope_rejects_field_agent_global_read():
+    with pytest.raises(HTTPException) as exc_info:
+        _assignment_orienteur_scope(
+            _user(UserRole.CHEF_ORIENTEUR, orienteur_id=17),
+        )
+
+    assert exc_info.value.status_code == 403
 
 
 def test_assignment_scope_limits_orienteur_to_own_team():

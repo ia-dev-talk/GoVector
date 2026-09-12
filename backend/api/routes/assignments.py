@@ -27,11 +27,11 @@ async def _check_orienteur_scope(current_user: User, db: AsyncSession, technicia
     """Vérifie que l'orienteur a le droit d'accéder à ce technicien.
 
     Règles :
-    - ADMIN et CHEF_ORIENTEUR : accès complet
+    - ADMIN : accès complet
     - ORIENTEUR : ne peut accéder qu'aux techniciens de SON orienteur_id
+    - CHEF_ORIENTEUR historique : Agent terrain, route générale interdite
     """
-    # ADMIN et CHEF_ORIENTEUR ont tous les droits
-    if current_user.role in [UserRole.ADMIN, UserRole.CHEF_ORIENTEUR]:
+    if current_user.role == UserRole.ADMIN:
         return
 
     # ORIENTEUR : vérifier que le technicien appartient à son équipe
@@ -101,8 +101,8 @@ async def get_technician_assignments(
     current_user: User = Depends(get_current_user),
 ):
 	"""Get all assignments for a technician — filtered by role"""
-	# ADMIN et CHEF_ORIENTEUR : accès complet
-	if current_user.role in [UserRole.ADMIN, UserRole.CHEF_ORIENTEUR]:
+	# L'Agent terrain utilise exclusivement son espace équipe dédié.
+	if current_user.role == UserRole.ADMIN:
 		return await assignment_logic.get_assignments_for_technician(db, tech_id)
 
 	# ORIENTEUR : ne peut voir que les techniciens de SON équipe
@@ -171,7 +171,7 @@ async def unassign_job(
 ):
 	"""Unassign a job from its technician"""
 	# Vérifier les permissions de base (ORIENTEUR+)
-	if current_user.role not in [UserRole.ADMIN, UserRole.CHEF_ORIENTEUR, UserRole.ORIENTEUR]:
+	if current_user.role not in [UserRole.ADMIN, UserRole.ORIENTEUR]:
 		raise HTTPException(status_code=403, detail="Accès insuffisant.")
 
 	await _require_operations_job(

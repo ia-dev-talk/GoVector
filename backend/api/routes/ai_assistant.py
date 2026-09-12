@@ -54,7 +54,7 @@ def _intent(message: str, aliases: list[str]) -> bool:
 
 def _jobs_query(current_user):
     query = select(Job).where(Job.deleted_at.is_(None))
-    if current_user.role in {UserRole.ADMIN, UserRole.CHEF_ORIENTEUR}:
+    if current_user.role == UserRole.ADMIN:
         return query
     if current_user.role == UserRole.ORIENTEUR:
         return query.where(Job.orienteur_id == current_user.orienteur_id)
@@ -74,7 +74,7 @@ def _jobs_query(current_user):
 
 def _technicians_query(current_user):
     query = select(Technician)
-    if current_user.role in {UserRole.ADMIN, UserRole.CHEF_ORIENTEUR}:
+    if current_user.role == UserRole.ADMIN:
         return query
     if current_user.role == UserRole.ORIENTEUR:
         return query.where(Technician.orienteur_id == current_user.orienteur_id)

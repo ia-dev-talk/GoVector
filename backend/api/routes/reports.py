@@ -130,7 +130,7 @@ def _filtered_job_dashboard_stats(base_stats: dict, jobs: list[Job]) -> dict:
         "- technician_id: ID du technicien à filtrer.\n"
         "- job_type: Type d'intervention à filtrer.\n"
         "- status: Statut d'intervention à filtrer.\n"
-        "Authentification requise (ADMIN ou CHEF_ORIENTEUR)."
+        "Authentification requise (ADMIN ou ORIENTEUR bureau)."
     ),
     response_class=Response,
 )
@@ -144,7 +144,7 @@ async def export_advanced_excel(
     job_type: Optional[JobType] = Query(None, description="Type d'intervention"),
     status: Optional[JobStatus] = Query(None, description="Statut d'intervention"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_chef_orienteur), # Seuls Admin et Chef Orienteur
+    current_user: User = Depends(require_chef_orienteur), # Alias historique : Admin ou Orienteur bureau
 ):
     """Génère un rapport Excel avancé en fonction des options de l'utilisateur."""
     # Préparer les options de filtrage

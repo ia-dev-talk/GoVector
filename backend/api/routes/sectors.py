@@ -98,7 +98,6 @@ def _assignment_orienteur_scope(current_user: User) -> Optional[int]:
     """Return the server-side team scope allowed for assignment reads."""
     if current_user.role in {
         UserRole.ADMIN,
-        UserRole.CHEF_ORIENTEUR,
     }:
         return None
 

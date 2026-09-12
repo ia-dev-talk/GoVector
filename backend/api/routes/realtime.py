@@ -26,19 +26,16 @@ router = APIRouter(tags=["Real-time"])
 ROOM_ROLE_PERMISSIONS = {
     None: {
         UserRole.ADMIN,
-        UserRole.CHEF_ORIENTEUR,
         UserRole.ORIENTEUR,
         UserRole.TECHNICIAN,
     },
     "dashboard": {
         UserRole.ADMIN,
-        UserRole.CHEF_ORIENTEUR,
         UserRole.ORIENTEUR,
         UserRole.TECHNICIAN,
     },
     "dispatch": {
         UserRole.ADMIN,
-        UserRole.CHEF_ORIENTEUR,
         UserRole.ORIENTEUR,
     },
     "admin": {
@@ -46,7 +43,6 @@ ROOM_ROLE_PERMISSIONS = {
     },
     "supervision": {
         UserRole.ADMIN,
-        UserRole.CHEF_ORIENTEUR,
         UserRole.ORIENTEUR,
     },
 }
