@@ -4,11 +4,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from backend.api.routes import settings, v1_admin
 from backend.api.schemas.settings import CatalogItem
 from backend.api.schemas.v1_admin import (
     AdminAccountCreate,
+    AdminPasswordReset,
+    ClientAccountCreate,
     FieldTeamWrite,
     TeamTechnicianUpdate,
 )
@@ -278,6 +281,27 @@ def test_account_administration_is_admin_scoped_and_requires_profile_links():
         route for route in v1_admin.router.routes if route.path == "/audit-events"
     )
     assert "require_admin" in _dependency_names(audit_route)
+
+
+@pytest.mark.parametrize(
+    ("factory", "kwargs"),
+    [
+        (
+            AdminAccountCreate,
+            {"username": "admin.test", "email": "admin@example.test", "role": "ADMIN"},
+        ),
+        (
+            ClientAccountCreate,
+            {"username": "client.test", "email": "client@example.test", "organization_id": 1},
+        ),
+        (AdminPasswordReset, {}),
+    ],
+)
+def test_admin_password_contract_requires_fourteen_characters(factory, kwargs):
+    with pytest.raises(ValidationError):
+        factory(password="1234567890123", **kwargs)
+
+    assert factory(password="12345678901234", **kwargs).password == "12345678901234"
 
 
 @pytest.mark.asyncio
