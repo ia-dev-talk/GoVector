@@ -47,6 +47,23 @@ def test_report_contains_unique_code_consumption_and_mode(tmp_path):
     assert ">SP<" in html
 
 
+def test_report_with_one_photo_keeps_its_business_label(tmp_path):
+    (tmp_path / "arrival.jpg").write_bytes(b"real-arrival")
+    media = [
+        SimpleNamespace(
+            storage_key="arrival.jpg",
+            mime_type="image/jpeg",
+            meta_data={"label": "cable_arrival"},
+            created_at="2026-09-12",
+            original_filename="arrival.jpg",
+        )
+    ]
+    html = _render(tmp_path, media=media)
+    assert "Arrivée câble" in html
+    assert html.count('class="photo-card"') == 1
+    assert "Aucune photo synchronisée" not in html
+
+
 def test_report_embeds_all_photos_with_business_labels(tmp_path):
     (tmp_path / "one.jpg").write_bytes(b"real-one")
     (tmp_path / "two.jpg").write_bytes(b"real-two")
