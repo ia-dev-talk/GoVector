@@ -21,6 +21,10 @@ from backend.api.schemas.settings import (
     BusinessCatalogUpdate,
     BusinessCatalogValues,
     CatalogItem,
+    FieldFormCatalogDocumentResponse,
+    FieldFormCatalogUpdate,
+    FieldFormCatalogValues,
+    FieldFormTemplateVersion,
     OperationalSettingsUpdate,
     OperationalSettingsValues,
     RuntimeNamespaceMeta,
@@ -56,6 +60,8 @@ _OPERATIONAL_NAMESPACE = "operational"
 _OPERATIONAL_SCHEMA_VERSION = 3
 _CATALOG_NAMESPACE = "business_catalog"
 _CATALOG_SCHEMA_VERSION = 4
+_FIELD_FORMS_NAMESPACE = "field_forms"
+_FIELD_FORMS_SCHEMA_VERSION = 1
 
 
 _CATALOG_COLORS = (
@@ -492,6 +498,151 @@ async def _get_document(
     return result.scalar_one_or_none()
 
 
+def _field_forms_response(
+    document: ApplicationSetting | None,
+) -> FieldFormCatalogDocumentResponse:
+    values = FieldFormCatalogValues.model_validate(document.values or {}) \
+        if document is not None else FieldFormCatalogValues()
+    return FieldFormCatalogDocumentResponse(
+        namespace=_FIELD_FORMS_NAMESPACE,
+        schema_version=_FIELD_FORMS_SCHEMA_VERSION,
+        revision=document.revision if document is not None else 0,
+        values=values,
+        updated_by=document.updated_by if document is not None else None,
+        created_at=document.created_at if document is not None else None,
+        updated_at=document.updated_at if document is not None else None,
+    )
+
+
+async def _validated_field_forms(
+    db: AsyncSession,
+    submitted: FieldFormCatalogValues,
+    previous: FieldFormCatalogValues,
+    *,
+    current_user: User,
+) -> FieldFormCatalogValues:
+    """Validate scopes and preserve every historical form definition."""
+    previous_by_id = {
+        (item.template_key, item.version): item for item in previous.templates
+    }
+    submitted_by_id = {
+        (item.template_key, item.version): item for item in submitted.templates
+    }
+    if len(submitted_by_id) != len(submitted.templates):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Une version de formulaire est présente plusieurs fois.",
+        )
+    removed = sorted(set(previous_by_id) - set(submitted_by_id))
+    if removed:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Une version publiée ne peut pas être supprimée. "
+                "Désactivez-la afin de préserver les anciennes réponses."
+            ),
+        )
+
+    normalized: list[FieldFormTemplateVersion] = []
+    now = datetime.now(timezone.utc)
+    previous_versions: dict[str, list[int]] = {}
+    for item in previous.templates:
+        previous_versions.setdefault(item.template_key, []).append(item.version)
+
+    for item in submitted.templates:
+        identity = (item.template_key, item.version)
+        old = previous_by_id.get(identity)
+        if old is not None:
+            immutable_old = old.model_dump(exclude={"active"})
+            immutable_new = item.model_dump(exclude={"active"})
+            if immutable_new != immutable_old:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        f"Le formulaire {item.template_key} v{item.version} est publié "
+                        "et immuable. Créez une nouvelle version pour le modifier."
+                    ),
+                )
+            normalized.append(old.model_copy(update={"active": item.active}))
+            continue
+
+        versions = previous_versions.get(item.template_key, [])
+        expected_version = max(versions) + 1 if versions else 1
+        if item.version != expected_version:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"La prochaine version de {item.template_key} doit être "
+                    f"v{expected_version}."
+                ),
+            )
+        normalized.append(
+            item.model_copy(update={"created_at": now, "created_by": current_user.id})
+        )
+
+    active_by_key: dict[str, int] = {}
+    for item in normalized:
+        if not item.active:
+            continue
+        if item.template_key in active_by_key:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"Une seule version du formulaire {item.template_key} "
+                    "peut être active."
+                ),
+            )
+        active_by_key[item.template_key] = item.version
+
+    catalog_document = await _get_document(db, _CATALOG_NAMESPACE)
+    catalog = _catalog_response(catalog_document).values
+    activity_codes = {item.code for item in catalog.job_types if item.active}
+    referenced_activities = {
+        code for item in normalized for code in item.scope.activity_codes
+    }
+    unknown_activities = sorted(referenced_activities - activity_codes)
+    if unknown_activities:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Un formulaire référence une activité absente ou archivée : "
+                + ", ".join(unknown_activities)
+            ),
+        )
+
+    client_ids = {
+        client_id
+        for item in normalized
+        for client_id in item.scope.client_organization_ids
+    }
+    if client_ids:
+        existing_client_ids = set(
+            (
+                await db.execute(
+                    select(ClientOrganization.id).where(
+                        ClientOrganization.id.in_(client_ids)
+                    )
+                )
+            ).scalars().all()
+        )
+        missing_clients = sorted(client_ids - existing_client_ids)
+        if missing_clients:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Un formulaire référence une entreprise cliente inexistante : "
+                    + ", ".join(str(value) for value in missing_clients)
+                ),
+            )
+
+    return FieldFormCatalogValues(
+        templates=sorted(
+            normalized,
+            key=lambda item: (item.template_key, item.version),
+        )
+    )
+
+
 def _operational_values(
     document: ApplicationSetting | None,
 ) -> OperationalSettingsValues:
@@ -742,3 +893,84 @@ async def update_business_catalog(
             detail="Le catalogue a été modifié simultanément.",
         ) from error
     return _catalog_response(document)
+
+
+@router.get("/forms", response_model=FieldFormCatalogDocumentResponse)
+async def get_field_forms(
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+):
+    """Return all form versions so historical submissions remain readable."""
+    return _field_forms_response(
+        await _get_document(db, _FIELD_FORMS_NAMESPACE)
+    )
+
+
+@router.put("/forms", response_model=FieldFormCatalogDocumentResponse)
+async def update_field_forms(
+    payload: FieldFormCatalogUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Publish, version, duplicate, activate or soft-archive terrain forms."""
+    document = await _get_document(
+        db,
+        _FIELD_FORMS_NAMESPACE,
+        for_update=True,
+    )
+    current_revision = int(document.revision or 0) if document is not None else 0
+    if payload.expected_revision != current_revision:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Les formulaires ont été modifiés. Rechargez avant d'enregistrer.",
+        )
+    if document is not None and document.schema_version > _FIELD_FORMS_SCHEMA_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Le catalogue de formulaires utilise une version plus récente.",
+        )
+
+    previous = FieldFormCatalogValues.model_validate(
+        document.values or {}
+    ) if document is not None else FieldFormCatalogValues()
+    values = await _validated_field_forms(
+        db,
+        payload.values,
+        previous,
+        current_user=current_user,
+    )
+    serialized = values.model_dump(mode="json")
+    if document is None:
+        document = ApplicationSetting(
+            namespace=_FIELD_FORMS_NAMESPACE,
+            schema_version=_FIELD_FORMS_SCHEMA_VERSION,
+            revision=1,
+            values=serialized,
+            updated_by=current_user.id,
+        )
+        db.add(document)
+    else:
+        document.schema_version = _FIELD_FORMS_SCHEMA_VERSION
+        document.revision = current_revision + 1
+        document.values = serialized
+        document.updated_by = current_user.id
+
+    try:
+        record_operational_audit(
+            db,
+            current_user=current_user,
+            action="settings.field_forms_updated",
+            entity_type="application_setting",
+            entity_id=_FIELD_FORMS_NAMESPACE,
+            before={"revision": current_revision, "values": previous.model_dump(mode="json")},
+            after={"revision": document.revision, "values": serialized},
+        )
+        await db.commit()
+        await db.refresh(document)
+    except IntegrityError as error:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Les formulaires ont été modifiés simultanément.",
+        ) from error
+    return _field_forms_response(document)

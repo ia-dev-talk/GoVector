@@ -7,7 +7,12 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from backend.api.routes import settings, v1_admin
-from backend.api.schemas.settings import CatalogItem
+from backend.api.schemas.settings import (
+    CatalogItem,
+    FieldFormCatalogValues,
+    FieldFormFieldDefinition,
+    FieldFormTemplateVersion,
+)
 from backend.api.schemas.v1_admin import (
     AdminAccountCreate,
     AdminPasswordReset,
@@ -114,6 +119,87 @@ def test_catalog_write_is_admin_only_but_read_is_authenticated():
     )
     assert "get_current_user" in _dependency_names(get_route)
     assert "require_admin" in _dependency_names(put_route)
+
+
+def test_field_form_write_is_admin_only_but_read_is_authenticated():
+    get_route = next(
+        route for route in settings.router.routes
+        if route.path == "/forms" and "GET" in (route.methods or set())
+    )
+    put_route = next(
+        route for route in settings.router.routes
+        if route.path == "/forms" and "PUT" in (route.methods or set())
+    )
+    assert "get_current_user" in _dependency_names(get_route)
+    assert "require_admin" in _dependency_names(put_route)
+
+
+def _form_version(*, version=1, active=True, label="Raccordement"):
+    return FieldFormTemplateVersion(
+        template_key="raccordement_iam",
+        version=version,
+        label=label,
+        active=active,
+        scope={"activity_codes": ["RACCORDEMENT"]},
+        fields=[
+            FieldFormFieldDefinition(
+                key="signal_dbm",
+                label="Signal optique",
+                kind="measure",
+                unit="dBm",
+                required=True,
+            )
+        ],
+    )
+
+
+@pytest.mark.asyncio
+async def test_published_form_definition_is_immutable(monkeypatch):
+    previous = FieldFormCatalogValues(templates=[_form_version()])
+    submitted = FieldFormCatalogValues(
+        templates=[_form_version(label="Libellé modifié")]
+    )
+    monkeypatch.setattr(settings, "_get_document", AsyncMock(return_value=None))
+
+    with pytest.raises(HTTPException) as raised:
+        await settings._validated_field_forms(
+            AsyncMock(), submitted, previous, current_user=SimpleNamespace(id=7)
+        )
+
+    assert raised.value.status_code == 409
+    assert "nouvelle version" in raised.value.detail
+
+
+@pytest.mark.asyncio
+async def test_new_form_version_preserves_history_and_becomes_active(monkeypatch):
+    previous_item = _form_version(active=True)
+    previous = FieldFormCatalogValues(templates=[previous_item])
+    submitted = FieldFormCatalogValues(
+        templates=[
+            previous_item.model_copy(update={"active": False}),
+            _form_version(version=2, active=True, label="Raccordement contrôlé"),
+        ]
+    )
+    monkeypatch.setattr(settings, "_get_document", AsyncMock(return_value=None))
+
+    validated = await settings._validated_field_forms(
+        AsyncMock(), submitted, previous, current_user=SimpleNamespace(id=7)
+    )
+
+    assert [(item.version, item.active) for item in validated.templates] == [
+        (1, False),
+        (2, True),
+    ]
+    assert validated.templates[1].created_by == 7
+
+
+def test_choice_form_field_requires_real_unique_options():
+    with pytest.raises(ValidationError):
+        FieldFormFieldDefinition(key="etat", label="État", kind="choice")
+    with pytest.raises(ValidationError):
+        FieldFormFieldDefinition(
+            key="etat", label="État", kind="choice", options=["OK", "OK"]
+        )
 
 
 @pytest.mark.asyncio

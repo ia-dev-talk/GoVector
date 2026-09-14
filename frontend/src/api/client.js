@@ -1701,6 +1701,15 @@ export const api = {
     return apiClient.put('/settings/catalog', data);
   },
 
+  getFieldForms: () => apiClient.get('/settings/forms'),
+
+  updateFieldForms: (data) => {
+    if (!isRecord(data)) {
+      throw new TypeError('Le catalogue de formulaires doit être un objet');
+    }
+    return apiClient.put('/settings/forms', data);
+  },
+
   // V1 ADMINISTRATION
   getV1Clients: () => apiClient.get('/admin/v1/clients'),
   createV1Client: (data) => apiClient.post('/admin/v1/clients', data),

@@ -12,6 +12,7 @@ import OperationalSettingsSection from '../components/settings/OperationalSettin
 import CompletionPolicySettingsSection from '../components/settings/CompletionPolicySettingsSection';
 import AdminOrganizationSection from '../components/settings/AdminOrganizationSection';
 import BusinessCatalogSection from '../components/settings/BusinessCatalogSection';
+import FieldFormsSettingsSection from '../components/settings/FieldFormsSettingsSection';
 import OperationalAuditSection from '../components/settings/OperationalAuditSection';
 import { useRuntimeSettings } from '../contexts/RuntimeSettingsContext';
 import SettingsAbout from '../features/settings-v3/SettingsAbout';
@@ -200,6 +201,8 @@ export default function ParametresPage({ userRole, onNavigate }) {
         return <OperationalAuditSection userRole={userRole} refreshRevision={refreshRevision} />;
       case 'completion-policy':
         return <CompletionPolicySettingsSection toast={toast} userRole={userRole} refreshRevision={refreshRevision} onDirtyChange={setSettingsDirty} />;
+      case 'field-forms':
+        return <FieldFormsSettingsSection toast={toast} userRole={userRole} refreshRevision={refreshRevision} onDirtyChange={setSettingsDirty} />;
       case 'feedback':
         return <FeedbackCenter userRole={userRole} />;
       case 'modules':

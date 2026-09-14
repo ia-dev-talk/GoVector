@@ -8,9 +8,9 @@ les interfaces.
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, field_validator
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, field_validator, model_validator
 
 
 class CompletionRequirementsValues(BaseModel):
@@ -190,6 +190,100 @@ class BusinessCatalogDocumentResponse(BaseModel):
     schema_version: int
     revision: int
     values: BusinessCatalogValues
+    updated_by: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class FieldFormFieldDefinition(BaseModel):
+    """One immutable field inside a versioned terrain form."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{1,63}$")
+    label: str = Field(min_length=1, max_length=160)
+    kind: Literal["text", "number", "choice", "photo", "measure", "signature"]
+    required: bool = False
+    sort_order: int = Field(default=0, ge=0, le=10000)
+    options: List[str] = Field(default_factory=list, max_length=100)
+    unit: Optional[str] = Field(default=None, max_length=40)
+    help_text: Optional[str] = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_kind_options(self):
+        cleaned_options = [value.strip() for value in self.options if value.strip()]
+        if len(cleaned_options) != len(set(cleaned_options)):
+            raise ValueError("Les choix d'un champ doivent être uniques")
+        if self.kind == "choice" and not cleaned_options:
+            raise ValueError("Un champ choix doit proposer au moins une valeur")
+        if self.kind != "choice" and cleaned_options:
+            raise ValueError("Seul un champ choix peut contenir des options")
+        self.options = cleaned_options
+        if self.kind not in {"number", "measure"} and self.unit:
+            raise ValueError("Une unité est réservée aux champs nombre ou mesure")
+        return self
+
+
+class FieldFormScope(BaseModel):
+    """Optional targeting. Empty lists mean the form is globally available."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    activity_codes: List[str] = Field(default_factory=list, max_length=100)
+    operator_codes: List[str] = Field(default_factory=list, max_length=100)
+    client_organization_ids: List[PositiveInt] = Field(default_factory=list, max_length=100)
+
+    @field_validator("activity_codes", "operator_codes")
+    @classmethod
+    def clean_scope_codes(cls, values: List[str]) -> List[str]:
+        cleaned = [value.strip() for value in values if value.strip()]
+        if len(cleaned) != len(set(cleaned)):
+            raise ValueError("Les associations d'un formulaire doivent être uniques")
+        return cleaned
+
+
+class FieldFormTemplateVersion(BaseModel):
+    """Immutable definition; a modification is represented by a new version."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    template_key: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{1,63}$")
+    version: PositiveInt
+    label: str = Field(min_length=1, max_length=160)
+    description: Optional[str] = Field(default=None, max_length=500)
+    active: bool = True
+    scope: FieldFormScope = Field(default_factory=FieldFormScope)
+    fields: List[FieldFormFieldDefinition] = Field(min_length=1, max_length=200)
+    created_at: Optional[datetime] = None
+    created_by: Optional[PositiveInt] = None
+
+    @model_validator(mode="after")
+    def unique_field_keys(self):
+        keys = [field.key for field in self.fields]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Les identifiants de champs doivent être uniques dans une version")
+        self.fields = sorted(self.fields, key=lambda field: (field.sort_order, field.key))
+        return self
+
+
+class FieldFormCatalogValues(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    templates: List[FieldFormTemplateVersion] = Field(default_factory=list, max_length=500)
+
+
+class FieldFormCatalogUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: NonNegativeInt
+    values: FieldFormCatalogValues
+
+
+class FieldFormCatalogDocumentResponse(BaseModel):
+    namespace: str
+    schema_version: int
+    revision: int
+    values: FieldFormCatalogValues
     updated_by: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
