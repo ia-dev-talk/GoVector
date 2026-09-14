@@ -137,20 +137,20 @@ def _parse_datetime_like(value: Any) -> datetime | None:
         return None
 
 
-def _date(value: Any, *, with_time: bool = True) -> str:
+def _date(value: Any, *, with_time: bool = True) -> str | None:
     parsed = _parse_datetime_like(value)
     if parsed is None:
-        return _display(None)
+        return None
     if with_time:
         return parsed.strftime("%d/%m/%Y à %H:%M")
     return parsed.strftime("%d/%m/%Y")
 
 
-def _status(value: Any) -> str:
+def _status(value: Any) -> str | None:
     raw = _raw(value)
     if not raw:
-        return _display(None)
-    return escape(STATUS_LABELS.get(raw.casefold(), raw.replace("_", " ").capitalize()))
+        return None
+    return STATUS_LABELS.get(raw.casefold(), raw.replace("_", " ").capitalize())
 
 
 def _safe_path(root: Path, storage_key: Any) -> Path | None:
@@ -184,11 +184,10 @@ def _latest_payload(actions: Iterable[Any], action_type: str) -> dict:
     return latest.payload if isinstance(getattr(latest, "payload", None), dict) else {}
 
 
-def _row(label: str, value: Any, label2: str | None = None, value2: Any = None, *, raw_html: bool = False) -> str:
-    rendered = value if raw_html else _display(value)
+def _row(label: str, value: Any, label2: str | None = None, value2: Any = None) -> str:
     second = f"<th>{escape(label2)}</th><td>{_display(value2)}</td>" if label2 else ""
     span = "" if label2 else ' colspan="3"'
-    return f"<tr><th>{escape(label)}</th><td{span}>{rendered}</td>{second}</tr>"
+    return f"<tr><th>{escape(label)}</th><td{span}>{_display(value)}</td>{second}</tr>"
 
 
 def _mode_quantities(item: Any) -> tuple[Any, Any, Any]:
@@ -282,11 +281,11 @@ def render_intervention_report_sections(
         photo_gps = ""
         if metadata.get("latitude") is not None and metadata.get("longitude") is not None:
             photo_gps = f"GPS {metadata['latitude']}, {metadata['longitude']}"
-        captured_text = _date(captured) if _parse_datetime_like(captured) else _display(captured)
+        captured_text = _date(captured) or _raw(captured)
         photos.append(
             f'<article class="photo-card"><h3>{escape(label)}</h3>'
             f'<img src="{uri}" alt="{escape(label)}" />'
-            f'<p>{captured_text}{(" · " + escape(photo_gps)) if photo_gps else ""}</p></article>'
+            f'<p>{_display(captured_text)}{(" · " + escape(photo_gps)) if photo_gps else ""}</p></article>'
         )
 
     photo_groups = [photos[index:index + 4] for index in range(0, len(photos), 4)]
@@ -299,10 +298,15 @@ def render_intervention_report_sections(
 
     visit_times = None
     if active_visit:
-        started = _date(getattr(active_visit, "started_at", None))
-        ended = _date(getattr(active_visit, "ended_at", None))
-        if _raw(getattr(active_visit, "started_at", None)) or _raw(getattr(active_visit, "ended_at", None)):
-            visit_times = f"{started} → {ended}"
+        visit_parts = [
+            part
+            for part in (
+                _date(getattr(active_visit, "started_at", None)),
+                _date(getattr(active_visit, "ended_at", None)),
+            )
+            if part
+        ]
+        visit_times = " → ".join(visit_parts) or None
 
     connection_pco = network.get("pco") or pco
     connection_joint = network.get("joint") or operational.get("joint")
@@ -314,10 +318,6 @@ def render_intervention_report_sections(
         or operational.get("pto")
         or getattr(job, "pto_raw", None)
     )
-
-    status_html = _status(getattr(job, "status", None))
-    date_html = _date(getattr(job, "scheduled_date", None))
-    action_date_html = _date(operational.get("date_action"))
 
     return f"""
       <section class="report-page">
@@ -333,12 +333,12 @@ def render_intervention_report_sections(
 
         <table class="identity">
           {_row('CENTRAL', central, 'N° DEMANDE', getattr(job, 'job_number', None))}
-          {_row('N° RAPPORT', operational.get('report_number'), 'DATE', date_html, raw_html=True)}
+          {_row('N° RAPPORT', operational.get('report_number'), 'DATE', _date(getattr(job, 'scheduled_date', None)))}
           {_row('CLIENT', getattr(job, 'customer_name', None), 'LOCALITÉ', localite)}
           {_row('ADRESSE', getattr(job, 'service_address', None), 'GPS', gps)}
           {_row('SPLITTER', splitter, 'PCO', pco)}
-          {_row('TECHNICIEN', technician_name or operational.get('source_technician_name'), 'STATUT', status_html, raw_html=True)}
-          {_row('DATE D’ACTION', action_date_html, 'HORAIRES TERRAIN', visit_times, raw_html=True)}
+          {_row('TECHNICIEN', technician_name or operational.get('source_technician_name'), 'STATUT', _status(getattr(job, 'status', None)))}
+          {_row('DATE D’ACTION', _date(operational.get('date_action')), 'HORAIRES TERRAIN', visit_times)}
         </table>
 
         <div class="section-title">POSE CÂBLE</div>
