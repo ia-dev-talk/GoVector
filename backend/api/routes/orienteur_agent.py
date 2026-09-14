@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import (
@@ -36,9 +37,14 @@ from backend.logic.field_agent_access import (
     subject_user_for_field_agent,
 )
 from backend.logic.field_agent_review import FieldAgentReviewWorkflowEngine
+from backend.logic.activity_log import log_job_activity
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.technician_sync import process_technician_sync_event
-from backend.logic.workflow.engine import WorkflowEngine
+from backend.logic.validation_pipeline import (
+    FIELD_AGENT_VERIFIED,
+    RETURNED_FOR_CORRECTION,
+    is_field_agent_verified,
+)
 from backend.services.orienteur_assessment import assess_job
 from backend.services.orienteur_candidates import assess_candidates
 from backend.services.realtime.dashboard_service import DashboardService
@@ -219,6 +225,7 @@ async def return_my_team_job_for_correction(
                 }
             },
         )
+        context.job.validation_status = RETURNED_FOR_CORRECTION
         await db.commit()
     except ValueError as exc:
         await db.rollback()
@@ -237,13 +244,18 @@ async def return_my_team_job_for_correction(
     }
 
 
-@router.post("/me/jobs/{job_id}/validate")
-async def validate_and_close_my_team_job(
+@router.post("/me/jobs/{job_id}/validate", include_in_schema=False)
+@router.post("/me/jobs/{job_id}/submit")
+async def submit_my_team_job_to_office(
     job_id: int = Path(..., gt=0),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_field_agent),
 ):
-    """Final Agent decision: validate a submitted team job and close it."""
+    """Record the Agent review and transmit the dossier to the office.
+
+    The job deliberately remains ``EN_ATTENTE_VALIDATION``. Only an office
+    Orienteur (or an administrator) can perform the final closure.
+    """
 
     try:
         context = await require_field_agent_team_job(
@@ -257,30 +269,54 @@ async def validate_and_close_my_team_job(
 
     if context.job.status != JobStatus.EN_ATTENTE_VALIDATION:
         raise _review_conflict(
-            "Seule une intervention en attente de validation peut être clôturée par l'Agent"
+            "Seule une intervention en attente de validation peut être transmise au bureau"
         )
 
-    engine = WorkflowEngine(db)
-    try:
-        await engine.transition_job(
-            context.job,
-            JobStatus.COMPLETED,
+    already_submitted = is_field_agent_verified(context.job.validation_status)
+    if not already_submitted:
+        context.job.validation_status = FIELD_AGENT_VERIFIED
+        context.job.updated_at = datetime.now(timezone.utc)
+        await log_job_activity(
+            db=db,
+            job_id=context.job.id,
+            action="field_agent_submitted",
             technician_id=context.technician.id,
+            description="Dossier contrôlé par l'Agent terrain et transmis à l'Orienteur",
+            old_status=context.job.status.value,
+            new_status=context.job.status.value,
             metadata={
-                "extra": {
-                    "source": "field_agent_validation",
-                    "field_agent_user_id": current_user.id,
-                    "field_agent_orienteur_id": current_user.orienteur_id,
-                }
+                "source": "field_agent_submission",
+                "field_agent_user_id": current_user.id,
+                "field_agent_orienteur_id": current_user.orienteur_id,
             },
         )
         await db.commit()
-    except ValueError as exc:
-        await db.rollback()
-        raise _review_conflict(str(exc)) from exc
+
+        try:
+            service = DashboardService(db)
+            await service.broadcast_job_event(
+                "job_ready_for_office_validation",
+                {
+                    "job_id": context.job.id,
+                    "technician_id": context.technician.id,
+                    "field_agent_user_id": current_user.id,
+                    "validation_status": FIELD_AGENT_VERIFIED,
+                },
+            )
+            await service.broadcast_notification(
+                {
+                    "type": "job_ready_for_office_validation",
+                    "job_id": context.job.id,
+                    "message": "Un dossier contrôlé par l'Agent terrain attend la validation bureau.",
+                }
+            )
+            await service.broadcast_dashboard_update()
+        except Exception as exc:
+            logger.warning("Field-agent submission broadcast failed: %s", exc)
 
     return {
-        "decision": "validated",
+        "decision": "submitted_to_office",
+        "already_submitted": already_submitted,
         "job": await job_response(db, context.job),
         "assigned_technician": {
             "id": context.technician.id,

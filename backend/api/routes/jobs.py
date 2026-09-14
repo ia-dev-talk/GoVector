@@ -448,6 +448,11 @@ async def update_job_status(
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
     require_job_operations_access(job=job, current_user=current_user)
+    if status_data.status == JobStatus.COMPLETED:
+        raise HTTPException(
+            status_code=409,
+            detail="Utilisez la validation bureau après le contrôle de l'Agent terrain.",
+        )
     try:
         job = await job_logic.update_job_status(db, job_id, status_data.status)
         if not job:
@@ -491,7 +496,12 @@ async def complete_job(
     require_job_operations_access(job=job, current_user=current_user)
     try:
         serial = payload.get("wifi_box_serial") if isinstance(payload, dict) else None
-        job = await job_logic.complete_job(db, job_id, wifi_box_serial=serial)
+        job = await job_logic.complete_job(
+            db,
+            job_id,
+            wifi_box_serial=serial,
+            validated_by_user_id=current_user.id,
+        )
         if not job:
             raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
         return await job_response(db, job)

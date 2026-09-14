@@ -1,34 +1,27 @@
-"""PostgreSQL contract for GoVector cable preview + final zero-stock ledger."""
+"""Real PostgreSQL contract for the physical GoVector cable CODE workflow."""
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from uuid import uuid4
 
-import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from backend.api.routes.tech_stock_v2 import get_technician_stock_history_v2
-from backend.api.schemas.tech_sync import TechnicianSyncEventRequest
 from backend.database.models import (
     Assignment,
     Base,
+    CableDrum,
+    CableDrumAssignment,
+    CableDrumConsumption,
     Job,
     JobStatus,
     JobType,
-    Stock,
-    StockConsumption,
-    StockItem,
-    StockMovement,
     Technician,
-    TechnicianFieldAction,
     User,
     UserRole,
-    Warehouse,
 )
-from backend.logic.final_cable_stock import commit_final_cable_stock
-from backend.logic.technician_stock import technician_warehouse_code
-from backend.logic.technician_sync import process_technician_sync_event
+from backend.logic.cable_drums import assign_drum, get_assigned_drum, record_consumption
+from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.tests.test_technician_field_stock_postgres_contract import (
     _admin_url,
     _create_database,
@@ -46,272 +39,260 @@ async def _exercise(database_url: str) -> dict:
             await connection.run_sync(Base.metadata.create_all)
 
         async with factory() as db:
-            technician = Technician(
-                name="Technicien câble sans dotation",
-                employee_id="CAB-ZERO-1",
-                email="cab-zero@example.invalid",
-                home_latitude=33.58,
-                home_longitude=-7.62,
-                skills=["FIBER"],
-                assigned_routes=["CAS-CABLE"],
-                skill_bonuses={},
-            )
-            job = Job(
-                job_number="CAB-ZERO-JOB",
-                job_type=JobType.INSTALLATION,
-                status=JobStatus.ASSIGNED,
-                customer_name="Client câble",
-                operator="ORANGE",
-                required_skills=[],
-            )
-            cable = StockItem(
-                reference="FO64-TEST",
-                label="Câble FO64 test",
-                equipment_type="CABLE_FTTH",
-                operator="ORANGE",
-                unit="m",
-                is_active=True,
-            )
-            db.add_all([technician, job, cable])
+            technicians = [
+                Technician(
+                    name="Amine Benali",
+                    employee_id="CABLE-TECH-1",
+                    home_latitude=33.58,
+                    home_longitude=-7.62,
+                    skills=[],
+                    assigned_routes=[],
+                    skill_bonuses={},
+                ),
+                Technician(
+                    name="Nabil Lkhair",
+                    employee_id="CABLE-TECH-2",
+                    home_latitude=33.58,
+                    home_longitude=-7.62,
+                    skills=[],
+                    assigned_routes=[],
+                    skill_bonuses={},
+                ),
+            ]
+            db.add_all(technicians)
             await db.flush()
-            user = User(
-                username="cab-zero-user",
-                email="cab-zero-user@example.invalid",
+            office = User(
+                username="cable-office",
+                email="cable-office@example.invalid",
                 password_hash="not-used",
-                role=UserRole.TECHNICIAN,
+                role=UserRole.ORIENTEUR,
                 is_active=True,
-                technician_id=technician.id,
             )
+            jobs = [
+                Job(
+                    job_number="CM-4475-A",
+                    job_type=JobType.INSTALLATION,
+                    status=JobStatus.IN_PROGRESS,
+                    customer_name="Client A",
+                    required_skills=[],
+                ),
+                Job(
+                    job_number="CM-4475-B",
+                    job_type=JobType.INSTALLATION,
+                    status=JobStatus.IN_PROGRESS,
+                    customer_name="Client B",
+                    required_skills=[],
+                ),
+                Job(
+                    job_number="CM-9281",
+                    job_type=JobType.INSTALLATION,
+                    status=JobStatus.IN_PROGRESS,
+                    customer_name="Client C",
+                    required_skills=[],
+                ),
+            ]
+            db.add_all([office, *jobs])
+            await db.flush()
             db.add_all(
                 [
-                    user,
-                    Assignment(job_id=job.id, technician_id=technician.id),
+                    Assignment(job_id=jobs[0].id, technician_id=technicians[0].id),
+                    Assignment(job_id=jobs[1].id, technician_id=technicians[0].id),
+                    Assignment(job_id=jobs[2].id, technician_id=technicians[1].id),
+                ]
+            )
+            drums = [
+                CableDrum(
+                    code="4475",
+                    cable_type="FO16",
+                    current_mark_m=2003,
+                    status="ACTIVE",
+                    assigned_technician_id=technicians[0].id,
+                    created_by_user_id=office.id,
+                ),
+                CableDrum(
+                    code="9281",
+                    cable_type="FO64",
+                    current_mark_m=1320,
+                    status="ACTIVE",
+                    assigned_technician_id=technicians[1].id,
+                    created_by_user_id=office.id,
+                ),
+            ]
+            db.add_all(drums)
+            await db.flush()
+            db.add_all(
+                [
+                    CableDrumAssignment(
+                        drum_id=drums[0].id,
+                        technician_id=technicians[0].id,
+                        assigned_by_user_id=office.id,
+                    ),
+                    CableDrumAssignment(
+                        drum_id=drums[1].id,
+                        technician_id=technicians[1].id,
+                        assigned_by_user_id=office.id,
+                    ),
                 ]
             )
             await db.commit()
 
-            assert await db.scalar(
-                select(Warehouse).where(
-                    Warehouse.code == technician_warehouse_code(technician.id)
-                )
-            ) is None
+            now = datetime.now(timezone.utc)
+            first = await record_consumption(
+                db,
+                event_id="4475-first",
+                job_id=jobs[0].id,
+                technician_id=technicians[0].id,
+                payload={
+                    "cable_code": "4475",
+                    "cable_type_code": "FO16",
+                    "cable_entry_meter_m": 2003,
+                    "cable_exit_meter_m": 1921,
+                    "installation_mode_code": "SP",
+                },
+                occurred_at=now,
+            )
+            second = await record_consumption(
+                db,
+                event_id="4475-second",
+                job_id=jobs[1].id,
+                technician_id=technicians[0].id,
+                payload={
+                    "cable_code": "4475",
+                    "cable_type_code": "FO16",
+                    "cable_entry_meter_m": 1921,
+                    "cable_exit_meter_m": 1771,
+                    "installation_mode_code": "TR",
+                },
+                occurred_at=now,
+            )
+            replay = await record_consumption(
+                db,
+                event_id="4475-second",
+                job_id=jobs[1].id,
+                technician_id=technicians[0].id,
+                payload={
+                    "cable_code": "4475",
+                    "cable_type_code": "FO16",
+                    "cable_entry_meter_m": 1921,
+                    "cable_exit_meter_m": 1771,
+                    "installation_mode_code": "TR",
+                },
+                occurred_at=now,
+            )
+            third = await record_consumption(
+                db,
+                event_id="9281-first",
+                job_id=jobs[2].id,
+                technician_id=technicians[1].id,
+                payload={
+                    "cable_code": "9281",
+                    "cable_type_code": "FO64",
+                    "cable_entry_meter_m": 1320,
+                    "cable_exit_meter_m": 1264,
+                    "installation_mode_code": "FSD",
+                },
+                occurred_at=now,
+            )
+            await db.commit()
 
-            started = datetime(2030, 1, 15, 12, 0, tzinfo=timezone.utc)
-
-            async def send(*, event_id, event_type, meter, segment, minute):
-                event = TechnicianSyncEventRequest(
-                    event_id=event_id,
-                    schema_version=1,
-                    job_id=job.id,
-                    type=event_type,
-                    occurred_at=started + timedelta(minutes=minute),
-                    payload={
-                        "cable_item_id": cable.id,
-                        "cable_segment_id": segment,
-                        "installation_mode_code": "CONDUITE_PEHD",
-                        "meter_mark_m": meter,
-                        "latitude": 33.5800 + minute / 10000,
-                        "longitude": -7.6200 - minute / 10000,
-                        "accuracy": 5.0,
-                    },
-                )
-                result = await process_technician_sync_event(
+            concurrency_code = None
+            try:
+                await get_assigned_drum(
                     db,
-                    event=event,
-                    current_user=user,
+                    code="4475",
+                    technician_id=technicians[1].id,
                 )
-                await db.commit()
-                return event, result
+            except TechnicianJobMutationError as exc:
+                concurrency_code = exc.code
 
-            _, entry1 = await send(
-                event_id=uuid4(), event_type="cable_entry", meter=1500,
-                segment="SEG-1", minute=0,
-            )
-            _, exit1 = await send(
-                event_id=uuid4(), event_type="cable_exit", meter=1400,
-                segment="SEG-1", minute=5,
-            )
-            # Same logical segment corrected before Agent validation: 100 -> 92 m.
-            _, corrected_exit1 = await send(
-                event_id=uuid4(), event_type="cable_exit", meter=1408,
-                segment="SEG-1", minute=6,
-            )
-            _, entry2 = await send(
-                event_id=uuid4(), event_type="cable_entry", meter=300,
-                segment="SEG-2", minute=10,
-            )
-            exit2_event, exit2 = await send(
-                event_id=uuid4(), event_type="cable_exit", meter=250,
-                segment="SEG-2", minute=15,
-            )
-
-            # Replay must not alter preview state or create stock movements.
-            replay = await process_technician_sync_event(
-                db,
-                event=exit2_event,
-                current_user=user,
-            )
-            await db.commit()
-
-            pre_warehouse = await db.scalar(
-                select(Warehouse).where(
-                    Warehouse.code == technician_warehouse_code(technician.id)
+            continuity_code = None
+            try:
+                await record_consumption(
+                    db,
+                    event_id="4475-gap",
+                    job_id=jobs[1].id,
+                    technician_id=technicians[0].id,
+                    payload={
+                        "cable_code": "4475",
+                        "cable_type_code": "FO16",
+                        "cable_entry_meter_m": 1700,
+                        "cable_exit_meter_m": 1650,
+                        "installation_mode_code": "SP",
+                    },
+                    occurred_at=now,
                 )
-            )
-            pre_movement_count = await db.scalar(
-                select(func.count(StockMovement.id)).where(
-                    StockMovement.job_id == job.id,
-                    StockMovement.technician_id == technician.id,
-                )
-            )
-            pre_consumption_count = await db.scalar(
-                select(func.count(StockConsumption.id)).where(
-                    StockConsumption.job_id == job.id,
-                    StockConsumption.technician_id == technician.id,
-                )
-            )
+            except TechnicianJobMutationError as exc:
+                continuity_code = exc.code
 
-            refreshed_job = await db.get(Job, job.id)
-            actions = (
+            drum_4475 = await db.scalar(select(CableDrum).where(CableDrum.code == "4475"))
+            drum_9281 = await db.scalar(select(CableDrum).where(CableDrum.code == "9281"))
+            history_4475 = (
                 await db.execute(
-                    select(TechnicianFieldAction)
-                    .where(
-                        TechnicianFieldAction.job_id == job.id,
-                        TechnicianFieldAction.action_type.in_(("cable_entry", "cable_exit")),
-                    )
-                    .order_by(TechnicianFieldAction.occurred_at.asc())
+                    select(CableDrumConsumption)
+                    .where(CableDrumConsumption.cable_code == "4475")
+                    .order_by(CableDrumConsumption.id)
                 )
             ).scalars().all()
-            computed = [
-                action.payload
-                for action in actions
-                if isinstance(action.payload, dict)
-                and action.payload.get("computed_length_m") is not None
-            ]
+            count_4475 = await db.scalar(
+                select(func.count(CableDrumConsumption.id)).where(
+                    CableDrumConsumption.cable_code == "4475"
+                )
+            )
 
-            final_summary = await commit_final_cable_stock(
+            replacement = CableDrum(
+                code="4475-B",
+                cable_type="FO16",
+                current_mark_m=1000,
+                status="ACTIVE",
+                created_by_user_id=office.id,
+            )
+            db.add(replacement)
+            await db.flush()
+            await assign_drum(
                 db,
-                job_id=job.id,
-                technician_id=technician.id,
-                actor_user_id=user.id,
-                occurred_at=started + timedelta(minutes=20),
+                drum=replacement,
+                technician_id=technicians[0].id,
+                actor_user_id=office.id,
+                reason="Nouvelle bobine après clôture de la précédente",
             )
             await db.commit()
-            # A retry of the finalizer itself must be harmless.
-            replay_summary = await commit_final_cable_stock(
-                db,
-                job_id=job.id,
-                technician_id=technician.id,
-                actor_user_id=user.id,
-                occurred_at=started + timedelta(minutes=21),
-            )
-            await db.commit()
-
-            warehouse = await db.scalar(
-                select(Warehouse).where(
-                    Warehouse.code == technician_warehouse_code(technician.id)
-                )
-            )
-            stock = await db.scalar(
-                select(Stock).where(
-                    Stock.warehouse_id == warehouse.id,
-                    Stock.item_id == cable.id,
-                )
-            )
-            movements = (
-                await db.execute(
-                    select(StockMovement)
-                    .where(
-                        StockMovement.job_id == job.id,
-                        StockMovement.technician_id == technician.id,
-                        StockMovement.item_id == cable.id,
-                    )
-                    .order_by(StockMovement.id.asc())
-                )
-            ).scalars().all()
-            consumption_count = await db.scalar(
-                select(func.count(StockConsumption.id)).where(
-                    StockConsumption.job_id == job.id,
-                    StockConsumption.technician_id == technician.id,
-                )
-            )
-            tablet_history = await get_technician_stock_history_v2(
-                limit=100,
-                db=db,
-                current_user=user,
-            )
 
             return {
-                "statuses": [
-                    entry1.status,
-                    exit1.status,
-                    corrected_exit1.status,
-                    entry2.status,
-                    exit2.status,
-                ],
-                "replay": replay.status,
-                "pre_warehouse_exists": pre_warehouse is not None,
-                "pre_movement_count": pre_movement_count,
-                "pre_consumption_count": pre_consumption_count,
-                "warehouse_exists": warehouse is not None,
-                "stock_quantity": stock.quantity,
-                "stock_available": stock.available_quantity,
-                "movement_quantities": [row.quantity for row in movements],
-                "movement_refs": [row.reference_type for row in movements],
-                "movement_after": [row.quantity_after for row in movements],
-                "consumption_count": consumption_count,
-                "job_total": refreshed_job.cable_length_m,
-                "computed_lengths": [row["computed_length_m"] for row in computed],
-                "last_payload_total": computed[-1]["job_cable_total_m"],
-                "last_by_type": computed[-1]["job_cable_totals_by_type"],
-                "last_by_pose": computed[-1]["job_cable_totals_by_pose"],
-                "final_summary": final_summary,
-                "replay_summary": replay_summary,
-                "tablet_history_quantities": [row["quantity"] for row in tablet_history],
-                "tablet_history_refs": [row["item_reference"] for row in tablet_history],
-                "tablet_history_jobs": [row["job_number"] for row in tablet_history],
+                "first": first.quantity_m,
+                "second": second.quantity_m,
+                "replay_same_id": replay.id == second.id,
+                "third": third.quantity_m,
+                "mark_4475": drum_4475.current_mark_m,
+                "mark_9281": drum_9281.current_mark_m,
+                "history_quantities": [item.quantity_m for item in history_4475],
+                "history_modes": [item.installation_mode for item in history_4475],
+                "history_count": count_4475,
+                "concurrency_code": concurrency_code,
+                "continuity_code": continuity_code,
+                "replacement_technician_id": replacement.assigned_technician_id,
             }
     finally:
         await engine.dispose()
 
 
-def test_zero_stock_cable_preview_correction_is_committed_only_once_at_finalization():
+def test_physical_code_remainder_history_idempotency_and_concurrency():
     admin_url = _admin_url()
-    database_name = f"govector_cable_zero_{uuid4().hex}"
+    database_name = f"govector_cable_code_{uuid4().hex}"
     asyncio.run(_create_database(admin_url, database_name))
     try:
         result = asyncio.run(_exercise(_database_url(admin_url, database_name)))
     finally:
         asyncio.run(_drop_database(admin_url, database_name))
 
-    assert result["statuses"] == ["acknowledged"] * 5
-    assert result["replay"] == "acknowledged"
-
-    # Field work is preview-only: no stock context/ledger before final review.
-    assert result["pre_warehouse_exists"] is False
-    assert result["pre_movement_count"] == 0
-    assert result["pre_consumption_count"] == 0
-
-    # SEG-1 correction replaces 100 m with 92 m; SEG-2 contributes 50 m.
-    assert result["job_total"] == 142
-    assert result["computed_lengths"] == pytest.approx([100.0, 92.0, 50.0])
-    assert result["last_payload_total"] == pytest.approx(142.0)
-    assert result["last_by_type"]["FO64-TEST"] == pytest.approx(142.0)
-    assert result["last_by_pose"]["CONDUITE_PEHD"] == pytest.approx(142.0)
-
-    # Finalization creates the zero/unknown stock context and exactly two final
-    # movements. Re-running the finalizer is idempotent and adds nothing.
-    assert result["final_summary"] == {"segments": 2, "meters": 142}
-    assert result["replay_summary"] == {"segments": 2, "meters": 142}
-    assert result["warehouse_exists"] is True
-    assert result["stock_quantity"] == 0
-    assert result["stock_available"] == 0
-    assert result["movement_quantities"] == [-92, -50]
-    assert result["movement_refs"] == ["observed_unregistered", "observed_unregistered"]
-    assert result["movement_after"] == [0, 0]
-    assert result["consumption_count"] == 2
-
-    # Tablet history is newest-first and strictly scoped to this technician.
-    assert result["tablet_history_quantities"] == [-50, -92]
-    assert result["tablet_history_refs"] == ["FO64-TEST", "FO64-TEST"]
-    assert result["tablet_history_jobs"] == ["CAB-ZERO-JOB", "CAB-ZERO-JOB"]
+    assert result["first"] == 82
+    assert result["second"] == 150
+    assert result["replay_same_id"] is True
+    assert result["mark_4475"] == 1771
+    assert result["history_quantities"] == [82, 150]
+    assert result["history_modes"] == ["SP", "TR"]
+    assert result["history_count"] == 2
+    assert result["third"] == 56
+    assert result["mark_9281"] == 1264
+    assert result["concurrency_code"] == "cable_not_assigned"
+    assert result["continuity_code"] == "cable_continuity_mismatch"
+    assert result["replacement_technician_id"] is not None

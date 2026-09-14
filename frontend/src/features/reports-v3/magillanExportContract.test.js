@@ -14,7 +14,7 @@ const pageSource = readFileSync(
 
 test('Magillan export has one action backed by the canonical report scope', () => {
   assert.ok(headerSource.includes('onClick={onMagillan}'));
-  assert.ok(headerSource.includes("'Rapport Magillan'"));
+  assert.ok(headerSource.includes("'Rapports Magillan complets'"));
   assert.ok(!headerSource.includes('apiClient.post('));
 
   assert.ok(pageSource.includes('{ filters: exportScopeFilters }'));

@@ -37,8 +37,16 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
 
   int _priority(FieldAgentJobContext context) {
     final status = context.job.status.trim().toLowerCase();
-    if (status == 'en_attente_validation') return 0;
-    if (status == 'in_progress' || status == 'work_in_progress' || status == 'on_site') {
+    final validation = (context.job.validationStatus ?? '')
+        .trim()
+        .toUpperCase();
+    if (status == 'en_attente_validation' &&
+        validation != 'FIELD_AGENT_VERIFIED') {
+      return 0;
+    }
+    if (status == 'in_progress' ||
+        status == 'work_in_progress' ||
+        status == 'on_site') {
       return 1;
     }
     if (status == 'en_route' || status == 'assigned') return 2;
@@ -64,7 +72,9 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
             if (byPriority != 0) return byPriority;
             final aDate = MobileJobPresenter.scheduledAt(a.job);
             final bDate = MobileJobPresenter.scheduledAt(b.job);
-            if (aDate == null && bDate == null) return a.job.id.compareTo(b.job.id);
+            if (aDate == null && bDate == null) {
+              return a.job.id.compareTo(b.job.id);
+            }
             if (aDate == null) return 1;
             if (bDate == null) return -1;
             return aDate.compareTo(bDate);
@@ -97,9 +107,11 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
       final message = result.offline
           ? 'Hors ligne : les preuves restent sur l’appareil.'
           : result.failed > 0
-              ? '${result.failed} élément(s) restent à synchroniser.'
-              : 'Synchronisation terminée.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+          ? '${result.failed} élément(s) restent à synchroniser.'
+          : 'Synchronisation terminée.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       await _load();
     } finally {
       if (mounted) setState(() => _syncing = false);
@@ -118,7 +130,12 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
   @override
   Widget build(BuildContext context) {
     final reviewCount = _jobs
-        .where((row) => row.job.status.trim().toLowerCase() == 'en_attente_validation')
+        .where(
+          (row) =>
+              row.job.status.trim().toLowerCase() == 'en_attente_validation' &&
+              (row.job.validationStatus ?? '').trim().toUpperCase() !=
+                  'FIELD_AGENT_VERIFIED',
+        )
         .length;
     return Scaffold(
       appBar: AppBar(
@@ -158,15 +175,16 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
                     children: [
                       Text(
                         _agentName,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _online ? 'Connecté à GoVector' : 'Mode hors ligne',
                         style: TextStyle(
-                          color: _online ? BlueVectorColors.success : BlueVectorColors.warning,
+                          color: _online
+                              ? BlueVectorColors.success
+                              : BlueVectorColors.warning,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -218,18 +236,22 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
               const _InfoCard(
                 icon: Icons.cloud_off_rounded,
                 title: 'Hors ligne',
-                body: 'Les preuves déjà mises en file restent conservées. Reconnectez la 4G puis synchronisez.',
+                body:
+                    'Les preuves déjà mises en file restent conservées. Reconnectez la 4G puis synchronisez.',
               )
             else if (_jobs.isEmpty)
               const _InfoCard(
                 icon: Icons.task_alt_rounded,
                 title: 'Aucune intervention active',
-                body: 'Les interventions des techniciens de votre équipe apparaîtront ici.',
+                body:
+                    'Les interventions des techniciens de votre équipe apparaîtront ici.',
               )
             else ...[
               Text(
                 'Interventions de mon équipe',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: BlueVectorSpacing.sm),
               for (final row in _jobs) ...[
@@ -261,7 +283,10 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
   String? _error;
 
   Job get job => widget.context.job;
-  bool get awaiting => job.status.trim().toLowerCase() == 'en_attente_validation';
+  bool get awaiting =>
+      job.status.trim().toLowerCase() == 'en_attente_validation' &&
+      (job.validationStatus ?? '').trim().toUpperCase() !=
+          'FIELD_AGENT_VERIFIED';
 
   @override
   void initState() {
@@ -346,7 +371,10 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
           decoration: const InputDecoration(hintText: 'Observation terrain…'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Annuler'),
+          ),
           FilledButton(
             onPressed: () {
               final value = controller.text.trim();
@@ -388,7 +416,10 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Annuler'),
+          ),
           FilledButton(
             onPressed: () {
               final value = controller.text.trim();
@@ -401,10 +432,13 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
     );
     controller.dispose();
     if (reason == null) return;
-    await _runDecision(() => FieldAgentService.returnForCorrection(jobId: job.id, reason: reason));
+    await _runDecision(
+      () =>
+          FieldAgentService.returnForCorrection(jobId: job.id, reason: reason),
+    );
   }
 
-  Future<void> _validate() async {
+  Future<void> _submitToOffice() async {
     if (_record == null || _stock == null) {
       _message('Le dossier de contrôle doit être chargé avant validation.');
       return;
@@ -412,21 +446,24 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Valider et clôturer ?'),
+        title: const Text('Transmettre au bureau ?'),
         content: const Text(
-          'Cette décision clôture définitivement l’intervention et applique les effets stock finaux.',
+          'Le dossier sera signalé à l’Orienteur, qui reste seul responsable de la validation finale.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Valider et clôturer'),
+            child: const Text('Transmettre'),
           ),
         ],
       ),
     );
     if (confirm != true) return;
-    await _runDecision(() => FieldAgentService.validateAndClose(job.id));
+    await _runDecision(() => FieldAgentService.submitToOffice(job.id));
   }
 
   Future<void> _runDecision(Future<void> Function() operation) async {
@@ -451,9 +488,22 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaCount = _listCount(_record, ['media', 'technician_media', 'photos']);
-    final actionCount = _listCount(_record, ['actions', 'field_actions', 'events']);
-    final stockCount = _listCount(_stock, ['items', 'stock', 'custody', 'materials']);
+    final mediaCount = _listCount(_record, [
+      'media',
+      'technician_media',
+      'photos',
+    ]);
+    final actionCount = _listCount(_record, [
+      'actions',
+      'field_actions',
+      'events',
+    ]);
+    final stockCount = _listCount(_stock, [
+      'items',
+      'stock',
+      'custody',
+      'materials',
+    ]);
 
     return Scaffold(
       appBar: AppBar(title: Text(MobileJobPresenter.reference(job))),
@@ -462,62 +512,128 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
         children: [
           Text(
             MobileJobPresenter.title(job),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: BlueVectorSpacing.xs),
           Wrap(
             spacing: BlueVectorSpacing.xs,
             runSpacing: BlueVectorSpacing.xs,
             children: [
-              Chip(label: Text(awaiting ? 'À contrôler' : MobileJobPresenter.statusLabel(job))),
+              Chip(
+                label: Text(
+                  awaiting
+                      ? 'À contrôler'
+                      : MobileJobPresenter.statusLabel(job),
+                ),
+              ),
               Chip(label: Text(widget.context.technicianName)),
-              if ((job.operator ?? '').trim().isNotEmpty) Chip(label: Text(job.operator!)),
+              if ((job.operator ?? '').trim().isNotEmpty)
+                Chip(label: Text(job.operator!)),
             ],
           ),
           const SizedBox(height: BlueVectorSpacing.md),
           _InfoCard(
             icon: Icons.location_on_outlined,
             title: job.customerName.isEmpty ? 'Intervention' : job.customerName,
-            body: job.serviceAddress.isEmpty ? 'Adresse non renseignée' : job.serviceAddress,
+            body: job.serviceAddress.isEmpty
+                ? 'Adresse non renseignée'
+                : job.serviceAddress,
           ),
           const SizedBox(height: BlueVectorSpacing.sm),
           if (_loading)
-            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ),
+            )
           else if (_error != null)
-            _InfoCard(icon: Icons.warning_amber_rounded, title: 'Dossier indisponible', body: _error!)
+            _InfoCard(
+              icon: Icons.warning_amber_rounded,
+              title: 'Dossier indisponible',
+              body: _error!,
+            )
           else ...[
             Row(
               children: [
-                Expanded(child: _MetricCard(label: 'Preuves', value: '$mediaCount', icon: Icons.photo_library_outlined)),
+                Expanded(
+                  child: _MetricCard(
+                    label: 'Preuves',
+                    value: '$mediaCount',
+                    icon: Icons.photo_library_outlined,
+                  ),
+                ),
                 const SizedBox(width: BlueVectorSpacing.sm),
-                Expanded(child: _MetricCard(label: 'Actions', value: '$actionCount', icon: Icons.timeline_outlined)),
+                Expanded(
+                  child: _MetricCard(
+                    label: 'Actions',
+                    value: '$actionCount',
+                    icon: Icons.timeline_outlined,
+                  ),
+                ),
                 const SizedBox(width: BlueVectorSpacing.sm),
-                Expanded(child: _MetricCard(label: 'Stock', value: '$stockCount', icon: Icons.inventory_2_outlined)),
+                Expanded(
+                  child: _MetricCard(
+                    label: 'Stock',
+                    value: '$stockCount',
+                    icon: Icons.inventory_2_outlined,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: BlueVectorSpacing.sm),
             _InfoCard(
               icon: Icons.straighten_rounded,
               title: 'Câble calculé',
-              body: job.cableLengthM == null ? 'Aucun métrage calculé' : '${job.cableLengthM} m',
+              body: job.cableLengthM == null
+                  ? 'Aucun métrage calculé'
+                  : '${job.cableLengthM} m',
             ),
           ],
           const SizedBox(height: BlueVectorSpacing.md),
-          Text('Terrain', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          Text(
+            'Terrain',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: BlueVectorSpacing.xs),
           Wrap(
             spacing: BlueVectorSpacing.xs,
             runSpacing: BlueVectorSpacing.xs,
             children: [
-              OutlinedButton.icon(onPressed: _busy ? null : _addPhotos, icon: const Icon(Icons.add_a_photo_outlined), label: const Text('Photos')),
-              OutlinedButton.icon(onPressed: _busy ? null : _addReport, icon: const Icon(Icons.description_outlined), label: const Text('Rapport')),
-              OutlinedButton.icon(onPressed: _busy ? null : _addGps, icon: const Icon(Icons.my_location_rounded), label: const Text('GPS')),
-              OutlinedButton.icon(onPressed: _busy ? null : _loadContext, icon: const Icon(Icons.refresh_rounded), label: const Text('Actualiser')),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _addPhotos,
+                icon: const Icon(Icons.add_a_photo_outlined),
+                label: const Text('Photos'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _addReport,
+                icon: const Icon(Icons.description_outlined),
+                label: const Text('Rapport'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _addGps,
+                icon: const Icon(Icons.my_location_rounded),
+                label: const Text('GPS'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _loadContext,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Actualiser'),
+              ),
             ],
           ),
           if (awaiting) ...[
             const SizedBox(height: BlueVectorSpacing.lg),
-            Text('Décision Agent', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            Text(
+              'Décision Agent',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: BlueVectorSpacing.xs),
             OutlinedButton.icon(
               onPressed: _busy ? null : _returnJob,
@@ -526,9 +642,11 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
             ),
             const SizedBox(height: BlueVectorSpacing.xs),
             FilledButton.icon(
-              onPressed: _busy || _record == null || _stock == null ? null : _validate,
-              icon: const Icon(Icons.verified_rounded),
-              label: Text(_busy ? 'Traitement…' : 'Valider et clôturer'),
+              onPressed: _busy || _record == null || _stock == null
+                  ? null
+                  : _submitToOffice,
+              icon: const Icon(Icons.outbox_rounded),
+              label: Text(_busy ? 'Traitement…' : 'Transmettre à l’Orienteur'),
             ),
           ],
           const SizedBox(height: 32),
@@ -546,7 +664,8 @@ class _AgentJobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final waiting = this.context.job.status.trim().toLowerCase() == 'en_attente_validation';
+    final waiting =
+        this.context.job.status.trim().toLowerCase() == 'en_attente_validation';
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
@@ -557,7 +676,11 @@ class _AgentJobCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
-                child: Icon(waiting ? Icons.fact_check_outlined : Icons.engineering_outlined),
+                child: Icon(
+                  waiting
+                      ? Icons.fact_check_outlined
+                      : Icons.engineering_outlined,
+                ),
               ),
               const SizedBox(width: BlueVectorSpacing.sm),
               Expanded(
@@ -583,7 +706,9 @@ class _AgentJobCard extends StatelessWidget {
                           : this.context.job.serviceAddress,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: BlueVectorColors.textSecondary),
+                      style: const TextStyle(
+                        color: BlueVectorColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -598,7 +723,11 @@ class _AgentJobCard extends StatelessWidget {
 }
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.value, required this.icon});
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   final String label;
   final String value;
@@ -618,8 +747,21 @@ class _MetricCard extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: BlueVectorColors.primaryBright),
           const SizedBox(height: 6),
-          Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: BlueVectorColors.textSecondary)),
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              color: BlueVectorColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
@@ -627,7 +769,11 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.icon, required this.title, required this.body});
+  const _InfoCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
 
   final IconData icon;
   final String title;
@@ -651,9 +797,15 @@ class _InfoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
                 const SizedBox(height: 2),
-                Text(body, style: const TextStyle(color: BlueVectorColors.textSecondary)),
+                Text(
+                  body,
+                  style: const TextStyle(color: BlueVectorColors.textSecondary),
+                ),
               ],
             ),
           ),

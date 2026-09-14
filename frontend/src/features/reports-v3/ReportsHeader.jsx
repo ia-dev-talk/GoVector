@@ -261,10 +261,10 @@ const ReportsHeader = memo(function ReportsHeader({
           className="rv3-primary-button rv3-magillan-button"
           onClick={onMagillan}
           disabled={magillanBusy || exportDisabled || Boolean(periodError)}
-          title="Générer le modèle RAPPORT JOURNALIER Magillan fourni"
+          title="Générer les rapports complets : une fiche puis les photos intitulées"
         >
           <ExportIcon />
-          {magillanBusy ? 'Magillan…' : 'Rapport Magillan'}
+          {magillanBusy ? 'Magillan…' : 'Rapports Magillan complets'}
         </button>
 
         <button

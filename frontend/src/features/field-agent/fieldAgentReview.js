@@ -1,5 +1,6 @@
 export const FIELD_AGENT_ROLE = 'CHEF_ORIENTEUR';
 export const AWAITING_VALIDATION_STATUS = 'en_attente_validation';
+export const FIELD_AGENT_VERIFIED_STATUS = 'FIELD_AGENT_VERIFIED';
 
 export function normalizeFieldAgentStatus(value) {
   return String(value ?? '').trim().toLowerCase();
@@ -10,7 +11,17 @@ export function isFieldAgentRole(role) {
 }
 
 export function isAwaitingAgentReview(job) {
-  return normalizeFieldAgentStatus(job?.status) === AWAITING_VALIDATION_STATUS;
+  return (
+    normalizeFieldAgentStatus(job?.status) === AWAITING_VALIDATION_STATUS &&
+    String(job?.validation_status ?? '').trim().toUpperCase() !== FIELD_AGENT_VERIFIED_STATUS
+  );
+}
+
+export function isSubmittedToOffice(job) {
+  return (
+    normalizeFieldAgentStatus(job?.status) === AWAITING_VALIDATION_STATUS &&
+    String(job?.validation_status ?? '').trim().toUpperCase() === FIELD_AGENT_VERIFIED_STATUS
+  );
 }
 
 export function canFieldAgentValidate(job, { contextLoading = false, contextError = '' } = {}) {
@@ -79,4 +90,9 @@ export function fieldAgentStatusLabel(value) {
 
   const normalized = normalizeFieldAgentStatus(value);
   return labels[normalized] || normalized || '—';
+}
+
+export function fieldAgentJobStatusLabel(job) {
+  if (isSubmittedToOffice(job)) return 'Transmis au bureau';
+  return fieldAgentStatusLabel(job?.status);
 }

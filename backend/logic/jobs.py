@@ -403,12 +403,23 @@ async def complete_job(
     db: AsyncSession,
     job_id: int,
     wifi_box_serial: Optional[str] = None,
+    validated_by_user_id: int | None = None,
 ) -> Optional[Job]:
-    """Transition job to completed via WorkflowEngine avec validation."""
+    """Final office validation after the Agent terrain review."""
     from backend.logic.workflow.engine import WorkflowEngine
+    from backend.logic.validation_pipeline import (
+        ORIENTEUR_VALIDATED,
+        is_field_agent_verified,
+    )
     job = await get_job(db, job_id)
     if not job:
         return None
+    if job.status != JobStatus.EN_ATTENTE_VALIDATION:
+        raise ValueError("Le dossier doit d'abord être soumis par le technicien")
+    if not is_field_agent_verified(job.validation_status):
+        raise ValueError("Le contrôle de l'Agent terrain est obligatoire avant la validation bureau")
+    if validated_by_user_id is None:
+        raise ValueError("L'Orienteur validateur est obligatoire")
     engine = WorkflowEngine(db)
 
     # Vérifier que la complétion est possible
@@ -418,11 +429,17 @@ async def complete_job(
             f"Impossible de clôturer: {', '.join(check['issues'])}"
         )
 
-    metadata = {}
+    metadata = {
+        "extra": {
+            "source": "orienteur_validation",
+            "orienteur_user_id": validated_by_user_id,
+        }
+    }
     if wifi_box_serial:
         metadata["equipment_serial"] = wifi_box_serial
 
     job = await engine.transition_job(job, JobStatus.COMPLETED, metadata=metadata)
+    job.validation_status = ORIENTEUR_VALIDATED
     await db.commit()
     await db.refresh(job)
     return job

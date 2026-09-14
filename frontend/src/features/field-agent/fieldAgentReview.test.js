@@ -6,8 +6,10 @@ import {
   canFieldAgentValidate,
   fieldAgentReviewCounters,
   fieldAgentStatusLabel,
+  fieldAgentJobStatusLabel,
   isAwaitingAgentReview,
   isFieldAgentRole,
+  isSubmittedToOffice,
   normalizeFieldAgentEntries,
 } from './fieldAgentReview.js';
 
@@ -70,13 +72,16 @@ test('agent status labels use operational wording', () => {
   assert.equal(fieldAgentStatusLabel('completed'), 'Clôturée');
 });
 
-test('Agent closure is allowed only for a loaded review dossier', () => {
+test('Agent submission is allowed only for a loaded review dossier', () => {
   const job = { status: 'en_attente_validation' };
 
   assert.equal(canFieldAgentValidate(job), true);
   assert.equal(canFieldAgentValidate(job, { contextLoading: true }), false);
   assert.equal(canFieldAgentValidate(job, { contextError: 'Dossier inaccessible' }), false);
   assert.equal(canFieldAgentValidate({ status: 'in_progress' }), false);
+  assert.equal(canFieldAgentValidate({ status: 'en_attente_validation', validation_status: 'FIELD_AGENT_VERIFIED' }), false);
+  assert.equal(isSubmittedToOffice({ status: 'en_attente_validation', validation_status: 'FIELD_AGENT_VERIFIED' }), true);
+  assert.equal(fieldAgentJobStatusLabel({ status: 'en_attente_validation', validation_status: 'FIELD_AGENT_VERIFIED' }), 'Transmis au bureau');
 });
 
 test('malformed payloads cannot create phantom team jobs', () => {

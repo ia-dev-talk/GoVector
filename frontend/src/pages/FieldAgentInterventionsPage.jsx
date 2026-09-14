@@ -9,6 +9,7 @@ import { apiClient } from '../api/client';
 import {
   fieldAgentReviewCounters,
   fieldAgentStatusLabel,
+  fieldAgentJobStatusLabel,
   isAwaitingAgentReview,
   normalizeFieldAgentEntries,
 } from '../features/field-agent/fieldAgentReview.js';
@@ -242,20 +243,20 @@ export default function FieldAgentInterventionsPage() {
     }
   };
 
-  const validateJob = async () => {
+  const submitJob = async () => {
     if (!selectedJob || !awaitingReview || decisionPending) {
       return;
     }
 
-    if (!window.confirm(`Valider et clôturer ${selectedJob.job_number || `#${selectedJob.id}`} ?`)) {
+    if (!window.confirm(`Transmettre ${selectedJob.job_number || `#${selectedJob.id}`} à l’Orienteur pour validation finale ?`)) {
       return;
     }
 
     setDecisionPending(true);
     setMessage(null);
     try {
-      await apiClient.post(`/orienteur-agent/me/jobs/${selectedJob.id}/validate`);
-      setMessage({ type: 'success', text: 'Intervention validée et clôturée.' });
+      await apiClient.post(`/orienteur-agent/me/jobs/${selectedJob.id}/submit`);
+      setMessage({ type: 'success', text: 'Dossier contrôlé et transmis à l’Orienteur pour validation finale.' });
       setReturnReason('');
       await loadTeamJobs({ quiet: true, preserveMessage: true });
     } catch (error) {
@@ -300,7 +301,7 @@ export default function FieldAgentInterventionsPage() {
         <div>
           <span className="fa-review-eyebrow">GoVector · Agent terrain</span>
           <h1>Contrôle des interventions</h1>
-          <p>Votre équipe uniquement. Contrôlez le dossier terrain, retournez-le avec un motif ou validez la clôture.</p>
+          <p>Votre équipe uniquement. Contrôlez le dossier terrain, retournez-le avec un motif ou transmettez-le à l’Orienteur.</p>
         </div>
         <button
           type="button"
@@ -382,7 +383,7 @@ export default function FieldAgentInterventionsPage() {
                 >
                   <div className="fa-review-card-topline">
                     <strong>{job.job_number || `Intervention #${job.id}`}</strong>
-                    <span>{fieldAgentStatusLabel(job.status)}</span>
+                    <span>{fieldAgentJobStatusLabel(job)}</span>
                   </div>
                   <div className="fa-review-card-client">{job.customer_name || 'Client non renseigné'}</div>
                   <div className="fa-review-card-meta">
@@ -402,7 +403,7 @@ export default function FieldAgentInterventionsPage() {
                 <div className="fa-review-detail-header">
                   <div>
                     <span className={`fa-review-status${awaitingReview ? ' is-awaiting' : ''}`}>
-                      {fieldAgentStatusLabel(selectedJob.status)}
+                      {fieldAgentJobStatusLabel(selectedJob)}
                     </span>
                     <h2>{selectedJob.job_number || `Intervention #${selectedJob.id}`}</h2>
                     <p>{selectedJob.customer_name || 'Client non renseigné'}</p>
@@ -553,7 +554,7 @@ export default function FieldAgentInterventionsPage() {
                   <div className="fa-review-decision">
                     <div className="fa-review-decision-copy">
                       <strong>Décision Agent</strong>
-                      <span>La validation clôture définitivement l’intervention. Un retour exige un motif et remet le dossier au technicien affecté.</span>
+                      <span>Votre contrôle transmet le dossier au bureau. Seul l’Orienteur réalise la validation finale. Un retour exige un motif.</span>
                     </div>
                     <textarea
                       value={returnReason}
@@ -575,19 +576,21 @@ export default function FieldAgentInterventionsPage() {
                       <button
                         type="button"
                         className="fa-review-validate"
-                        onClick={validateJob}
+                        onClick={submitJob}
                         disabled={decisionPending || contextLoading || Boolean(contextError)}
                       >
-                        {decisionPending ? 'Traitement…' : 'Valider et clôturer'}
+                        {decisionPending ? 'Traitement…' : 'Transmettre à l’Orienteur'}
                       </button>
                     </div>
                     {contextError ? (
-                      <small>La validation reste désactivée tant que le dossier de contrôle ne peut pas être chargé.</small>
+                      <small>La transmission reste désactivée tant que le dossier de contrôle ne peut pas être chargé.</small>
                     ) : null}
                   </div>
                 ) : (
                   <div className="fa-review-waiting-note">
-                    Ce dossier n’est pas encore soumis au contrôle Agent. Vous pouvez suivre son avancement, mais aucune décision finale n’est disponible.
+                    {selectedJob.validation_status === 'FIELD_AGENT_VERIFIED'
+                      ? 'Dossier transmis au bureau : il attend la validation finale de l’Orienteur.'
+                      : 'Ce dossier n’est pas encore soumis au contrôle Agent. Vous pouvez suivre son avancement.'}
                   </div>
                 )}
               </>

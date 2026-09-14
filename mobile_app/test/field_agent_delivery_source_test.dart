@@ -15,8 +15,8 @@ void main() {
     expect(source, contains('Rapport'));
     expect(source, contains('GPS'));
     expect(source, contains('Retourner avec motif'));
-    expect(source, contains('Valider et clôturer'));
-    expect(source, contains('effets stock finaux'));
+    expect(source, contains('Transmettre à l’Orienteur'));
+    expect(source, contains('seul responsable de la validation finale'));
   });
 
   test('Agent terrain keeps offline evidence and synchronization explicit', () {

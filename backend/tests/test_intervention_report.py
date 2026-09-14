@@ -90,3 +90,24 @@ def test_report_translates_mobile_pco_and_ont_serial_photo_labels(tmp_path):
 
     assert "PCO en cours" in html
     assert "SN ONT" in html
+
+
+def test_report_paginates_more_than_four_photos(tmp_path):
+    media = []
+    for index in range(5):
+        filename = f"photo-{index}.jpg"
+        (tmp_path / filename).write_bytes(f"real-{index}".encode())
+        media.append(
+            SimpleNamespace(
+                storage_key=filename,
+                mime_type="image/jpeg",
+                meta_data={"label": "other"},
+                created_at="2026-09-12",
+            )
+        )
+
+    html = _render(tmp_path, media=media)
+
+    assert html.count('class="report-page"') == 3
+    assert html.count('class="photo-card"') == 5
+    assert html.count("Photos de l’intervention") == 2

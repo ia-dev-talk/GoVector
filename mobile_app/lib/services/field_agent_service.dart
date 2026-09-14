@@ -86,7 +86,10 @@ class FieldAgentService {
       if (jobs is! List) return const [];
       return jobs
           .whereType<Map>()
-          .map((row) => FieldAgentJobContext.fromJson(Map<String, dynamic>.from(row)))
+          .map(
+            (row) =>
+                FieldAgentJobContext.fromJson(Map<String, dynamic>.from(row)),
+          )
           .toList(growable: false);
     } finally {
       if (client == null) requestClient.close();
@@ -139,10 +142,10 @@ class FieldAgentService {
     if (response.statusCode != 200) throw Exception(_detail(response));
   }
 
-  static Future<void> validateAndClose(int jobId) async {
+  static Future<void> submitToOffice(int jobId) async {
     final response = await http
         .post(
-          AppConfig.apiUri('orienteur-agent/me/jobs/$jobId/validate'),
+          AppConfig.apiUri('orienteur-agent/me/jobs/$jobId/submit'),
           headers: await _headers(),
         )
         .timeout(AppConfig.httpTimeout);

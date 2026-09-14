@@ -18,7 +18,7 @@ from . import export_center
 
 
 class MagillanDailyReportRequest(BaseModel):
-    """Selected Reports-page scope used to render the supplied Magillan form."""
+    """Selected Reports-page scope used to render complete intervention reports."""
 
     filters: Optional[dict] = Field(default=None)
 
@@ -29,7 +29,7 @@ async def generate_magillan_daily_report(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_chef_orienteur),
 ):
-    """Generate the exact Magillan-oriented daily-report presentation as PDF."""
+    """Generate complete intervention pages followed by labelled photo pages."""
 
     try:
         file_bytes = await export_magillan_daily_report(db, request.filters or {})
@@ -52,5 +52,5 @@ async def generate_magillan_daily_report(
     except Exception as exc:
         raise HTTPException(
             status_code=500,
-            detail="Impossible de générer le RAPPORT JOURNALIER Magillan.",
+            detail="Impossible de générer les rapports d’intervention Magillan.",
         ) from exc

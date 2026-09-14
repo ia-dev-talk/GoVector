@@ -342,11 +342,11 @@ export default function RapportsPage({ onNavigate }) {
       link.click();
       link.remove();
       window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
-      toast(`Rapport Magillan généré : ${filename}`, 'success');
+      toast(`Rapports Magillan complets générés : ${filename}`, 'success');
     } catch (generationError) {
       toast(
         generationError?.response?.data?.detail
-          ?? 'Impossible de générer le RAPPORT JOURNALIER Magillan.',
+          ?? 'Impossible de générer les rapports d’intervention Magillan.',
         'error',
       );
     } finally {

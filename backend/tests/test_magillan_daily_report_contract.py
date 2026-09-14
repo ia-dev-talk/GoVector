@@ -1,95 +1,88 @@
-import base64
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
-from backend.services.magillan_daily_report import _report_page
+import pytest
+
+from backend.services import magillan_daily_report
 from backend.services.magillan_logo_data import MAGILLAN_LOGO_DATA_URI
 
 
-def test_magillan_daily_report_keeps_supplied_template_labels_and_real_logo():
-    job = SimpleNamespace(
-        job_number="DEM-001",
-        nro_raw="CENTRAL CASA",
-        customer_name="Client test",
-        service_address="Adresse test",
-        latitude=33.5731,
-        longitude=-7.5898,
-        splitter_raw="SPL-12",
-        service_city="CASABLANCA",
-        cable_length_m=125,
-        coordinator_comments="Observation terrain",
-        notes=None,
-        description=None,
+def _context(job_number: str) -> dict:
+    return {
+        "job": SimpleNamespace(
+            id=1,
+            job_number=job_number,
+            customer_name="Client réel",
+            service_address="Adresse réelle",
+            service_city="Casablanca",
+            scheduled_date=None,
+            status="en_attente_validation",
+            job_type="INSTALLATION",
+            sector_raw="ZENATA",
+            nro_raw="NRO-1",
+            splitter_raw=None,
+            latitude=None,
+            longitude=None,
+            operational_data={"pco": "PCO-1", "splitter_msan": "MSAN-1"},
+            optical_power_dbm=None,
+            validation_status="FIELD_AGENT_VERIFIED",
+            client_signature=None,
+            coordinator_comments="Observation réelle",
+            notes=None,
+        ),
+        "actions": [],
+        "media": [],
+        "visits": [],
+        "cable_consumptions": [],
+        "technician_name": "Amine Benali",
+        "client_organization_name": "MAGILLAN",
+        "media_root": Path("."),
+    }
+
+
+@pytest.mark.asyncio
+async def test_multi_intervention_export_uses_complete_report_and_photo_pages(monkeypatch):
+    jobs = [SimpleNamespace(id=1), SimpleNamespace(id=2)]
+    monkeypatch.setattr(
+        magillan_daily_report.FieldOptExportService,
+        "get_filtered_jobs",
+        AsyncMock(return_value=jobs),
     )
+    monkeypatch.setattr(
+        magillan_daily_report,
+        "load_report_contexts",
+        AsyncMock(return_value=[_context("CM-001"), _context("CM-002")]),
+    )
+    captured = {}
 
-    html = _report_page(job)
+    def fake_pdf(sections: str) -> bytes:
+        captured["sections"] = sections
+        return b"%PDF-test"
 
-    for label in (
-        "RAPPORT JOURNALIER",
-        "N° DEMANDE:",
-        "N° RAPPORT",
-        "CENTRAL",
-        "CLIENT",
-        "ADRESSE",
-        "GPS",
-        "SPLITTER",
-        "PCO",
-        "LOCALITE",
-        "POSE CABLE",
-        "RACCORDEMENT",
-        "TYPE",
-        "CODE",
-        "DEPART",
-        "ARRIVE",
-        "CONDUITE",
-        "FACADE",
-        "AERIEN",
-        "JOINT",
-        "TIROIR",
-        "PRISE",
-        "OBSERVATION",
-        "REPRESENTANT DE LA SOCIETE",
-        "Surveillant CMO/CHEF DE SECTEUR",
-    ):
-        assert label in html
+    monkeypatch.setattr(magillan_daily_report, "build_report_pdf_from_sections", fake_pdf)
 
+    result = await magillan_daily_report.export_magillan_daily_report(AsyncMock(), {})
+
+    assert result.startswith(b"%PDF-")
+    html = captured["sections"]
+    assert html.count('class="report-page"') == 4
+    assert html.count("Rapport complet d’intervention") == 2
+    assert html.count("Photos de l’intervention") == 2
+    assert "CM-001" in html and "CM-002" in html
+    assert "Client réel" in html
+    assert "Aucune photo synchronisée" in html
     assert MAGILLAN_LOGO_DATA_URI in html
-    assert "DEM-001" in html
-    assert "CENTRAL CASA" in html
-    assert "Client test" in html
-    assert "33.573100, -7.589800" in html
-    assert "Observation terrain" in html
-
-    # A total length cannot be attributed to one of the three pose columns.
-    assert "125" not in html
-
-    encoded_logo = MAGILLAN_LOGO_DATA_URI.split(",", 1)[1]
-    logo_bytes = base64.b64decode(encoded_logo, validate=True)
-    assert len(logo_bytes) > 20_000
-    assert logo_bytes.startswith(b"\xff\xd8")
-    assert logo_bytes.endswith(b"\xff\xd9")
+    assert "RAPPORT JOURNALIER" not in html
 
 
-def test_magillan_report_does_not_guess_unsupported_ftth_fields():
-    job = SimpleNamespace(
-        job_number="DEM-002",
-        nro_raw="NRO-1",
-        customer_name="Client",
-        service_address="Adresse",
-        latitude=None,
-        longitude=None,
-        splitter_raw="SPL-5",
-        splitter_port_raw=8,
-        pbo_raw="PBO-42",
-        service_city="CASABLANCA",
-        cable_length_m=None,
-        coordinator_comments=None,
-        notes=None,
-        description=None,
+@pytest.mark.asyncio
+async def test_empty_scope_is_rejected_instead_of_generating_a_fake_report(monkeypatch):
+    monkeypatch.setattr(
+        magillan_daily_report.FieldOptExportService,
+        "get_filtered_jobs",
+        AsyncMock(return_value=[]),
     )
 
-    html = _report_page(job)
-
-    # The current model has no authoritative PCO mapping.
-    assert "PBO-42" not in html
-    assert ">8<" not in html
-    assert "SPL-5" in html
+    with pytest.raises(ValueError, match="Aucune intervention"):
+        await magillan_daily_report.export_magillan_daily_report(AsyncMock(), {})

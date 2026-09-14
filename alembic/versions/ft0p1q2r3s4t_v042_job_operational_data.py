@@ -16,6 +16,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    inspector = sa.inspect(op.get_bind())
+    if any(column["name"] == "operational_data" for column in inspector.get_columns("jobs")):
+        return
     op.add_column(
         "jobs",
         sa.Column(
@@ -28,4 +31,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    inspector = sa.inspect(op.get_bind())
+    if not any(column["name"] == "operational_data" for column in inspector.get_columns("jobs")):
+        return
     op.drop_column("jobs", "operational_data")

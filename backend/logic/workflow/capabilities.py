@@ -59,8 +59,8 @@ COMMAND_DEFINITIONS = (
     {"code": "close_field_visit", "label": "Clôturer l'intervention", "roles": ["TECHNICIAN", "CHEF_ORIENTEUR"]},
     {"code": "fail", "label": "Déclarer un échec", "roles": ["TECHNICIAN", "CHEF_ORIENTEUR"]},
     {"code": "postpone", "label": "Reporter", "roles": ["TECHNICIAN", "CHEF_ORIENTEUR", "ORIENTEUR", "ADMIN"]},
-    {"code": "validate", "label": "Valider", "roles": ["ORIENTEUR", "CHEF_ORIENTEUR", "ADMIN"]},
-    {"code": "reassign", "label": "Réaffecter", "roles": ["ORIENTEUR", "CHEF_ORIENTEUR", "ADMIN"]},
+    {"code": "validate", "label": "Valider", "roles": ["ORIENTEUR", "ADMIN"]},
+    {"code": "reassign", "label": "Réaffecter", "roles": ["ORIENTEUR", "ADMIN"]},
 )
 
 
@@ -151,9 +151,15 @@ async def allowed_commands_for_job(
             if JobStatus.POSTPONED in transitions:
                 allowed.append("postpone")
 
-    if role in {UserRole.ORIENTEUR, UserRole.CHEF_ORIENTEUR, UserRole.ADMIN}:
+    if role in {UserRole.ORIENTEUR, UserRole.ADMIN}:
         transitions = set(get_valid_transitions(job.status))
-        if JobStatus.COMPLETED in transitions and job.status == JobStatus.EN_ATTENTE_VALIDATION:
+        from backend.logic.validation_pipeline import is_field_agent_verified
+
+        if (
+            JobStatus.COMPLETED in transitions
+            and job.status == JobStatus.EN_ATTENTE_VALIDATION
+            and is_field_agent_verified(getattr(job, "validation_status", None))
+        ):
             allowed.append("validate")
         if STATUS_METADATA[job.status].order_open:
             allowed.append("reassign")

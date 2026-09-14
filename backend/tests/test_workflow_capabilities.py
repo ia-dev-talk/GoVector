@@ -146,11 +146,41 @@ async def test_unassigned_technician_gets_no_job_commands(monkeypatch):
 @pytest.mark.asyncio
 async def test_orienteur_validation_and_reassignment_commands():
     user = SimpleNamespace(role=UserRole.ORIENTEUR, technician_id=None)
-    job = SimpleNamespace(id=41, status=JobStatus.EN_ATTENTE_VALIDATION)
+    job = SimpleNamespace(
+        id=41,
+        status=JobStatus.EN_ATTENTE_VALIDATION,
+        validation_status="FIELD_AGENT_VERIFIED",
+    )
     allowed = await capabilities.allowed_commands_for_job(
         AsyncMock(), job=job, current_user=user
     )
     assert allowed == ["validate", "reassign"]
+
+
+@pytest.mark.asyncio
+async def test_field_agent_cannot_receive_office_validation_or_reassignment_commands():
+    user = SimpleNamespace(role=UserRole.CHEF_ORIENTEUR, technician_id=None)
+    job = SimpleNamespace(
+        id=41,
+        status=JobStatus.EN_ATTENTE_VALIDATION,
+        validation_status="FIELD_AGENT_VERIFIED",
+    )
+    assert await capabilities.allowed_commands_for_job(
+        AsyncMock(), job=job, current_user=user
+    ) == []
+
+
+@pytest.mark.asyncio
+async def test_orienteur_cannot_validate_before_field_agent_review():
+    user = SimpleNamespace(role=UserRole.ORIENTEUR, technician_id=None)
+    job = SimpleNamespace(
+        id=41,
+        status=JobStatus.EN_ATTENTE_VALIDATION,
+        validation_status="TECHNICIAN_SUBMITTED",
+    )
+    assert await capabilities.allowed_commands_for_job(
+        AsyncMock(), job=job, current_user=user
+    ) == ["reassign"]
 
 
 def test_business_error_has_stable_top_level_shape():

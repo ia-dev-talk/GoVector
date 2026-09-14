@@ -162,7 +162,7 @@ async def _commit_final_cable_stock_if_needed(
     metadata: dict,
     occurred_at: datetime,
 ) -> None:
-    """Apply measured cable stock only for the Agent's final validation.
+    """Apply measured cable stock only for the office final validation.
 
     This runs before the visit/assignment is closed, because the stock helper
     intentionally verifies that the technician still owns the intervention.
@@ -171,7 +171,7 @@ async def _commit_final_cable_stock_if_needed(
     if new_status != JobStatus.COMPLETED:
         return
     extra = metadata.get("extra") or {}
-    if extra.get("source") != "field_agent_validation":
+    if extra.get("source") != "orienteur_validation":
         return
 
     assignment = await get_current_assignment(db, job.id, for_update=True)
@@ -181,11 +181,11 @@ async def _commit_final_cable_stock_if_needed(
     if effective_technician_id is None:
         return
 
-    raw_actor = extra.get("field_agent_user_id")
+    raw_actor = extra.get("orienteur_user_id")
     try:
         actor_user_id = int(raw_actor)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Agent terrain invalide pour la validation finale") from exc
+        raise ValueError("Orienteur invalide pour la validation finale") from exc
 
     from backend.logic.final_cable_stock import commit_final_cable_stock
 

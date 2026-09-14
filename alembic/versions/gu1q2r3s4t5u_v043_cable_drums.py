@@ -14,7 +14,24 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(name: str) -> bool:
+    return sa.inspect(op.get_bind()).has_table(name)
+
+
 def upgrade() -> None:
+    existing = {
+        name for name in (
+            "cable_drums",
+            "cable_drum_assignments",
+            "cable_drum_consumptions",
+        ) if _table_exists(name)
+    }
+    if len(existing) == 3:
+        return
+    if existing:
+        raise RuntimeError(
+            "Schéma câble partiel détecté; restaurez une sauvegarde cohérente avant migration"
+        )
     op.create_table(
         "cable_drums",
         sa.Column("id", sa.Integer(), primary_key=True),
@@ -78,6 +95,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_table("cable_drum_consumptions")
-    op.drop_table("cable_drum_assignments")
-    op.drop_table("cable_drums")
+    for table in (
+        "cable_drum_consumptions",
+        "cable_drum_assignments",
+        "cable_drums",
+    ):
+        if _table_exists(table):
+            op.drop_table(table)

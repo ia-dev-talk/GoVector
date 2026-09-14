@@ -459,6 +459,9 @@ async def terminate_technician_job(
             metadata=metadata,
             broadcast=False,
         )
+        from backend.logic.validation_pipeline import TECHNICIAN_SUBMITTED
+
+        job.validation_status = TECHNICIAN_SUBMITTED
     except ValueError as exc:
         raise TechnicianJobMutationError(
             "conflict",

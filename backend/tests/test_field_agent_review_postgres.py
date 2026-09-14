@@ -26,6 +26,7 @@ from backend.database.models import (
 )
 from backend.logic.field_agent_access import require_field_agent_team_job
 from backend.logic.field_agent_review import FieldAgentReviewWorkflowEngine
+from backend.logic import jobs as job_logic
 from backend.logic.job_visits import sync_job_visit_transition
 from backend.logic.technician_jobs import TechnicianJobMutationError
 from backend.logic.workflow.engine import WorkflowEngine
@@ -84,6 +85,14 @@ async def _exercise(database_url: str) -> dict:
                 is_active=True,
                 orienteur_id=owner.id,
             )
+            office = User(
+                username="field-review-office",
+                email="field-review-office@example.invalid",
+                password_hash="not-used",
+                role=UserRole.ORIENTEUR,
+                is_active=True,
+                orienteur_id=owner.id,
+            )
             cable = StockItem(
                 reference="FO64-AGENT-TEST",
                 label="Câble FO64 Agent test",
@@ -92,7 +101,7 @@ async def _exercise(database_url: str) -> dict:
                 unit="m",
                 is_active=True,
             )
-            db.add_all([technician_user, agent, cable])
+            db.add_all([technician_user, agent, office, cable])
             await db.flush()
 
             job = Job(
@@ -170,6 +179,7 @@ async def _exercise(database_url: str) -> dict:
             # Technician handoff: awaiting validation must keep the assignment
             # and visit open so the owning Agent can still review the dossier.
             job.status = JobStatus.EN_ATTENTE_VALIDATION
+            job.validation_status = "TECHNICIAN_SUBMITTED"
             await sync_job_visit_transition(
                 db,
                 job=job,
@@ -218,6 +228,7 @@ async def _exercise(database_url: str) -> dict:
 
             # Technician resubmits. Stock is still preview-only here.
             job.status = JobStatus.EN_ATTENTE_VALIDATION
+            job.validation_status = "TECHNICIAN_SUBMITTED"
             await sync_job_visit_transition(
                 db,
                 job=job,
@@ -234,23 +245,26 @@ async def _exercise(database_url: str) -> dict:
                 )
             )
 
-            # Final Agent validation is the single stock commit point. The
-            # visit/assignment are still active while the finalizer verifies
-            # technician ownership, then COMPLETED closes the passage.
-            final_engine = WorkflowEngine(db)
-            await final_engine.transition_job(
-                job,
-                JobStatus.COMPLETED,
-                technician_id=technician.id,
-                metadata={
-                    "extra": {
-                        "source": "field_agent_validation",
-                        "field_agent_user_id": agent.id,
-                    }
-                },
-                broadcast=False,
+            # The Agent only marks the dossier as reviewed; it stays open and
+            # keeps its assignment until the office Orienteur validates it.
+            from backend.api.routes.orienteur_agent import submit_my_team_job_to_office
+
+            agent_result = await submit_my_team_job_to_office(
+                job_id=job.id,
+                db=db,
+                current_user=agent,
             )
-            await db.commit()
+            await db.refresh(job)
+            await db.refresh(assignment)
+            agent_submit_status = job.status.value
+            agent_validation_marker = job.validation_status
+            assignment_open_after_agent = assignment.ended_at is None
+
+            await job_logic.complete_job(
+                db,
+                job.id,
+                validated_by_user_id=office.id,
+            )
             await db.refresh(assignment)
             await db.refresh(visit)
 
@@ -291,6 +305,10 @@ async def _exercise(database_url: str) -> dict:
                 "return_assignment_open": return_assignment_open,
                 "return_visit_open": return_visit_open,
                 "pre_final_movements": pre_final_movements,
+                "agent_decision": agent_result["decision"],
+                "agent_submit_status": agent_submit_status,
+                "agent_validation_marker": agent_validation_marker,
+                "assignment_open_after_agent": assignment_open_after_agent,
                 "final_status": job.status.value,
                 "final_assignment_closed": assignment.ended_at is not None,
                 "final_visit_closed": visit.ended_at is not None,
@@ -321,6 +339,10 @@ def test_technician_handoff_agent_return_and_final_close_share_one_passage():
     assert result["return_assignment_open"] is True
     assert result["return_visit_open"] is True
     assert result["pre_final_movements"] == 0
+    assert result["agent_decision"] == "submitted_to_office"
+    assert result["agent_submit_status"] == JobStatus.EN_ATTENTE_VALIDATION.value
+    assert result["agent_validation_marker"] == "FIELD_AGENT_VERIFIED"
+    assert result["assignment_open_after_agent"] is True
     assert result["final_status"] == JobStatus.COMPLETED.value
     assert result["final_assignment_closed"] is True
     assert result["final_visit_closed"] is True
