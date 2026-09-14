@@ -174,7 +174,7 @@ class ImportJobItem(BaseModel):
     priority: Optional[str] = None
     status: Optional[str] = None
     scheduled_date: Optional[str] = None
-    assigned_technician_name: Optional[str] = None
+    source_technician_name: Optional[str] = None
     notes: Optional[str] = None
     description: Optional[str] = None
     operator: Optional[str] = None
@@ -427,12 +427,12 @@ async def _persist_jobs(
             item["_client_organization_id"] = matches[0]
 
     # Pre-load existing job numbers for duplicate detection
-    existing_numbers: set[str] = set()
-    if skip_duplicates:
-        result = await db.execute(
-            select(Job.job_number).where(Job.job_number.isnot(None))
-        )
-        existing_numbers = {v for v in result.scalars() if v}
+    result = await db.execute(
+        select(Job.job_number).where(Job.job_number.isnot(None))
+    )
+    existing_numbers: set[str] = {
+        value for value in result.scalars() if value
+    }
 
     # Pre-load existing jobs keyed by job_number for update mode
     existing_jobs_map: dict[str, Job] = {}
@@ -450,7 +450,7 @@ async def _persist_jobs(
         try:
             resolve_client_organization(item)
             # --- Duplicate detection ---
-            if skip_duplicates and job_number and job_number in existing_numbers:
+            if job_number and job_number in existing_numbers:
                 if mode == "ignore":
                     ignored += 1
                     continue
@@ -524,11 +524,17 @@ async def _create_job_from_dict(db: AsyncSession, item: dict) -> Job:
     """Create a Job from an import dict using create_job()."""
     from datetime import datetime
 
-    job_type_str = item.get("job_type", "INSTALLATION")
+    job_type_str = item.get("job_type")
+    if not job_type_str:
+        raise ValueError(
+            "Type d'intervention obligatoire : aucune valeur par défaut n'est inventée."
+        )
     try:
         job_type = JobType(job_type_str)
-    except ValueError:
-        job_type = JobType.INSTALLATION
+    except ValueError as exc:
+        raise ValueError(
+            f"Type d'intervention inconnu : {job_type_str}."
+        ) from exc
 
     priority_str = item.get("priority", "NORMALE")
     try:
@@ -583,7 +589,6 @@ async def _create_job_from_dict(db: AsyncSession, item: dict) -> Job:
         estimated_duration=item.get("estimated_duration"),
         description=item.get("description"),
         notes=item.get("notes"),
-        assigned_technician_name=item.get("assigned_technician_name"),
         operator=item.get("operator"),
         client_organization_id=item.get("_client_organization_id"),
         nro_raw=item.get("nro"),
@@ -613,7 +618,6 @@ async def _update_job_from_dict(db: AsyncSession, job: Job, item: dict) -> Job:
         "service_city": "service_city",
         "service_zip": "service_zip",
         "route_criteria": "route_criteria",
-        "assigned_technician_name": "assigned_technician_name",
         "notes": "notes",
         "description": "description",
         "operator": "operator",
@@ -627,13 +631,18 @@ async def _update_job_from_dict(db: AsyncSession, job: Job, item: dict) -> Job:
         "optical_power_dbm": "optical_power_dbm",
         "cable_length_m": "cable_length_m",
         "ont_serial": "ont_serial",
-        "operational_data": "operational_data",
-
     }
 
     for item_key, job_attr in field_mapping.items():
         if item_key in item and item[item_key] is not None:
             setattr(job, job_attr, item[item_key])
+
+    source_operational_data = item.get("operational_data")
+    if isinstance(source_operational_data, dict):
+        job.operational_data = {
+            **(getattr(job, "operational_data", None) or {}),
+            **source_operational_data,
+        }
 
     if item.get("_client_organization_id") is not None:
         job.client_organization_id = item["_client_organization_id"]

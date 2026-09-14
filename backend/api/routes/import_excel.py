@@ -259,7 +259,11 @@ async def import_contract(
     return {
         "canonical_fields": sorted(BASE_COLUMN_ALIASES),
         "field_labels": {
-            field: aliases[0] if aliases else field
+            field: (
+                "Technicien source (historique)"
+                if field == "TECHNICIEN"
+                else aliases[0] if aliases else field
+            )
             for field, aliases in BASE_COLUMN_ALIASES.items()
         },
         "aliases": BASE_COLUMN_ALIASES,

@@ -189,18 +189,25 @@ def _parse_status(statut: Any, color_status: Optional[str]) -> JobStatus:
     return JobStatus.PENDING
 
 
-def _parse_job_type(value: Any) -> JobType:
+def _parse_job_type(value: Any) -> Optional[JobType]:
     text = _clean(value)
     if not text:
-        return JobType.INSTALLATION
+        return None
     key = text.upper()
     if key in _JOB_TYPE_ALIASES:
         return _JOB_TYPE_ALIASES[key]
-    return JobType.INSTALLATION
+    try:
+        return JobType(key)
+    except ValueError:
+        return None
 
 
 def _parse_int(value: Any) -> Optional[int]:
-    if value is None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
         return None
 
 
@@ -223,10 +230,6 @@ def _parse_float(value: Any) -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return parsed if math.isfinite(parsed) else None
-    try:
-        return int(float(str(value).strip()))
-    except (TypeError, ValueError):
-        return None
 
 
 _GPS_NUMBER_RE = re.compile(
@@ -417,7 +420,7 @@ def build_job_record(
     observation = _clean(col("OBSERVATION"))
     remark = _clean(col("REMARQUE"))
     comment = observation or remark or _clean(col("COMMENTAIRE"))
-    technician = (
+    source_technician_name = (
         _clean(col("TECH_CABLE"))
         or _clean(col("TECH_RAC"))
         or _clean(col("TECH_CB"))
@@ -429,10 +432,19 @@ def build_job_record(
         detected_operator = operator if operator != "UNKNOWN" else None
 
     profile = get_operator_profile(operator)
-    skills = profile["skills"]
+    skills = list(profile.get("skills") or [])
 
-    if job_type == JobType.INSTALLATION and not col("TYPE"):
+    if job_type is None and profile.get("default_job_type") is not None:
         job_type = profile["default_job_type"]
+    if job_type is None:
+        if _clean(col("TYPE")):
+            import_warnings.append(
+                "Type d'intervention source non reconnu : ligne à corriger avant confirmation."
+            )
+        else:
+            import_warnings.append(
+                "Type d'intervention absent : aucune valeur INSTALLATION n'a été inventée."
+            )
 
     if priority == JobPriority.NORMALE and not col("PRIORITE"):
         priority = profile["default_priority"]
@@ -483,6 +495,7 @@ def build_job_record(
         "tech_cb": "TECH_CB",
         "tech_rac": "TECH_RAC",
         "tech_cable": "TECH_CABLE",
+        "source_technician_name": "TECHNICIEN",
         "cb": "CB",
         "cable_type": "CABLE",
         "cable_code": "CABLE_CODE",
@@ -504,6 +517,8 @@ def build_job_record(
         operational_data["date_action"] = action_date.isoformat()
     if cable_length is not None:
         operational_data["cable_length_m"] = cable_length
+    if source_technician_name is not None:
+        operational_data["source_technician_name"] = source_technician_name
 
     return {
         "job_number": job_number,
@@ -517,13 +532,13 @@ def build_job_record(
         "longitude": lng,
         "gps_source": gps_source,
         "import_warnings": import_warnings,
-        "job_type": job_type.value,
+        "job_type": job_type.value if job_type is not None else None,
         "required_skills": skills,
         "route_criteria": route_criteria,
         "priority": priority.value,
         "status": status.value,
         "scheduled_date": scheduled_date.isoformat() if scheduled_date else None,
-        "assigned_technician_name": technician,
+        "source_technician_name": source_technician_name,
         "notes": comment,
         "description": comment,
         "operator": detected_operator,

@@ -32,6 +32,14 @@ confirme ensuite les interventions valides.
   importée au lieu de rester silencieusement sur la journée courante.
 - Un doublon ignoré n’est pas présenté comme une création. L’interface reste
   ouverte et propose le mode de mise à jour pour compléter le dossier existant.
+- `TECHNICIEN`, `TECH CB`, `TECH RAC` et `TECH CABLE` décrivent la source
+  historique du fichier. Ces valeurs sont conservées dans
+  `operational_data` et ne créent ni ne modifient une affectation GoVector.
+- Une référence et un type d’intervention reconnus sont obligatoires. Aucun
+  type `INSTALLATION` ni aucune compétence ne sont injectés lorsque le fichier
+  ou un profil explicitement configuré ne les fournit pas.
+- L’idempotence sur `job_number` est imposée par le backend dans les trois
+  modes : création (doublon ignoré), mise à jour ou ignore.
 
 ## Séquence de traitement
 

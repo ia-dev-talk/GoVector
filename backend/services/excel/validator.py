@@ -6,7 +6,10 @@ class ExcelValidator:
     # Pilot rule: an operational order may arrive incomplete and be enriched by
     # dispatch or the field later. Missing context is visible, not fabricated
     # and not blocking.
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = [
+        "job_number",
+        "job_type",
+    ]
 
     SOFT_REQUIRED_FIELDS = [
         "customer_name",

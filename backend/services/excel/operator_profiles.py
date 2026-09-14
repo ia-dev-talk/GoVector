@@ -1,12 +1,10 @@
-"""
-Operator-specific import profiles for Moroccan FTTH operators.
-"""
-from backend.database.models import JobPriority, JobType
+"""Operator-specific aliases and neutral import metadata."""
+from backend.database.models import JobPriority
 
 OPERATOR_PROFILES = {
     "ORANGE": {
-        "skills": ["install", "repair", "maintenance"],
-        "default_job_type": JobType.INSTALLATION,
+        "skills": [],
+        "default_job_type": None,
         "default_priority": JobPriority.NORMALE,
         "reference_prefix": "ORA",
         "column_aliases": {
@@ -19,8 +17,8 @@ OPERATOR_PROFILES = {
         },
     },
     "IAM": {
-        "skills": ["install", "repair"],
-        "default_job_type": JobType.INSTALLATION,
+        "skills": [],
+        "default_job_type": None,
         "default_priority": JobPriority.NORMALE,
         "reference_prefix": "IAM",
         "column_aliases": {
@@ -34,8 +32,8 @@ OPERATOR_PROFILES = {
         },
     },
     "INWI": {
-        "skills": ["install", "service_change"],
-        "default_job_type": JobType.INSTALLATION,
+        "skills": [],
+        "default_job_type": None,
         "default_priority": JobPriority.NORMALE,
         "reference_prefix": "INW",
         "column_aliases": {
@@ -48,8 +46,8 @@ OPERATOR_PROFILES = {
         },
     },
     "UNKNOWN": {
-        "skills": ["install"],
-        "default_job_type": JobType.INSTALLATION,
+        "skills": [],
+        "default_job_type": None,
         "default_priority": JobPriority.NORMALE,
         "reference_prefix": "IMP",
         "column_aliases": {},

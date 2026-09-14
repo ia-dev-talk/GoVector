@@ -43,11 +43,11 @@ def test_build_job_record_minimal():
 
     assert job["customer_name"] == "Ahmed"
     assert job["service_address"] == "12 rue test"
-    assert job["job_type"] == "INSTALLATION"
+    assert job["job_type"] is None
     assert job["latitude"] is None
     assert job["longitude"] is None
     assert job["gps_source"] is None
-    assert "install" in job["required_skills"]
+    assert job["required_skills"] == []
     assert job["_import_id"]
 
 
@@ -121,7 +121,47 @@ def test_magillan_workbook_columns_have_distinct_canonical_destinations():
     assert job["cable_length_m"] == 82
     assert job["optical_power_dbm"] == -18.5
     assert job["ont_serial"] == "ONT-123"
-    assert job["assigned_technician_name"] == "Tech Cable"
+    assert job["source_technician_name"] == "Tech Cable"
+    assert job["operational_data"]["source_technician_name"] == "Tech Cable"
+    assert "assigned_technician_name" not in job
+
+
+def test_generic_technician_column_is_source_history_not_assignment():
+    job = build_job_record(
+        values={1: "CMD-42", 2: "SAV", 3: "Technicien historique"},
+        mapping={"REFERENCE": 1, "TYPE": 2, "TECHNICIEN": 3},
+        operator="UNKNOWN",
+        sheet_name="Commandes",
+        row_cells=[],
+        row_index=2,
+    )
+
+    assert job["job_number"] == "CMD-42"
+    assert job["job_type"] == "SAV"
+    assert job["source_technician_name"] == "Technicien historique"
+    assert job["operational_data"]["source_technician_name"] == "Technicien historique"
+    assert "assigned_technician_name" not in job
+
+
+@pytest.mark.asyncio
+async def test_confirm_rejects_missing_job_type_without_installation_fallback(
+    monkeypatch,
+):
+    create = AsyncMock()
+    monkeypatch.setattr(import_confirm.job_logic, "create_job", create)
+
+    with pytest.raises(ValueError, match="Type d'intervention obligatoire"):
+        await _create_job_from_dict(
+            SimpleNamespace(),
+            {
+                "_valid": True,
+                "customer_name": "Client QA",
+                "service_address": "Sidi Maârouf",
+                "job_type": None,
+            },
+        )
+
+    create.assert_not_awaited()
 
 
 def test_import_mapping_override_accepts_a_real_file_header_without_code_change():
@@ -367,6 +407,8 @@ async def test_import_without_duration_delegates_to_the_type_default(monkeypatch
 
 def test_validator_marks_soft_warnings():
     jobs = [{
+        "job_number": "CMD-VALID-1",
+        "job_type": "SAV",
         "customer_name": "Test",
         "service_address": "Adresse",
         "_import_id": "a:1:1",
