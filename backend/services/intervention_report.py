@@ -1,4 +1,4 @@
-"""Single-intervention Magillan PDF: operational page, then labelled photos."""
+"""Single-intervention MAGILLAN PDF: operational report then real photo pages."""
 
 from __future__ import annotations
 
@@ -40,21 +40,76 @@ PHOTO_LABELS = {
     "after": "Après intervention", "incident": "Incident", "other": "Photo terrain",
 }
 
+STATUS_LABELS = {
+    "pending": "En attente",
+    "assigned": "Affectée",
+    "in_progress": "En cours",
+    "completed": "Terminée",
+    "cancelled": "Annulée",
+    "failed": "Échec",
+    "on_hold": "En pause",
+    "en_attente_validation": "En attente de validation",
+    "field_agent_verified": "Vérifiée terrain",
+    "validated": "Validée",
+}
 
 REPORT_CSS = """
-  @page { size: A4 landscape; margin: 10mm; @bottom-right { content: "Page " counter(page) " / " counter(pages); color:#64748b; font-size:8pt; } }
-  * { box-sizing:border-box; } body { margin:0; font-family:Arial,sans-serif; color:#183044; font-size:8.5pt; }
-  .report-page { min-height:185mm; page-break-after:always; } .report-page:last-child { page-break-after:auto; }
-  header { display:flex; align-items:center; gap:18px; border-bottom:3px solid #087f8c; padding-bottom:7px; margin-bottom:8px; }
-  header img { width:46mm; max-height:16mm; object-fit:contain; } h1 { margin:0; font-size:19pt; } header p { margin:2px 0 0; color:#64748b; }
-  h2 { margin:8px 0 5px; font-size:11pt; color:#087f8c; } table { width:100%; border-collapse:collapse; table-layout:fixed; }
-  th,td { border:1px solid #cbd5e1; padding:4px 6px; vertical-align:top; overflow-wrap:anywhere; } th { background:#edf7f7; text-align:left; width:15%; }
-  .identity td { width:35%; } .cables th { background:#087f8c; color:white; width:auto; text-align:center; } .cables td { text-align:center; }
-  .missing,.empty { color:#94a3b8; font-style:italic; } .notes { min-height:18mm; white-space:pre-wrap; }
-  .photos-title { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #087f8c; }
-  .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:7mm; margin-top:7mm; } .photo-card { break-inside:avoid; border:1px solid #cbd5e1; padding:4mm; border-radius:3mm; }
-  .photo-card h3 { margin:0 0 3mm; color:#087f8c; font-size:11pt; } .photo-card img,.photo-missing { width:100%; height:58mm; object-fit:contain; background:#f1f5f9; }
-  .photo-card p { margin:2mm 0 0; color:#64748b; font-size:7.5pt; } .no-photos { padding:25mm; text-align:center; color:#64748b; }
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+    @bottom-right {
+      content: "Page " counter(page) " / " counter(pages);
+      color:#6b7280;
+      font-size:7.5pt;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Arial,sans-serif; color:#111827; font-size:8.2pt; }
+  .report-page { min-height:188mm; page-break-after:always; position:relative; }
+  .report-page:last-child { page-break-after:auto; }
+  .magillan-header {
+    display:grid;
+    grid-template-columns:56mm 1fr 56mm;
+    align-items:center;
+    border:1.2px solid #111827;
+    min-height:24mm;
+    margin-bottom:4mm;
+  }
+  .company { padding:2.5mm 3mm; border-right:1px solid #111827; height:100%; }
+  .company img { width:42mm; max-height:10mm; object-fit:contain; display:block; margin-bottom:1mm; }
+  .company strong { display:block; font-size:7.5pt; }
+  .company small { display:block; margin-top:1mm; font-size:6.8pt; }
+  .report-title { text-align:center; font-size:17pt; font-weight:700; letter-spacing:.3px; }
+  .generator { border-left:1px solid #111827; padding:3mm; text-align:center; color:#6b7280; height:100%; }
+  .generator strong { color:#374151; display:block; font-size:8pt; }
+  table { width:100%; border-collapse:collapse; table-layout:fixed; }
+  th, td { border:1px solid #111827; padding:2.2mm 2.5mm; vertical-align:middle; overflow-wrap:anywhere; }
+  th { background:#f3f4f6; font-size:7.6pt; text-transform:uppercase; text-align:left; }
+  .identity th { width:14%; }
+  .identity td { width:36%; min-height:8mm; }
+  .blank { display:inline-block; min-height:1em; min-width:1em; }
+  .section-title {
+    margin:4mm 0 0;
+    padding:1.5mm 2mm;
+    border:1px solid #111827;
+    border-bottom:0;
+    background:#e5e7eb;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .cables th, .cables td, .connections th, .connections td { text-align:center; }
+  .cables th, .connections th { width:auto; }
+  .observation { height:20mm; white-space:pre-wrap; vertical-align:top; }
+  .signatures { margin-top:4mm; }
+  .signatures td { height:25mm; text-align:center; vertical-align:top; font-weight:700; }
+  .report-meta { margin-top:2mm; color:#6b7280; font-size:7pt; text-align:right; }
+  .photos-title { display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #111827; padding-bottom:2mm; }
+  .photos-title h1 { margin:0; font-size:16pt; }
+  .photo-grid { display:grid; grid-template-columns:1fr 1fr; gap:6mm; margin-top:6mm; }
+  .photo-card { break-inside:avoid; border:1px solid #9ca3af; padding:3mm; }
+  .photo-card h3 { margin:0 0 2mm; font-size:10pt; }
+  .photo-card img { width:100%; height:58mm; object-fit:contain; background:#f3f4f6; }
+  .photo-card p { margin:2mm 0 0; color:#6b7280; font-size:7.2pt; }
 """
 
 
@@ -65,19 +120,37 @@ def _raw(value: Any) -> str:
     return str(value).strip()
 
 
-def _text(value: Any) -> str:
-    return escape(_raw(value))
-
-
 def _display(value: Any, suffix: str = "") -> str:
     raw = _raw(value)
-    return escape(f"{raw}{suffix}") if raw else '<span class="missing">Non renseigné</span>'
+    return escape(f"{raw}{suffix}") if raw else '<span class="blank">&nbsp;</span>'
 
 
-def _date(value: Any, *, time: bool = False) -> str:
-    if not isinstance(value, datetime):
+def _parse_datetime_like(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    raw = _raw(value)
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _date(value: Any, *, with_time: bool = True) -> str:
+    parsed = _parse_datetime_like(value)
+    if parsed is None:
         return _display(None)
-    return value.strftime("%d/%m/%Y %H:%M" if time else "%d/%m/%Y")
+    if with_time:
+        return parsed.strftime("%d/%m/%Y à %H:%M")
+    return parsed.strftime("%d/%m/%Y")
+
+
+def _status(value: Any) -> str:
+    raw = _raw(value)
+    if not raw:
+        return _display(None)
+    return escape(STATUS_LABELS.get(raw.casefold(), raw.replace("_", " ").capitalize()))
 
 
 def _safe_path(root: Path, storage_key: Any) -> Path | None:
@@ -102,6 +175,7 @@ def _latest_payload(actions: Iterable[Any], action_type: str) -> dict:
     candidates = [a for a in actions if getattr(a, "action_type", None) == action_type]
     if not candidates:
         return {}
+
     def key(action: Any) -> float:
         value = getattr(action, "occurred_at", None)
         return value.timestamp() if isinstance(value, datetime) else float("-inf")
@@ -110,10 +184,23 @@ def _latest_payload(actions: Iterable[Any], action_type: str) -> dict:
     return latest.payload if isinstance(getattr(latest, "payload", None), dict) else {}
 
 
-def _row(label: str, value: Any, label2: str | None = None, value2: Any = None) -> str:
+def _row(label: str, value: Any, label2: str | None = None, value2: Any = None, *, raw_html: bool = False) -> str:
+    rendered = value if raw_html else _display(value)
     second = f"<th>{escape(label2)}</th><td>{_display(value2)}</td>" if label2 else ""
     span = "" if label2 else ' colspan="3"'
-    return f"<tr><th>{escape(label)}</th><td{span}>{_display(value)}</td>{second}</tr>"
+    return f"<tr><th>{escape(label)}</th><td{span}>{rendered}</td>{second}</tr>"
+
+
+def _mode_quantities(item: Any) -> tuple[Any, Any, Any]:
+    quantity = getattr(item, "quantity_m", None)
+    mode = _raw(getattr(item, "installation_mode", None)).upper()
+    if mode in {"SP", "CONDUITE", "SOUTERRAIN"}:
+        return quantity, None, None
+    if mode in {"FSD", "FACADE", "FAÇADE"}:
+        return None, quantity, None
+    if mode in {"TR", "AERIEN", "AÉRIEN"}:
+        return None, None, quantity
+    return None, None, None
 
 
 def render_intervention_report_sections(
@@ -133,81 +220,154 @@ def render_intervention_report_sections(
     gps = operational.get("gps_pco") or operational.get("gps_derivation") or operational.get("gps_splitter")
     if not gps and getattr(job, "latitude", None) is not None and getattr(job, "longitude", None) is not None:
         gps = f"{job.latitude:.6f}, {job.longitude:.6f}"
-    observation = operational.get("observation") or operational.get("remarque") or getattr(job, "coordinator_comments", None) or getattr(job, "notes", None) or comment.get("value") or comment.get("comment")
+
+    observation = (
+        operational.get("observation")
+        or operational.get("remarque")
+        or getattr(job, "coordinator_comments", None)
+        or getattr(job, "notes", None)
+        or comment.get("value")
+        or comment.get("comment")
+    )
     signal = operational.get("signal") or measurement.get("value") or getattr(job, "optical_power_dbm", None)
     sn = operational.get("sn") or network.get("sn") or getattr(job, "ont_serial", None)
+    central = getattr(job, "nro_raw", None) or getattr(job, "sector_raw", None)
+    splitter = operational.get("splitter_msan") or getattr(job, "splitter_raw", None)
+    pco = operational.get("pco") or getattr(job, "pbo_raw", None)
+    localite = getattr(job, "service_city", None)
 
-    cable_rows = []
+    cable_rows: list[str] = []
     for item in cable_consumptions:
+        conduite, facade, aerien = _mode_quantities(item)
         cable_rows.append(
             "<tr>"
-            f"<td>{_display(item.cable_type)}</td><td>{_display(item.cable_code)}</td>"
-            f"<td>{_display(item.start_mark_m, ' m')}</td><td>{_display(item.end_mark_m, ' m')}</td>"
-            f"<td>{_display(item.quantity_m, ' m')}</td><td>{_display(item.installation_mode)}</td>"
-            f"<td>{_display(getattr(item, 'continuity_justification', None))}</td></tr>"
+            f"<td>{_display(getattr(item, 'cable_type', None))}</td>"
+            f"<td>{_display(getattr(item, 'cable_code', None))}</td>"
+            f"<td>{_display(getattr(item, 'start_mark_m', None), ' m')}</td>"
+            f"<td>{_display(getattr(item, 'end_mark_m', None), ' m')}</td>"
+            f"<td>{_display(conduite, ' m')}</td>"
+            f"<td>{_display(facade, ' m')}</td>"
+            f"<td>{_display(aerien, ' m')}</td>"
+            "</tr>"
         )
-    if not cable_rows and operational.get("cable_code"):
+    if not cable_rows and any(operational.get(key) is not None for key in (
+        "cable_type", "cable_code", "cable_depart_m", "cable_arrive_m",
+        "pose_sp_m", "pose_fsd_m", "pose_tr_m",
+    )):
         cable_rows.append(
-            "<tr>" + "".join([
-                f"<td>{_display(operational.get('cable_type'))}</td>",
-                f"<td>{_display(operational.get('cable_code'))}</td>",
-                f"<td>{_display(operational.get('cable_depart_m'), ' m')}</td>",
-                f"<td>{_display(operational.get('cable_arrive_m'), ' m')}</td>",
-                f"<td>{_display(operational.get('cable_length_m'), ' m')}</td>",
-                f"<td>{_display(None)}</td><td>{_display(None)}</td>",
-            ]) + "</tr>"
+            "<tr>"
+            f"<td>{_display(operational.get('cable_type'))}</td>"
+            f"<td>{_display(operational.get('cable_code'))}</td>"
+            f"<td>{_display(operational.get('cable_depart_m'), ' m')}</td>"
+            f"<td>{_display(operational.get('cable_arrive_m'), ' m')}</td>"
+            f"<td>{_display(operational.get('pose_sp_m'), ' m')}</td>"
+            f"<td>{_display(operational.get('pose_fsd_m'), ' m')}</td>"
+            f"<td>{_display(operational.get('pose_tr_m'), ' m')}</td>"
+            "</tr>"
         )
     if not cable_rows:
-        cable_rows.append('<tr><td colspan="7" class="empty">Aucune consommation câble enregistrée</td></tr>')
+        cable_rows.append('<tr><td colspan="7"><span class="blank">&nbsp;</span></td></tr>')
 
-    photos = []
+    photos: list[str] = []
     for item in media_items:
         if not _raw(getattr(item, "mime_type", None)).lower().startswith("image/"):
+            continue
+        uri = _photo_data_uri(item, media_root)
+        if uri is None:
             continue
         metadata = getattr(item, "meta_data", None) or {}
         code = _raw(metadata.get("label") or metadata.get("evidence_role") or "other")
         label = PHOTO_LABELS.get(code, code.replace("_", " ").strip().capitalize() or "Photo terrain")
-        uri = _photo_data_uri(item, media_root)
-        visual = f'<img src="{uri}" alt="{escape(label)}" />' if uri else '<div class="photo-missing">Aperçu indisponible</div>'
         captured = metadata.get("captured_at") or getattr(item, "created_at", None)
         photo_gps = ""
         if metadata.get("latitude") is not None and metadata.get("longitude") is not None:
             photo_gps = f"GPS {metadata['latitude']}, {metadata['longitude']}"
+        captured_text = _date(captured) if _parse_datetime_like(captured) else _display(captured)
         photos.append(
-            f'<article class="photo-card"><h3>{escape(label)}</h3>{visual}'
-            f'<p>{_display(captured)}{(" · " + escape(photo_gps)) if photo_gps else ""}</p></article>'
+            f'<article class="photo-card"><h3>{escape(label)}</h3>'
+            f'<img src="{uri}" alt="{escape(label)}" />'
+            f'<p>{captured_text}{(" · " + escape(photo_gps)) if photo_gps else ""}</p></article>'
         )
+
     photo_groups = [photos[index:index + 4] for index in range(0, len(photos), 4)]
-    if not photo_groups:
-        photo_groups = [[
-            '<p class="no-photos">Aucune photo synchronisée pour cette intervention.</p>'
-        ]]
     photo_pages = "".join(
-        f'<section class="report-page"><div class="photos-title"><h1>Photos de l’intervention</h1>'
-        f'<p>{_display(getattr(job, "job_number", None))}</p></div>'
+        f'<section class="report-page"><div class="photos-title"><h1>Photos terrain</h1>'
+        f'<p>Demande {_display(getattr(job, "job_number", None))}</p></div>'
         f'<div class="photo-grid">{"".join(group)}</div></section>'
         for group in photo_groups
     )
 
+    visit_times = None
+    if active_visit:
+        started = _date(getattr(active_visit, "started_at", None))
+        ended = _date(getattr(active_visit, "ended_at", None))
+        if _raw(getattr(active_visit, "started_at", None)) or _raw(getattr(active_visit, "ended_at", None)):
+            visit_times = f"{started} → {ended}"
+
+    connection_pco = network.get("pco") or pco
+    connection_joint = network.get("joint") or operational.get("joint")
+    connection_splitter = network.get("splitter") or splitter
+    connection_tiroir = network.get("tiroir") or operational.get("tiroir")
+    connection_prise = (
+        network.get("prise")
+        or operational.get("prise")
+        or operational.get("pto")
+        or getattr(job, "pto_raw", None)
+    )
+
+    status_html = _status(getattr(job, "status", None))
+    date_html = _date(getattr(job, "scheduled_date", None))
+    action_date_html = _date(operational.get("date_action"))
+
     return f"""
-      <section class="report-page"><header><img src="{MAGILLAN_LOGO_DATA_URI}" alt="Magillan"><div><h1>Rapport complet d’intervention</h1><p>GoVector · données réelles enregistrées</p></div></header>
-      <table class="identity">
-        {_row('Commande / demande', getattr(job, 'job_number', None), 'Rapport', operational.get('report_number'))}
-        {_row('Client / site', getattr(job, 'customer_name', None), 'Entreprise', client_organization_name)}
-        {_row('Adresse', getattr(job, 'service_address', None), 'Technicien', technician_name)}
-        {_row('Date planifiée', getattr(job, 'scheduled_date', None), 'Date action', operational.get('date_action'))}
-        {_row('Horaires terrain', f"{_raw(getattr(active_visit, 'started_at', None))} → {_raw(getattr(active_visit, 'ended_at', None))}" if active_visit else None, 'Statut', getattr(job, 'status', None))}
-        {_row('Secteur / central', f"{_raw(getattr(job, 'sector_raw', None))} / {_raw(getattr(job, 'nro_raw', None))}", 'Activité', getattr(job, 'job_type', None))}
-        {_row('Splitter / MSAN', operational.get('splitter_msan') or getattr(job, 'splitter_raw', None), 'PCO / localité', f"{_raw(operational.get('pco'))} / {_raw(getattr(job, 'service_city', None))}")}
-        {_row('Position PCO', operational.get('position_pco'), 'GPS', gps)}
-      </table>
-      <h2>Pose câble</h2><table class="cables"><thead><tr><th>Type</th><th>CODE</th><th>Départ</th><th>Arrivée</th><th>Métrage posé</th><th>Mode</th><th>Justification</th></tr></thead><tbody>{''.join(cable_rows)}</tbody></table>
-      <h2>Raccordement et mesures</h2><table class="identity">
-        {_row('CB (câble branchement)', operational.get('cb'), 'SN', sn)}
-        {_row('Signal / mesure', signal, 'Raccordement', network.get('connection') or operational.get('raccordement'))}
-        {_row('Validation', getattr(job, 'validation_status', None), 'Signature', 'Présente' if getattr(job, 'client_signature', None) else None)}
-        <tr><th>Observations / remarques</th><td colspan="3" class="notes">{_display(observation)}</td></tr>
-      </table></section>{photo_pages}
+      <section class="report-page">
+        <header class="magillan-header">
+          <div class="company">
+            <img src="{MAGILLAN_LOGO_DATA_URI}" alt="MAGILLAN">
+            <strong>SOCIETE MAGILLAN D'EQUIPEMENT ET TRAVAUX DIVERS</strong>
+            <small>TEL: 0522214983 &nbsp; FAX : 0522871517</small>
+          </div>
+          <div class="report-title">RAPPORT JOURNALIER</div>
+          <div class="generator"><strong>MAGILLAN</strong>Généré par GoVector</div>
+        </header>
+
+        <table class="identity">
+          {_row('CENTRAL', central, 'N° DEMANDE', getattr(job, 'job_number', None))}
+          {_row('N° RAPPORT', operational.get('report_number'), 'DATE', date_html, raw_html=True)}
+          {_row('CLIENT', getattr(job, 'customer_name', None), 'LOCALITÉ', localite)}
+          {_row('ADRESSE', getattr(job, 'service_address', None), 'GPS', gps)}
+          {_row('SPLITTER', splitter, 'PCO', pco)}
+          {_row('TECHNICIEN', technician_name or operational.get('source_technician_name'), 'STATUT', status_html, raw_html=True)}
+          {_row('DATE D’ACTION', action_date_html, 'HORAIRES TERRAIN', visit_times, raw_html=True)}
+        </table>
+
+        <div class="section-title">POSE CÂBLE</div>
+        <table class="cables">
+          <thead><tr><th>TYPE</th><th>CODE</th><th>DÉPART</th><th>ARRIVÉE</th><th>CONDUITE</th><th>FAÇADE</th><th>AÉRIEN</th></tr></thead>
+          <tbody>{''.join(cable_rows)}</tbody>
+        </table>
+
+        <div class="section-title">RACCORDEMENT</div>
+        <table class="connections">
+          <thead><tr><th>PCO</th><th>JOINT</th><th>SPLITTER</th><th>TIROIR</th><th>PRISE</th></tr></thead>
+          <tbody><tr>
+            <td>{_display(connection_pco)}</td>
+            <td>{_display(connection_joint)}</td>
+            <td>{_display(connection_splitter)}</td>
+            <td>{_display(connection_tiroir)}</td>
+            <td>{_display(connection_prise)}</td>
+          </tr></tbody>
+        </table>
+
+        <div class="section-title">OBSERVATION</div>
+        <table><tr><td class="observation">{_display(observation)}</td></tr></table>
+
+        <table class="signatures"><tr>
+          <td>REPRÉSENTANT DE LA SOCIÉTÉ</td>
+          <td>Surveillant CMO/CHEF DE SECTEUR</td>
+        </tr></table>
+        <div class="report-meta">{_display(client_organization_name)} · {_display(signal, ' dBm') if _raw(signal) else ''} {_display(sn) if _raw(sn) else ''}</div>
+      </section>{photo_pages}
     """
 
 
