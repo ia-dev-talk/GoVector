@@ -53,7 +53,7 @@ function hasOnlyTypeBlocker(job) {
     );
 }
 
-export function isImportJobConfirmable(job, defaultJobType) {
+function isImportJobConfirmable(job, defaultJobType) {
     return Boolean(
         job?._valid
         || (defaultJobType && hasOnlyTypeBlocker(job))
