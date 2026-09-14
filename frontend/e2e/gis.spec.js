@@ -36,10 +36,10 @@ test('client GIS flow previews, persists a draft, publishes and downloads a comp
   await page.goto('/e2e/orienteur-harness.html');
   await page.waitForFunction(() => typeof window.renderGis === 'function');
   await page.evaluate(() => window.renderGis());
-  await page.getByText('Jeux de données SIG · KML/KMZ et QGIS', { exact: true }).click();
+  await page.getByText('Jeux de données SIG · KML/KMZ, GeoJSON, QGIS RAR et QField', { exact: true }).click();
   await page.getByLabel('Entreprise du jeu de données').selectOption('12');
   await page.getByLabel('Nom du jeu de données').fill('Réseau Casablanca');
-  await page.getByLabel('Fichier KML ou KMZ').setInputFiles({ name: 'network.kml', mimeType: 'application/xml', buffer: Buffer.from('<kml/>') });
+  await page.getByLabel('Fichier KML, KMZ, GeoJSON ou QGIS RAR').setInputFiles({ name: 'network.kml', mimeType: 'application/xml', buffer: Buffer.from('<kml/>') });
   await page.getByRole('button', { name: 'Analyser le fichier' }).click();
   await expect(page.locator('.leaflet-overlay-pane svg path')).toHaveCount(1);
   await expect(page.getByText('1 objet(s), 1 couche(s)')).toBeVisible();
@@ -73,7 +73,7 @@ test('an invalid GIS file cannot become a draft', async ({ page }) => {
   await page.evaluate(() => window.renderGis());
   await page.locator('summary').click();
   await page.getByLabel('Entreprise du jeu de données').selectOption('1');
-  await page.getByLabel('Fichier KML ou KMZ').setInputFiles({ name: 'invalid.kml', mimeType: 'application/xml', buffer: Buffer.from('invalid') });
+  await page.getByLabel('Fichier KML, KMZ, GeoJSON ou QGIS RAR').setInputFiles({ name: 'invalid.kml', mimeType: 'application/xml', buffer: Buffer.from('invalid') });
   await page.getByRole('button', { name: 'Analyser le fichier' }).click();
   await expect(page.getByRole('alert')).toHaveText('Géométrie invalide');
   await expect(page.getByRole('button', { name: 'Enregistrer le brouillon' })).toHaveCount(0);

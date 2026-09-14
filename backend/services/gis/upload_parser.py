@@ -1,9 +1,12 @@
-"""Safe geospatial upload dispatcher for KML/KMZ and GeoJSON.
+"""Safe geospatial upload dispatcher for KML/KMZ, GeoJSON and QGIS RAR projects.
 
 QGIS and QField can exchange GeoJSON directly with BlueVector for the September
 14 delivery while the existing KML/KMZ parser remains the source of truth for
 those formats.  GeoJSON is treated as data only: no remote links, CRS fetches,
 or external resources are followed.
+Existing KML/KMZ and GeoJSON contracts stay unchanged. QGIS RAR imports are
+handled by an isolated Shapefile parser that normalizes source CRS data to
+WGS84 and preserves the QGIS layer tree as logical folders.
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ from hashlib import sha256
 import json
 import math
 from pathlib import PurePosixPath
-from typing import Any, Iterable
+from typing import Any
 
 from backend.services.gis.kml_parser import (
     GisImportError,
@@ -25,17 +28,13 @@ from backend.services.gis.kml_parser import (
     parse_geospatial_upload as parse_kml_upload,
 )
 
-
 _SUPPORTED_GEOJSON_EXTENSIONS = {".geojson", ".json"}
 _SUPPORTED_GEOMETRY_TYPES = {
-    "Point",
-    "MultiPoint",
-    "LineString",
-    "MultiLineString",
-    "Polygon",
-    "MultiPolygon",
-    "GeometryCollection",
+    "Point", "MultiPoint", "LineString", "MultiLineString",
+    "Polygon", "MultiPolygon", "GeometryCollection",
 }
+_RESERVED_FOLDER_PROPERTY = "_bluevector_folder"
+_MAX_FOLDER_PATH_LENGTH = 512
 
 
 def _filename(filename: str) -> tuple[str, str]:
@@ -72,18 +71,14 @@ def _walk_coordinates(value: Any, *, depth: int = 0) -> tuple[Any, int, list[tup
         raise GisImportError("La géométrie GeoJSON est trop profondément imbriquée.")
     if not isinstance(value, list) or not value:
         raise GisImportError("La géométrie GeoJSON contient des coordonnées invalides.")
-
     if not isinstance(value[0], list):
         normalized, count = _validate_position(value)
         return normalized, count, [(normalized[0], normalized[1])]
-
     result = []
     total = 0
     points: list[tuple[float, float]] = []
     for child in value:
-        normalized_child, child_count, child_points = _walk_coordinates(
-            child, depth=depth + 1
-        )
+        normalized_child, child_count, child_points = _walk_coordinates(child, depth=depth + 1)
         result.append(normalized_child)
         total += child_count
         if total > MAX_COORDINATES:
@@ -98,7 +93,6 @@ def _validate_geometry(geometry: Any) -> tuple[dict[str, Any], int, list[tuple[f
     geometry_type = geometry.get("type")
     if geometry_type not in _SUPPORTED_GEOMETRY_TYPES:
         raise GisImportError(f"Géométrie GeoJSON non prise en charge : {geometry_type}.")
-
     if geometry_type == "GeometryCollection":
         raw_geometries = geometry.get("geometries")
         if not isinstance(raw_geometries, list) or not raw_geometries:
@@ -114,7 +108,6 @@ def _validate_geometry(geometry: Any) -> tuple[dict[str, Any], int, list[tuple[f
                 raise GisImportError("Le fichier dépasse la limite de complexité géométrique.")
             points.extend(child_points)
         return {"type": geometry_type, "geometries": normalized_geometries}, total, points
-
     normalized_coordinates, count, points = _walk_coordinates(geometry.get("coordinates"))
     return {"type": geometry_type, "coordinates": normalized_coordinates}, count, points
 
@@ -133,7 +126,6 @@ def _safe_properties(raw: Any) -> dict[str, Any]:
         return {}
     if not isinstance(raw, dict):
         raise GisImportError("Les propriétés GeoJSON doivent être un objet JSON.")
-    # Round-trip the object through JSON to guarantee plain, serializable data.
     try:
         encoded = json.dumps(raw, ensure_ascii=False, allow_nan=False)
         if len(encoded.encode("utf-8")) > 1_000_000:
@@ -141,6 +133,20 @@ def _safe_properties(raw: Any) -> dict[str, Any]:
         return json.loads(encoded)
     except (TypeError, ValueError) as exc:
         raise GisImportError("Les propriétés GeoJSON contiennent une valeur invalide.") from exc
+
+
+def _extract_folder_path(properties: dict[str, Any]) -> str:
+    raw_folder = properties.pop(_RESERVED_FOLDER_PROPERTY, None)
+    if raw_folder is None:
+        return "GeoJSON"
+    if not isinstance(raw_folder, str):
+        raise GisImportError("Le dossier logique BlueVector doit être une chaîne de caractères.")
+    folder_path = raw_folder.strip()
+    if not folder_path:
+        return "GeoJSON"
+    if len(folder_path) > _MAX_FOLDER_PATH_LENGTH:
+        raise GisImportError("Le dossier logique BlueVector dépasse la taille autorisée.")
+    return folder_path
 
 
 def parse_geojson_upload(filename: str, payload: bytes) -> ParsedDataset:
@@ -151,12 +157,10 @@ def parse_geojson_upload(filename: str, payload: bytes) -> ParsedDataset:
         raise GisImportError("Le fichier GeoJSON est vide.")
     if len(payload) > MAX_UPLOAD_BYTES:
         raise GisImportError("Le fichier dépasse la taille maximale autorisée.")
-
     try:
         document = json.loads(payload.decode("utf-8-sig"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise GisImportError("Le fichier GeoJSON est illisible ou invalide.") from exc
-
     if not isinstance(document, dict) or document.get("type") != "FeatureCollection":
         raise GisImportError("Le GeoJSON doit être une FeatureCollection.")
     raw_features = document.get("features")
@@ -169,7 +173,6 @@ def parse_geojson_upload(filename: str, payload: bytes) -> ParsedDataset:
     feature_counts: Counter[str] = Counter()
     coordinate_total = 0
     all_points: list[tuple[float, float]] = []
-
     for index, raw_feature in enumerate(raw_features, start=1):
         if not isinstance(raw_feature, dict) or raw_feature.get("type") != "Feature":
             raise GisImportError(f"L'entité GeoJSON #{index} est invalide.")
@@ -179,6 +182,7 @@ def parse_geojson_upload(filename: str, payload: bytes) -> ParsedDataset:
             raise GisImportError("Le fichier dépasse la limite de complexité géométrique.")
         all_points.extend(points)
         properties = _safe_properties(raw_feature.get("properties"))
+        folder_path = _extract_folder_path(properties)
         geometry_type = geometry["type"]
         feature_counts[geometry_type] += 1
         feature_id = raw_feature.get("id")
@@ -186,28 +190,21 @@ def parse_geojson_upload(filename: str, payload: bytes) -> ParsedDataset:
             ParsedFeature(
                 external_id=(str(feature_id)[:255] if feature_id is not None else None),
                 name=_feature_name(properties, raw_feature),
-                folder_path="GeoJSON",
+                folder_path=folder_path,
                 geometry_geojson=geometry,
                 geometry_type=geometry_type,
                 properties=properties,
                 style={},
             )
         )
-
     if not parsed_features or not all_points:
         raise GisImportError("Le GeoJSON ne contient aucune géométrie exploitable.")
-
-    min_lon = min(point[0] for point in all_points)
-    min_lat = min(point[1] for point in all_points)
-    max_lon = max(point[0] for point in all_points)
-    max_lat = max(point[1] for point in all_points)
     raw_dataset_name = document.get("name")
     dataset_name = (
         str(raw_dataset_name).strip()[:500]
         if raw_dataset_name is not None and str(raw_dataset_name).strip()
         else PurePosixPath(raw_name).stem[:500]
     )
-
     return ParsedDataset(
         source_type="geojson",
         source_filename=raw_name,
@@ -217,7 +214,10 @@ def parse_geojson_upload(filename: str, payload: bytes) -> ParsedDataset:
         name=dataset_name,
         features=tuple(parsed_features),
         warnings=(),
-        bbox=(min_lon, min_lat, max_lon, max_lat),
+        bbox=(
+            min(point[0] for point in all_points), min(point[1] for point in all_points),
+            max(point[0] for point in all_points), max(point[1] for point in all_points),
+        ),
         feature_counts=dict(feature_counts),
     )
 
@@ -228,13 +228,16 @@ def parse_geospatial_upload(
     *,
     content_type: str | None = None,
 ) -> ParsedDataset:
-    """Dispatch a geospatial upload without changing the KML/KMZ contract."""
-
+    """Dispatch an upload while keeping existing KML/KMZ and GeoJSON contracts."""
     _raw_name, suffix = _filename(filename)
     normalized_content_type = str(content_type or "").split(";", 1)[0].strip().lower()
+    if suffix == ".rar" or normalized_content_type in {
+        "application/vnd.rar", "application/x-rar-compressed",
+    }:
+        from backend.services.gis.qgis_archive_parser import parse_qgis_rar_upload
+        return parse_qgis_rar_upload(filename, payload)
     if suffix in _SUPPORTED_GEOJSON_EXTENSIONS or normalized_content_type in {
-        "application/geo+json",
-        "application/geojson",
+        "application/geo+json", "application/geojson",
     }:
         return parse_geojson_upload(filename, payload)
     return parse_kml_upload(filename, payload, content_type=content_type)

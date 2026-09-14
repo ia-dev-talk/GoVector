@@ -112,9 +112,10 @@ function ClientDatasets({ clientId }) {
     {notice && <p role="status">{notice}</p>}
     <fieldset disabled={busy} className="gis-import-fields">
       <label>Nom du jeu de données<input value={name} maxLength={180} onChange={(event) => setName(event.target.value)} /></label>
-      <label>Fichier KML ou KMZ<input type="file" accept=".kml,.kmz" onChange={(event) => {
+      <label>Fichier KML, KMZ, GeoJSON ou QGIS RAR<input type="file" accept=".kml,.kmz,.geojson,.json,.rar,application/geo+json,application/json,application/vnd.rar,application/x-rar-compressed" onChange={(event) => {
         setFile(event.target.files?.[0] ?? null); setPreview(null); setPreviewDataset(null); setError(''); setNotice('');
       }} /></label>
+      <p className="field-hint">Une archive QGIS RAR peut contenir le projet .qgz/.qgs et ses Shapefiles .shp/.shx/.dbf/.prj ; GoVector les reprojette en WGS84 et conserve les groupes QGIS.</p>
       <button type="button" className="btn btn--secondary" disabled={!file} onClick={analyze}>Analyser le fichier</button>
     </fieldset>
     {preview && <div className="gis-preview">
@@ -183,8 +184,8 @@ export default function GisDatasetWorkspace() {
       .catch((failure) => { if (active) setError(message(failure)); });
     return () => { active = false; };
   }, []);
-  return <details className="gis-workspace"><summary>Jeux de données SIG · KML/KMZ et QGIS</summary>
-    <p>Imports versionnés par entreprise cliente. Les secteurs, sites et équipements opérationnels restent indépendants. Gestion réservée aux administrateurs.</p>
+  return <details className="gis-workspace"><summary>Jeux de données SIG · KML/KMZ, GeoJSON, QGIS RAR et QField</summary>
+    <p>Imports versionnés par entreprise cliente. KML/KMZ, GeoJSON WGS84 et projets QGIS RAR sont acceptés ; les secteurs, sites et équipements opérationnels restent indépendants. Gestion réservée aux administrateurs.</p>
     {error && <p role="alert">{error}</p>}
     <label>Entreprise du jeu de données<select value={clientId} onChange={(event) => setClientId(event.target.value)}><option value="">Choisir une entreprise…</option>{clients.filter((c) => c.is_active).map((c) => <option value={String(c.id)} key={c.id}>{c.name}</option>)}</select></label>
     {clientId && <ClientDatasets key={clientId} clientId={clientId} />}
