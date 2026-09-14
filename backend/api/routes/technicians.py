@@ -16,13 +16,61 @@ from backend.api.schemas import (
 )
 from backend.logic import technicians as tech_logic
 from backend.logic.technician_details import get_technician_full_details
-from backend.database.models import User, UserRole, Technician, TechnicianLiveStatus
+from backend.database.models import (
+	FieldTeam,
+	FieldTeamSector,
+	User,
+	UserRole,
+	Technician,
+	TechnicianLiveStatus,
+)
 from backend.auth.dependencies import get_current_user, require_chef_orienteur, require_orienteur, require_orienteur_or_above
 from sqlalchemy import select, text
 from backend.services.realtime.dashboard_service import DashboardService
 from backend.services.realtime.websocket_manager import ws_manager, WSEvent
 
 router = APIRouter()
+
+
+async def _technician_responses_with_team_scope(
+	db: AsyncSession,
+	technicians: list[Technician],
+) -> list[TechnicianResponse]:
+	team_ids = {
+		technician.team_id
+		for technician in technicians
+		if technician.team_id is not None
+	}
+	teams = {}
+	coverage: dict[int, list[int]] = {}
+	if team_ids:
+		teams = {
+			team.id: team
+			for team in (
+				await db.execute(select(FieldTeam).where(FieldTeam.id.in_(team_ids)))
+			).scalars()
+		}
+		for team_id, sector_id in (
+			await db.execute(
+				select(FieldTeamSector.team_id, FieldTeamSector.sector_id)
+				.where(FieldTeamSector.team_id.in_(team_ids))
+				.order_by(FieldTeamSector.team_id, FieldTeamSector.sector_id)
+			)
+		).all():
+			coverage.setdefault(team_id, []).append(sector_id)
+
+	responses = []
+	for technician in technicians:
+		team = teams.get(technician.team_id)
+		responses.append(
+			TechnicianResponse.from_orm_with_counts(technician).model_copy(
+				update={
+					"team_name": team.name if team is not None else None,
+					"sector_ids": coverage.get(technician.team_id, []),
+				}
+			)
+		)
+	return responses
 
 
 class TechnicianProfileSave(BaseModel):
@@ -169,7 +217,7 @@ async def get_technicians(
 		techs = await tech_logic.get_technicians_by_orienteur(db, current_user.orienteur_id, skip=skip, limit=limit)
 	else:
 		raise HTTPException(status_code=403, detail="Accès insuffisant pour voir les techniciens.")
-	return [TechnicianResponse.from_orm_with_counts(t) for t in techs]
+	return await _technician_responses_with_team_scope(db, techs)
 
 
 @router.get("/available", response_model=List[TechnicianResponse])
@@ -186,7 +234,7 @@ async def get_available_technicians(
 		techs = await tech_logic.get_available_technicians_by_orienteur(db, current_user.orienteur_id)
 	else:
 		raise HTTPException(status_code=403, detail="Accès insuffisant pour voir les techniciens disponibles.")
-	return [TechnicianResponse.from_orm_with_counts(t) for t in techs]
+	return await _technician_responses_with_team_scope(db, techs)
 
 
 @router.post("/{tech_id}/profile-save")

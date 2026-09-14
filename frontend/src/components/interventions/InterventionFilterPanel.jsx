@@ -117,7 +117,7 @@ const InterventionFilterPanel = memo(
       () =>
         uniqueValues(
           technicians.map((technician) =>
-            technician.team,
+            technician.team_name || technician.team,
           ),
         ),
       [technicians],

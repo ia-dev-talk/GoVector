@@ -39,6 +39,7 @@ import InterventionEmptyState from '../components/interventions/InterventionEmpt
 import InterventionWorkspaceEmptyState from '../components/interventions/InterventionWorkspaceEmptyState';
 import InterventionDetailPage from '../features/intervention-detail/InterventionDetailPage';
 import {
+	eligibleTechniciansForJobs,
 	filterTechniciansForInterventionScope,
 	jobOperationalSector,
 } from '../lib/job-sector.js';
@@ -600,12 +601,20 @@ export default function InterventionsPage({
 			);
 		}
 
-		return filterTechniciansForInterventionScope(
+		result = filterTechniciansForInterventionScope(
 			result,
 			advFilters
 		);
+
+		return eligibleTechniciansForJobs(
+			result,
+			jobs,
+			selJobs
+		);
 	}, [
 		techs,
+		jobs,
+		selJobs,
 		displayFilter,
 		techFilter,
 		advFilters,
@@ -727,7 +736,7 @@ export default function InterventionsPage({
 				techs
 					.filter(
 						(technician) =>
-							technician.team ===
+							(technician.team_name || technician.team) ===
 							advFilters.team
 					)
 					.map(
@@ -1614,6 +1623,24 @@ export default function InterventionsPage({
 					);
 
 				if (!technician) {
+					return;
+				}
+
+				const selectedJobs = jobIds
+					.map((jobId) => jobs.find((item) => item.id === jobId))
+					.filter(Boolean);
+				const selectedSectorIds = new Set(
+					selectedJobs.map((job) => job.sector_id ?? null)
+				);
+				if (
+					selectedJobs.length !== jobIds.length ||
+					selectedSectorIds.size !== 1 ||
+					selectedSectorIds.has(null)
+				) {
+					toast(
+						'Affectation refusée : sélectionnez des interventions d’un même secteur réel.',
+						'error'
+					);
 					return;
 				}
 
@@ -3865,7 +3892,7 @@ export default function InterventionsPage({
 									handleOverrideConfirm
 								}
 							>
-								Forcer
+								Vérifier côté serveur
 							</button>
 						</div>
 					</div>

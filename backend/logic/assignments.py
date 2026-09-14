@@ -7,14 +7,152 @@ from sqlalchemy import select
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 
-from backend.database.models import Assignment, Job, Technician, JobStatus, TechnicianStatus
+from backend.database.models import (
+	Assignment,
+	FieldTeam,
+	FieldTeamSector,
+	Job,
+	Technician,
+	JobStatus,
+	TechnicianStatus,
+)
+from backend.logic.job_planning import job_estimated_duration_minutes
 from backend.logic.routing.distance import haversine_distance, calculate_travel_time
 from backend.logic.workflow.engine import WorkflowEngine, get_valid_transitions
 from backend.logic.job_visits import (
 	close_current_assignment,
 	reset_current_passage_projection,
 )
-from backend.simulation.sampler import sample_duration
+
+
+_TERMINAL_ASSIGNMENT_STATUSES = {
+	JobStatus.COMPLETED,
+	JobStatus.CANCELLED,
+}
+
+
+def _assignment_interval(job: Job) -> Optional[tuple[datetime, datetime]]:
+	start = job.scheduled_date
+	if start is None or start.tzinfo is None or start.utcoffset() is None:
+		return None
+	if job.time_slot_start or job.time_slot_end:
+		return None
+	return start, start + timedelta(minutes=job_estimated_duration_minutes(job))
+
+
+def _normalized_skill_set(values) -> Optional[set[str]]:
+	if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+		return None
+	return {value.strip().casefold() for value in values if value.strip()}
+
+
+def assignment_profile_errors(
+	*,
+	job: Job,
+	technician: Technician,
+	team: Optional[FieldTeam],
+	sector_covered: bool,
+) -> list[str]:
+	"""Return hard assignment blockers backed by canonical profile data."""
+	errors: list[str] = []
+	if not technician.is_active:
+		errors.append("Profil technicien inactif")
+	if technician.status in {TechnicianStatus.ON_BREAK, TechnicianStatus.OFF_DUTY}:
+		errors.append("Technicien indisponible")
+	if job.sector_id is None:
+		errors.append("Secteur réel de l'intervention non renseigné")
+	if technician.team_id is None or team is None:
+		errors.append("Technicien sans équipe opérationnelle")
+	elif not team.is_active:
+		errors.append("Équipe opérationnelle inactive")
+	elif job.sector_id is not None and not sector_covered:
+		errors.append("Secteur non couvert par l'équipe du technicien")
+
+	required = _normalized_skill_set(job.required_skills)
+	available = _normalized_skill_set(technician.skills)
+	if required is None or available is None:
+		errors.append("Référentiel de compétences invalide")
+	elif required - available:
+		errors.append(
+			"Compétences manquantes : " + ", ".join(sorted(required - available))
+		)
+	return errors
+
+
+async def validate_assignment_eligibility(
+	db: AsyncSession,
+	*,
+	job: Job,
+	technician: Technician,
+) -> None:
+	"""Enforce sector, skills and planning even when the UI is bypassed."""
+	team = await db.get(FieldTeam, technician.team_id) if technician.team_id else None
+	sector_covered = False
+	if team is not None and job.sector_id is not None:
+		sector_covered = bool(await db.scalar(
+			select(FieldTeamSector.id).where(
+				FieldTeamSector.team_id == team.id,
+				FieldTeamSector.sector_id == job.sector_id,
+			)
+		))
+
+	errors = assignment_profile_errors(
+		job=job,
+		technician=technician,
+		team=team,
+		sector_covered=sector_covered,
+	)
+	target_interval = _assignment_interval(job)
+	if target_interval is None:
+		errors.append(
+			"Planning fiable obligatoire avant affectation (date avec fuseau et sans créneau ambigu)"
+		)
+	else:
+		other_jobs = (
+			await db.execute(
+				select(Job)
+				.join(Assignment, Assignment.job_id == Job.id)
+				.where(
+					Assignment.technician_id == technician.id,
+					Assignment.ended_at.is_(None),
+					Job.id != job.id,
+					Job.deleted_at.is_(None),
+				)
+			)
+		).scalars().all()
+		active_jobs = [
+			other for other in other_jobs
+			if other.status not in _TERMINAL_ASSIGNMENT_STATUSES
+		]
+		for other in active_jobs:
+			other_interval = _assignment_interval(other)
+			if other_interval is None:
+				errors.append(
+					f"Planning incomplet pour l'affectation active {other.job_number or other.id}"
+				)
+				continue
+			if (
+				target_interval[0] < other_interval[1]
+				and other_interval[0] < target_interval[1]
+			):
+				errors.append(
+					f"Chevauchement avec {other.job_number or other.id}"
+				)
+
+		max_jobs = int(technician.max_jobs_per_day or 0)
+		if max_jobs > 0:
+			same_day_count = sum(
+				1 for other in active_jobs
+				if other.scheduled_date is not None
+				and other.scheduled_date.date() == target_interval[0].date()
+			)
+			if same_day_count >= max_jobs:
+				errors.append(
+					f"Capacité journalière atteinte ({max_jobs})"
+				)
+
+	if errors:
+		raise ValueError("Affectation refusée : " + " ; ".join(dict.fromkeys(errors)))
 
 
 def estimate_assignment_route(
@@ -82,6 +220,7 @@ async def create_assignment(
 		raise ValueError(f"Technician {technician_id} not found")
 	if job.status in {JobStatus.COMPLETED, JobStatus.CANCELLED}:
 		raise ValueError("Une intervention clôturée ne peut pas être réaffectée")
+	await validate_assignment_eligibility(db, job=job, technician=tech)
 	is_retry = job.status in {
 		JobStatus.FAILED,
 		JobStatus.POSTPONED,
@@ -115,7 +254,7 @@ async def create_assignment(
 		sequence=sequence,
 		estimated_distance=distance,
 		estimated_travel_time=travel_time,
-		actual_duration_minutes=sample_duration(job, tech),
+		actual_duration_minutes=None,
 		# Stamp ETA at assign time so the timeline shows the right slot
 		# immediately, not after the loop's step-1 pass on the next tick.
 		estimated_arrival=(
@@ -278,6 +417,7 @@ async def reassign_job(
 	tech = tech_result.scalar_one_or_none()
 	if not tech:
 		raise ValueError(f"Technician {new_technician_id} not found")
+	await validate_assignment_eligibility(db, job=job, technician=tech)
 
 	# A dispatch change closes the old participation instead of deleting it.
 	# Returning to PENDING closes the current visit through WorkflowEngine.
@@ -345,6 +485,22 @@ async def batch_assign(
 	Skips jobs that are already assigned (doesn't error).
 	Returns count of successful assignments.
 	"""
+	unique_job_ids = list(dict.fromkeys(job_ids))
+	jobs = (
+		await db.execute(
+			select(Job).where(Job.id.in_(unique_job_ids)).with_for_update()
+		)
+	).scalars().all()
+	jobs_by_id = {job.id: job for job in jobs}
+	sector_ids = {job.sector_id for job in jobs}
+	if len(jobs) != len(unique_job_ids):
+		missing = sorted(set(unique_job_ids) - set(jobs_by_id))
+		raise ValueError(f"Interventions introuvables : {missing}")
+	if len(sector_ids) != 1 or None in sector_ids:
+		raise ValueError(
+			"Affectation multiple refusée : sélectionnez des interventions d'un même secteur réel"
+		)
+
 	tech_result = await db.execute(select(Technician).where(Technician.id == technician_id))
 	tech = tech_result.scalar_one_or_none()
 	if not tech:
@@ -357,16 +513,10 @@ async def batch_assign(
 	skipped = 0
 	errors = []
 
-	for job_id in job_ids:
+	for job_id in unique_job_ids:
 		try:
-			job_result = await db.execute(
-				select(Job).where(Job.id == job_id).with_for_update()
-			)
-			job = job_result.scalar_one_or_none()
-			if not job:
-				errors.append(f"Job {job_id} not found")
-				skipped += 1
-				continue
+			job = jobs_by_id[job_id]
+			await validate_assignment_eligibility(db, job=job, technician=tech)
 			existing_result = await db.execute(
 				select(Assignment).where(
 					Assignment.job_id == job_id,

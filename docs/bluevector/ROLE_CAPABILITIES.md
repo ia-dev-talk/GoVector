@@ -18,6 +18,12 @@
 - Un technicien appartient au plus à une équipe et porte un grade actif du référentiel métier versionné. `junior` et `senior` restent les valeurs initiales de compatibilité.
 - Une équipe couvre un ou plusieurs secteurs.
 - Le chef orienteur/admin peut déplacer un technicien; la projection legacy `Technician.orienteur_id` reste synchronisée.
+- Toute affectation vérifie côté backend le secteur canonique, la couverture de
+  l'équipe active, les compétences administrées, la disponibilité du profil,
+  les chevauchements et la capacité journalière. Une sélection multi-secteurs
+  est refusée avant toute mutation et doit être séparée par secteur.
+- Une affectation ne renseigne jamais une durée réelle simulée; la durée réelle
+  provient uniquement du passage terrain.
 
 Ces règles décrivent l’organisation courante, pas l’historique. La future évolution doit dater les appartenances pour préserver les responsabilités passées.
 

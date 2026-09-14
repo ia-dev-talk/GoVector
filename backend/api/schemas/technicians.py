@@ -183,6 +183,8 @@ class TechnicianResponse(TechnicianBase):
     orienteur_id: Optional[int] = None
     orienteur_name: Optional[str] = None
     team_id: Optional[int] = None
+    team_name: Optional[str] = None
+    sector_ids: List[int] = Field(default_factory=list)
     grade: str = "junior"
     created_at: datetime
     updated_at: datetime
@@ -239,6 +241,8 @@ class TechnicianResponse(TechnicianBase):
             orienteur_id=tech.orienteur_id,
             orienteur_name=orienteur_name,
             team_id=getattr(tech, "team_id", None),
+            team_name=None,
+            sector_ids=[],
             grade=getattr(tech, "grade", "junior") or "junior",
             created_at=tech.created_at,
             updated_at=tech.updated_at,
