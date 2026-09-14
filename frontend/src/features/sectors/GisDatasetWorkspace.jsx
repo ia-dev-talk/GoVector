@@ -7,7 +7,10 @@ import './gis-datasets.css';
 
 function message(error) {
   const detail = error?.response?.data?.detail;
-  return typeof detail === 'string' ? detail : 'Opération SIG indisponible. Réessayez après vérification du service.';
+  if (typeof detail === 'string') return detail;
+  if (typeof detail?.message === 'string') return detail.message;
+  if (error instanceof SyntaxError) return 'Le fichier GeoJSON retourné par QGIS est invalide.';
+  return 'Opération SIG indisponible. Réessayez après vérification du service.';
 }
 
 function ClientDatasets({ clientId }) {
@@ -21,6 +24,7 @@ function ClientDatasets({ clientId }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [exportSelection, setExportSelection] = useState(null);
+  const [qgisReturn, setQgisReturn] = useState(null);
   const alive = useRef(true);
   const loadSequence = useRef(0);
 
@@ -75,8 +79,32 @@ function ClientDatasets({ clientId }) {
     if (!alive.current) return;
     const url = URL.createObjectURL(response.data);
     const anchor = document.createElement('a'); anchor.href = url;
-    anchor.download = `bluevector-${datasetId}-couche-${layer.id}.geojson`;
+    anchor.download = `govector-${datasetId}-couche-${layer.id}.geojson`;
     anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  const downloadForQgis = (dataset) => run(async () => {
+    const response = await apiClient.get(`/gis-datasets/${dataset.id}/qfield-sync`, { responseType: 'blob' });
+    if (!alive.current) return;
+    const url = URL.createObjectURL(response.data);
+    const anchor = document.createElement('a'); anchor.href = url;
+    anchor.download = `govector-qgis-${dataset.id}.geojson`;
+    anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setNotice('Fichier QGIS exporté. Conservez les colonnes techniques _bv_* pendant les modifications.');
+  });
+
+  const previewQgisReturn = () => run(async () => {
+    const collection = JSON.parse(await qgisReturn.file.text());
+    const response = await apiClient.post(`/gis-datasets/${qgisReturn.dataset.id}/qfield-sync/preview`, collection);
+    if (alive.current) setQgisReturn((current) => ({ ...current, collection, preview: response.data }));
+  });
+
+  const applyQgisReturn = () => run(async () => {
+    const response = await apiClient.post(`/gis-datasets/${qgisReturn.dataset.id}/qfield-sync/apply`, qgisReturn.collection);
+    if (!alive.current) return;
+    setNotice(`${response.data.applied_count ?? 0} modification(s) QGIS appliquée(s), ${response.data.noop_count ?? 0} inchangée(s).`);
+    setQgisReturn(null);
+    await load();
   });
 
   return <div>
@@ -115,14 +143,31 @@ function ClientDatasets({ clientId }) {
         })}>Voir l’aperçu</button>
         {dataset.status === 'DRAFT'
           ? <button type="button" className="btn btn--primary" disabled={busy} onClick={() => publish(dataset)}>Publier</button>
-          : <button type="button" className="btn btn--secondary" disabled={busy} onClick={() => run(async () => {
-            const response = await apiClient.get(`/gis-datasets/${dataset.id}/layers`);
-            if (alive.current) setExportSelection({ id: dataset.id, name: dataset.name, layers: response.data });
-          })}>Exporter les couches</button>}
+          : <>
+            <button type="button" className="btn btn--primary" disabled={busy} onClick={() => downloadForQgis(dataset)}>Exporter vers QGIS</button>
+            <button type="button" className="btn btn--secondary" disabled={busy} onClick={() => setQgisReturn({ dataset, file: null, collection: null, preview: null })}>Importer le retour QGIS</button>
+            <button type="button" className="btn btn--secondary" disabled={busy} onClick={() => run(async () => {
+              const response = await apiClient.get(`/gis-datasets/${dataset.id}/layers`);
+              if (alive.current) setExportSelection({ id: dataset.id, name: dataset.name, layers: response.data });
+            })}>Exporter les couches</button>
+          </>}
       </article>)}
       {next && <button type="button" className="btn btn--secondary" disabled={busy} onClick={() => run(() => load(next))}>Charger la suite</button>}
     </div>
-    {exportSelection && <div><h4>Export : {exportSelection.name}</h4><p>Un fichier GeoJSON par couche, à ouvrir dans QGIS. Les modifications externes ne sont pas réimportées automatiquement.</p>
+    {qgisReturn && <div className="gis-preview">
+      <h4>Retour QGIS : {qgisReturn.dataset.name}</h4>
+      <p>Sélectionnez le GeoJSON précédemment exporté par GoVector et modifié dans QGIS. Les champs <code>_bv_*</code> doivent être conservés.</p>
+      <label>Fichier GeoJSON modifié<input type="file" accept=".geojson,application/geo+json,application/json" onChange={(event) => setQgisReturn((current) => ({ ...current, file: event.target.files?.[0] ?? null, collection: null, preview: null }))} /></label>
+      <button type="button" className="btn btn--secondary" disabled={busy || !qgisReturn.file} onClick={previewQgisReturn}>Analyser sans modifier GoVector</button>
+      {qgisReturn.preview && <div>
+        <p><strong>{qgisReturn.preview.apply_count} modification(s)</strong> · {qgisReturn.preview.noop_count} inchangée(s) · {qgisReturn.preview.conflict_count} conflit(s)</p>
+        {qgisReturn.preview.conflict_count > 0
+          ? <p role="alert">Application bloquée : réexportez la version la plus récente depuis GoVector.</p>
+          : <button type="button" className="btn btn--primary" disabled={busy || qgisReturn.preview.apply_count === 0} onClick={applyQgisReturn}>Appliquer les modifications validées</button>}
+      </div>}
+      <button type="button" className="btn btn--secondary" disabled={busy} onClick={() => setQgisReturn(null)}>Fermer</button>
+    </div>}
+    {exportSelection && <div><h4>Export : {exportSelection.name}</h4><p>Un fichier GeoJSON par couche, à ouvrir dans QGIS pour consultation. Pour réimporter des modifications, utilisez « Exporter vers QGIS ».</p>
       {exportSelection.layers.map((layer) => <button key={layer.id} type="button" className="btn btn--secondary" disabled={busy} onClick={() => download(exportSelection.id, layer)}>{layer.name} · {layer.geometry_type} ({layer.feature_count})</button>)}
     </div>}
   </div>;

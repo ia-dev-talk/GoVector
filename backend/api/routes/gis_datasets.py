@@ -124,7 +124,7 @@ async def layers(dataset_id: int = Path(..., gt=0), db=Depends(get_db)):
 async def geojson(dataset_id: int = Path(..., gt=0), layer_id: int | None = Query(None, gt=0), db=Depends(get_db)):
     result = await datasets.export_geojson(db, dataset_id=dataset_id, layer_id=layer_id)
     return JSONResponse(jsonable_encoder(result), media_type="application/geo+json",
-        headers={"Content-Disposition": f'attachment; filename="bluevector-{dataset_id}.geojson"'})
+        headers={"Content-Disposition": f'attachment; filename="govector-{dataset_id}.geojson"'})
 
 
 @router.get("/{dataset_id}/qfield-sync")
@@ -146,7 +146,7 @@ async def qfield_sync_export(
         jsonable_encoder(result),
         media_type="application/geo+json",
         headers={
-            "Content-Disposition": f'attachment; filename="bluevector-qfield-{dataset_id}.geojson"'
+            "Content-Disposition": f'attachment; filename="govector-qgis-{dataset_id}.geojson"'
         },
     )
 
