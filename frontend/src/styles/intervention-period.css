@@ -1,0 +1,344 @@
+.intervention-mode-shell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--surface-app);
+}
+
+.intervention-mode-switch {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 44px;
+  padding: 6px 18px;
+  gap: 6px;
+  flex: 0 0 auto;
+  background: rgba(11, 18, 29, 0.98);
+  border-bottom: 1px solid rgba(114, 138, 173, 0.14);
+}
+
+.intervention-mode-switch button,
+.intervention-period-workspace button,
+.intervention-period-workspace input,
+.intervention-period-workspace select {
+  font: inherit;
+}
+
+.intervention-mode-switch button {
+  min-height: 30px;
+  padding: 0 11px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.intervention-mode-switch button.is-active {
+  color: #fff;
+  background: rgba(75, 141, 255, 0.12);
+  border-color: rgba(75, 141, 255, 0.25);
+}
+
+.intervention-mode-content {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.intervention-period-workspace {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 82% -18%, rgba(75, 141, 255, 0.08), transparent 36%),
+    var(--surface-app);
+}
+
+.intervention-period-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 92px;
+  padding: 14px 20px;
+  gap: 24px;
+  flex: 0 0 auto;
+  background: rgba(13, 20, 32, 0.96);
+  border-bottom: 1px solid rgba(114, 138, 173, 0.16);
+}
+
+.intervention-period-header h1 {
+  margin: 3px 0 4px;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.intervention-period-header p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.intervention-period-eyebrow {
+  color: #66758d;
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.intervention-period-summary {
+  display: grid;
+  justify-items: end;
+  min-width: 185px;
+  gap: 1px;
+}
+
+.intervention-period-summary strong {
+  color: #fff;
+  font-size: 24px;
+}
+
+.intervention-period-summary span,
+.intervention-period-summary small {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.intervention-period-controls,
+.intervention-period-filters,
+.intervention-period-batchbar {
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgba(114, 138, 173, 0.12);
+}
+
+.intervention-period-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 16px;
+  gap: 12px;
+}
+
+.intervention-period-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.intervention-period-presets button,
+.intervention-period-batchbar button,
+.intervention-period-footer button {
+  min-height: 30px;
+  padding: 0 10px;
+  color: var(--text-secondary);
+  background: var(--surface-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.intervention-period-presets button.is-active {
+  color: #fff;
+  background: rgba(75, 141, 255, 0.13);
+  border-color: rgba(75, 141, 255, 0.42);
+}
+
+.intervention-period-workspace button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.intervention-period-custom {
+  display: flex;
+  gap: 8px;
+}
+
+.intervention-period-custom label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.intervention-period-workspace input,
+.intervention-period-workspace select {
+  min-height: 32px;
+  padding: 0 9px;
+  color: var(--text-primary);
+  background: var(--surface-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  font-size: 10px;
+}
+
+.intervention-period-workspace input:focus,
+.intervention-period-workspace select:focus {
+  border-color: rgba(75, 141, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(75, 141, 255, 0.08);
+}
+
+.intervention-period-filters {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.5fr) repeat(5, minmax(120px, 1fr));
+  padding: 8px 16px;
+  gap: 7px;
+}
+
+.intervention-period-batchbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  gap: 12px;
+  background: rgba(17, 26, 40, 0.82);
+}
+
+.intervention-period-batchbar > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.intervention-period-batchbar span {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.intervention-period-batchbar strong {
+  color: var(--text-primary);
+}
+
+.intervention-period-batchbar select {
+  min-width: 220px;
+}
+
+.intervention-period-assign {
+  color: #fff !important;
+  background: rgba(75, 141, 255, 0.9) !important;
+  border-color: rgba(75, 141, 255, 0.8) !important;
+}
+
+.intervention-period-message {
+  margin: 8px 16px 0;
+  padding: 8px 10px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.intervention-period-message.is-error {
+  color: var(--color-danger);
+  background: var(--color-danger-dim);
+  border: 1px solid rgba(255, 100, 124, 0.2);
+}
+
+.intervention-period-message.is-success {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border: 1px solid rgba(57, 217, 138, 0.18);
+}
+
+.intervention-period-table-wrap {
+  min-height: 0;
+  margin: 8px 16px 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  background: rgba(14, 22, 35, 0.82);
+  border: 1px solid rgba(114, 138, 173, 0.14);
+  border-radius: 10px;
+}
+
+.intervention-period-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.intervention-period-table th,
+.intervention-period-table td {
+  padding: 8px 9px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(114, 138, 173, 0.1);
+  font-size: 10px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intervention-period-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #7788a1;
+  background: rgba(16, 25, 39, 0.98);
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.intervention-period-table th:first-child,
+.intervention-period-table td:first-child {
+  width: 36px;
+  text-align: center;
+}
+
+.intervention-period-table tbody tr:hover {
+  background: rgba(75, 141, 255, 0.045);
+}
+
+.intervention-period-empty {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.intervention-period-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 6px 16px;
+  gap: 12px;
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.intervention-period-footer > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 1180px) {
+  .intervention-period-filters {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+
+  .intervention-period-batchbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .intervention-period-batchbar > div {
+    justify-content: space-between;
+  }
+}
