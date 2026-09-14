@@ -34,7 +34,6 @@ from . import (
     tour,
 )
 
-sectors.router.include_router(territories.router)
 audit.router.include_router(feedback.router)
 
 from . import stock_v2_patch  # noqa: E402,F401

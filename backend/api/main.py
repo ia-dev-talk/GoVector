@@ -51,6 +51,7 @@ from backend.api.routes import (
     orienteur_agent,
     gis_datasets,
     sectors,
+    territories,
     tech_auth,
     tech_jobs,
     tech_history,
@@ -507,6 +508,12 @@ app.include_router(
     sectors.router,
     prefix=f"{settings.API_V1_PREFIX}/sectors",
     tags=["Sectors"],
+)
+
+app.include_router(
+    territories.router,
+    prefix=f"{settings.API_V1_PREFIX}",
+    tags=["Territories & GIS"],
 )
 
 
