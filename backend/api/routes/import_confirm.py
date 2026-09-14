@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.auth.dependencies import get_current_user
+from backend.auth.dependencies import require_office_orienteur
 from backend.config import get_settings
 from backend.database.connection import AsyncSessionLocal
 from backend.database.models import (
@@ -26,7 +26,6 @@ from backend.database.models import (
     JobType,
     Sector,
     User,
-    UserRole,
 )
 from backend.logic import jobs as job_logic
 from backend.logic.job_sectors import resolve_sector_for_write, sector_registry_aliases
@@ -264,14 +263,8 @@ def _validate_reliable_coordinates(
 @router.post("/confirm")
 async def confirm_import(
     payload: ImportConfirmPayload,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_office_orienteur),
 ):
-    if not current_user.is_active or current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès administrateur requis.",
-        )
-
     jobs_data = payload.jobs
 
     if not jobs_data:

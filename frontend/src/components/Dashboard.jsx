@@ -2298,7 +2298,7 @@ export default function Dashboard({
             </Button>
           )}
 
-          {isAdmin && (
+          {(isAdmin || isOrienteur) && (
             <Button
               variant={
                 importOpen

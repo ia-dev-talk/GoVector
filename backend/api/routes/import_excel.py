@@ -23,9 +23,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.auth.dependencies import get_current_user, require_admin
+from backend.auth.dependencies import require_office_orienteur
 from backend.database.connection import get_db
-from backend.database.models import ApplicationSetting, User, UserRole
+from backend.database.models import ApplicationSetting, User
 from backend.logic.operational_audit import record_operational_audit
 from backend.services.excel.pipeline import run_import_pipeline
 from backend.services.excel.mapper import BASE_COLUMN_ALIASES
@@ -157,7 +157,7 @@ async def _write_profiles(
 @router.get("/excel/profiles")
 async def list_import_profiles(
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(require_admin),
+    _current_user: User = Depends(require_office_orienteur),
 ):
     return _profile_response(await _profile_document(db))
 
@@ -166,7 +166,7 @@ async def list_import_profiles(
 async def create_import_profile(
     payload: ImportProfileWrite,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_office_orienteur),
 ):
     document = await _profile_document(db)
     profiles = list((document.values or {}).get("profiles", [])) if document else []
@@ -197,7 +197,7 @@ async def update_import_profile(
     profile_id: str,
     payload: ImportProfileWrite,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_office_orienteur),
 ):
     document = await _profile_document(db)
     profiles = list((document.values or {}).get("profiles", [])) if document else []
@@ -235,7 +235,7 @@ async def delete_import_profile(
     profile_id: str,
     expected_revision: int = Query(..., ge=0),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_office_orienteur),
 ):
     document = await _profile_document(db)
     profiles = list((document.values or {}).get("profiles", [])) if document else []
@@ -254,10 +254,8 @@ async def delete_import_profile(
 
 @router.get("/excel/contract")
 async def import_contract(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_office_orienteur),
 ):
-    if not current_user.is_active or current_user.role != UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Accès administrateur requis.")
     return {
         "canonical_fields": sorted(BASE_COLUMN_ALIASES),
         "field_labels": {
@@ -278,14 +276,8 @@ async def import_excel(
     mapping_overrides: str | None = Form(None),
     column_overrides: str | None = Form(None),
     header_row_overrides: str | None = Form(None),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_office_orienteur),
 ):
-    if not current_user.is_active or current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Accès administrateur requis.",
-        )
-
     if not file.filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

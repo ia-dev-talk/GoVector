@@ -3159,7 +3159,7 @@ export default function InterventionsPage({
 				onCreate={() =>
 					setNewJobOpen(true)
 				}
-				canImport={isAdmin}
+				canImport={isAdmin || isOrienteur}
 				onImport={() =>
 					setImportOpen(true)
 				}
@@ -3467,7 +3467,7 @@ export default function InterventionsPage({
 									canCreate={
 										canManageInterventions
 									}
-									canImport={isAdmin}
+									canImport={isAdmin || isOrienteur}
 									onChangeDate={() =>
 										setCalOpen(true)
 									}

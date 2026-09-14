@@ -12,14 +12,30 @@ def _dependency_names(route):
     }
 
 
-def test_import_profiles_are_admin_scoped():
+def test_import_profiles_are_office_orienteur_scoped():
     profile_routes = [
         route
         for route in import_excel.router.routes
         if route.path.startswith("/excel/profiles")
     ]
     assert profile_routes
-    assert all("require_admin" in _dependency_names(route) for route in profile_routes)
+    assert all(
+        "require_office_orienteur" in _dependency_names(route)
+        for route in profile_routes
+    )
+
+
+def test_import_preview_and_contract_are_office_orienteur_scoped():
+    routes = [
+        route
+        for route in import_excel.router.routes
+        if route.path in {"/excel", "/excel/contract"}
+    ]
+    assert len(routes) == 2
+    assert all(
+        "require_office_orienteur" in _dependency_names(route)
+        for route in routes
+    )
 
 
 def test_import_profile_preserves_explicit_unknown_and_header_decisions():
