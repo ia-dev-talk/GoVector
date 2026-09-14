@@ -143,3 +143,35 @@ APK attendu : `mobile_app/build/app/outputs/flutter-apk/app-debug.apk`.
 3. Tester les rôles ADMIN, ORIENTEUR, CHEF_ORIENTEUR et TECHNICIAN dans l'UI servie.
 4. Essayer l'archive ANFA originale hors Git et vérifier exactement 2 415 géométries.
 5. Ne fusionner la candidate dans une branche stable qu'après ces preuves terrain.
+
+## Reprise finale — corrections demandées le 14/09/2026
+
+### État distant vérifié avant correction
+
+- `delivery/govector-final-20260914` : `895f44223b0d86466e52403258f10fec7b15bbae`.
+- `release/govector-v1-final-20260914` : `3ca14220045e58fec3ad3ba9deeb3d35632cb977`.
+- tag annoté `govector-v1-final-20260914-rc1` : objet `aa32a10fa2ff5aa7791f6c720fe60c450159f02d`, pointant sur le commit `319b0408001ecb8b06dd1d3e1c889ca3f9decc4e`.
+- checkpoint créé sans réécriture : `checkpoint/govector-final-before-corrections-20260914` à `895f44223b0d86466e52403258f10fec7b15bbae`.
+- branche de correction dédiée : `fix/govector-final-corrections-20260914`, créée au même commit.
+
+La session GitHub utilisée pour cette reprise ne donne pas accès au disque Windows
+`C:\Users\Guest\Desktop\optmontana\bluevector-clean-upload`. L'état local
+(modifications/non suivis, remotes locaux), les conteneurs Docker réellement actifs
+et la base PostgreSQL locale doivent donc être revérifiés sur la machine avant de
+les déclarer validés. Aucune commande destructive n'a été lancée et aucune branche
+`main`, `delivery` ou `release` n'a été déplacée.
+
+### Bloc stable 1 — diagnostics d'import
+
+Commit : `06dc9dc4d7012e95bef1d54384aeb40eba1525ef` — `fix(import): separate blocking errors from advisories`.
+
+- séparation explicite des erreurs bloquantes et des avertissements ;
+- message bloquant du type en français : « Type d’intervention obligatoire. Choisissez un type du référentiel pour ce lot ou corrigez le mapping. » ;
+- GPS/coordonnées, NRO, PBO, ville et technicien source sont des avertissements non bloquants ;
+- codes techniques conservés dans `_warnings` pour diagnostic/rétrocompatibilité, mais messages français exposés dans `_blocking_errors` et `_advisories` ;
+- tests ciblés ajoutés dans `backend/tests/test_excel_validator_messages.py`.
+
+Statut de validation de ce bloc : tests ajoutés mais pas encore déclarés réussis.
+Le workflow `GoVector quality` ne se déclenche sur push que pour `main` et
+`release/**` (ou sur pull request). Une exécution CI ou locale est encore requise
+avant de marquer ce bloc vert.
