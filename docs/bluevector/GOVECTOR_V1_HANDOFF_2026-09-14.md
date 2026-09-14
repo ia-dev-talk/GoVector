@@ -10,8 +10,9 @@
 - Ne jamais repartir de `delivery/praxedo-qfield-20260914`, qui appartient à une lignée incomplète.
 - Ne pas faire de `reset --hard`, `clean -fd`, réécriture de branche ou fusion automatique vers `main`.
 
-Au dernier checkpoint fonctionnel poussé, HEAD est `18549a0` sur
-`delivery/govector-final-20260914`. La branche est présente sur les deux dépôts.
+Le checkpoint fonctionnel est `18549a0` et le premier commit de ce handoff est
+`3ca4017` sur `delivery/govector-final-20260914`. Utiliser `git rev-parse --short HEAD`
+pour le dernier commit de preuve. La branche est présente sur les deux dépôts.
 Les commits GoVector ajoutés pendant la reprise sont :
 
 1. `c812c6d` — identité GoVector et vrai logo ;
@@ -52,23 +53,31 @@ Les commits GoVector ajoutés pendant la reprise sont :
 - Backend territoire : 2 réussis.
 - Backend SIG : 31 réussis, 2 ignorés.
 - Backend paramètres/référentiels/formulaires : 20 réussis.
+- Backend complet avec PostgreSQL Docker sain : 681 réussis, 22 ignorés,
+  aucun échec. Un ancien test qui acceptait une ligne Excel sans référence a
+  été réaligné sur le contrat d'idempotence obligatoire, puis la suite complète
+  a été relancée.
 - Frontend : lint sans erreur (1 avertissement hooks préexistant), 287/287 tests,
   build Vite production réussi.
 - Mobile : `flutter pub get` réussi ; `flutter test` 98/98 réussi.
+- Mobile : `flutter build apk --debug` réussi. APK de 204 560 597 octets,
+  SHA-256 `A6C8D79C2A20D053EBEB4BE14F30556CCF4422511BB26BB54A1374CBD577C78D`.
 - `flutter analyze` retourne 203 diagnostics historiques (warnings/info), donc
   n'est pas vert. Aucune mise à niveau Flutter ni nettoyage large n'a été entrepris.
 - Alembic : une seule tête, `gu1q2r3s4t5u` (v043).
+- Docker : images application/migration construites ; PostgreSQL sain, migration
+  bootstrap réussie jusqu'à v043, application saine sur `http://127.0.0.1:8080/health`
+  avec réponse `{"status":"healthy","version":"1.0.1"}`.
 - L'archive ANFA originale n'est pas suivie par Git. Le contrat de reprojection
   est testé synthétiquement ; le nombre réel de 2 415 géométries ne doit être
   déclaré validé qu'après essai de l'archive originale hors Git.
 
-## État des contrôles longs à reprendre si interrompus
+## État des contrôles longs
 
-Au moment de rédiger ce document, la reconstruction Docker et la génération de
-`app-debug.apk` sont encore en cours. Mettre à jour cette section avec leur sortie
-finale. Le test backend complet sur PostgreSQL propre reste à lancer après santé
-Docker. La validation physique tablette/4G/offline/resynchronisation reste humaine
-et obligatoire : aucun test local ne la remplace.
+Tous les contrôles automatisés demandés ont terminé. Seul `flutter analyze`
+n'est pas vert à cause des 203 diagnostics historiques consignés ci-dessus.
+La validation physique tablette/4G/offline/resynchronisation reste humaine et
+obligatoire : aucun test local ne la remplace.
 
 ## Commandes de reprise immédiate
 
@@ -128,11 +137,9 @@ APK attendu : `mobile_app/build/app/outputs/flutter-apk/app-debug.apk`.
 
 ## Todo P0 restant
 
-1. Terminer Docker, confirmer migration v043 et `/health`.
-2. Lancer le backend complet contre PostgreSQL propre et consigner le résultat.
-3. Fixer l'URL HTTPS/VPN du serveur puis reconstruire l'APK avec cette URL.
-4. Tester physiquement sur tablette : Wi-Fi coupé, 4G, compte technicien, capture
+1. Fixer l'URL HTTPS/VPN du serveur puis reconstruire l'APK avec cette URL.
+2. Tester physiquement sur tablette : Wi-Fi coupé, 4G, compte technicien, capture
    GPS réelle, photo/mesure/signature, passage offline, outbox puis resynchronisation.
-5. Tester les rôles ADMIN, ORIENTEUR, CHEF_ORIENTEUR et TECHNICIAN dans l'UI servie.
-6. Essayer l'archive ANFA originale hors Git et vérifier exactement 2 415 géométries.
-7. Seulement après ces preuves, créer/pousser `release/govector-v1-final-20260914`.
+3. Tester les rôles ADMIN, ORIENTEUR, CHEF_ORIENTEUR et TECHNICIAN dans l'UI servie.
+4. Essayer l'archive ANFA originale hors Git et vérifier exactement 2 415 géométries.
+5. Ne fusionner la candidate dans une branche stable qu'après ces preuves terrain.

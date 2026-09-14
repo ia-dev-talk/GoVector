@@ -33,7 +33,7 @@ def test_address_only_job_contract_preserves_unknown_values():
     assert Job.__table__.c.longitude.nullable is True
 
 
-def test_incomplete_excel_context_is_visible_but_not_blocking():
+def test_excel_without_idempotency_reference_is_blocked_but_context_remains_visible():
     result = ExcelValidator(
         [
             {
@@ -45,9 +45,10 @@ def test_incomplete_excel_context_is_visible_but_not_blocking():
         ]
     ).validate()
 
-    assert result["valid"] == 1
-    assert result["invalid"] == 0
+    assert result["valid"] == 0
+    assert result["invalid"] == 1
     warnings = result["jobs"][0]["_warnings"]
+    assert "job_number" in warnings
     assert "soft:customer_name" in warnings
     assert "soft:service_address" in warnings
     assert "soft:gps_coordinates" in warnings
