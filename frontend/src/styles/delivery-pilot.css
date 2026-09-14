@@ -97,6 +97,11 @@ body {
   height: 34px;
 }
 
+.govector-product-logo--compact img {
+  width: 148px;
+  max-width: none;
+}
+
 .login-brand-title {
   width: auto;
   line-height: 1.1;
@@ -110,6 +115,7 @@ body {
 .login-brand-image {
   display: block;
   width: 100%;
+  max-width: 280px;
   height: auto;
 }
 

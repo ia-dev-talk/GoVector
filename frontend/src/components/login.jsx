@@ -7,6 +7,7 @@ import {
 } from 'react';
 
 import { api } from '../api/client';
+import goVectorLogo from '../assets/govector-logo.png';
 
 const PRODUCT_NAME = 'GoVector';
 const PRODUCT_VERSION = '0.0.8';
@@ -431,15 +432,24 @@ export default function Login({
         }}
       >
         <header className="login-brand">
+          <img
+            src={goVectorLogo}
+            alt="GoVector"
+            className="login-brand-image"
+          />
           <h1
             id="login-title"
             className="login-brand-title"
             style={{
-              margin: 0,
-              color: 'var(--text-primary)',
-              fontSize: 'clamp(28px, 8vw, 40px)',
-              fontWeight: 800,
-              letterSpacing: '-0.04em',
+              position: 'absolute',
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: 'hidden',
+              clip: 'rect(0, 0, 0, 0)',
+              whiteSpace: 'nowrap',
+              border: 0,
             }}
           >
             {PRODUCT_NAME}

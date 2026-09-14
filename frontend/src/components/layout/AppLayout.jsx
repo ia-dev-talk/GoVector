@@ -5,6 +5,8 @@ import {
   useState,
 } from 'react';
 
+import goVectorLogo from '../../assets/govector-logo.png';
+
 const PRODUCT_NAME = 'GoVector';
 const SIDEBAR_STORAGE_KEY = 'bluevector:sidebar-collapsed';
 const MOBILE_MEDIA_QUERY = '(max-width: 768px)';
@@ -164,23 +166,18 @@ function storeSidebarExpanded(expanded) {
 function ProductMark({ compact = false }) {
   return (
     <span
-      aria-hidden="true"
-      style={{
-        width: compact ? 30 : 32,
-        height: compact ? 30 : 32,
-        display: 'grid',
-        placeItems: 'center',
-        flexShrink: 0,
-        borderRadius: 8,
-        background: 'var(--color-accent)',
-        color: '#fff',
-        fontFamily: 'var(--font-family)',
-        fontSize: compact ? 10 : 11,
-        fontWeight: 800,
-        letterSpacing: '-0.04em',
-      }}
+      className={[
+        'govector-product-logo',
+        compact ? 'govector-product-logo--compact' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
-      GV
+      <img
+        src={goVectorLogo}
+        alt=""
+        aria-hidden="true"
+      />
     </span>
   );
 }

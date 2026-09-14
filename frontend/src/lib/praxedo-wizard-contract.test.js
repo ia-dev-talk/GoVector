@@ -79,7 +79,7 @@ test('required skills are a closed catalog-backed Praxedo reference', () => {
   assert.match(wizardSource, /type="checkbox"/);
 });
 
-test('login and navigation expose the GoVector identity without legacy logo dependencies', () => {
+test('login and navigation expose the approved GoVector identity', () => {
   const appLayout = readFileSync('src/components/layout/AppLayout.jsx', 'utf8');
   const login = readFileSync('src/components/login.jsx', 'utf8');
 
@@ -88,6 +88,9 @@ test('login and navigation expose the GoVector identity without legacy logo depe
   assert.match(appLayout, /function ProductMark/);
   assert.match(appLayout, /\{PRODUCT_NAME\}/);
   assert.match(login, /\{PRODUCT_NAME\}/);
-  assert.doesNotMatch(appLayout, /govector-logo\.png|BlueVector|BLUEVECTOR/);
-  assert.doesNotMatch(login, /govector-logo\.png|BlueVector|BLUEVECTOR/);
+  assert.match(appLayout, /govector-logo\.png/);
+  assert.match(login, /govector-logo\.png/);
+  assert.doesNotMatch(appLayout, />\s*GV\s*</);
+  assert.doesNotMatch(appLayout, /BlueVector|BLUEVECTOR/);
+  assert.doesNotMatch(login, /BlueVector|BLUEVECTOR/);
 });
