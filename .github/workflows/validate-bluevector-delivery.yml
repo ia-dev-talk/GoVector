@@ -105,6 +105,7 @@ jobs:
           services="$(docker compose --profile pilot-4g config --services)"
           grep -qx 'pilot-edge' <<<"$services"
           grep -qx 'pilot-tunnel' <<<"$services"
+          docker compose --profile pilot-4g config --format json | python -c 'import json, sys; environment = json.load(sys.stdin)["services"]["migrate"]["environment"]; assert environment["API_RELOAD"] == "false"; assert "CORS_ORIGINS" in environment'
       - name: Build pilot image and PDF renderer
         shell: bash
         run: |
