@@ -175,9 +175,9 @@ def render_intervention_report_sections(
                 f"<td>{_display(operational.get('cable_code'))}</td>",
                 f"<td>{_display(operational.get('cable_depart_m'), ' m')}</td>",
                 f"<td>{_display(operational.get('cable_arrive_m'), ' m')}</td>",
-                f"<td>{_display(operational.get('pose_sp_m'), ' m')}</td>",
-                f"<td>{_display(operational.get('pose_fsd_m'), ' m')}</td>",
-                f"<td>{_display(operational.get('pose_tr_m'), ' m')}</td>",
+                f"<td>{_display(operational.get('pose_sp_m'))}</td>",
+                f"<td>{_display(operational.get('pose_fsd_m'))}</td>",
+                f"<td>{_display(operational.get('pose_tr_m'))}</td>",
             ]) + "</tr>"
         )
     if not cable_rows:
