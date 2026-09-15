@@ -143,3 +143,212 @@ APK attendu : `mobile_app/build/app/outputs/flutter-apk/app-debug.apk`.
 3. Tester les rôles ADMIN, ORIENTEUR, CHEF_ORIENTEUR et TECHNICIAN dans l'UI servie.
 4. Essayer l'archive ANFA originale hors Git et vérifier exactement 2 415 géométries.
 5. Ne fusionner la candidate dans une branche stable qu'après ces preuves terrain.
+
+## Reprise finale — corrections demandées le 14/09/2026
+
+### État distant vérifié avant correction
+
+- `delivery/govector-final-20260914` : `895f44223b0d86466e52403258f10fec7b15bbae`.
+- `release/govector-v1-final-20260914` : `3ca14220045e58fec3ad3ba9deeb3d35632cb977`.
+- tag annoté `govector-v1-final-20260914-rc1` : objet `aa32a10fa2ff5aa7791f6c720fe60c450159f02d`, pointant sur le commit `319b0408001ecb8b06dd1d3e1c889ca3f9decc4e`.
+- checkpoint créé sans réécriture : `checkpoint/govector-final-before-corrections-20260914` à `895f44223b0d86466e52403258f10fec7b15bbae`.
+- branche de correction dédiée : `fix/govector-final-corrections-20260914`, créée au même commit.
+
+La session GitHub utilisée pour cette reprise ne donne pas accès au disque Windows
+`C:\Users\Guest\Desktop\optmontana\bluevector-clean-upload`. L'état local
+(modifications/non suivis, remotes locaux), les conteneurs Docker réellement actifs
+et la base PostgreSQL locale doivent donc être revérifiés sur la machine avant de
+les déclarer validés. Aucune commande destructive n'a été lancée et aucune branche
+`main`, `delivery` ou `release` n'a été déplacée.
+
+### Bloc stable 1 — diagnostics d'import
+
+Commit : `06dc9dc4d7012e95bef1d54384aeb40eba1525ef` — `fix(import): separate blocking errors from advisories`.
+
+- séparation explicite des erreurs bloquantes et des avertissements ;
+- message bloquant du type en français : « Type d’intervention obligatoire. Choisissez un type du référentiel pour ce lot ou corrigez le mapping. » ;
+- GPS/coordonnées, NRO, PBO, ville et technicien source sont des avertissements non bloquants ;
+- codes techniques conservés dans `_warnings` pour diagnostic/rétrocompatibilité, mais messages français exposés dans `_blocking_errors` et `_advisories` ;
+- tests ciblés ajoutés dans `backend/tests/test_excel_validator_messages.py`.
+
+Le premier passage CI post-correction a ensuite permis d'identifier et de réaligner
+les anciens tests qui attendaient encore l'inférence approximative de secteur ou
+l'ancien libellé du type. La règle produit reste stricte : aucun affaiblissement de
+la validation métier n'est accepté pour faire passer un test.
+
+### Bloc stable 2 — gouvernance de l'import
+
+État de la branche au début de ce checkpoint : corrections poussées uniquement sur
+`fix/govector-final-corrections-20260914`; la PR #1 reste en brouillon et n'est pas
+fusionnée.
+
+Contrat désormais verrouillé dans le code de correction :
+
+- `COMMANDE` est prioritaire comme référence d'intervention ; aucune référence
+  synthétique NRO/PBO n'est fabriquée pour rendre artificiellement une ligne
+  idempotente ;
+- aucun `INSTALLATION`, aucune compétence et aucune coordonnée GPS ne sont injectés
+  faute de source fiable ;
+- le type par défaut d'un lot est un choix utilisateur explicite dans le référentiel
+  actif et sa provenance doit être conservée ;
+- le secteur d'import n'est accepté automatiquement que par identifiant explicite
+  actif ou correspondance exacte et unique d'un alias administré. Les sous-chaînes,
+  déductions floues et choix au plus long libellé sont interdits ;
+- les valeurs source `TECH CB`, `TECH RAC`, `TECH CABLE` / `TECHNICIEN` restent de
+  l'historique source, jamais une affectation GoVector ;
+- les structures `_blocking_errors` et `_advisories` traversent la confirmation ;
+  l'interface doit afficher les messages français et non les codes techniques ;
+- les dates Excel sont conservées telles qu'interprétées par le calendrier Excel.
+  Pour le fixture MAGILLAN fourni : `14/09/2026` et `15/09/2026`, jamais août.
+
+Preuve CI du bloc backend au commit précédant le correctif lint frontend : bootstrap
+PostgreSQL jusqu'à `gu1q2r3s4t5u` réussi et suite backend complète **716 tests réussis**.
+Le job PostgreSQL géolocalisation, le job backend, le job mobile et le build pilote
+Docker/PDF sont verts sur ce passage. Le frontend a été bloqué uniquement par une
+règle ESLint Fast Refresh sur un helper exporté depuis `ImportReviewTable.jsx` ; le
+helper a ensuite été rendu local au composant par le commit
+`0f0d4575c343ae303fc23b97117ff73e380a49a2`. Ce correctif frontend doit encore être
+validé par le passage CI déclenché après ce commit avant de déclarer le bloc entier vert.
+
+### Rapport journalier MAGILLAN — pagination verrouillée
+
+Pour chaque intervention exportée :
+
+1. la première page est toujours le rapport journalier MAGILLAN ;
+2. une page suivante de photos / terrain / contenu associé n'est générée que si ce
+   contenu existe réellement ;
+3. aucune page photos vide n'est autorisée ;
+4. si le contenu réel l'exige, plusieurs pages complémentaires sont permises.
+
+Conséquences de référence : trois interventions sans photo donnent trois pages de
+rapport, pas six ; deux interventions possédant chacune du contenu photo donnent en
+principe quatre pages, sauf contenu nécessitant davantage de pages.
+
+Cette règle doit être implémentée dans le générateur GoVector réel, pas seulement
+respectée par le prototype PDF de validation.
+
+### Import multi-dates et affectation future — exigence ajoutée le 14/09/2026
+
+Un fichier importé peut contenir des interventions réparties sur plusieurs dates
+futures, y compris plusieurs semaines ou mois. GoVector ne doit jamais réduire ces
+interventions à la journée affichée au moment de l'import.
+
+Règles d'acceptation :
+
+- chaque intervention conserve exactement sa propre `scheduled_date` ;
+- le résultat d'import doit exposer la distribution par dates et permettre de
+  retrouver facilement toutes les interventions du lot ;
+- le workspace d'exploitation doit permettre de travailler au minimum sur une
+  journée, une semaine, un mois, une année et une période personnalisée ;
+- les API `GET /jobs` supportent déjà `scheduled_from` et `scheduled_to` : la vue
+  frontend actuelle reste à faire évoluer, car elle charge encore une seule
+  `scheduled_date` à la fois ;
+- une sélection multi-interventions peut couvrir plusieurs dates. La date n'est pas
+  un motif de refus d'affectation ;
+- les garde-fous métier d'affectation restent actifs : secteur réel cohérent,
+  technicien éligible, compétences, disponibilité, capacité et chevauchements ;
+- le bouton / comportement « tout sélectionner » doit opérer sur le périmètre filtré
+  réellement chargé, pas uniquement sur la date du jour ;
+- prévoir un accès clair aux interventions sans date afin qu'elles ne deviennent
+  jamais invisibles dans une vue calendaire.
+
+Direction UX retenue : la journée reste la vue opérationnelle par défaut, mais la
+date devient un **périmètre d'affichage**, pas une limitation fonctionnelle. Les
+raccourcis visés sont : Aujourd'hui, Demain, Cette semaine, Ce mois, Mois prochain,
+Cette année et Période personnalisée. L'implémentation et ses tests restent à faire
+avant validation finale.
+
+## Reprise Work — vérification du 15 septembre 2026
+
+Cette section remplace les mentions « reste à faire » ci-dessus lorsqu'elles
+concernent les périodes futures, le rapport MAGILLAN ou la CI de la branche de
+correction. Les paragraphes antérieurs restent conservés comme historique.
+
+### État Git et CI avant les corrections Work
+
+- branche contrôlée : `fix/govector-final-corrections-20260914` ;
+- répertoire propre avant intervention, sans fichier modifié ou non suivi ;
+- référence distante rafraîchie puis avance rapide non destructive de `0958fdc`
+  vers `6c68a0d` ; aucune fusion avec `main`, `release/*` ou `delivery/*` ;
+- CI GitHub Actions `GoVector quality` du commit `6c68a0d` : succès le
+  15 septembre 2026, cinq jobs verts (`backend`, `postgres-geolocation`,
+  `frontend`, `mobile`, `pilot-4g-config`) ;
+- URL de preuve : <https://github.com/ia-dev-talk/GoVector/actions/runs/34965292596>.
+
+### Bloc stable 3 — contrats frontend réellement exécutés
+
+Commit local : `14725b1` — `test(frontend): enforce GoVector GIS and future periods`.
+
+Deux défauts de test ciblés ont été corrigés :
+
+- le scénario navigateur GIS attend désormais le vrai nom téléchargé
+  `govector-8-couche-55.geojson`, au lieu de l'ancien préfixe BlueVector ;
+- les quatre tests de périodes futures ont été convertis vers `node:test`, déjà
+  utilisé par le dépôt, puis ajoutés à `npm test`. Ils n'étaient auparavant pas
+  exécutés et dépendaient d'un paquet `vitest` absent.
+
+Preuves locales après correction :
+
+- frontend : lint sans erreur (un avertissement hooks historique), **293/293**
+  tests réussis et build Vite production réussi ;
+- navigateur simulé : **9/9** scénarios Orienteur, candidats, GIS et carte réussis ;
+- backend complet Windows : **699 réussis, 22 ignorés** ;
+- contrats ciblés import MAGILLAN, idempotence, rapport/PDF et RAR/GIS :
+  **59 réussis, 1 ignoré** ;
+- mobile : analyse terminée avec les **203 diagnostics historiques** autorisés par
+  le gate pilote, puis **98/98** tests réussis ;
+- Docker Compose : rendu du profil régulier et `pilot-4g` valide ; services
+  `postgres`, `migrate`, `app`, `pilot-edge` et `pilot-tunnel` présents.
+
+Le moteur Docker Windows n'était pas démarré pendant ce passage. Les conteneurs,
+la base, les migrations réelles, le healthcheck servi, la connexion ADMIN/ORIENTEUR
+et l'import du fichier entreprise n'ont donc pas été rejoués ici. La CI PostgreSQL
+et Docker est verte, mais ne remplace pas cette recette sur le serveur Linux cible.
+
+### Bloc stable 4 — installation Linux et accès 4G privé
+
+Le guide `docs/govector/LOCAL_SERVER_INSTALL.md` pointe désormais vers la branche
+de correction, impose un `pull --ff-only` et documente l'accès privé recommandé :
+
+1. GoVector reste servi localement par Docker Compose sur `8080` ;
+2. Tailscale Serve publie ce port en HTTPS uniquement dans le tailnet ;
+3. le Web et l'API utilisent le même nom `*.ts.net` ;
+4. l'APK pilote release est construite avec
+   `API_BASE_URL=https://...ts.net/api/v1` ;
+5. `tailscale funnel` et l'exposition publique de PostgreSQL sont interdits.
+
+L'authentification au tailnet, le choix des personnes/appareils autorisés et la
+politique d'accès restent des décisions humaines de l'entreprise. Aucun compte,
+secret ou tunnel n'a été créé depuis Work.
+
+### Recette humaine obligatoire sur site
+
+1. Installer sur le serveur Linux, appliquer les migrations et obtenir `/health`
+   en HTTP 200 localement puis depuis le LAN.
+2. Se connecter réellement en ADMIN et ORIENTEUR dans le Web servi ; contrôler
+   les espaces, les droits et l'absence de réponse 5xx.
+3. Importer le fichier MAGILLAN réel, noter le lot et les dates futures, puis
+   rejouer exactement le même fichier : aucun doublon ne doit être créé.
+4. Exporter le PDF MAGILLAN sans photo, avec une photo et avec plusieurs photos.
+5. Importer le RAR/QGIS original ; une archive endommagée doit être rejetée sans
+   extraction partielle. Exécuter export, preview, apply et conflit QField.
+6. Installer une APK release neuve et relevée par SHA-256 sur la tablette.
+7. Vérifier en Wi-Fi, couper totalement le Wi-Fi, garder la 4G/5G avec Tailscale,
+   puis tester connexion, GPS réel, photo, mesure, signature, mode offline, outbox
+   et resynchronisation.
+
+Ne déclarer la livraison terrain validée qu'après consignation de ces preuves.
+
+### Publication des blocs Work
+
+Le push non forcé vers
+`govector/fix/govector-final-corrections-20260914` a été tenté après les deux
+commits stables. Il a été refusé avant transfert parce qu'aucune authentification
+GitHub utilisable n'est disponible dans cette session (`unable to get password
+from user`). Aucun secret n'a été demandé ou affiché et aucun autre dépôt n'a été
+utilisé comme contournement.
+
+État à reprendre : les commits `14725b1` et `1afa52f` sont locaux. La dernière CI
+distante confirmée verte reste celle de `6c68a0d`. Après authentification humaine,
+faire uniquement un push non forcé de la branche de correction, puis attendre les
+cinq jobs `GoVector quality` avant de mettre à jour cette preuve.

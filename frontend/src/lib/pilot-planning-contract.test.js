@@ -6,6 +6,7 @@ const planningSource = readFileSync('src/pages/PlanningPage.jsx', 'utf8');
 const interventionsSource = readFileSync('src/pages/InterventionsPage.jsx', 'utf8');
 const layoutSource = readFileSync('src/components/layout/AppLayout.jsx', 'utf8');
 const appSource = readFileSync('src/App.jsx', 'utf8');
+const workspaceSource = readFileSync('src/pages/InterventionsWorkspace.jsx', 'utf8');
 
 test('pilot exposes a real weekly technician planning workspace', () => {
   assert.match(planningSource, /<h1>Planning<\/h1>/);
@@ -39,4 +40,8 @@ test('pilot sidebar keeps office workspaces explicit and uses field-agent busine
   assert.match(layoutSource, /CHEF_ORIENTEUR:[\s\S]*label: 'Agent terrain'/);
   assert.match(layoutSource, /ORIENTEUR:[\s\S]*label: 'Orienteur Bureau'/);
   assert.match(layoutSource, /const PRODUCT_NAME = 'GoVector'/);
+});
+
+test('office orienteurs can open the Excel import surface they are offered', () => {
+  assert.match(workspaceSource, /\{\(isAdmin \|\| isOrienteur\) &&\s*importOpen && \(/);
 });

@@ -1,0 +1,26 @@
+# GoVector — reprise urgente du 15 septembre 2026
+
+## Prompt à donner au prochain chat
+
+Reprends la finalisation de GoVector dans `C:\Users\Guest\Desktop\optmontana\bluevector-clean-upload`, uniquement sur la branche `fix/govector-final-corrections-20260914`. Commence par `git status`, branche/HEAD, derniers commits, remote et CI. Ne fais aucun reset destructif, aucun `clean -fd`, aucun merge vers `main`, `release` ou `delivery`, et n'expose aucun secret. Préserve le projet Docker QA `govector_qa_4g`, ses volumes et les modifications utilisateur. Priorité stricte : stabilité, fluidité, clarté, design, puis seulement nouvelles fonctions.
+
+Le checkpoint local sûr est `5618ec5` (`fix(deploy): unblock production migration and office import`). Vérifie s'il est déjà présent sur `govector/fix/govector-final-corrections-20260914`; le push lancé depuis Work a dû être interrompu après plusieurs minutes sans sortie. Les tests frontend du bloc passent : 294/294, lint 0 erreur avec un avertissement historique `useCallback`. Le Compose QA réel a terminé ses migrations et `/health` répond `{"status":"healthy","version":"1.0.1"}` sur `http://127.0.0.1:18080`; PostgreSQL est limité à `127.0.0.1:15432`. Les connexions web ADMIN et ORIENTEUR ont été validées dans le navigateur sur l'image Docker. Le correctif `5618ec5` transmet maintenant `API_RELOAD=false` et `CORS_ORIGINS` au service `migrate`, et rend la fenêtre d'import accessible à ORIENTEUR comme l'API l'autorise.
+
+Traite ensuite uniquement les défauts démontrés suivants, en petits commits testés avec mise à jour de ce handoff après chaque bloc stable :
+
+1. Import MAGILLAN réel : `C:\Users\Guest\Downloads\Classeur1(3).xlsx` est correctement lu (1 feuille, 3 lignes, dates 14 et 15 septembre 2026, commandes reconnues), mais les 3 lignes sont bloquées car le fichier ne contient aucun type d'intervention. Le backend expose déjà `GET /api/v1/import/reference-options` et accepte `default_job_type` dans `POST /api/v1/import/confirm`; `ImportCenter.jsx` n'affiche actuellement aucun sélecteur et n'envoie pas ce champ. Ajouter un sélecteur explicite basé sur le référentiel actif, sans jamais inventer INSTALLATION, puis réanalyser/revalider, importer le classeur deux fois et prouver l'idempotence. Ajouter un test frontend et conserver les tests backend de vérité métier.
+2. QGIS/GIS : la capture `FireShot Capture 122...png` montre que `Global_Anfa_GoVector.geojson` est analysé avec 2 415 objets et 22 couches, aperçu visible, dataset `ANFA1` publié révision 2. En revanche l'import vers la hiérarchie annonce 119 territoires créés avec des noms `0.0`, aucune liaison métier et des fiches inutilisables. Reproduire dans une base QA jetable, inspecter les propriétés GeoJSON réellement choisies pour le nom/code et refuser une propriété vide/numérique générique au lieu de créer 119 faux secteurs. Ne pas confondre dataset GIS versionné et secteurs métier. Valider GeoJSON, export/import QGIS, RAR strict et rollback d'archive endommagée.
+3. Contraste : auditer les quatre captures fournies et l'application servie. Corriger tout texte clair sur fond clair et tout texte sombre sur fond sombre, notamment l'en-tête clair de Secteurs et les titres sombres dans les panneaux GIS. La demande utilisateur « ne rien écrire en blanc » signifie en pratique aucune écriture blanche illisible sur fond clair : conserver du texte clair sur les vrais fonds sombres si le contraste est accessible. Faire une recette visuelle desktop + tablette, sans refonte générale.
+4. Formulaires/activités : le contrat existe déjà. `FieldFormsSettingsSection.jsx` possède `scope.activity_codes`, et le backend valide ces codes contre le catalogue actif. Remplacer si possible la saisie brute « codes séparés par virgule » par un multi-sélecteur lisible du catalogue d'activités, puis prouver qu'une intervention/activité sélectionne le bon formulaire versionné côté mobile. Ne pas créer de nouvelles activités fictives.
+5. Terminer PDF MAGILLAN avec génération réelle et inspection visuelle, puis préparer l'APK avec l'URL HTTPS Tailscale exacte. Ne jamais appeler la tablette/GPS/4G « validé » avant essai physique Wi-Fi coupé, photo, GPS, hors-ligne et resynchronisation.
+
+Tailscale Serve n'est pas encore activé sur le compte : l'utilisateur doit ouvrir le lien d'activation affiché par Tailscale, puis relancer `tailscale serve --bg 18080`. Ne pas activer Funnel public. Une fois l'URL `https://...ts.net` connue, construire l'APK avec `--dart-define=API_BASE_URL=https://...ts.net/api/v1` et donner uniquement cette APK au testeur. Les comptes QA sont temporaires : ne commite ni mot de passe ni jeton.
+
+## Captures examinées
+
+- `C:\Users\Guest\Downloads\FireShot Capture 123 - GoVector — Interventions & stocks FTTH - localhost.png`
+- `C:\Users\Guest\Downloads\FireShot Capture 122 - GoVector — Interventions & stocks FTTH - localhost.png`
+- `C:\Users\Guest\AppData\Local\Temp\codex-clipboard-fd2fda7f-5c93-414d-b433-cf9c4e0c3268.png`
+- `C:\Users\Guest\Downloads\FireShot Capture 124 - GoVector — Interventions & stocks FTTH - localhost.png`
+
+La capture Stock est lisible dans l'ensemble. La capture Formulaires confirme que le lien activités-formulaire existe déjà au niveau du scope, mais l'UX par codes libres est trop technique et doit être fiabilisée par le catalogue.

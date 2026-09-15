@@ -150,7 +150,7 @@ async def test_confirm_rejects_missing_job_type_without_installation_fallback(
     create = AsyncMock()
     monkeypatch.setattr(import_confirm.job_logic, "create_job", create)
 
-    with pytest.raises(ValueError, match="Type d'intervention obligatoire"):
+    with pytest.raises(ValueError, match="Type d.intervention obligatoire"):
         await _create_job_from_dict(
             SimpleNamespace(),
             {
@@ -275,13 +275,13 @@ def test_csv_parser_detects_semicolon_and_windows_encoding(tmp_path):
     assert workbook[0]["rows"][1][2]["value"] == "Résidence Yahya"
 
 
-def test_import_sector_inference_uses_unambiguous_known_name_inside_city_text():
+def test_import_sector_does_not_guess_from_embedded_city_text():
     item = {"sector_raw": "Casablanca Hay Hassani"}
 
     _resolve_sector(item, {"hay hassani": [17], "ain sebaa": [23]})
 
-    assert item["sector_id"] == 17
-    assert item.get("import_warnings") in (None, [])
+    assert item["sector_id"] is None
+    assert "Choisissez manuellement" in item["_sector_resolution_error"]
 
 
 def test_import_sector_inference_uses_operational_description_aliases():
