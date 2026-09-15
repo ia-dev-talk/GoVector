@@ -54,6 +54,16 @@ async function rawLogin(request, username) {
     : webLogin(request, username);
 }
 
+function normalizeAuthenticatedUser(payload, username) {
+  return payload.user || {
+    id: payload.user_id,
+    username,
+    role: payload.role,
+    technician_id: payload.technician_id ?? null,
+    orienteur_id: payload.orienteur_id ?? null,
+  };
+}
+
 async function apiSession(request, username) {
   const response = await rawLogin(request, username);
   expect(
@@ -62,18 +72,12 @@ async function apiSession(request, username) {
   ).toBe(200);
   const payload = await response.json();
   expect(payload.access_token, `Token absent pour ${username}`).toBeTruthy();
-const user = payload.user || {
-  id: payload.user_id,
-  username,
-  role: payload.role,
-  technician_id: payload.technician_id ?? null,
-  orienteur_id: payload.orienteur_id ?? null,
-};
+  const user = normalizeAuthenticatedUser(payload, username);
 
-return {
-  token: payload.access_token,
-  user,
-};
+  return {
+    token: payload.access_token,
+    user,
+  };
 }
 
 async function openUiSession(page, request, username) {
@@ -216,8 +220,12 @@ test.describe('GoVector — acceptation réelle V2', () => {
       ).toBe(200);
       if (response.status() !== 200) continue;
       const payload = await response.json();
-      expect.soft(String(payload.user?.role || '').toUpperCase(), `Rôle inattendu pour ${username}`)
-        .toBe(EXPECTED_ROLES[key]);
+      const authenticatedUser = normalizeAuthenticatedUser(payload, username);
+
+      expect.soft(
+        String(authenticatedUser.role || '').toUpperCase(),
+        `Rôle inattendu pour ${username}`,
+      ).toBe(EXPECTED_ROLES[key]);
     }
   });
 
@@ -262,10 +270,12 @@ test.describe('GoVector — acceptation réelle V2', () => {
     const login = await rawLogin(request, USERS.fieldAgent);
     test.skip(login.status() !== 200, `Compte ${USERS.fieldAgent} non authentifiable — couvert par V2-001`);
     const payload = await login.json();
-    await page.addInitScript(({ token, user }) => {
+    const user = normalizeAuthenticatedUser(payload, USERS.fieldAgent);
+
+    await page.addInitScript(({ token, user: sessionUser }) => {
       window.localStorage.setItem('token', token);
-      window.localStorage.setItem('user', JSON.stringify(user));
-    }, { token: payload.access_token, user: payload.user });
+      window.localStorage.setItem('user', JSON.stringify(sessionUser));
+    }, { token: payload.access_token, user });
     await page.goto('/');
     await expect(page.locator('#bluevector-main-content')).toBeVisible({ timeout: 15_000 });
 
