@@ -10,6 +10,36 @@ from backend.database.models import Sector, Orienteur, Technician, Job, Assignme
 from backend.logic.job_sectors import hydrate_job_sector_identities
 
 
+async def ensure_team_sector_coverage(
+    db: AsyncSession,
+    *,
+    team_id: Optional[int],
+    sector_ids: List[int],
+) -> None:
+    """Project explicit technician sectors into canonical team coverage.
+
+    Assignment eligibility is governed by ``field_team_sectors``. The
+    Personnel and Secteurs screens historically persisted only the legacy
+    ``technician_sectors`` links, making a visible selection ineffective at
+    assignment time. A technician selection may safely add coverage to their
+    team; it must not silently remove coverage used by another team member.
+    """
+    if team_id is None:
+        return
+
+    for sector_id in sector_ids:
+        await db.execute(
+            text(
+                """
+                INSERT INTO field_team_sectors (team_id, sector_id)
+                VALUES (:team_id, :sector_id)
+                ON CONFLICT (team_id, sector_id) DO NOTHING
+                """
+            ),
+            {"team_id": team_id, "sector_id": sector_id},
+        )
+
+
 async def get_all_sectors(db: AsyncSession, active_only: bool = True) -> List[Sector]:
     """Récupérer tous les secteurs"""
     query = select(Sector)
