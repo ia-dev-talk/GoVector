@@ -5,6 +5,7 @@ from datetime import date as date_type
 from datetime import datetime, time, timedelta, timezone
 import math
 import re
+import unicodedata
 from typing import Any, Optional
 
 from backend.database.models import JobPriority, JobStatus, JobType
@@ -40,6 +41,9 @@ _STATUS_ALIASES = {
     "FAILED": JobStatus.FAILED,
     "ON_HOLD": JobStatus.ON_HOLD,
     "EN PAUSE": JobStatus.ON_HOLD,
+    "BLOCKED": JobStatus.ON_HOLD,
+    "BLOQUE": JobStatus.ON_HOLD,
+    "BLOQUEE": JobStatus.ON_HOLD,
 }
 
 _COLOR_STATUS = {
@@ -66,6 +70,7 @@ _JOB_TYPE_ALIASES = {
 }
 
 from backend.services.excel.operator_profiles import get_operator_profile
+from backend.logic.job_planning import default_estimated_duration_minutes
 
 
 def _clean(value: Any) -> Optional[str]:
@@ -73,6 +78,16 @@ def _clean(value: Any) -> Optional[str]:
         return None
     text = str(value).strip()
     return text if text else None
+
+
+def _lookup_key(value: Any) -> str:
+    """Normalize human labels without losing their business meaning."""
+    text = str(value).strip().upper()
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKD", text)
+        if not unicodedata.combining(character)
+    )
 
 
 def _clean_identifier(value: Any) -> Optional[str]:
@@ -161,7 +176,7 @@ def _parse_priority(value: Any) -> JobPriority:
         return JobPriority.NORMALE
     if isinstance(value, JobPriority):
         return value
-    text = str(value).strip().upper()
+    text = _lookup_key(value)
     if text in _PRIORITY_ALIASES:
         return _PRIORITY_ALIASES[text]
     try:
@@ -183,7 +198,7 @@ def _parse_status(statut: Any, color_status: Optional[str]) -> JobStatus:
         return _COLOR_STATUS[color_status]
     text = _clean(statut)
     if text:
-        key = text.upper()
+        key = _lookup_key(text)
         if key in _STATUS_ALIASES:
             return _STATUS_ALIASES[key]
     return JobStatus.PENDING
@@ -193,7 +208,7 @@ def _parse_job_type(value: Any) -> Optional[JobType]:
     text = _clean(value)
     if not text:
         return None
-    key = text.upper()
+    key = _lookup_key(text)
     if key in _JOB_TYPE_ALIASES:
         return _JOB_TYPE_ALIASES[key]
     try:
@@ -314,25 +329,24 @@ def _select_gps_coordinates(
     selected_source, selected_coordinates = valid_coordinates[0]
     latitude, longitude = selected_coordinates
 
-    divergent_sources = [
-        source
-        for source, coordinates in valid_coordinates[1:]
-        if (
-            abs(coordinates[0] - latitude) > 1e-6
-            or abs(coordinates[1] - longitude) > 1e-6
-        )
-    ]
-
-    if divergent_sources:
-        sources = ", ".join(
-            [selected_source, *divergent_sources]
-        )
-        warnings.append(
-            f"Coordonnées GPS divergentes ({sources}) : "
-            f"{selected_source} retenu."
-        )
-
     return latitude, longitude, selected_source, warnings
+
+
+def _has_explicit_time(value: Any) -> bool:
+    """Distinguish a planning datetime from a date-only spreadsheet cell."""
+    if isinstance(value, datetime):
+        return value.time() != time.min
+    if isinstance(value, date_type):
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            return not math.isclose(float(value) % 1, 0.0, abs_tol=1e-9)
+        except (TypeError, ValueError):
+            return False
+    text = _clean(value)
+    if not text:
+        return False
+    return bool(re.search(r"(?:T|\s)\d{1,2}:\d{2}(?::\d{2})?", text))
 
 
 def _dominant_color_status(cells: list) -> Optional[str]:
@@ -416,6 +430,19 @@ def build_job_record(
     job_type = _parse_job_type(col("TYPE"))
     color_status = _dominant_color_status(row_cells)
     status = _parse_status(col("STATUT"), color_status)
+    estimated_duration = None
+    time_slot_start = None
+    time_slot_end = None
+    if (
+        scheduled_date is not None
+        and job_type is not None
+        and _has_explicit_time(col("DATE"))
+    ):
+        estimated_duration = default_estimated_duration_minutes(job_type)
+        slot_end = scheduled_date + timedelta(minutes=estimated_duration)
+        if slot_end.date() == scheduled_date.date():
+            time_slot_start = scheduled_date.strftime("%H:%M")
+            time_slot_end = slot_end.strftime("%H:%M")
 
     observation = _clean(col("OBSERVATION"))
     remark = _clean(col("REMARQUE"))
@@ -473,12 +500,7 @@ def build_job_record(
     cable_end = _parse_float(col("CABLE_ARRIVE"))
     cable_length = None
     if cable_start is not None and cable_end is not None:
-        if cable_start < cable_end:
-            import_warnings.append(
-                "Repères câble incohérents : le départ doit être supérieur ou égal à l'arrivée."
-            )
-        else:
-            cable_length = int(round(cable_start - cable_end))
+        cable_length = int(round(abs(cable_start - cable_end)))
 
     operational_fields = {
         "avancement_magillan": "AVANCEMENT_MAGILLAN",
@@ -538,6 +560,9 @@ def build_job_record(
         "priority": priority.value,
         "status": status.value,
         "scheduled_date": scheduled_date.isoformat() if scheduled_date else None,
+        "time_slot_start": time_slot_start,
+        "time_slot_end": time_slot_end,
+        "estimated_duration": estimated_duration,
         "source_technician_name": source_technician_name,
         "notes": comment,
         "description": comment,

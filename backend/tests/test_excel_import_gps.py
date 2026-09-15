@@ -73,3 +73,32 @@ def test_invalid_generic_gps_is_never_invented():
     assert job["longitude"] is None
     assert job["gps_source"] is None
     assert _validate_reliable_coordinates(job) == (None, None)
+
+
+def test_distinct_named_gps_points_are_preserved_without_false_divergence_warning():
+    workbook = [{
+        "sheet": "Import",
+        "rows": [
+            [
+                _cell(1, 1, "COMMANDE"),
+                _cell(1, 2, "TYPE"),
+                _cell(1, 3, "GPS PCO"),
+                _cell(1, 4, "GPS DERIVATION"),
+                _cell(1, 5, "GPS SPLITTER"),
+            ],
+            [
+                _cell(2, 1, "CMD-GPS-2"),
+                _cell(2, 2, "SAV"),
+                _cell(2, 3, "33.5731,-7.5898"),
+                _cell(2, 4, "33.5741,-7.5908"),
+                _cell(2, 5, "33.5751,-7.5918"),
+            ],
+        ],
+    }]
+
+    job = JobsBuilder(ExcelMapper(workbook).map()).build()[0]
+
+    assert job["gps_source"] == "GPS_PCO"
+    assert job["operational_data"]["gps_derivation"] == "33.5741,-7.5908"
+    assert job["operational_data"]["gps_splitter"] == "33.5751,-7.5918"
+    assert not any("divergentes" in warning for warning in job["import_warnings"])
