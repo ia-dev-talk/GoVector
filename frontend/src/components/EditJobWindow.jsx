@@ -1,28 +1,24 @@
-import GuardedJobWizard from './GuardedJobWizard';
+import AdvancedJobEditor from './AdvancedJobEditor';
 
 /**
- * Point d'entrée historique de modification d'une intervention.
- *
- * Le cockpit utilise encore EditJobWindow avec les props `job`, `onClose`
- * et `onSaved`. La modification est désormais centralisée dans JobWizard
- * pour partager les validations, le contrat API et la gestion d'affectation.
+ * Office intervention editing now uses the complete persisted-data editor.
+ * Creation remains on JobWizard so the validated creation/assignment workflow
+ * is not weakened during the delivery hotfix.
  */
 export default function EditJobWindow({
   job,
   onClose,
   onSaved,
-  ...wizardProps
 }) {
   if (!job?.id) {
     return null;
   }
 
   return (
-    <GuardedJobWizard
-      {...wizardProps}
-      initialData={job}
+    <AdvancedJobEditor
+      job={job}
       onClose={onClose}
-      onCreated={onSaved}
+      onSaved={onSaved}
     />
   );
 }
