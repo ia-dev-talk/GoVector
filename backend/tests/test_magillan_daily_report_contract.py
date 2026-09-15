@@ -42,7 +42,7 @@ def _context(job_number: str) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_multi_intervention_export_uses_complete_report_and_photo_pages(monkeypatch):
+async def test_multi_intervention_export_uses_one_reference_page_without_empty_photo_pages(monkeypatch):
     jobs = [SimpleNamespace(id=1), SimpleNamespace(id=2)]
     monkeypatch.setattr(
         magillan_daily_report.FieldOptExportService,
@@ -66,14 +66,31 @@ async def test_multi_intervention_export_uses_complete_report_and_photo_pages(mo
 
     assert result.startswith(b"%PDF-")
     html = captured["sections"]
-    assert html.count('class="report-page"') == 4
-    assert html.count("Rapport complet d’intervention") == 2
-    assert html.count("Photos de l’intervention") == 2
+    assert html.count('class="report-page"') == 2
+    assert html.count("RAPPORT JOURNALIER") == 2
+    assert "Photos de l’intervention" not in html
     assert "CM-001" in html and "CM-002" in html
     assert "Client réel" in html
-    assert "Aucune photo synchronisée" in html
+    assert "Aucune photo synchronisée" not in html
     assert MAGILLAN_LOGO_DATA_URI in html
-    assert "RAPPORT JOURNALIER" not in html
+    assert "REPRÉSENTANT DE LA SOCIÉTÉ" in html
+    assert "SURVEILLANT CMO / CHEF DE SECTEUR" in html
+    assert "CONDUITE" in html and "FAÇADE" in html and "AÉRIEN" in html
+
+
+def test_photo_page_is_added_only_when_real_image_evidence_exists():
+    context = _context("CM-PHOTO")
+    context["media"] = [SimpleNamespace(
+        mime_type="image/jpeg",
+        storage_key="missing-preview.jpg",
+        meta_data={"evidence_role": "after"},
+        created_at=None,
+    )]
+
+    html = magillan_daily_report.render_intervention_report_sections(**context)
+
+    assert html.count('class="report-page"') == 2
+    assert "Photos de l’intervention" in html
 
 
 @pytest.mark.asyncio
