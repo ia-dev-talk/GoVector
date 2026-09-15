@@ -1,3 +1,4 @@
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -124,6 +125,63 @@ def test_magillan_workbook_columns_have_distinct_canonical_destinations():
     assert job["source_technician_name"] == "Tech Cable"
     assert job["operational_data"]["source_technician_name"] == "Tech Cable"
     assert "assigned_technician_name" not in job
+
+
+def test_magillan_datetime_builds_slot_and_accepts_ascending_cable_markers():
+    workbook = [{
+        "sheet": "Feuil1",
+        "rows": [
+            [
+                _cell(1, 1, "COMMANDE"),
+                _cell(1, 2, "TYPE INTERVENTION"),
+                _cell(1, 3, "DATE"),
+                _cell(1, 4, "DEPART"),
+                _cell(1, 5, "ARRIVE"),
+                _cell(1, 6, "STATUT"),
+            ],
+            [
+                _cell(2, 1, "260915001"),
+                _cell(2, 2, "Dépannage"),
+                _cell(2, 3, datetime(2026, 9, 15, 8, 30)),
+                _cell(2, 4, 100),
+                _cell(2, 5, 180),
+                _cell(2, 6, "BLOCKED"),
+            ],
+        ],
+    }]
+
+    job = JobsBuilder(ExcelMapper(workbook).map()).build()[0]
+
+    assert job["job_type"] == "DEPANNAGE"
+    assert job["status"] == "on_hold"
+    assert job["time_slot_start"] == "08:30"
+    assert job["time_slot_end"] == "09:30"
+    assert job["estimated_duration"] == 60
+    assert job["cable_length_m"] == 80
+    assert not any("Repères câble incohérents" in warning for warning in job["import_warnings"])
+
+
+def test_reference_gps_sheet_is_not_imported_as_fake_interventions():
+    workbook = [
+        {
+            "sheet": "Feuil1",
+            "rows": [
+                [_cell(1, 1, "COMMANDE"), _cell(1, 2, "TYPE")],
+                [_cell(2, 1, "CMD-1"), _cell(2, 2, "SAV")],
+            ],
+        },
+        {
+            "sheet": "SOURCES_GPS",
+            "rows": [
+                [_cell(1, 1, "SECTEUR"), _cell(1, 2, "COMMENTAIRE")],
+                [_cell(2, 1, "ZENATA"), _cell(2, 2, "Point de référence")],
+            ],
+        },
+    ]
+
+    jobs = JobsBuilder(ExcelMapper(workbook).map()).build()
+
+    assert [job["job_number"] for job in jobs] == ["CMD-1"]
 
 
 def test_generic_technician_column_is_source_history_not_assignment():
@@ -403,6 +461,30 @@ async def test_import_without_duration_delegates_to_the_type_default(monkeypatch
     )
 
     assert create.await_args.kwargs["estimated_duration"] is None
+
+
+@pytest.mark.asyncio
+async def test_import_confirmation_persists_the_preview_time_slot(monkeypatch):
+    create = AsyncMock(return_value=SimpleNamespace(id=32))
+    monkeypatch.setattr(import_confirm.job_logic, "create_job", create)
+
+    await _create_job_from_dict(
+        SimpleNamespace(),
+        {
+            "_valid": True,
+            "customer_name": "Client QA",
+            "service_address": "Aïn Sebaâ",
+            "job_type": "DEPANNAGE",
+            "scheduled_date": "2026-09-15T08:00:00+00:00",
+            "time_slot_start": "08:00",
+            "time_slot_end": "09:00",
+            "estimated_duration": 60,
+        },
+    )
+
+    assert create.await_args.kwargs["time_slot_start"] == "08:00"
+    assert create.await_args.kwargs["time_slot_end"] == "09:00"
+    assert create.await_args.kwargs["estimated_duration"] == 60
 
 
 def test_validator_marks_soft_warnings():

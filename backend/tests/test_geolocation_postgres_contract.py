@@ -15,12 +15,16 @@ from backend.api.schemas.technicians import GPSLiveUpdate
 from backend.database.models import (
     Assignment,
     Base,
+    FieldTeam,
+    FieldTeamSector,
     GPSHistory,
     Job,
     JobSiteObservation,
     JobStatus,
     JobType,
     JobVisit,
+    Orienteur,
+    Sector,
     Site,
     Technician,
     TechnicianFieldAction,
@@ -28,10 +32,8 @@ from backend.database.models import (
     User,
     UserRole,
 )
-from backend.logic.technician_field_actions import (
-    record_technician_field_action,
-)
 from backend.logic import assignments as assignment_logic
+from backend.logic.technician_field_actions import record_technician_field_action
 from backend.logic.technician_jobs import (
     accept_and_start_technician_job,
     fail_technician_job,
@@ -81,6 +83,33 @@ async def postgres_session_factory():
             await admin_connection.execute(f'DROP DATABASE "{database_name}"')
         finally:
             await admin_connection.close()
+
+
+async def _create_dispatch_context(db, suffix: str):
+    """Create the minimum real dispatch registry required by assignment rules."""
+    sector = Sector(name=f"Contract sector {suffix}")
+    db.add(sector)
+    await db.flush()
+
+    orienteur = Orienteur(
+        name=f"Orienteur {suffix}",
+        email=f"orienteur.{suffix}@example.invalid",
+        sector_id=sector.id,
+    )
+    db.add(orienteur)
+    await db.flush()
+
+    team = FieldTeam(
+        name=f"Equipe {suffix}",
+        code=f"TEAM-{suffix}",
+        orienteur_id=orienteur.id,
+        is_active=True,
+    )
+    db.add(team)
+    await db.flush()
+    db.add(FieldTeamSector(team_id=team.id, sector_id=sector.id))
+    await db.flush()
+    return sector, team, orienteur
 
 
 @pytest.mark.asyncio
@@ -150,7 +179,7 @@ async def test_postgres_preserves_planned_live_and_confirmed_locations(
                     "latitude": latitude,
                     "longitude": longitude,
                     "accuracy": 3.0,
-                    "note": f"Repère {action_type}",
+                    "note": f"Repere {action_type}",
                 },
                 current_user=user,
             )
@@ -163,9 +192,7 @@ async def test_postgres_preserves_planned_live_and_confirmed_locations(
         assert technician.current_latitude == 33.5731
         assert technician.current_longitude == -7.5898
 
-        gps_count = await db.scalar(
-            select(func.count()).select_from(GPSHistory)
-        )
+        gps_count = await db.scalar(select(func.count()).select_from(GPSHistory))
         action_count = await db.scalar(
             select(func.count()).select_from(TechnicianFieldAction)
         )
@@ -219,17 +246,24 @@ async def test_postgres_preserves_each_visit_and_assignment_after_retry(
 ):
     monkeypatch.setattr(WorkflowEngine, "_broadcast", AsyncMock())
     async with postgres_session_factory() as db:
+        sector, team, orienteur = await _create_dispatch_context(db, "visit-retry")
         first_technician = Technician(
             name="Premier technicien",
             employee_id="B1-VISIT-A",
             home_latitude=33.57,
             home_longitude=-7.59,
+            team_id=team.id,
+            orienteur_id=orienteur.id,
+            skills=[],
         )
         second_technician = Technician(
             name="Technicien reprise",
             employee_id="B1-VISIT-B",
             home_latitude=33.58,
             home_longitude=-7.60,
+            team_id=team.id,
+            orienteur_id=orienteur.id,
+            skills=[],
         )
         db.add_all([first_technician, second_technician])
         await db.flush()
@@ -244,6 +278,9 @@ async def test_postgres_preserves_each_visit_and_assignment_after_retry(
             job_type=JobType.DEPANNAGE,
             status=JobStatus.PENDING,
             service_address="Site multi-passage",
+            sector_id=sector.id,
+            scheduled_date=datetime(2026, 8, 11, 9, 0, tzinfo=timezone.utc),
+            required_skills=[],
         )
         db.add_all([first_user, job])
         await db.commit()
@@ -262,7 +299,7 @@ async def test_postgres_preserves_each_visit_and_assignment_after_retry(
         await fail_technician_job(
             db,
             job_id=job.id,
-            payload={"reason": "Accès impossible"},
+            payload={"reason": "Acces impossible"},
             current_user=first_user,
         )
         await db.commit()
@@ -314,17 +351,24 @@ async def test_reassignment_closes_old_visit_and_exposes_new_current_attempt(
 ):
     monkeypatch.setattr(WorkflowEngine, "_broadcast", AsyncMock())
     async with postgres_session_factory() as db:
+        sector, team, orienteur = await _create_dispatch_context(db, "reassign")
         karim = Technician(
             name="Karim Tazi",
             employee_id="B1-REASSIGN-KARIM",
             home_latitude=33.57,
             home_longitude=-7.59,
+            team_id=team.id,
+            orienteur_id=orienteur.id,
+            skills=[],
         )
         khadija = Technician(
             name="Khadija El Harti",
             employee_id="B1-REASSIGN-KHADIJA",
             home_latitude=33.58,
             home_longitude=-7.60,
+            team_id=team.id,
+            orienteur_id=orienteur.id,
+            skills=[],
         )
         db.add_all([karim, khadija])
         await db.flush()
@@ -338,6 +382,9 @@ async def test_reassignment_closes_old_visit_and_exposes_new_current_attempt(
             job_type=JobType.DEPANNAGE,
             status=JobStatus.PENDING,
             service_address="Intervention 31",
+            sector_id=sector.id,
+            scheduled_date=datetime(2026, 8, 12, 10, 0, tzinfo=timezone.utc),
+            required_skills=[],
         )
         db.add_all([admin, job])
         await db.commit()

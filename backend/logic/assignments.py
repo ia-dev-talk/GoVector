@@ -35,8 +35,43 @@ def _assignment_interval(job: Job) -> Optional[tuple[datetime, datetime]]:
 	start = job.scheduled_date
 	if start is None or start.tzinfo is None or start.utcoffset() is None:
 		return None
-	if job.time_slot_start or job.time_slot_end:
+
+	slot_start = getattr(job, "time_slot_start", None)
+	slot_end = getattr(job, "time_slot_end", None)
+	if bool(slot_start) != bool(slot_end):
 		return None
+	if slot_start and slot_end:
+		try:
+			start_hour, start_minute = (
+				int(value) for value in str(slot_start).split(":")
+			)
+			end_hour, end_minute = (
+				int(value) for value in str(slot_end).split(":")
+			)
+		except (TypeError, ValueError):
+			return None
+		if not (
+			0 <= start_hour <= 23
+			and 0 <= end_hour <= 23
+			and 0 <= start_minute <= 59
+			and 0 <= end_minute <= 59
+		):
+			return None
+		planned_start = start.replace(
+			hour=start_hour,
+			minute=start_minute,
+			second=0,
+			microsecond=0,
+		)
+		planned_end = start.replace(
+			hour=end_hour,
+			minute=end_minute,
+			second=0,
+			microsecond=0,
+		)
+		if planned_end <= planned_start:
+			return None
+		return planned_start, planned_end
 	return start, start + timedelta(minutes=job_estimated_duration_minutes(job))
 
 

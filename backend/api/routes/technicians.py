@@ -15,6 +15,7 @@ from backend.api.schemas import (
 	TechnicianWorkload, MessageResponse,
 )
 from backend.logic import technicians as tech_logic
+from backend.logic.sectors import ensure_team_sector_coverage
 from backend.logic.technician_details import get_technician_full_details
 from backend.database.models import (
 	FieldTeam,
@@ -324,6 +325,12 @@ async def save_technician_profile(
                     "is_primary": sector_id == payload.primary_sector_id,
                 },
             )
+
+        await ensure_team_sector_coverage(
+            db,
+            team_id=technician.team_id,
+            sector_ids=normalized_sector_ids,
+        )
 
         technician.updated_at = datetime.now(timezone.utc)
         await db.commit()

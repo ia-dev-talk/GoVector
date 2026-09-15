@@ -131,7 +131,7 @@ async def _exercise(url):
             assert exported.status_code == 200, exported.text
             assert exported.headers['content-type'] == 'application/geo+json'
             assert exported.headers['content-disposition'] == (
-                f'attachment; filename="bluevector-{dataset_id}.geojson"')
+                f'attachment; filename="govector-{dataset_id}.geojson"')
             body = exported.json()
             assert body['type'] == 'FeatureCollection'
             assert body['bluevector']['revision'] == 2

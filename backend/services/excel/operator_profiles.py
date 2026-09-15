@@ -1,6 +1,23 @@
 """Operator-specific aliases and neutral import metadata."""
 from backend.database.models import JobPriority
 
+
+# Aliases communs à tous les opérateurs. Les fichiers terrain réels n'utilisent
+# pas toujours les intitulés détaillés ``GPS PCO`` / ``GPS DERIVATION`` : une
+# colonne générique ``GPS`` ou ``COORDONNEES`` doit rester exploitable sans
+# modifier chaque profil opérateur séparément. Elle est rattachée à GPS_PCO,
+# qui est déjà une source GPS fiable reconnue par le contrat de confirmation.
+COMMON_COLUMN_ALIASES = {
+    "GPS_PCO": [
+        "GPS",
+        "COORDONNEES",
+        "COORDONNÉES",
+        "COORDONNEES GPS",
+        "COORDONNÉES GPS",
+    ],
+}
+
+
 OPERATOR_PROFILES = {
     "ORANGE": {
         "skills": [],
@@ -66,9 +83,15 @@ def get_operator_profile(operator: str) -> dict:
 def merge_column_aliases(operator: str) -> dict:
 
     profile = get_operator_profile(operator)
-    merged: dict[str, list[str]] = {}
+    merged: dict[str, list[str]] = {
+        field: list(aliases)
+        for field, aliases in COMMON_COLUMN_ALIASES.items()
+    }
 
     for field, aliases in profile.get("column_aliases", {}).items():
-        merged[field] = list(aliases)
+        existing = merged.setdefault(field, [])
+        for alias in aliases:
+            if alias not in existing:
+                existing.append(alias)
 
     return merged

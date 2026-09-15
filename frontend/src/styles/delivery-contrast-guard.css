@@ -1,0 +1,53 @@
+/* GoVector delivery contrast guard.
+ * The pilot surface is light, while some lazy-loaded legacy styles still
+ * contain hard-coded light text. Keep readable inheritance inside the page
+ * content without changing the dark navigation shell or intentional button
+ * and status colours.
+ */
+
+#bluevector-main-content > div:last-child {
+  color: var(--text-primary, #10233c) !important;
+}
+
+#bluevector-main-content > div:last-child :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  small,
+  label,
+  legend,
+  summary,
+  dt,
+  dd,
+  th,
+  td,
+  strong,
+  em
+) {
+  color: inherit !important;
+}
+
+/* Plain text spans should follow the colour of their surface. Status/badge
+ * elements keep their own semantic colour. */
+#bluevector-main-content > div:last-child span:not([class*="badge"]):not([class*="status"]):not([class*="state"]):not([class*="chip"]):not([class*="tag"]):not([class*="pill"]) {
+  color: inherit !important;
+}
+
+#bluevector-main-content > div:last-child :where(input, select, textarea) {
+  color: var(--text-primary, #10233c) !important;
+}
+
+#bluevector-main-content > div:last-child :where(input, textarea)::placeholder {
+  color: var(--text-muted, #7a899c) !important;
+  opacity: 1;
+}
+
+/* Do not let the historical dark-theme hover rule turn neutral light buttons
+ * into white-on-pale text. Primary/action buttons keep their dedicated styles. */
+#bluevector-main-content > div:last-child .btn:not(.btn--primary):not(.btn--danger):not(.btn--success):not(.btn--warning):hover:not(:disabled) {
+  color: var(--text-primary, #10233c) !important;
+}

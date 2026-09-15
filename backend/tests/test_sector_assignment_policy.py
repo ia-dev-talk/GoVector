@@ -57,3 +57,14 @@ def test_legacy_sector_assignment_advances_profile_revision_under_lock():
     assert lock_index < delete_index
     assert delete_index < revision_index < commit_index
     assert "UPDATE technicians" in source
+    assert "ensure_team_sector_coverage" in source
+
+
+def test_team_coverage_projection_is_additive_and_conflict_safe():
+    from backend.logic.sectors import ensure_team_sector_coverage
+
+    source = inspect.getsource(ensure_team_sector_coverage)
+
+    assert "INSERT INTO field_team_sectors" in source
+    assert "ON CONFLICT (team_id, sector_id) DO NOTHING" in source
+    assert "DELETE FROM field_team_sectors" not in source

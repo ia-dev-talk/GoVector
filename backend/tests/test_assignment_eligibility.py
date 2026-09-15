@@ -1,7 +1,8 @@
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from backend.database.models import TechnicianStatus
-from backend.logic.assignments import assignment_profile_errors
+from backend.logic.assignments import _assignment_interval, assignment_profile_errors
 
 
 def _job(**values):
@@ -65,3 +66,36 @@ def test_assignment_profile_rejects_inactive_or_unavailable_profile():
     assert "Profil technicien inactif" in errors
     assert "Technicien indisponible" in errors
     assert "Équipe opérationnelle inactive" in errors
+
+
+def test_assignment_interval_accepts_a_complete_explicit_slot():
+    interval = _assignment_interval(_job(
+        scheduled_date=datetime(2026, 9, 15, 0, 0, tzinfo=timezone.utc),
+        time_slot_start="08:15",
+        time_slot_end="09:45",
+        job_type="SAV",
+        estimated_duration=60,
+    ))
+
+    assert interval is not None
+    assert interval[0].isoformat() == "2026-09-15T08:15:00+00:00"
+    assert interval[1].isoformat() == "2026-09-15T09:45:00+00:00"
+
+
+def test_assignment_interval_rejects_partial_or_reversed_slots():
+    base = {
+        "scheduled_date": datetime(2026, 9, 15, 0, 0, tzinfo=timezone.utc),
+        "job_type": "SAV",
+        "estimated_duration": 60,
+    }
+
+    assert _assignment_interval(_job(
+        **base,
+        time_slot_start="08:00",
+        time_slot_end=None,
+    )) is None
+    assert _assignment_interval(_job(
+        **base,
+        time_slot_start="10:00",
+        time_slot_end="09:00",
+    )) is None
