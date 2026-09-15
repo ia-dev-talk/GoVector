@@ -36,6 +36,14 @@ from . import (
 
 audit.router.include_router(feedback.router)
 
+# Delivery-safe extensions. They are mounted under the existing canonical
+# jobs/territories routers so backend/api/main.py does not need another
+# registration surface.
+from . import operational_jobs  # noqa: E402
+from . import sector_tools  # noqa: E402
+jobs.router.include_router(operational_jobs.router)
+territories.router.include_router(sector_tools.router)
+
 from . import stock_v2_patch  # noqa: E402,F401
 from . import stock_v2_atomic  # noqa: E402,F401
 from . import stock_history_v2  # noqa: E402,F401
