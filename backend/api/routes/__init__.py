@@ -36,13 +36,16 @@ from . import (
 
 audit.router.include_router(feedback.router)
 
-# Delivery-safe extensions. They are mounted under the existing canonical
-# jobs/territories routers so backend/api/main.py does not need another
-# registration surface.
+# Delivery-safe extensions. They are mounted under existing canonical routers
+# so backend/api/main.py keeps a single registration surface.
 from . import operational_jobs  # noqa: E402
 from . import sector_tools  # noqa: E402
+from . import import_confirm_fix  # noqa: E402
 jobs.router.include_router(operational_jobs.router)
 territories.router.include_router(sector_tools.router)
+# main.py registers import_excel before the historical import_confirm router;
+# this resilient /confirm endpoint therefore handles the request first.
+import_excel.router.include_router(import_confirm_fix.router)
 
 from . import stock_v2_patch  # noqa: E402,F401
 from . import stock_v2_atomic  # noqa: E402,F401
