@@ -1,7 +1,8 @@
-"""Hierarchical territory and GeoJSON administration for BlueVector V0.1."""
+"""Hierarchical territory and GeoJSON administration for GoVector."""
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,6 +15,15 @@ from backend.auth.dependencies import get_current_user, require_chef_orienteur
 from backend.database.connection import get_db
 from backend.database.models import Sector, User
 from backend.database.territory_models import TerritoryNode
+from backend.logic.territory_import import (
+    clean_import_text,
+    extract_qgis_identity,
+    extract_qgis_sector_link_id,
+    is_placeholder_label,
+    normalize_import_kind,
+    qgis_metadata,
+    resolve_import_sector_id,
+)
 
 
 router = APIRouter(prefix="/territories", tags=["Territories & GIS"])
@@ -201,6 +211,51 @@ async def _validate_links(
         raise HTTPException(422, "Secteur opérationnel lié introuvable")
 
 
+async def _sector_registry(db: AsyncSession):
+    return (
+        await db.execute(
+            select(
+                Sector.id,
+                Sector.name,
+                Sector.description,
+                Sector.is_active,
+            )
+        )
+    ).mappings().all()
+
+
+def _unique_external_nodes(nodes: list[TerritoryNode]) -> dict[str, TerritoryNode]:
+    grouped: dict[str, list[TerritoryNode]] = defaultdict(list)
+    for node in nodes:
+        external_id = clean_import_text(node.external_id)
+        if external_id:
+            grouped[external_id].append(node)
+    return {
+        key: records[0]
+        for key, records in grouped.items()
+        if len(records) == 1
+    }
+
+
+def _safe_repair_name(
+    node: TerritoryNode,
+    *,
+    candidate: Optional[str],
+    used_by_parent: dict[Optional[int], set[str]],
+) -> str:
+    base = clean_import_text(candidate) or clean_import_text(node.code) or clean_import_text(node.external_id)
+    base = base or f"Territoire QGIS #{node.id}"
+    base = base[:140]
+    sibling_names = used_by_parent[node.parent_id]
+    normalized = base.casefold()
+    if normalized in sibling_names:
+        suffix = f" · {node.id}"
+        base = f"{base[: max(1, 140 - len(suffix))]}{suffix}"
+        normalized = base.casefold()
+    sibling_names.add(normalized)
+    return base
+
+
 @router.get("")
 async def list_territories(
     include_inactive: bool = Query(True),
@@ -235,7 +290,7 @@ async def export_territories_geojson(
         "features": [
             {
                 "type": "Feature",
-                "id": node.id,
+                "id": node.external_id or node.id,
                 "geometry": node.geometry_geojson,
                 "properties": {
                     "id": node.id,
@@ -330,6 +385,70 @@ async def deactivate_territory(
     return {"success": True, "id": territory_id}
 
 
+@router.post("/reconcile")
+async def reconcile_territories(
+    db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(require_chef_orienteur),
+):
+    """Repair legacy QGIS placeholders and link unambiguous business sectors."""
+
+    nodes = (await db.execute(select(TerritoryNode).order_by(TerritoryNode.id))).scalars().all()
+    sectors = await _sector_registry(db)
+    used_by_parent: dict[Optional[int], set[str]] = defaultdict(set)
+    for node in nodes:
+        if not is_placeholder_label(node.name):
+            used_by_parent[node.parent_id].add(str(node.name).strip().casefold())
+
+    renamed = 0
+    linked = 0
+    unresolved: list[dict[str, Any]] = []
+
+    for node in nodes:
+        raw_metadata = node.metadata_json if isinstance(node.metadata_json, dict) else {}
+        qgis_properties = raw_metadata.get("qgis_properties")
+        if not isinstance(qgis_properties, dict):
+            qgis_properties = {}
+        identity = extract_qgis_identity(qgis_properties, feature_id=node.external_id)
+
+        if is_placeholder_label(node.name):
+            node.name = _safe_repair_name(
+                node,
+                candidate=identity.get("name"),
+                used_by_parent=used_by_parent,
+            )
+            renamed += 1
+
+        if node.legacy_sector_id is None:
+            sector_id = resolve_import_sector_id(
+                sectors=sectors,
+                name=node.name,
+                code=node.code or identity.get("code"),
+                external_id=node.external_id or identity.get("external_id"),
+            )
+            if sector_id is not None:
+                node.legacy_sector_id = sector_id
+                linked += 1
+            else:
+                unresolved.append({
+                    "id": node.id,
+                    "name": node.name,
+                    "code": node.code,
+                })
+
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(409, "Réconciliation incompatible avec la hiérarchie existante") from exc
+
+    return {
+        "renamed": renamed,
+        "linked": linked,
+        "unresolved": len(unresolved),
+        "unresolved_items": unresolved[:200],
+    }
+
+
 @router.post("/import-geojson")
 async def import_geojson(
     document: GeoJsonImport,
@@ -343,12 +462,19 @@ async def import_geojson(
     if not isinstance(features, list):
         raise HTTPException(422, "FeatureCollection.features doit être une liste")
 
+    existing_nodes = (await db.execute(select(TerritoryNode))).scalars().all()
     existing_by_code = {
         node.code: node
-        for node in (await db.execute(select(TerritoryNode).where(TerritoryNode.code.is_not(None)))).scalars().all()
+        for node in existing_nodes
+        if clean_import_text(node.code)
     }
+    existing_by_external = _unique_external_nodes(existing_nodes)
+    sectors = await _sector_registry(db)
+    sectors_by_id = {int(sector["id"]): sector for sector in sectors}
+
     created = 0
     updated = 0
+    linked = 0
     skipped = []
     deferred_parent_codes: list[tuple[TerritoryNode, str]] = []
 
@@ -357,9 +483,13 @@ async def import_geojson(
             skipped.append({"index": index, "reason": "Feature invalide"})
             continue
         properties = feature.get("properties") if isinstance(feature.get("properties"), dict) else {}
-        name = _clean_text(properties.get("name"))
+        identity = extract_qgis_identity(properties, feature_id=feature.get("id"))
+        name = clean_import_text(identity.get("name"))
         if not name:
-            skipped.append({"index": index, "reason": "property name manquante"})
+            skipped.append({
+                "index": index,
+                "reason": "aucun nom/code QGIS exploitable (valeurs 0/0.0/null ignorées)",
+            })
             continue
         try:
             geometry = _validate_geometry(feature.get("geometry"))
@@ -367,30 +497,47 @@ async def import_geojson(
             skipped.append({"index": index, "reason": str(exc)})
             continue
 
-        code = _clean_text(properties.get("code"))
+        code = clean_import_text(identity.get("code"))
+        external_id = clean_import_text(identity.get("external_id"))
         node = existing_by_code.get(code) if code else None
+        if node is None and external_id:
+            node = existing_by_external.get(external_id)
         if node is not None and not document.update_existing:
-            skipped.append({"index": index, "reason": f"code {code} existe déjà"})
+            skipped.append({"index": index, "reason": "territoire existe déjà"})
             continue
+
+        kind = normalize_import_kind(identity.get("kind"), default="SECTOR")
+        if kind not in _ALLOWED_KINDS:
+            skipped.append({"index": index, "reason": f"kind {kind} invalide"})
+            continue
+
+        explicit_sector_id = extract_qgis_sector_link_id(properties)
+        if explicit_sector_id not in sectors_by_id:
+            explicit_sector_id = None
+        sector_id = explicit_sector_id or resolve_import_sector_id(
+            sectors=sectors,
+            name=name,
+            code=code,
+            external_id=external_id,
+        )
 
         values = {
             "code": code,
-            "name": name,
-            "kind": str(properties.get("kind") or "SECTOR").strip().upper(),
+            "name": name[:140],
+            "kind": kind,
             "color": _clean_text(properties.get("color")),
             "description": _clean_text(properties.get("description")),
             "geometry_geojson": geometry,
             "centroid_latitude": properties.get("centroid_latitude"),
             "centroid_longitude": properties.get("centroid_longitude"),
             "source": _clean_text(document.source) or "qgis",
-            "external_id": _clean_text(properties.get("external_id")),
+            "external_id": external_id,
             "is_active": bool(properties.get("is_active", True)),
             "sort_order": int(properties.get("sort_order") or 0),
-            "metadata_json": properties.get("metadata") if isinstance(properties.get("metadata"), dict) else {},
+            "metadata_json": qgis_metadata(properties),
         }
-        if values["kind"] not in _ALLOWED_KINDS:
-            skipped.append({"index": index, "reason": f"kind {values['kind']} invalide"})
-            continue
+        if sector_id is not None:
+            values["legacy_sector_id"] = sector_id
 
         if node is None:
             node = TerritoryNode(**values)
@@ -398,13 +545,22 @@ async def import_geojson(
             await db.flush()
             if code:
                 existing_by_code[code] = node
+            if external_id:
+                existing_by_external[external_id] = node
             created += 1
         else:
+            # Never erase an existing manual business link because a later GIS
+            # file lacks enough information to resolve it.
+            if sector_id is None:
+                values.pop("legacy_sector_id", None)
             for key, value in values.items():
                 setattr(node, key, value)
             updated += 1
 
-        parent_code = _clean_text(properties.get("parent_code"))
+        if node.legacy_sector_id is not None:
+            linked += 1
+
+        parent_code = clean_import_text(identity.get("parent_code"))
         if parent_code:
             deferred_parent_codes.append((node, parent_code))
 
@@ -422,6 +578,7 @@ async def import_geojson(
     return {
         "created": created,
         "updated": updated,
+        "linked": linked,
         "skipped": skipped,
         "source": document.source,
     }
