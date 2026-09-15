@@ -1,28 +1,17 @@
-import GuardedJobWizard from './GuardedJobWizard';
+import OperationalJobEditor from './OperationalJobEditor';
 
-/**
- * Point d'entrée historique de modification d'une intervention.
- *
- * Le cockpit utilise encore EditJobWindow avec les props `job`, `onClose`
- * et `onSaved`. La modification est désormais centralisée dans JobWizard
- * pour partager les validations, le contrat API et la gestion d'affectation.
- */
+/** Complete GoVector operational intervention modification surface. */
 export default function EditJobWindow({
   job,
   onClose,
   onSaved,
-  ...wizardProps
 }) {
-  if (!job?.id) {
-    return null;
-  }
-
+  if (!job?.id) return null;
   return (
-    <GuardedJobWizard
-      {...wizardProps}
-      initialData={job}
+    <OperationalJobEditor
+      job={job}
       onClose={onClose}
-      onCreated={onSaved}
+      onSaved={onSaved}
     />
   );
 }
