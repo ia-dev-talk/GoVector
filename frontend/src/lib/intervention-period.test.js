@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import assert from 'node:assert/strict';
+import test from 'node:test';
 
 import {
   buildInterventionPeriod,
@@ -8,49 +9,51 @@ import {
 
 const ANCHOR = new Date(2026, 8, 14, 12, 0, 0);
 
-describe('intervention period ranges', () => {
-  it('keeps today as a one-day operational scope', () => {
-    expect(buildInterventionPeriod('today', ANCHOR)).toEqual({
-      from: '2026-09-14',
-      to: '2026-09-14',
-      scope: 'today',
-    });
+test('keeps today as a one-day operational scope', () => {
+  assert.deepEqual(buildInterventionPeriod('today', ANCHOR), {
+    from: '2026-09-14',
+    to: '2026-09-14',
+    scope: 'today',
   });
+});
 
-  it('builds future week, month, next month and year scopes', () => {
-    expect(buildInterventionPeriod('week', ANCHOR)).toMatchObject({
-      from: '2026-09-14',
-      to: '2026-09-20',
-    });
-    expect(buildInterventionPeriod('month', ANCHOR)).toMatchObject({
-      from: '2026-09-01',
-      to: '2026-09-30',
-    });
-    expect(buildInterventionPeriod('next_month', ANCHOR)).toMatchObject({
-      from: '2026-10-01',
-      to: '2026-10-31',
-    });
-    expect(buildInterventionPeriod('year', ANCHOR)).toMatchObject({
-      from: '2026-01-01',
-      to: '2026-12-31',
-    });
+test('builds future week, month, next month and year scopes', () => {
+  assert.deepEqual(buildInterventionPeriod('week', ANCHOR), {
+    from: '2026-09-14',
+    to: '2026-09-20',
+    scope: 'week',
   });
-
-  it('accepts an ordered custom period and rejects a reversed one', () => {
-    expect(isValidInterventionPeriod('2026-09-14', '2026-10-03')).toBe(true);
-    expect(isValidInterventionPeriod('2026-10-03', '2026-09-14')).toBe(false);
+  assert.deepEqual(buildInterventionPeriod('month', ANCHOR), {
+    from: '2026-09-01',
+    to: '2026-09-30',
+    scope: 'month',
   });
+  assert.deepEqual(buildInterventionPeriod('next_month', ANCHOR), {
+    from: '2026-10-01',
+    to: '2026-10-31',
+    scope: 'next_month',
+  });
+  assert.deepEqual(buildInterventionPeriod('year', ANCHOR), {
+    from: '2026-01-01',
+    to: '2026-12-31',
+    scope: 'year',
+  });
+});
 
-  it('reports the real date span of an imported multi-date lot', () => {
-    expect(interventionDateSpan([
-      { scheduled_date: '2026-09-14T15:00:00+00:00' },
-      { scheduled_date: '2026-09-14T09:53:00+00:00' },
-      { scheduled_date: '2026-09-15T15:00:00+00:00' },
-      { scheduled_date: null },
-    ])).toEqual({
-      first: '2026-09-14',
-      last: '2026-09-15',
-      distinctDates: 2,
-    });
+test('accepts an ordered custom period and rejects a reversed one', () => {
+  assert.equal(isValidInterventionPeriod('2026-09-14', '2026-10-03'), true);
+  assert.equal(isValidInterventionPeriod('2026-10-03', '2026-09-14'), false);
+});
+
+test('reports the real date span of an imported multi-date lot', () => {
+  assert.deepEqual(interventionDateSpan([
+    { scheduled_date: '2026-09-14T15:00:00+00:00' },
+    { scheduled_date: '2026-09-14T09:53:00+00:00' },
+    { scheduled_date: '2026-09-15T15:00:00+00:00' },
+    { scheduled_date: null },
+  ]), {
+    first: '2026-09-14',
+    last: '2026-09-15',
+    distinctDates: 2,
   });
 });
