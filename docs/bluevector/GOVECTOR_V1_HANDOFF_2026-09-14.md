@@ -257,3 +257,84 @@ date devient un **périmètre d'affichage**, pas une limitation fonctionnelle. L
 raccourcis visés sont : Aujourd'hui, Demain, Cette semaine, Ce mois, Mois prochain,
 Cette année et Période personnalisée. L'implémentation et ses tests restent à faire
 avant validation finale.
+
+## Reprise Work — vérification du 15 septembre 2026
+
+Cette section remplace les mentions « reste à faire » ci-dessus lorsqu'elles
+concernent les périodes futures, le rapport MAGILLAN ou la CI de la branche de
+correction. Les paragraphes antérieurs restent conservés comme historique.
+
+### État Git et CI avant les corrections Work
+
+- branche contrôlée : `fix/govector-final-corrections-20260914` ;
+- répertoire propre avant intervention, sans fichier modifié ou non suivi ;
+- référence distante rafraîchie puis avance rapide non destructive de `0958fdc`
+  vers `6c68a0d` ; aucune fusion avec `main`, `release/*` ou `delivery/*` ;
+- CI GitHub Actions `GoVector quality` du commit `6c68a0d` : succès le
+  15 septembre 2026, cinq jobs verts (`backend`, `postgres-geolocation`,
+  `frontend`, `mobile`, `pilot-4g-config`) ;
+- URL de preuve : <https://github.com/ia-dev-talk/GoVector/actions/runs/34965292596>.
+
+### Bloc stable 3 — contrats frontend réellement exécutés
+
+Commit local : `14725b1` — `test(frontend): enforce GoVector GIS and future periods`.
+
+Deux défauts de test ciblés ont été corrigés :
+
+- le scénario navigateur GIS attend désormais le vrai nom téléchargé
+  `govector-8-couche-55.geojson`, au lieu de l'ancien préfixe BlueVector ;
+- les quatre tests de périodes futures ont été convertis vers `node:test`, déjà
+  utilisé par le dépôt, puis ajoutés à `npm test`. Ils n'étaient auparavant pas
+  exécutés et dépendaient d'un paquet `vitest` absent.
+
+Preuves locales après correction :
+
+- frontend : lint sans erreur (un avertissement hooks historique), **293/293**
+  tests réussis et build Vite production réussi ;
+- navigateur simulé : **9/9** scénarios Orienteur, candidats, GIS et carte réussis ;
+- backend complet Windows : **699 réussis, 22 ignorés** ;
+- contrats ciblés import MAGILLAN, idempotence, rapport/PDF et RAR/GIS :
+  **59 réussis, 1 ignoré** ;
+- mobile : analyse terminée avec les **203 diagnostics historiques** autorisés par
+  le gate pilote, puis **98/98** tests réussis ;
+- Docker Compose : rendu du profil régulier et `pilot-4g` valide ; services
+  `postgres`, `migrate`, `app`, `pilot-edge` et `pilot-tunnel` présents.
+
+Le moteur Docker Windows n'était pas démarré pendant ce passage. Les conteneurs,
+la base, les migrations réelles, le healthcheck servi, la connexion ADMIN/ORIENTEUR
+et l'import du fichier entreprise n'ont donc pas été rejoués ici. La CI PostgreSQL
+et Docker est verte, mais ne remplace pas cette recette sur le serveur Linux cible.
+
+### Bloc stable 4 — installation Linux et accès 4G privé
+
+Le guide `docs/govector/LOCAL_SERVER_INSTALL.md` pointe désormais vers la branche
+de correction, impose un `pull --ff-only` et documente l'accès privé recommandé :
+
+1. GoVector reste servi localement par Docker Compose sur `8080` ;
+2. Tailscale Serve publie ce port en HTTPS uniquement dans le tailnet ;
+3. le Web et l'API utilisent le même nom `*.ts.net` ;
+4. l'APK pilote release est construite avec
+   `API_BASE_URL=https://...ts.net/api/v1` ;
+5. `tailscale funnel` et l'exposition publique de PostgreSQL sont interdits.
+
+L'authentification au tailnet, le choix des personnes/appareils autorisés et la
+politique d'accès restent des décisions humaines de l'entreprise. Aucun compte,
+secret ou tunnel n'a été créé depuis Work.
+
+### Recette humaine obligatoire sur site
+
+1. Installer sur le serveur Linux, appliquer les migrations et obtenir `/health`
+   en HTTP 200 localement puis depuis le LAN.
+2. Se connecter réellement en ADMIN et ORIENTEUR dans le Web servi ; contrôler
+   les espaces, les droits et l'absence de réponse 5xx.
+3. Importer le fichier MAGILLAN réel, noter le lot et les dates futures, puis
+   rejouer exactement le même fichier : aucun doublon ne doit être créé.
+4. Exporter le PDF MAGILLAN sans photo, avec une photo et avec plusieurs photos.
+5. Importer le RAR/QGIS original ; une archive endommagée doit être rejetée sans
+   extraction partielle. Exécuter export, preview, apply et conflit QField.
+6. Installer une APK release neuve et relevée par SHA-256 sur la tablette.
+7. Vérifier en Wi-Fi, couper totalement le Wi-Fi, garder la 4G/5G avec Tailscale,
+   puis tester connexion, GPS réel, photo, mesure, signature, mode offline, outbox
+   et resynchronisation.
+
+Ne déclarer la livraison terrain validée qu'après consignation de ces preuves.
