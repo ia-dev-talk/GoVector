@@ -41,6 +41,7 @@ export default function FieldFormsSettingsSection({ toast, userRole = 'ADMIN', r
   const editable = userRole === 'ADMIN';
   const [document, setDocument] = useState(null);
   const [templates, setTemplates] = useState([]);
+  const [jobTypes, setJobTypes] = useState([]);
   const [published, setPublished] = useState(new Set());
   const [selected, setSelected] = useState(null);
   const [dirty, setDirty] = useState(false);
@@ -50,9 +51,14 @@ export default function FieldFormsSettingsSection({ toast, userRole = 'ADMIN', r
   const load = useCallback(async () => {
     setBusy(true); setError('');
     try {
-      const response = await api.getFieldForms();
-      const items = clone(response.data?.values?.templates || []);
-      setDocument(response.data); setTemplates(items);
+      const [formsResponse, catalogResponse] = await Promise.all([
+        api.getFieldForms(),
+        api.getBusinessCatalog(),
+      ]);
+      const items = clone(formsResponse.data?.values?.templates || []);
+      setDocument(formsResponse.data);
+      setTemplates(items);
+      setJobTypes(clone(catalogResponse.data?.values?.job_types || []));
       setPublished(new Set(items.map(identity)));
       setSelected(items.length ? 0 : null); setDirty(false);
     } catch (failure) { setError(message(failure)); }
@@ -101,6 +107,12 @@ export default function FieldFormsSettingsSection({ toast, userRole = 'ADMIN', r
     }
     target.active = !target.active;
   });
+  const toggleActivity = (code, checked) => {
+    if (!active) return;
+    const current = new Set(active.scope.activity_codes || []);
+    if (checked) current.add(code); else current.delete(code);
+    updateScope('activity_codes', Array.from(current));
+  };
   const addField = () => mutate((items) => {
     const fields = items[selected].fields;
     fields.push({ key: `champ_${fields.length + 1}`, label: 'Nouveau champ', kind: 'text', required: false, sort_order: fields.length * 10, options: [], unit: null, help_text: null });
@@ -120,6 +132,17 @@ export default function FieldFormsSettingsSection({ toast, userRole = 'ADMIN', r
   };
 
   const grouped = useMemo(() => templates.map((item, index) => ({ item, index })), [templates]);
+  const activityChoices = useMemo(() => {
+    const selectedCodes = new Set(active?.scope?.activity_codes || []);
+    return jobTypes
+      .filter((item) => item?.code && (item.active || selectedCodes.has(item.code)))
+      .sort((left, right) => (Number(left.sort_order) || 0) - (Number(right.sort_order) || 0));
+  }, [active?.scope?.activity_codes, jobTypes]);
+  const missingActivityCodes = useMemo(() => {
+    const catalogCodes = new Set(jobTypes.map((item) => item?.code).filter(Boolean));
+    return (active?.scope?.activity_codes || []).filter((code) => !catalogCodes.has(code));
+  }, [active?.scope?.activity_codes, jobTypes]);
+
   if (busy && !document) return <section className="forms-settings"><p>Chargement des formulaires…</p></section>;
 
   return <section className="forms-settings">
@@ -139,7 +162,22 @@ export default function FieldFormsSettingsSection({ toast, userRole = 'ADMIN', r
           <div className="forms-settings__grid">
             <label>Identifiant<input disabled={!editable || isPublished} value={active.template_key} onChange={(event) => update('template_key', event.target.value)} /></label>
             <label>Libellé<input disabled={!editable || isPublished} value={active.label} onChange={(event) => update('label', event.target.value)} /></label>
-            <label>Activités (codes séparés par virgule)<input disabled={!editable || isPublished} value={active.scope.activity_codes.join(', ')} onChange={(event) => updateScope('activity_codes', csv(event.target.value))} /></label>
+            <fieldset className="forms-settings__activity-picker">
+              <legend>Activités / types d’intervention liés</legend>
+              <p>Choisissez les activités administrées qui utilisent ce formulaire. Le lien est enregistré avec la version du formulaire.</p>
+              <div className="forms-settings__activity-options">
+                {activityChoices.map((item) => {
+                  const checked = active.scope.activity_codes.includes(item.code);
+                  const disabled = !editable || isPublished || (!item.active && !checked);
+                  return <label key={item.code} className={!item.active ? 'is-inactive' : ''}>
+                    <input type="checkbox" disabled={disabled} checked={checked} onChange={(event) => toggleActivity(item.code, event.target.checked)} />
+                    <span><strong>{item.label || item.code}</strong><small>{item.code}{item.active ? '' : ' · inactive'}</small></span>
+                  </label>;
+                })}
+                {activityChoices.length === 0 && <span className="forms-settings__empty-choice">Aucune activité active dans le référentiel métier.</span>}
+              </div>
+              {missingActivityCodes.length > 0 && <p className="forms-settings__scope-warning">Liens historiques absents du référentiel : {missingActivityCodes.join(', ')}. Ils sont conservés tant que cette version n’est pas remplacée.</p>}
+            </fieldset>
             <label>Opérateurs (codes séparés par virgule)<input disabled={!editable || isPublished} value={active.scope.operator_codes.join(', ')} onChange={(event) => updateScope('operator_codes', csv(event.target.value))} /></label>
             <label>Clients (identifiants séparés par virgule)<input disabled={!editable || isPublished} value={active.scope.client_organization_ids.join(', ')} onChange={(event) => updateScope('client_organization_ids', csv(event.target.value).map(Number).filter(Number.isInteger))} /></label>
           </div>
