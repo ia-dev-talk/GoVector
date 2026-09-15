@@ -202,10 +202,15 @@ async def update_intervention_editor(
 
     changes = document.model_dump(exclude_unset=True)
     if current_user.role == UserRole.ORIENTEUR and "client_organization_id" in changes:
-        raise HTTPException(
-            status_code=403,
-            detail="Seul un administrateur peut modifier l'entreprise cliente.",
-        )
+        requested_organization_id = changes.get("client_organization_id")
+        if requested_organization_id != job.client_organization_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Seul un administrateur peut modifier l'entreprise cliente.",
+            )
+        # The full editor sends the current snapshot. Keeping the same client is
+        # not a privilege escalation, so ignore the no-op field for ORIENTEUR.
+        changes.pop("client_organization_id", None)
 
     final_latitude = changes.get("latitude", job.latitude)
     final_longitude = changes.get("longitude", job.longitude)
