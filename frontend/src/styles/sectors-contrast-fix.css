@@ -1,0 +1,33 @@
+/* Delivery hotfix: keep sector content readable in both light and dark themes. */
+
+/* The operational registry can render on a light surface. Do not hard-code
+   white text there; use the active theme tokens instead. */
+.sv3-kpi-value,
+.sv3-panel-header strong,
+.sv3-inspector-header strong,
+.sv3-inspector-tabs button.active,
+.sv3-modal > header strong {
+  color: var(--text-primary);
+}
+
+.sv3-metric:not(.sv3-metric--success):not(.sv3-metric--warning):not(.sv3-metric--info):not(.sv3-metric--danger) strong {
+  color: var(--text-primary);
+}
+
+/* The GIS hierarchy intentionally keeps its dark map-console surface even
+   when the surrounding application uses the light theme. Give inherited
+   headings/text an explicit readable foreground. */
+.territory-workspace {
+  color: #dce8f8;
+}
+
+.territory-workspace__header h2,
+.territory-inspector h3,
+.territory-inspector dd {
+  color: #eaf2ff;
+}
+
+.territory-workspace__header p,
+.territory-inspector > p {
+  color: #93a6be;
+}

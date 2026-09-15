@@ -1,8 +1,9 @@
 /**
- * SecteursPage — référentiel territorial BlueVector.
+ * SecteursPage — référentiel territorial GoVector.
  *
- * Les secteurs sont des entités persistées, liées aux techniciens par ID.
- * Les géométries QGIS/QField restent explicitement non raccordées.
+ * Les secteurs opérationnels restent la source métier pour les affectations.
+ * La hiérarchie QGIS/QField est affichée au même endroit et peut être liée à
+ * ces secteurs sans dupliquer les règles d'affectation.
  */
 
 import {
@@ -18,12 +19,13 @@ import ExportCenter from '../components/export/ExportCenter';
 import Toast from '../components/Toast';
 import { useRuntimeSettings } from '../contexts/RuntimeSettingsContext';
 import { personnelSectorApi } from '../features/personnel/personnelSectorApi';
+import GisDatasetWorkspace from '../features/sectors/GisDatasetWorkspace';
 import SectorEditorModal from '../features/sectors/SectorEditorModal';
 import SectorHeader from '../features/sectors/SectorHeader';
 import SectorInspector from '../features/sectors/SectorInspector';
 import SectorKpiStrip from '../features/sectors/SectorKpiStrip';
 import SectorRegistry from '../features/sectors/SectorRegistry';
-import GisDatasetWorkspace from '../features/sectors/GisDatasetWorkspace';
+import TerritoryWorkspace from '../features/sectors/TerritoryWorkspace';
 import {
   buildSectorSnapshotFromSettled,
   canMutateSectorSnapshot,
@@ -41,6 +43,7 @@ import {
 } from '../features/sectors/sectorUtils';
 import { useWebSocket } from '../hooks/useWebSocket';
 import '../styles/sectors-v3.css';
+import '../styles/sectors-contrast-fix.css';
 
 const REALTIME_RELOAD_DELAY = 650;
 const EMPTY_SNAPSHOT = Object.freeze({
@@ -86,7 +89,9 @@ export default function SecteursPage({ userRole, onNavigate }) {
   const toastIdRef = useRef(0);
 
   const role = text(userRole).toUpperCase();
-  const canManage = ['ADMIN', 'CHEF_ORIENTEUR'].includes(role);
+  // Backend contract: office ORIENTEUR + ADMIN manage the global registry.
+  // CHEF_ORIENTEUR is the field agent and must not receive global rights.
+  const canManage = ['ADMIN', 'ORIENTEUR'].includes(role);
   const snapshotStale = Boolean(loadError);
   const canMutateCurrentSnapshot = canMutateSectorSnapshot({
     canManage,
@@ -320,7 +325,12 @@ export default function SecteursPage({ userRole, onNavigate }) {
       )}
 
       <div className="sv3-content">
-        {String(userRole).toUpperCase() === 'ADMIN' && <GisDatasetWorkspace />}
+        <TerritoryWorkspace
+          canManage={canManage}
+          legacySectors={sectors}
+          toast={toast}
+        />
+        {role === 'ADMIN' && <GisDatasetWorkspace />}
         <SectorKpiStrip
           summary={summary}
           activeFilter={kpiFilter}
