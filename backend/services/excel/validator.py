@@ -3,15 +3,15 @@ import math
 
 class ExcelValidator:
 
-    # Pilot rule: an operational order may arrive incomplete and be enriched by
-    # dispatch or the field later. Missing context is visible, not fabricated
-    # and not blocking.
+    # The unique order/reference is the only hard requirement at preview time.
+    # Type may be absent or unknown: GoVector imports the intervention as
+    # "type pending" so the office orienteur can decide it explicitly.
     REQUIRED_FIELDS = [
         "job_number",
-        "job_type",
     ]
 
     SOFT_REQUIRED_FIELDS = [
+        "job_type",
         "customer_name",
         "service_address",
         "nro",
