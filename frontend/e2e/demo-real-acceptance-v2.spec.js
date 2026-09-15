@@ -30,10 +30,28 @@ function authorization(token) {
   return { Authorization: `Bearer ${token}` };
 }
 
-async function rawLogin(request, username) {
+async function webLogin(request, username) {
   return request.post('/api/v1/auth/login', {
     form: { username, password: PASSWORD },
   });
+}
+
+async function fieldLogin(request, username) {
+  return request.post('/api/v1/tech/login', {
+    data: { username, password: PASSWORD },
+  });
+}
+
+async function rawLogin(request, username) {
+  const fieldUsers = new Set([
+    USERS.fieldAgent,
+    USERS.technicianAmine,
+    USERS.technicianNabil,
+  ]);
+
+  return fieldUsers.has(username)
+    ? fieldLogin(request, username)
+    : webLogin(request, username);
 }
 
 async function apiSession(request, username) {
@@ -44,11 +62,18 @@ async function apiSession(request, username) {
   ).toBe(200);
   const payload = await response.json();
   expect(payload.access_token, `Token absent pour ${username}`).toBeTruthy();
-  expect(payload.user, `Utilisateur absent pour ${username}`).toBeTruthy();
-  return {
-    token: payload.access_token,
-    user: payload.user,
-  };
+const user = payload.user || {
+  id: payload.user_id,
+  username,
+  role: payload.role,
+  technician_id: payload.technician_id ?? null,
+  orienteur_id: payload.orienteur_id ?? null,
+};
+
+return {
+  token: payload.access_token,
+  user,
+};
 }
 
 async function openUiSession(page, request, username) {
