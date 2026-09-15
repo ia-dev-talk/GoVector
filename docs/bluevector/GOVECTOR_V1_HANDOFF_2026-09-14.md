@@ -338,3 +338,17 @@ secret ou tunnel n'a été créé depuis Work.
    et resynchronisation.
 
 Ne déclarer la livraison terrain validée qu'après consignation de ces preuves.
+
+### Publication des blocs Work
+
+Le push non forcé vers
+`govector/fix/govector-final-corrections-20260914` a été tenté après les deux
+commits stables. Il a été refusé avant transfert parce qu'aucune authentification
+GitHub utilisable n'est disponible dans cette session (`unable to get password
+from user`). Aucun secret n'a été demandé ou affiché et aucun autre dépôt n'a été
+utilisé comme contournement.
+
+État à reprendre : les commits `14725b1` et `1afa52f` sont locaux. La dernière CI
+distante confirmée verte reste celle de `6c68a0d`. Après authentification humaine,
+faire uniquement un push non forcé de la branche de correction, puis attendre les
+cinq jobs `GoVector quality` avant de mettre à jour cette preuve.
