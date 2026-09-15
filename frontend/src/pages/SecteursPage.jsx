@@ -1,8 +1,9 @@
 /**
- * SecteursPage — référentiel territorial BlueVector.
+ * SecteursPage — référentiel territorial GoVector.
  *
- * Les secteurs sont des entités persistées, liées aux techniciens par ID.
- * Les géométries QGIS/QField restent explicitement non raccordées.
+ * Les secteurs métier restent la source de vérité pour les affectations.
+ * Le workspace SIG permet désormais de relier proprement QGIS/QField à ces
+ * secteurs, sans transformer des IDs numériques en faux libellés.
  */
 
 import {
@@ -24,6 +25,7 @@ import SectorInspector from '../features/sectors/SectorInspector';
 import SectorKpiStrip from '../features/sectors/SectorKpiStrip';
 import SectorRegistry from '../features/sectors/SectorRegistry';
 import GisDatasetWorkspace from '../features/sectors/GisDatasetWorkspace';
+import TerritoryWorkspaceV2 from '../features/sectors/TerritoryWorkspaceV2';
 import {
   buildSectorSnapshotFromSettled,
   canMutateSectorSnapshot,
@@ -86,7 +88,7 @@ export default function SecteursPage({ userRole, onNavigate }) {
   const toastIdRef = useRef(0);
 
   const role = text(userRole).toUpperCase();
-  const canManage = ['ADMIN', 'CHEF_ORIENTEUR'].includes(role);
+  const canManage = ['ADMIN', 'ORIENTEUR'].includes(role);
   const snapshotStale = Boolean(loadError);
   const canMutateCurrentSnapshot = canMutateSectorSnapshot({
     canManage,
@@ -154,15 +156,11 @@ export default function SecteursPage({ userRole, onNavigate }) {
   }, [loadData]);
 
   useEffect(() => () => {
-    if (reloadTimerRef.current !== null) {
-      window.clearTimeout(reloadTimerRef.current);
-    }
+    if (reloadTimerRef.current !== null) window.clearTimeout(reloadTimerRef.current);
   }, []);
 
   const scheduleReload = useCallback(() => {
-    if (reloadTimerRef.current !== null) {
-      window.clearTimeout(reloadTimerRef.current);
-    }
+    if (reloadTimerRef.current !== null) window.clearTimeout(reloadTimerRef.current);
     reloadTimerRef.current = window.setTimeout(() => {
       reloadTimerRef.current = null;
       loadData();
@@ -309,18 +307,22 @@ export default function SecteursPage({ userRole, onNavigate }) {
       {loadError && (
         <div className="sv3-notice" role="alert">
           <span>{loadError}</span>
-          <button
-            type="button"
-            onClick={loadData}
-            disabled={refreshing}
-          >
-            Réessayer
-          </button>
+          <button type="button" onClick={loadData} disabled={refreshing}>Réessayer</button>
         </div>
       )}
 
       <div className="sv3-content">
-        {String(userRole).toUpperCase() === 'ADMIN' && <GisDatasetWorkspace />}
+        {role === 'ADMIN' && (
+          <>
+            <TerritoryWorkspaceV2
+              canManage={canMutateCurrentSnapshot}
+              legacySectors={sectors}
+              toast={toast}
+            />
+            <GisDatasetWorkspace />
+          </>
+        )}
+
         <SectorKpiStrip
           summary={summary}
           activeFilter={kpiFilter}
@@ -364,14 +366,10 @@ export default function SecteursPage({ userRole, onNavigate }) {
       {exportOpen && <ExportCenter onClose={() => setExportOpen(false)} />}
 
       <div className="toast-container">
-        {toasts.map((item) => (
-          <Toast key={item.id} message={item.message} type={item.type} />
-        ))}
+        {toasts.map((item) => <Toast key={item.id} message={item.message} type={item.type} />)}
       </div>
 
-      {loading && (
-        <div className="sv3-loading">Chargement du référentiel secteurs…</div>
-      )}
+      {loading && <div className="sv3-loading">Chargement du référentiel secteurs…</div>}
     </div>
   );
 }
