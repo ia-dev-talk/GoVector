@@ -11,9 +11,11 @@
 
 .aje-modal {
   width: min(1180px, 96vw);
+  height: min(94vh, 1000px);
+  height: min(94dvh, 1000px);
   max-height: 94vh;
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: var(--surface-panel, #fff);
   color: var(--text-primary, #14233a);
@@ -23,6 +25,7 @@
 }
 
 .aje-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -86,6 +89,7 @@
 
 .aje-state,
 .aje-alert {
+  flex: 0 0 auto;
   margin: 14px 24px 0;
   padding: 12px 14px;
   border-radius: 10px;
@@ -109,8 +113,10 @@
 }
 
 .aje-body {
+  flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 20px 24px 28px;
   background: var(--surface-page, #f6f8fb);
 }
@@ -233,6 +239,7 @@
 }
 
 .aje-footer {
+  flex: 0 0 auto;
   justify-content: flex-end;
   padding: 16px 24px;
   border-top: 1px solid var(--border-color, #dbe4ef);
@@ -252,8 +259,9 @@
 
   .aje-modal {
     width: 100vw;
-    max-height: 100vh;
     height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
     border-radius: 0;
   }
 

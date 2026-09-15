@@ -202,10 +202,16 @@ test('creation adapters keep the guarded wizard boundary', () => {
 test('full intervention edit adapter uses its own unsaved-change guard', () => {
   const adapter = readSource('../components/EditJobWindow.jsx');
   const editor = readSource('../components/AdvancedJobEditor.jsx');
+  const styles = readSource('../components/AdvancedJobEditor.css');
 
   assert.match(adapter, /from '\.\/AdvancedJobEditor'/);
   assert.doesNotMatch(adapter, /from '\.\/JobWizard'/);
   assert.match(editor, /dirty && !window\.confirm/);
   assert.match(editor, /Fermer sans enregistrer les modifications \?/);
   assert.match(editor, /setDirty\(false\)/);
+  assert.match(styles, /\.aje-modal\s*\{[\s\S]*?height:\s*min\(94dvh,\s*1000px\)/);
+  assert.match(styles, /\.aje-modal\s*\{[\s\S]*?display:\s*flex/);
+  assert.match(styles, /\.aje-body\s*\{[\s\S]*?flex:\s*1 1 auto/);
+  assert.match(styles, /\.aje-body\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(styles, /\.aje-footer\s*\{[\s\S]*?flex:\s*0 0 auto/);
 });
