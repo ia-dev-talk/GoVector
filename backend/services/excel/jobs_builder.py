@@ -27,6 +27,15 @@ _TYPE_ALIASES = {
     "CROQUIS RESEAU": JobType.CROQUIS_RESEAU,
 }
 
+_EDITOR_KEYS = {
+    "cable_type": "cable",
+    "cable_depart_m": "depart",
+    "cable_arrive_m": "arrive",
+    "pose_sp_m": "conduite",
+    "pose_fsd_m": "fi",
+    "pose_tr_m": "a",
+}
+
 
 def _fold_type(value):
     if value is None:
@@ -47,7 +56,6 @@ def _normalize_job_type(job, raw_type):
     warnings = list(job.get("import_warnings") or [])
     operational_data = dict(job.get("operational_data") or {})
 
-    # Remove the older parser warning when this layer recognized the label.
     warnings = [
         warning
         for warning in warnings
@@ -69,6 +77,13 @@ def _normalize_job_type(job, raw_type):
         message = "Type d'intervention à décider par l'orienteur."
         if message not in warnings:
             warnings.append(message)
+
+    # Keep the canonical import keys and add stable editor aliases. This makes
+    # every operator/Excel column immediately editable after import while
+    # preserving the original source payload for exports/audit.
+    for source_key, editor_key in _EDITOR_KEYS.items():
+        if source_key in operational_data and editor_key not in operational_data:
+            operational_data[editor_key] = operational_data[source_key]
 
     job["import_warnings"] = warnings
     job["operational_data"] = operational_data
