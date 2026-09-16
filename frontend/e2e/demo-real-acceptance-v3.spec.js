@@ -266,19 +266,19 @@ test.describe('GoVector — grande acceptation réelle V3', () => {
     expect.soft([400, 401, 403]).toContain(mobile.status());
   });
 
-  test('V3-004 — le workspace global interventions est réservé au bureau', async ({ request }) => {
+  test('V3-004 — accès jobs selon rôle: bureau et techniciens oui, Agent terrain/client non', async ({ request }) => {
     const expected = [
       [USERS.admin, 200],
       [USERS.orienteur, 200],
       [USERS.fieldAgent, 403],
-      [USERS.technicianAmine, 403],
-      [USERS.technicianNabil, 403],
+      [USERS.technicianAmine, 200],
+      [USERS.technicianNabil, 200],
       [USERS.client, 403],
     ];
     for (const [username, expectedStatus] of expected) {
       const { token } = await apiSession(request, username);
       const response = await request.get('/api/v1/jobs/?limit=1', { headers: authorization(token) });
-      expect.soft(response.status(), `GET /jobs global pour ${username}: ${await response.text()}`).toBe(expectedStatus);
+      expect.soft(response.status(), `GET /jobs pour ${username}: ${await response.text()}`).toBe(expectedStatus);
     }
   });
 
