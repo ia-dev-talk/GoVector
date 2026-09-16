@@ -27,6 +27,7 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-irregular-whitespace': ['error', { skipComments: true }],
     },
   },
   {
