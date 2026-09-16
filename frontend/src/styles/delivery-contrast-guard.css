@@ -51,3 +51,20 @@
 #bluevector-main-content > div:last-child .btn:not(.btn--primary):not(.btn--danger):not(.btn--success):not(.btn--warning):hover:not(:disabled) {
   color: var(--text-primary, #10233c) !important;
 }
+
+/* Leaflet keeps its own button background while legacy global rules can force
+ * the zoom glyphs to the light cockpit text colour. Keep + / − readable on the
+ * dark map controls without altering map tiles or markers. */
+#bluevector-main-content .leaflet-bar a,
+#bluevector-main-content .leaflet-control-zoom a {
+  background: #0d1420 !important;
+  color: #f3f6fb !important;
+}
+
+#bluevector-main-content .leaflet-bar a:hover,
+#bluevector-main-content .leaflet-bar a:focus,
+#bluevector-main-content .leaflet-control-zoom a:hover,
+#bluevector-main-content .leaflet-control-zoom a:focus {
+  background: #18263a !important;
+  color: #ffffff !important;
+}
