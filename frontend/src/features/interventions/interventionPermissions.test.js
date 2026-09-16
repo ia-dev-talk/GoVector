@@ -5,23 +5,23 @@ import {
   isInterventionDeleteRequest,
 } from './interventionPermissions.js';
 
-test('agent assessment is limited to operational decision roles', () => {
-  for (const role of ['ADMIN', 'CHEF_ORIENTEUR', 'ORIENTEUR']) {
+test('office assessment is limited to admin and office orienteur roles', () => {
+  for (const role of ['ADMIN', 'ORIENTEUR']) {
     assert.equal(getInterventionPermissions(role).canAssessIntervention, true);
   }
-  for (const role of ['CLIENT', 'TECHNICIAN', 'COORDINATEUR', null, 'unknown']) {
+  for (const role of ['CHEF_ORIENTEUR', 'CLIENT', 'TECHNICIAN', 'COORDINATEUR', null, 'unknown']) {
     assert.equal(getInterventionPermissions(role).canAssessIntervention, false);
   }
 });
 
-test('intervention deletion is limited to chef and admin roles', () => {
+test('intervention deletion is limited to admin role', () => {
   assert.equal(
     getInterventionPermissions('ADMIN').canDeleteIntervention,
     true,
   );
   assert.equal(
     getInterventionPermissions('CHEF_ORIENTEUR').canDeleteIntervention,
-    true,
+    false,
   );
   assert.equal(
     getInterventionPermissions('ORIENTEUR').canDeleteIntervention,
