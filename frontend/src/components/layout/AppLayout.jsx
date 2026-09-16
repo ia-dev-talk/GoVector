@@ -28,7 +28,7 @@ const NAV_ITEMS = Object.freeze([
     id: 'interventions',
     label: 'Interventions',
     icon: 'jobs',
-    roles: ['ADMIN', 'ORIENTEUR', 'CHEF_ORIENTEUR'],
+    roles: ['ADMIN', 'ORIENTEUR'],
   },
   {
     id: 'planning',
