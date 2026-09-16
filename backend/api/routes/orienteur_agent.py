@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.job_responses import job_response
+from backend.api.routes import job_context
 from backend.api.routes.tech_media import upload_technician_media
 from backend.api.schemas.tech_media import TechnicianMediaResponse
 from backend.api.schemas.tech_sync import (
@@ -177,6 +178,34 @@ async def get_my_team_job(
         "agent_user_id": current_user.id,
         "team_orienteur_id": current_user.orienteur_id,
     }
+
+
+@router.get("/me/jobs/{job_id}/field-record")
+async def get_my_team_job_field_record(
+    job_id: int = Path(..., gt=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_field_agent),
+):
+    """Return technician evidence for one job owned by the Agent terrain team."""
+
+    try:
+        context = await require_field_agent_team_job(
+            db,
+            job_id=job_id,
+            current_user=current_user,
+        )
+    except TechnicianJobMutationError as exc:
+        raise _field_agent_error(exc) from exc
+
+    subject_user = subject_user_for_field_agent(
+        field_agent=current_user,
+        assigned_technician_id=context.technician.id,
+    )
+    return await job_context.get_field_record(
+        job_id=job_id,
+        db=db,
+        current_user=subject_user,
+    )
 
 
 @router.post("/me/jobs/{job_id}/return")
