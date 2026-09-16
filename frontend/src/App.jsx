@@ -37,7 +37,6 @@ const PAGE_ROLES = Object.freeze({
   ],
   interventions: [
     'ADMIN',
-    'CHEF_ORIENTEUR',
     'ORIENTEUR',
   ],
   planning: [
