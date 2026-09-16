@@ -1,6 +1,13 @@
 name: GoVector quality
 
 on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Public GoVector API base URL for pilot APK"
+        required: false
+        default: "https://api.invalid/api/v1"
+        type: string
   pull_request:
   push:
     branches:
@@ -125,9 +132,10 @@ jobs:
         timeout-minutes: 20
         env:
           ORG_GRADLE_PROJECT_pilotSigning: "true"
+          API_BASE_URL: ${{ inputs.api_base_url || 'https://api.invalid/api/v1' }}
         run: >-
           flutter build apk --release --no-pub
-          --dart-define=API_BASE_URL=https://api.invalid/api/v1
+          --dart-define=API_BASE_URL=${API_BASE_URL}
       - name: Publish pilot APK artifact
         # Artifact storage is an external GitHub account quota. The APK build
         # itself remains a hard release gate above; a full artifact quota must
