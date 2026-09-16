@@ -483,7 +483,7 @@ test.describe('GoVector — grande acceptation réelle V3', () => {
     const { jobs, response } = await fetchJobs(request, token, 'limit=20');
     expect(response.status(), await response.text()).toBe(200);
     expect(jobs.length).toBeGreaterThan(0);
-    const fieldRecord = await request.get(`/api/v1/jobs/${jobs[0].id}/field-record`, {
+    const fieldRecord = await request.get(`/api/v1/job-actions/${jobs[0].id}/field-record`, {
       headers: authorization(token),
     });
     expect(fieldRecord.status(), await fieldRecord.text()).toBe(200);
