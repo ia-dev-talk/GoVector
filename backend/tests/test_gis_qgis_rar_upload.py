@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+import io
 from pathlib import Path
 from types import SimpleNamespace
 from zipfile import ZipFile
 
 import pyproj
 import pytest
+import rarfile
 import shapefile
 
+from backend.services.gis import qgis_archive_parser
 from backend.services.gis.kml_parser import GisImportError
 from backend.services.gis.qgis_archive_parser import (
     MAX_RAR_ENTRIES,
+    _extract_allowed_rar,
     _parse_extracted_qgis,
     _project_layer_map,
     _safe_member_name,
@@ -90,6 +94,63 @@ def test_rar_archive_entry_limit_is_enforced():
     ]
     with pytest.raises(GisImportError, match="trop de fichiers"):
         _validate_archive_infos(infos)
+
+
+def test_damaged_rar_counts_failed_members_and_leaves_no_partial_files(
+    monkeypatch, tmp_path: Path
+):
+    infos = [
+        SimpleNamespace(
+            filename=f"damaged/layer-{index}.shp",
+            file_size=10,
+            compress_size=10,
+            isdir=lambda: False,
+            is_symlink=lambda: False,
+        )
+        for index in range(10)
+    ]
+    infos.append(
+        SimpleNamespace(
+            filename="valid/Cable.shp",
+            file_size=2,
+            compress_size=2,
+            isdir=lambda: False,
+            is_symlink=lambda: False,
+        )
+    )
+
+    class FakeArchive:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def infolist(self):
+            return infos
+
+        def needs_password(self):
+            return False
+
+        def open(self, info):
+            if str(info.filename).startswith("damaged/"):
+                raise rarfile.BadRarFile(
+                    "Attempted to read more data than was available"
+                )
+            return io.BytesIO(b"ok")
+
+    monkeypatch.setattr(qgis_archive_parser.rarfile, "RarFile", lambda _path: FakeArchive())
+
+    expected = (
+        "L’archive RAR est incomplète ou endommagée : 10 fichiers n’ont pas pu être extraits. "
+        "Recréez l’archive depuis le dossier QGIS original ou utilisez le GeoJSON validé. "
+        "Aucune donnée partielle n’a été importée."
+    )
+    with pytest.raises(GisImportError) as exc_info:
+        _extract_allowed_rar(b"fake-rar", tmp_path)
+
+    assert str(exc_info.value) == expected
+    assert not list(tmp_path.rglob("*.shp"))
 
 
 def test_upload_dispatches_rar_without_changing_existing_formats(monkeypatch):

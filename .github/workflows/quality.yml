@@ -104,6 +104,7 @@ jobs:
           grep -qx 'pilot-tunnel' <<<"$services"
           rendered="$(docker compose --profile pilot-4g config)"
           grep -Eq 'host_ip:[[:space:]]+127\.0\.0\.1' <<<"$rendered"
+          docker compose --profile pilot-4g config --format json | python -c 'import json, sys; environment = json.load(sys.stdin)["services"]["migrate"]["environment"]; assert environment["API_RELOAD"] == "false"; assert "CORS_ORIGINS" in environment'
       - name: Build pilot image and prove PDF renderer
         shell: bash
         run: |

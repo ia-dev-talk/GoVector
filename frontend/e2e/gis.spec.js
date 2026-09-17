@@ -58,7 +58,7 @@ test('client GIS flow previews, persists a draft, publishes and downloads a comp
   await page.getByRole('button', { name: 'Exporter les couches' }).click();
   const downloadEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Réseau · LineString (1)' }).click();
-  expect((await downloadEvent).suggestedFilename()).toBe('bluevector-8-couche-55.geojson');
+  expect((await downloadEvent).suggestedFilename()).toBe('govector-8-couche-55.geojson');
   await page.getByLabel('Entreprise du jeu de données').selectOption('13');
   await expect(page.getByText('Réseau Casablanca', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Aucun jeu de données chargé pour cette entreprise.')).toBeVisible();

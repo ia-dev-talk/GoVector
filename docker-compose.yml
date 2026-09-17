@@ -40,6 +40,8 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DEBUG: ${DEBUG:-false}
       SECRET_KEY: ${SECRET_KEY:-CHANGE_ME_SUPER_SECRET_KEY}
+      API_RELOAD: "false"
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://localhost:8080","http://localhost:5173"]}'
     command: ["python", "-m", "backend.database.bootstrap_schema"]
     depends_on:
       postgres:

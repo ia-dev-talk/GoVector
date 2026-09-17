@@ -3644,7 +3644,7 @@ export default function InterventionsPage({
 				/>
 			)}
 
-			{isAdmin &&
+			{(isAdmin || isOrienteur) &&
 				importOpen && (
 				<div className="import-overlay">
 					<div className="import-window">

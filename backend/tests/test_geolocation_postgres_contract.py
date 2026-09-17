@@ -15,12 +15,16 @@ from backend.api.schemas.technicians import GPSLiveUpdate
 from backend.database.models import (
     Assignment,
     Base,
+    FieldTeam,
+    FieldTeamSector,
     GPSHistory,
     Job,
     JobSiteObservation,
     JobStatus,
     JobType,
     JobVisit,
+    Orienteur,
+    Sector,
     Site,
     Technician,
     TechnicianFieldAction,
@@ -28,9 +32,7 @@ from backend.database.models import (
     User,
     UserRole,
 )
-from backend.logic.technician_field_actions import (
-    record_technician_field_action,
-)
+from backend.logic.technician_field_actions import record_technician_field_action
 from backend.logic import assignments as assignment_logic
 from backend.logic.technician_jobs import (
     accept_and_start_technician_job,
@@ -81,6 +83,32 @@ async def postgres_session_factory():
             await admin_connection.execute(f'DROP DATABASE "{database_name}"')
         finally:
             await admin_connection.close()
+
+
+async def _create_assignment_scope(db, *, suffix: str):
+    """Create the canonical sector/team/planning prerequisites for assignment tests."""
+    sector = Sector(name=f"Secteur test {suffix}", is_active=True)
+    db.add(sector)
+    await db.flush()
+    orienteur = Orienteur(
+        name=f"Orienteur test {suffix}",
+        email=f"orienteur.{suffix.lower()}@example.invalid",
+        sector_id=sector.id,
+        is_active=True,
+    )
+    db.add(orienteur)
+    await db.flush()
+    team = FieldTeam(
+        name=f"Equipe test {suffix}",
+        code=f"TEAM-{suffix}",
+        orienteur_id=orienteur.id,
+        is_active=True,
+    )
+    db.add(team)
+    await db.flush()
+    db.add(FieldTeamSector(team_id=team.id, sector_id=sector.id))
+    await db.flush()
+    return sector, orienteur, team
 
 
 @pytest.mark.asyncio
@@ -163,9 +191,7 @@ async def test_postgres_preserves_planned_live_and_confirmed_locations(
         assert technician.current_latitude == 33.5731
         assert technician.current_longitude == -7.5898
 
-        gps_count = await db.scalar(
-            select(func.count()).select_from(GPSHistory)
-        )
+        gps_count = await db.scalar(select(func.count()).select_from(GPSHistory))
         action_count = await db.scalar(
             select(func.count()).select_from(TechnicianFieldAction)
         )
@@ -219,17 +245,22 @@ async def test_postgres_preserves_each_visit_and_assignment_after_retry(
 ):
     monkeypatch.setattr(WorkflowEngine, "_broadcast", AsyncMock())
     async with postgres_session_factory() as db:
+        sector, orienteur, team = await _create_assignment_scope(db, suffix="VISIT")
         first_technician = Technician(
             name="Premier technicien",
             employee_id="B1-VISIT-A",
             home_latitude=33.57,
             home_longitude=-7.59,
+            orienteur_id=orienteur.id,
+            team_id=team.id,
         )
         second_technician = Technician(
             name="Technicien reprise",
             employee_id="B1-VISIT-B",
             home_latitude=33.58,
             home_longitude=-7.60,
+            orienteur_id=orienteur.id,
+            team_id=team.id,
         )
         db.add_all([first_technician, second_technician])
         await db.flush()
@@ -244,6 +275,8 @@ async def test_postgres_preserves_each_visit_and_assignment_after_retry(
             job_type=JobType.DEPANNAGE,
             status=JobStatus.PENDING,
             service_address="Site multi-passage",
+            sector_id=sector.id,
+            scheduled_date=datetime(2026, 9, 14, 9, 0, tzinfo=timezone.utc),
         )
         db.add_all([first_user, job])
         await db.commit()
@@ -314,17 +347,22 @@ async def test_reassignment_closes_old_visit_and_exposes_new_current_attempt(
 ):
     monkeypatch.setattr(WorkflowEngine, "_broadcast", AsyncMock())
     async with postgres_session_factory() as db:
+        sector, orienteur, team = await _create_assignment_scope(db, suffix="REASSIGN")
         karim = Technician(
             name="Karim Tazi",
             employee_id="B1-REASSIGN-KARIM",
             home_latitude=33.57,
             home_longitude=-7.59,
+            orienteur_id=orienteur.id,
+            team_id=team.id,
         )
         khadija = Technician(
             name="Khadija El Harti",
             employee_id="B1-REASSIGN-KHADIJA",
             home_latitude=33.58,
             home_longitude=-7.60,
+            orienteur_id=orienteur.id,
+            team_id=team.id,
         )
         db.add_all([karim, khadija])
         await db.flush()
@@ -338,6 +376,8 @@ async def test_reassignment_closes_old_visit_and_exposes_new_current_attempt(
             job_type=JobType.DEPANNAGE,
             status=JobStatus.PENDING,
             service_address="Intervention 31",
+            sector_id=sector.id,
+            scheduled_date=datetime(2026, 9, 14, 11, 0, tzinfo=timezone.utc),
         )
         db.add_all([admin, job])
         await db.commit()

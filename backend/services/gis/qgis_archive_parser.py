@@ -92,6 +92,8 @@ def _validate_archive_infos(infos: list[Any]) -> None:
 def _extract_allowed_rar(payload: bytes, target: Path) -> None:
     rar_path = target / "upload.rar"
     rar_path.write_bytes(payload)
+    extracted: list[Path] = []
+    failed_members: list[str] = []
     try:
         with rarfile.RarFile(rar_path) as archive:
             infos = archive.infolist()
@@ -113,10 +115,25 @@ def _extract_allowed_rar(payload: bytes, target: Path) -> None:
                             if not chunk:
                                 break
                             dst.write(chunk)
+                    extracted.append(destination)
                 except (rarfile.RarCannotExec, rarfile.RarExecError) as exc:
+                    destination.unlink(missing_ok=True)
                     raise GisImportError(
                         "Le serveur ne dispose pas du moteur RAR requis (unar)."
                     ) from exc
+                except (rarfile.Error, EOFError):
+                    destination.unlink(missing_ok=True)
+                    failed_members.append(member.as_posix())
+
+            if failed_members:
+                for destination in extracted:
+                    destination.unlink(missing_ok=True)
+                raise GisImportError(
+                    "L’archive RAR est incomplète ou endommagée : "
+                    f"{len(failed_members)} fichiers n’ont pas pu être extraits. "
+                    "Recréez l’archive depuis le dossier QGIS original ou utilisez le GeoJSON validé. "
+                    "Aucune donnée partielle n’a été importée."
+                )
     except GisImportError:
         raise
     except (rarfile.Error, OSError) as exc:

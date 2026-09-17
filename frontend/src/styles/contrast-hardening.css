@@ -1,0 +1,192 @@
+/*
+ * GoVector light-delivery contrast hardening.
+ *
+ * The delivery theme intentionally turns the operational workspace light, while
+ * a few legacy modules still contain explicit white text written for the former
+ * dark surfaces. This late layer repairs those collisions without changing
+ * business behaviour or the dark navigation/header surfaces that still need
+ * inverse text.
+ */
+
+/* Shared light controls. Primary/state buttons keep their semantic colours. */
+.btn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.btn--primary:hover:not(:disabled) {
+  color: #ffffff;
+}
+
+.btn--success:hover:not(:disabled) {
+  color: var(--color-success);
+}
+
+.btn--warning:hover:not(:disabled) {
+  color: var(--color-warning);
+}
+
+.btn--danger:hover:not(:disabled) {
+  color: var(--color-danger);
+}
+
+/* Navigation remains dark even though --surface-interactive is light globally. */
+.app-sidebar .sidebar-toggle:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Administration / settings now sits on white delivery surfaces. */
+.admin-header-title h1,
+.admin-section-title {
+  color: var(--text-primary) !important;
+}
+
+.admin-icon-btn:hover:not(.admin-icon-btn--danger) {
+  color: var(--text-primary) !important;
+  background: var(--surface-interactive) !important;
+}
+
+.admin-log-tab--active {
+  color: var(--color-accent) !important;
+  background: var(--color-accent-bg) !important;
+  border-color: rgba(8, 105, 237, 0.25) !important;
+}
+
+/* Dashboard toolbar buttons are light in the delivery shell. */
+.cockpit-refresh-button:hover:not(:disabled) {
+  color: var(--text-primary) !important;
+  background: var(--surface-interactive) !important;
+}
+
+/* Reports: retain white text only in the explicitly dark report header. */
+.rv3-date-picker:hover,
+.rv3-date-picker:focus-within {
+  color: var(--color-accent) !important;
+}
+
+.rv3-icon-button:hover:not(:disabled) {
+  color: var(--text-primary) !important;
+  background: var(--surface-interactive) !important;
+}
+
+.rv3-kpi-main strong,
+.rv3-panel-header strong,
+.rv3-rate-ring strong,
+.rv3-ranking-value strong,
+.rv3-export-card > div > strong {
+  color: var(--text-primary) !important;
+}
+
+/* Stock: cards, panels and inspector are white in the delivery theme. */
+.st3-icon-button:hover:not(:disabled),
+.st3-secondary-button:hover:not(:disabled),
+.st3-warehouse-rail > header .st3-rail-header-actions > button:hover {
+  color: var(--text-primary) !important;
+  background: var(--surface-interactive) !important;
+}
+
+.st3-kpi-value,
+.st3-value-card strong,
+.st3-warehouse-rail > header strong,
+.st3-panel-header strong,
+.st3-inspector-header strong,
+.st3-metric strong,
+.st3-modal > header strong {
+  color: var(--text-primary) !important;
+}
+
+.st3-inspector-tabs button.active {
+  color: var(--color-accent) !important;
+}
+
+.st3-notice--context strong {
+  color: var(--color-accent) !important;
+}
+
+/* Secteurs / GIS registry uses the same light card system. */
+.sv3-icon-button:hover:not(:disabled),
+.sv3-secondary-button:hover:not(:disabled) {
+  color: var(--text-primary) !important;
+  background: var(--surface-interactive) !important;
+}
+
+.sv3-kpi-value,
+.sv3-panel-header strong,
+.sv3-inspector-header strong,
+.sv3-metric strong,
+.sv3-modal > header strong {
+  color: var(--text-primary) !important;
+}
+
+.sv3-inspector-tabs button.active {
+  color: var(--color-accent) !important;
+}
+
+/* Personnel: counters, connected records and actions must remain readable. */
+.personnel-v3-refresh:hover:not(:disabled),
+.personnel-v3-toolbar-button:hover,
+.personnel-v3-bulk-actions button:hover:not(:disabled) {
+  color: var(--text-primary) !important;
+}
+
+.personnel-v3-toolbar-button--active {
+  color: var(--color-accent) !important;
+  background: var(--color-accent-bg) !important;
+}
+
+.personnel-v3-kpi-copy strong,
+.personnel-v3-job-card-main strong {
+  color: var(--text-primary) !important;
+}
+
+.personnel-v3-job-card-main span,
+.personnel-v3-job-card-meta small {
+  color: var(--text-secondary) !important;
+}
+
+.personnel-v3-toolbar-button > span {
+  color: var(--color-accent) !important;
+  background: var(--color-accent-bg) !important;
+}
+
+.personnel-v3-linked-action {
+  color: var(--color-accent) !important;
+  background: var(--color-accent-bg) !important;
+}
+
+.personnel-v3-linked-action:hover,
+.personnel-v3-linked-action:focus-visible {
+  color: var(--color-accent-hover) !important;
+}
+
+.personnel-v3-notice button {
+  color: var(--color-warning) !important;
+}
+
+/* Future-period assignment: keep the header/navigation dark, but make the
+ * operational controls and table use the same light surfaces as Interventions. */
+.intervention-period-presets button.is-active {
+  color: var(--color-accent) !important;
+  background: var(--color-accent-bg) !important;
+  border-color: rgba(8, 105, 237, 0.32) !important;
+}
+
+.intervention-period-batchbar,
+.intervention-period-table-wrap {
+  background: #ffffff !important;
+  border-color: var(--border-color) !important;
+}
+
+.intervention-period-table th {
+  color: #61758e !important;
+  background: var(--surface-panel-alt) !important;
+}
+
+.intervention-period-table td {
+  color: #2d4662;
+}
+
+.intervention-period-table tbody tr:hover {
+  background: var(--surface-row-hover) !important;
+}
