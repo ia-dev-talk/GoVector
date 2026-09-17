@@ -8,6 +8,37 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/config.dart';
 import 'auth_service.dart';
 
+enum GpsAvailability {
+  unknown,
+  ready,
+  serviceDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+  error,
+}
+
+class GpsStatusSnapshot {
+  final GpsAvailability availability;
+  final bool isLiveTracking;
+  final double? latitude;
+  final double? longitude;
+  final double? accuracy;
+  final DateTime? positionAt;
+  final String? error;
+
+  const GpsStatusSnapshot({
+    required this.availability,
+    required this.isLiveTracking,
+    this.latitude,
+    this.longitude,
+    this.accuracy,
+    this.positionAt,
+    this.error,
+  });
+
+  bool get hasPosition => latitude != null && longitude != null;
+}
+
 class LocationService {
   static bool _isInitialized = false;
   static StreamSubscription<Position>? _liveGpsSubscription;
@@ -17,12 +48,81 @@ class LocationService {
   static double? _lastAccuracy;
   static DateTime? _lastPositionAt;
   static int? _currentJobId;
+  static GpsAvailability _availability = GpsAvailability.unknown;
+  static String? _lastError;
 
   static bool get isLiveGpsRunning => _isLiveGpsRunning;
   static double? get lastLatitude => _lastLatitude;
   static double? get lastLongitude => _lastLongitude;
   static double? get lastAccuracy => _lastAccuracy;
   static DateTime? get lastPositionAt => _lastPositionAt;
+
+  static GpsStatusSnapshot get status => GpsStatusSnapshot(
+    availability: _availability,
+    isLiveTracking: _isLiveGpsRunning,
+    latitude: _lastLatitude,
+    longitude: _lastLongitude,
+    accuracy: _lastAccuracy,
+    positionAt: _lastPositionAt,
+    error: _lastError,
+  );
+
+  @visibleForTesting
+  static GpsAvailability resolveAvailability({
+    required bool serviceEnabled,
+    required LocationPermission permission,
+  }) {
+    if (!serviceEnabled) {
+      return GpsAvailability.serviceDisabled;
+    }
+
+    switch (permission) {
+      case LocationPermission.denied:
+        return GpsAvailability.permissionDenied;
+      case LocationPermission.deniedForever:
+        return GpsAvailability.permissionDeniedForever;
+      case LocationPermission.whileInUse:
+      case LocationPermission.always:
+        return GpsAvailability.ready;
+      case LocationPermission.unableToDetermine:
+        return GpsAvailability.error;
+    }
+  }
+
+  static Future<GpsStatusSnapshot> refreshStatus({
+    bool requestPermissionIfDenied = false,
+  }) async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        _availability = GpsAvailability.serviceDisabled;
+        _isInitialized = false;
+        _lastError = null;
+        return status;
+      }
+
+      var permission = await Geolocator.checkPermission();
+
+      if (requestPermissionIfDenied &&
+          permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      _availability = resolveAvailability(
+        serviceEnabled: true,
+        permission: permission,
+      );
+      _isInitialized = _availability == GpsAvailability.ready;
+      _lastError = null;
+    } catch (error) {
+      _availability = GpsAvailability.error;
+      _isInitialized = false;
+      _lastError = error.toString();
+    }
+
+    return status;
+  }
 
   @visibleForTesting
   static Map<String, dynamic> buildGpsPayload({
@@ -46,58 +146,44 @@ class LocationService {
   static Future<void> initialize({int? technicianId}) async {
     if (_isInitialized) return;
 
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      debugPrint('Location services disabled');
-      return;
-    }
+    final snapshot = await refreshStatus(requestPermissionIfDenied: true);
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        debugPrint('Location permission denied');
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      debugPrint('Location permission permanently denied');
-      return;
-    }
-
-    _isInitialized = true;
-    debugPrint('LocationService initialized');
+    debugPrint('LocationService GPS state: ${snapshot.availability.name}');
   }
 
   static Future<bool> requestPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return false;
-      }
-    }
-    if (permission == LocationPermission.deniedForever) {
-      return false;
-    }
-    return true;
+    final snapshot = await refreshStatus(requestPermissionIfDenied: true);
+    return snapshot.availability == GpsAvailability.ready;
   }
 
   static Future<Position?> getCurrentPosition() async {
     if (!_isInitialized) await initialize();
+    if (!_isInitialized) return null;
 
     try {
-      return await Geolocator.getCurrentPosition(
+      final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.best,
           timeLimit: Duration(seconds: 10),
         ),
       );
-    } catch (e) {
-      debugPrint('Error getting position: $e');
+      _rememberPosition(position);
+      _availability = GpsAvailability.ready;
+      _lastError = null;
+      return position;
+    } catch (error) {
+      _availability = GpsAvailability.error;
+      _lastError = error.toString();
+      debugPrint('Error getting position: $error');
       return null;
     }
+  }
+
+  static void _rememberPosition(Position position) {
+    _lastLatitude = position.latitude;
+    _lastLongitude = position.longitude;
+    _lastAccuracy = position.accuracy >= 0 ? position.accuracy : null;
+    _lastPositionAt = position.timestamp;
   }
 
   static Stream<Position> getPositionStream() {
@@ -165,21 +251,19 @@ class LocationService {
     }
 
     await _liveGpsSubscription?.cancel();
-    _liveGpsSubscription = Geolocator.getPositionStream(
-      locationSettings: settings,
-    ).listen(
-      (position) => unawaited(_sendGpsPosition(position)),
-      onError: (Object error) {
-        debugPrint('Live GPS stream error: $error');
-      },
-    );
+    _liveGpsSubscription =
+        Geolocator.getPositionStream(locationSettings: settings).listen(
+          (position) => unawaited(_sendGpsPosition(position)),
+          onError: (Object error) {
+            debugPrint('Live GPS stream error: $error');
+          },
+        );
   }
 
   static Future<void> _sendGpsPosition(Position position) async {
-    _lastLatitude = position.latitude;
-    _lastLongitude = position.longitude;
-    _lastAccuracy = position.accuracy >= 0 ? position.accuracy : null;
-    _lastPositionAt = position.timestamp;
+    _rememberPosition(position);
+    _availability = GpsAvailability.ready;
+    _lastError = null;
 
     try {
       final token = await AuthService.getToken();
