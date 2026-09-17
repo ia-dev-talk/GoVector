@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_app/design_system/bluevector_theme.dart';
 import 'package:mobile_app/features/interventions/current_intervention_screen.dart';
 import 'package:mobile_app/models/job.dart';
+import 'package:mobile_app/services/location_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Job _job({
@@ -30,7 +32,10 @@ Job _job({
   );
 }
 
-Widget _screen(Job job) {
+Widget _screen(
+  Job job, {
+  ValueListenable<GpsStatusSnapshot>? gpsStatusListenable,
+}) {
   return MaterialApp(
     theme: BlueVectorTheme.light,
     home: Scaffold(
@@ -48,6 +53,7 @@ Widget _screen(Job job) {
         onOpenSiteHistory: () {},
         onFailure: () {},
         onPostpone: () {},
+        gpsStatusListenable: gpsStatusListenable,
       ),
     ),
   );
@@ -93,5 +99,51 @@ void main() {
     expect(find.text('NRO'), findsNothing);
     expect(find.text('SRO'), findsNothing);
     expect(find.text('PBO'), findsNothing);
+  });
+
+  testWidgets('current intervention shows live GPS accuracy', (tester) async {
+    final gps = ValueNotifier<GpsStatusSnapshot>(
+      const GpsStatusSnapshot(
+        availability: GpsAvailability.ready,
+        isLiveTracking: true,
+        latitude: 33.57,
+        longitude: -7.59,
+        accuracy: 4.2,
+      ),
+    );
+    addTearDown(gps.dispose);
+
+    await tester.pumpWidget(_screen(_job(), gpsStatusListenable: gps));
+    await tester.pump();
+
+    expect(find.text('GPS'), findsOneWidget);
+    expect(find.text('?4 m'), findsOneWidget);
+    expect(find.text('GPS pr?t'), findsNothing);
+  });
+
+  testWidgets('current intervention reacts when GPS is disabled', (
+    tester,
+  ) async {
+    final gps = ValueNotifier<GpsStatusSnapshot>(
+      const GpsStatusSnapshot(
+        availability: GpsAvailability.ready,
+        isLiveTracking: true,
+      ),
+    );
+    addTearDown(gps.dispose);
+
+    await tester.pumpWidget(_screen(_job(), gpsStatusListenable: gps));
+    await tester.pump();
+
+    expect(find.text('Recherche?'), findsOneWidget);
+
+    gps.value = const GpsStatusSnapshot(
+      availability: GpsAvailability.serviceDisabled,
+      isLiveTracking: false,
+    );
+    await tester.pump();
+
+    expect(find.text('D?sactiv?'), findsOneWidget);
+    expect(find.text('Recherche?'), findsNothing);
   });
 }

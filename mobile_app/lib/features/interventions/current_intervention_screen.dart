@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../design_system/bluevector_brand.dart';
 import '../../design_system/bluevector_tokens.dart';
 import '../../models/job.dart';
+import '../../services/location_service.dart';
 import 'mobile_job_journal.dart';
 import 'mobile_field_context_card.dart';
 import 'mobile_job_presenter.dart';
@@ -23,6 +25,7 @@ class CurrentInterventionScreen extends StatelessWidget {
     required this.onOpenSiteHistory,
     required this.onFailure,
     required this.onPostpone,
+    this.gpsStatusListenable,
   });
 
   final Job? job;
@@ -38,6 +41,7 @@ class CurrentInterventionScreen extends StatelessWidget {
   final VoidCallback onOpenSiteHistory;
   final VoidCallback onFailure;
   final VoidCallback onPostpone;
+  final ValueListenable<GpsStatusSnapshot>? gpsStatusListenable;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +52,8 @@ class CurrentInterventionScreen extends StatelessWidget {
     }
 
     final statusColor = MobileJobPresenter.statusColor(intervention);
+    final effectiveGpsStatus =
+        gpsStatusListenable ?? LocationService.statusListenable;
 
     return SafeArea(
       bottom: false,
@@ -142,6 +148,7 @@ class CurrentInterventionScreen extends StatelessWidget {
                   job: intervention,
                   isOnline: isOnline,
                   pendingActions: pendingActions,
+                  gpsStatusListenable: effectiveGpsStatus,
                 ),
                 const SizedBox(height: BlueVectorSpacing.xs),
                 MobileFieldContextCard(jobId: intervention.id),
@@ -299,16 +306,49 @@ class _OperationalIndicators extends StatelessWidget {
     required this.job,
     required this.isOnline,
     required this.pendingActions,
+    required this.gpsStatusListenable,
   });
 
   final Job job;
   final bool isOnline;
   final int pendingActions;
+  final ValueListenable<GpsStatusSnapshot> gpsStatusListenable;
 
   @override
   Widget build(BuildContext context) {
-    final hasSiteCoordinates = job.hasServiceCoordinates;
-    final hasAddress = job.serviceAddress.trim().isNotEmpty;
+    String gpsValue(GpsStatusSnapshot status) {
+      switch (status.availability) {
+        case GpsAvailability.ready:
+          if (status.accuracy != null) {
+            return '?${status.accuracy!.round()} m';
+          }
+          return status.isLiveTracking ? 'Recherche?' : 'Pr?t';
+        case GpsAvailability.serviceDisabled:
+          return 'D?sactiv?';
+        case GpsAvailability.permissionDenied:
+          return 'Refus?e';
+        case GpsAvailability.permissionDeniedForever:
+          return 'Bloqu?';
+        case GpsAvailability.error:
+          return 'Erreur';
+        case GpsAvailability.unknown:
+          return '? v?rifier';
+      }
+    }
+
+    Color gpsColor(GpsStatusSnapshot status) {
+      switch (status.availability) {
+        case GpsAvailability.ready:
+          return BlueVectorColors.success;
+        case GpsAvailability.permissionDeniedForever:
+        case GpsAvailability.error:
+          return BlueVectorColors.danger;
+        case GpsAvailability.unknown:
+        case GpsAvailability.serviceDisabled:
+        case GpsAvailability.permissionDenied:
+          return BlueVectorColors.warning;
+      }
+    }
 
     return Row(
       children: [
@@ -322,17 +362,16 @@ class _OperationalIndicators extends StatelessWidget {
         ),
         const SizedBox(width: BlueVectorSpacing.xxs),
         Expanded(
-          child: _Indicator(
-            icon: Icons.location_searching_rounded,
-            label: 'Site',
-            value: hasSiteCoordinates
-                ? 'GPS prêt'
-                : hasAddress
-                ? 'Adresse'
-                : 'À préciser',
-            color: hasSiteCoordinates
-                ? BlueVectorColors.success
-                : BlueVectorColors.warning,
+          child: ValueListenableBuilder<GpsStatusSnapshot>(
+            valueListenable: gpsStatusListenable,
+            builder: (context, gpsStatus, _) => _Indicator(
+              icon: gpsStatus.availability == GpsAvailability.ready
+                  ? Icons.gps_fixed_rounded
+                  : Icons.gps_off_rounded,
+              label: 'GPS',
+              value: gpsValue(gpsStatus),
+              color: gpsColor(gpsStatus),
+            ),
           ),
         ),
         const SizedBox(width: BlueVectorSpacing.xxs),
