@@ -9,6 +9,7 @@ import '../../services/field_agent_service.dart';
 import '../../services/location_service.dart';
 import '../../services/offline_service.dart';
 import '../actions/free_photo_action_screen.dart';
+import '../gps/mobile_gps_screen.dart';
 import '../interventions/mobile_job_presenter.dart';
 
 class FieldAgentShell extends StatefulWidget {
@@ -127,6 +128,14 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
     await _load();
   }
 
+  Future<void> _openGps() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const MobileGpsScreen(roleLabel: 'Agent terrain'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final reviewCount = _jobs
@@ -141,6 +150,11 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
       appBar: AppBar(
         title: const Text('GoVector · Agent terrain'),
         actions: [
+          IconButton(
+            tooltip: 'GPS',
+            onPressed: _openGps,
+            icon: const Icon(Icons.location_on_outlined),
+          ),
           IconButton(
             tooltip: 'Synchroniser',
             onPressed: _syncing ? null : _sync,
