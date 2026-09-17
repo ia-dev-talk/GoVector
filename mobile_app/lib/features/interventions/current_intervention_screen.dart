@@ -359,16 +359,16 @@ class _GpsRecoveryCard extends StatelessWidget {
 
         switch (gpsStatus.availability) {
           case GpsAvailability.permissionDenied:
-            message = 'Autorisation GPS n?cessaire';
+            message = 'Autorisation GPS nécessaire';
             actionLabel = 'Autoriser';
             action = onRequestPermission;
           case GpsAvailability.serviceDisabled:
-            message = 'GPS du t?l?phone d?sactiv?';
-            actionLabel = 'R?glages GPS';
+            message = 'GPS du téléphone désactivé';
+            actionLabel = 'Réglages GPS';
             action = onOpenLocationSettings;
           case GpsAvailability.permissionDeniedForever:
-            message = 'Autorisation GPS bloqu?e';
-            actionLabel = 'R?glages app';
+            message = 'Autorisation GPS bloquée';
+            actionLabel = 'Réglages app';
             action = onOpenAppSettings;
           case GpsAvailability.unknown:
           case GpsAvailability.ready:
@@ -448,13 +448,13 @@ class _GpsLastPositionCard extends StatelessWidget {
 
         final accuracyLabel = accuracy == null
             ? null
-            : '?${accuracy.round()} m';
+            : '±${accuracy.round()} m';
 
         final details = <String>[
           '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}',
-          if (accuracyLabel != null) accuracyLabel,
+          ?accuracyLabel,
           timeLabel,
-        ].join(' ? ');
+        ].join(' · ');
 
         return Padding(
           padding: const EdgeInsets.only(bottom: BlueVectorSpacing.xs),
@@ -482,7 +482,7 @@ class _GpsLastPositionCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Derni?re position',
+                        'Dernière position',
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
                               fontWeight: FontWeight.w700,
@@ -527,19 +527,19 @@ class _OperationalIndicators extends StatelessWidget {
       switch (status.availability) {
         case GpsAvailability.ready:
           if (status.accuracy != null) {
-            return '?${status.accuracy!.round()} m';
+            return '±${status.accuracy!.round()} m';
           }
-          return status.isLiveTracking ? 'Recherche?' : 'Pr?t';
+          return status.isLiveTracking ? 'Recherche…' : 'Prêt';
         case GpsAvailability.serviceDisabled:
-          return 'D?sactiv?';
+          return 'Désactivé';
         case GpsAvailability.permissionDenied:
-          return 'Refus?e';
+          return 'Refusée';
         case GpsAvailability.permissionDeniedForever:
-          return 'Bloqu?';
+          return 'Bloqué';
         case GpsAvailability.error:
           return 'Erreur';
         case GpsAvailability.unknown:
-          return '? v?rifier';
+          return 'À vérifier';
       }
     }
 
@@ -660,188 +660,6 @@ class _Indicator extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InterventionTimeline extends StatelessWidget {
-  const _InterventionTimeline({required this.job});
-
-  final Job job;
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = _entries(job);
-
-    return Container(
-      padding: const EdgeInsets.all(BlueVectorSpacing.md),
-      decoration: BoxDecoration(
-        color: BlueVectorColors.surface,
-        borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
-        border: Border.all(color: BlueVectorColors.border),
-      ),
-      child: Column(
-        children: [
-          for (var index = 0; index < entries.length; index++)
-            _TimelineRow(
-              entry: entries[index],
-              isLast: index == entries.length - 1,
-            ),
-        ],
-      ),
-    );
-  }
-
-  List<_TimelineEntry> _entries(Job job) {
-    final status = MobileJobPresenter.normalizedStatus(job);
-
-    const sequence = [
-      'assigned',
-      'en_route',
-      'arrived',
-      'in_progress',
-      'tests',
-      'validation',
-      'completed',
-    ];
-
-    const labels = {
-      'assigned': 'Intervention affectée',
-      'en_route': 'Départ vers le client',
-      'arrived': 'Arrivée sur site',
-      'in_progress': 'Travaux en cours',
-      'tests': 'Tests et mesures',
-      'validation': 'Validation terrain',
-      'completed': 'Intervention terminée',
-    };
-
-    var currentIndex = sequence.indexOf(status);
-
-    if (status == 'en_cours' || status == 'ftth_install') {
-      currentIndex = sequence.indexOf('in_progress');
-    }
-
-    if (status == 'terminee') {
-      currentIndex = sequence.indexOf('completed');
-    }
-
-    if (currentIndex < 0) {
-      currentIndex = 0;
-    }
-
-    return [
-      for (var index = 0; index < sequence.length; index++)
-        _TimelineEntry(
-          label: labels[sequence[index]]!,
-          completed: index <= currentIndex,
-          current: index == currentIndex && !MobileJobPresenter.isTerminal(job),
-        ),
-    ];
-  }
-}
-
-class _TimelineEntry {
-  const _TimelineEntry({
-    required this.label,
-    required this.completed,
-    required this.current,
-  });
-
-  final String label;
-  final bool completed;
-  final bool current;
-}
-
-class _TimelineRow extends StatelessWidget {
-  const _TimelineRow({required this.entry, required this.isLast});
-
-  final _TimelineEntry entry;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = entry.completed
-        ? entry.current
-              ? BlueVectorColors.primaryBright
-              : BlueVectorColors.success
-        : BlueVectorColors.textMuted;
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 24,
-            child: Column(
-              children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: entry.completed
-                        ? color.withValues(alpha: 0.16)
-                        : BlueVectorColors.surfaceSoft,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: color),
-                  ),
-                  child: Icon(
-                    entry.completed
-                        ? Icons.check_rounded
-                        : Icons.circle_outlined,
-                    color: color,
-                    size: 11,
-                  ),
-                ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 1,
-                      margin: const EdgeInsets.symmetric(vertical: 3),
-                      color: entry.completed
-                          ? color.withValues(alpha: 0.5)
-                          : BlueVectorColors.border,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: BlueVectorSpacing.sm),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(
-                bottom: isLast ? 0 : BlueVectorSpacing.md,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      entry.label,
-                      style: TextStyle(
-                        color: entry.completed
-                            ? BlueVectorColors.textPrimary
-                            : BlueVectorColors.textMuted,
-                        fontSize: 12,
-                        fontWeight: entry.current
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (entry.current)
-                    const Text(
-                      'Étape actuelle',
-                      style: TextStyle(
-                        color: BlueVectorColors.primaryBright,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                ],
-              ),
             ),
           ),
         ],

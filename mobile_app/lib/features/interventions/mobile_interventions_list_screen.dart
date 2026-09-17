@@ -200,7 +200,7 @@ class _MobileInterventionsListScreenState
               ),
               scrollDirection: Axis.horizontal,
               itemCount: tabs.length,
-              separatorBuilder: (_, __) =>
+              separatorBuilder: (_, _) =>
                   const SizedBox(width: BlueVectorSpacing.xs),
               itemBuilder: (context, index) {
                 final tab = tabs[index];
@@ -248,7 +248,7 @@ class _MobileInterventionsListScreenState
                               112,
                             ),
                             itemCount: _visibleJobs.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (_, _) =>
                                 const SizedBox(height: BlueVectorSpacing.sm),
                             itemBuilder: (context, index) {
                               final job = _visibleJobs[index];
@@ -526,8 +526,14 @@ class _ConnectionBadge extends StatelessWidget {
         : BlueVectorColors.warning;
 
     final syncLabel = lastSync == null
-        ? 'Jamais'
+        ? null
         : DateFormat('HH:mm', 'fr_FR').format(lastSync!);
+
+    final connectionLabel = isOnline
+        ? 'En ligne'
+        : syncLabel == null
+        ? 'Hors ligne'
+        : 'Hors ligne · dernière sync $syncLabel';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
@@ -546,7 +552,7 @@ class _ConnectionBadge extends StatelessWidget {
           ),
           const SizedBox(width: BlueVectorSpacing.xs),
           Text(
-            isOnline ? 'En ligne · $syncLabel' : 'Hors ligne · $syncLabel',
+            connectionLabel,
             style: TextStyle(
               color: color,
               fontSize: 10,

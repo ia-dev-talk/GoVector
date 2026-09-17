@@ -131,9 +131,25 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
   Future<void> _openGps() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => const MobileGpsScreen(roleLabel: 'Agent terrain'),
+        builder: (_) => MobileGpsScreen(
+          roleLabel: 'Agent terrain',
+          jobs: _jobs.map((row) => row.job).toList(growable: false),
+          technicianNamesByJobId: {
+            for (final row in _jobs) row.job.id: row.technicianName,
+          },
+          onOpenJob: _openJobFromMap,
+        ),
       ),
     );
+  }
+
+  void _openJobFromMap(Job job) {
+    for (final row in _jobs) {
+      if (row.job.id == job.id) {
+        unawaited(_open(row));
+        return;
+      }
+    }
   }
 
   @override
@@ -151,9 +167,9 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
         title: const Text('GoVector · Agent terrain'),
         actions: [
           IconButton(
-            tooltip: 'GPS',
+            tooltip: 'Carte',
             onPressed: _openGps,
-            icon: const Icon(Icons.location_on_outlined),
+            icon: const Icon(Icons.map_outlined),
           ),
           IconButton(
             tooltip: 'Synchroniser',
