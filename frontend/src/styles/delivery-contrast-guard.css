@@ -8,11 +8,11 @@
  * own contrast palette. Do not force the light delivery text palette there.
  */
 
-#bluevector-main-content > div:last-child:not(.sv3-page) {
+#bluevector-main-content > div:last-child:not(:has(.sv3-page, .rv3-page, .st3-page, .personnel-v3-page, .intervention-scope-boundary, .lm-page)) {
   color: var(--text-primary, #10233c) !important;
 }
 
-#bluevector-main-content > div:last-child:not(.sv3-page) :where(
+#bluevector-main-content > div:last-child:not(:has(.sv3-page, .rv3-page, .st3-page, .personnel-v3-page, .intervention-scope-boundary, .lm-page)) :where(
   h1,
   h2,
   h3,
@@ -36,22 +36,22 @@
 
 /* Plain text spans should follow the colour of their surface. Status/badge
  * elements keep their own semantic colour. */
-#bluevector-main-content > div:last-child:not(.sv3-page) span:not([class*="badge"]):not([class*="status"]):not([class*="state"]):not([class*="chip"]):not([class*="tag"]):not([class*="pill"]) {
+#bluevector-main-content > div:last-child:not(:has(.sv3-page, .rv3-page, .st3-page, .personnel-v3-page, .intervention-scope-boundary, .lm-page)) span:not([class*="badge"]):not([class*="status"]):not([class*="state"]):not([class*="chip"]):not([class*="tag"]):not([class*="pill"]) {
   color: inherit !important;
 }
 
-#bluevector-main-content > div:last-child:not(.sv3-page) :where(input, select, textarea) {
+#bluevector-main-content > div:last-child:not(:has(.sv3-page, .rv3-page, .st3-page, .personnel-v3-page, .intervention-scope-boundary, .lm-page)) :where(input, select, textarea) {
   color: var(--text-primary, #10233c) !important;
 }
 
-#bluevector-main-content > div:last-child:not(.sv3-page) :where(input, textarea)::placeholder {
+#bluevector-main-content > div:last-child:not(:has(.sv3-page, .rv3-page, .st3-page, .personnel-v3-page, .intervention-scope-boundary, .lm-page)) :where(input, textarea)::placeholder {
   color: var(--text-muted, #7a899c) !important;
   opacity: 1;
 }
 
 /* Do not let the historical dark-theme hover rule turn neutral light buttons
  * into white-on-pale text. Primary/action buttons keep their dedicated styles. */
-#bluevector-main-content > div:last-child:not(.sv3-page) .btn:not(.btn--primary):not(.btn--danger):not(.btn--success):not(.btn--warning):hover:not(:disabled) {
+#bluevector-main-content > div:last-child:not(:has(.sv3-page, .rv3-page, .st3-page, .personnel-v3-page, .intervention-scope-boundary, .lm-page)) .btn:not(.btn--primary):not(.btn--danger):not(.btn--success):not(.btn--warning):hover:not(:disabled) {
   color: var(--text-primary, #10233c) !important;
 }
 
