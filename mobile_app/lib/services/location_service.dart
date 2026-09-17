@@ -185,6 +185,14 @@ class LocationService {
     return snapshot.availability == GpsAvailability.ready;
   }
 
+  static Future<bool> openLocationSettings() async {
+    return Geolocator.openLocationSettings();
+  }
+
+  static Future<bool> openAppSettings() async {
+    return Geolocator.openAppSettings();
+  }
+
   static Future<Position?> getCurrentPosition() async {
     if (!_isInitialized) await initialize();
     if (!_isInitialized) return null;
