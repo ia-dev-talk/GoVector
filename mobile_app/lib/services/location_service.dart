@@ -164,6 +164,19 @@ class LocationService {
 
     final snapshot = await refreshStatus(requestPermissionIfDenied: true);
 
+    if (snapshot.availability == GpsAvailability.ready &&
+        !snapshot.hasPosition) {
+      try {
+        final lastKnownPosition = await Geolocator.getLastKnownPosition();
+        if (lastKnownPosition != null) {
+          _rememberPosition(lastKnownPosition);
+          _publishStatus();
+        }
+      } catch (error) {
+        debugPrint('Unable to restore last known GPS position: $error');
+      }
+    }
+
     debugPrint('LocationService GPS state: ${snapshot.availability.name}');
   }
 
