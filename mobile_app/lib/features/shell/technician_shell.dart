@@ -11,6 +11,7 @@ import '../../services/offline_service.dart';
 import '../actions/mobile_action_sheet.dart';
 import '../actions/technician_job_picker_sheet.dart';
 import '../history/technician_history_screen.dart';
+import '../gps/mobile_gps_screen.dart';
 import '../interventions/current_intervention_screen.dart';
 import '../interventions/mobile_interventions_list_screen.dart';
 import '../interventions/mobile_interventions_repository.dart';
@@ -154,7 +155,9 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
     final message = snapshot.message;
     if (message != null && message.isNotEmpty && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -212,7 +215,9 @@ class _TechnicianShellState extends State<TechnicianShell> {
           ? '${result.synced} action(s) synchronisée(s).'
           : 'Aucune action en attente.';
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       await _load();
     } finally {
       _syncing = false;
@@ -488,7 +493,9 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
   void _message(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -520,6 +527,7 @@ class _TechnicianShellState extends State<TechnicianShell> {
         onFailure: _declareFailure,
         onPostpone: _postpone,
       ),
+      const MobileGpsScreen(roleLabel: 'Technicien'),
       MobileNotificationsScreen(
         jobs: _snapshot.jobs,
         isOnline: _snapshot.isOnline,
@@ -623,6 +631,16 @@ class _MobileBottomBar extends StatelessWidget {
             child: _Destination(
               index: 2,
               selectedIndex: selectedIndex,
+              icon: Icons.location_on_outlined,
+              selectedIcon: Icons.location_on_rounded,
+              label: 'GPS',
+              onSelected: onSelected,
+            ),
+          ),
+          Expanded(
+            child: _Destination(
+              index: 3,
+              selectedIndex: selectedIndex,
               icon: Icons.notifications_none_rounded,
               selectedIcon: Icons.notifications_rounded,
               label: 'Alertes',
@@ -632,7 +650,7 @@ class _MobileBottomBar extends StatelessWidget {
           ),
           Expanded(
             child: _Destination(
-              index: 3,
+              index: 4,
               selectedIndex: selectedIndex,
               icon: Icons.person_outline_rounded,
               selectedIcon: Icons.person_rounded,
