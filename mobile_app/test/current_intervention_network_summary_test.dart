@@ -35,6 +35,9 @@ Job _job({
 Widget _screen(
   Job job, {
   ValueListenable<GpsStatusSnapshot>? gpsStatusListenable,
+  Future<void> Function()? onRequestGpsPermission,
+  Future<void> Function()? onOpenGpsSettings,
+  Future<void> Function()? onOpenGpsAppSettings,
 }) {
   return MaterialApp(
     theme: BlueVectorTheme.light,
@@ -54,6 +57,9 @@ Widget _screen(
         onFailure: () {},
         onPostpone: () {},
         gpsStatusListenable: gpsStatusListenable,
+        onRequestGpsPermission: onRequestGpsPermission,
+        onOpenGpsSettings: onOpenGpsSettings,
+        onOpenGpsAppSettings: onOpenGpsAppSettings,
       ),
     ),
   );
@@ -167,5 +173,104 @@ void main() {
 
     expect(find.text('Derni?re position'), findsOneWidget);
     expect(find.text('33.57012, -7.58987 ? ?6 m ? 10:30'), findsOneWidget);
+  });
+
+  testWidgets('current intervention requests GPS permission when denied', (
+    tester,
+  ) async {
+    var requestCount = 0;
+
+    final gps = ValueNotifier<GpsStatusSnapshot>(
+      const GpsStatusSnapshot(
+        availability: GpsAvailability.permissionDenied,
+        isLiveTracking: false,
+      ),
+    );
+    addTearDown(gps.dispose);
+
+    await tester.pumpWidget(
+      _screen(
+        _job(),
+        gpsStatusListenable: gps,
+        onRequestGpsPermission: () async {
+          requestCount++;
+        },
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Autorisation GPS n?cessaire'), findsOneWidget);
+    expect(find.text('Autoriser'), findsOneWidget);
+
+    await tester.tap(find.text('Autoriser'));
+    await tester.pump();
+
+    expect(requestCount, 1);
+  });
+
+  testWidgets('current intervention opens GPS settings when service disabled', (
+    tester,
+  ) async {
+    var settingsCount = 0;
+
+    final gps = ValueNotifier<GpsStatusSnapshot>(
+      const GpsStatusSnapshot(
+        availability: GpsAvailability.serviceDisabled,
+        isLiveTracking: false,
+      ),
+    );
+    addTearDown(gps.dispose);
+
+    await tester.pumpWidget(
+      _screen(
+        _job(),
+        gpsStatusListenable: gps,
+        onOpenGpsSettings: () async {
+          settingsCount++;
+        },
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('GPS du t?l?phone d?sactiv?'), findsOneWidget);
+    expect(find.text('R?glages GPS'), findsOneWidget);
+
+    await tester.tap(find.text('R?glages GPS'));
+    await tester.pump();
+
+    expect(settingsCount, 1);
+  });
+
+  testWidgets('current intervention opens app settings when GPS is blocked', (
+    tester,
+  ) async {
+    var appSettingsCount = 0;
+
+    final gps = ValueNotifier<GpsStatusSnapshot>(
+      const GpsStatusSnapshot(
+        availability: GpsAvailability.permissionDeniedForever,
+        isLiveTracking: false,
+      ),
+    );
+    addTearDown(gps.dispose);
+
+    await tester.pumpWidget(
+      _screen(
+        _job(),
+        gpsStatusListenable: gps,
+        onOpenGpsAppSettings: () async {
+          appSettingsCount++;
+        },
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Autorisation GPS bloqu?e'), findsOneWidget);
+    expect(find.text('R?glages app'), findsOneWidget);
+
+    await tester.tap(find.text('R?glages app'));
+    await tester.pump();
+
+    expect(appSettingsCount, 1);
   });
 }

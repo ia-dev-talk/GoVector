@@ -26,6 +26,9 @@ class CurrentInterventionScreen extends StatelessWidget {
     required this.onFailure,
     required this.onPostpone,
     this.gpsStatusListenable,
+    this.onRequestGpsPermission,
+    this.onOpenGpsSettings,
+    this.onOpenGpsAppSettings,
   });
 
   final Job? job;
@@ -42,6 +45,9 @@ class CurrentInterventionScreen extends StatelessWidget {
   final VoidCallback onFailure;
   final VoidCallback onPostpone;
   final ValueListenable<GpsStatusSnapshot>? gpsStatusListenable;
+  final Future<void> Function()? onRequestGpsPermission;
+  final Future<void> Function()? onOpenGpsSettings;
+  final Future<void> Function()? onOpenGpsAppSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +60,27 @@ class CurrentInterventionScreen extends StatelessWidget {
     final statusColor = MobileJobPresenter.statusColor(intervention);
     final effectiveGpsStatus =
         gpsStatusListenable ?? LocationService.statusListenable;
+
+    final effectiveRequestGpsPermission =
+        onRequestGpsPermission ??
+        () async {
+          final granted = await LocationService.requestPermission();
+          if (granted) {
+            await LocationService.getCurrentPosition();
+          }
+        };
+
+    final effectiveOpenGpsSettings =
+        onOpenGpsSettings ??
+        () async {
+          await LocationService.openLocationSettings();
+        };
+
+    final effectiveOpenGpsAppSettings =
+        onOpenGpsAppSettings ??
+        () async {
+          await LocationService.openAppSettings();
+        };
 
     return SafeArea(
       bottom: false,
@@ -151,6 +178,12 @@ class CurrentInterventionScreen extends StatelessWidget {
                   gpsStatusListenable: effectiveGpsStatus,
                 ),
                 const SizedBox(height: BlueVectorSpacing.xs),
+                _GpsRecoveryCard(
+                  gpsStatusListenable: effectiveGpsStatus,
+                  onRequestPermission: effectiveRequestGpsPermission,
+                  onOpenLocationSettings: effectiveOpenGpsSettings,
+                  onOpenAppSettings: effectiveOpenGpsAppSettings,
+                ),
                 _GpsLastPositionCard(gpsStatusListenable: effectiveGpsStatus),
                 MobileFieldContextCard(jobId: intervention.id),
                 const SizedBox(height: BlueVectorSpacing.md),
@@ -298,6 +331,93 @@ class _ClientCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _GpsRecoveryCard extends StatelessWidget {
+  const _GpsRecoveryCard({
+    required this.gpsStatusListenable,
+    required this.onRequestPermission,
+    required this.onOpenLocationSettings,
+    required this.onOpenAppSettings,
+  });
+
+  final ValueListenable<GpsStatusSnapshot> gpsStatusListenable;
+  final Future<void> Function() onRequestPermission;
+  final Future<void> Function() onOpenLocationSettings;
+  final Future<void> Function() onOpenAppSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<GpsStatusSnapshot>(
+      valueListenable: gpsStatusListenable,
+      builder: (context, gpsStatus, _) {
+        final String message;
+        final String actionLabel;
+        final Future<void> Function() action;
+
+        switch (gpsStatus.availability) {
+          case GpsAvailability.permissionDenied:
+            message = 'Autorisation GPS n?cessaire';
+            actionLabel = 'Autoriser';
+            action = onRequestPermission;
+          case GpsAvailability.serviceDisabled:
+            message = 'GPS du t?l?phone d?sactiv?';
+            actionLabel = 'R?glages GPS';
+            action = onOpenLocationSettings;
+          case GpsAvailability.permissionDeniedForever:
+            message = 'Autorisation GPS bloqu?e';
+            actionLabel = 'R?glages app';
+            action = onOpenAppSettings;
+          case GpsAvailability.unknown:
+          case GpsAvailability.ready:
+          case GpsAvailability.error:
+            return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: BlueVectorSpacing.xs),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: BlueVectorSpacing.sm,
+              vertical: BlueVectorSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: BlueVectorColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+              border: Border.all(color: BlueVectorColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.location_disabled_outlined,
+                  color: BlueVectorColors.warning,
+                  size: 18,
+                ),
+                const SizedBox(width: BlueVectorSpacing.xs),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: BlueVectorColors.textPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await action();
+                  },
+                  child: Text(actionLabel),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
