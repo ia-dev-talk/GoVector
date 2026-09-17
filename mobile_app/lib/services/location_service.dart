@@ -51,11 +51,21 @@ class LocationService {
   static GpsAvailability _availability = GpsAvailability.unknown;
   static String? _lastError;
 
+  static final ValueNotifier<GpsStatusSnapshot> _statusNotifier =
+      ValueNotifier<GpsStatusSnapshot>(
+        const GpsStatusSnapshot(
+          availability: GpsAvailability.unknown,
+          isLiveTracking: false,
+        ),
+      );
+
   static bool get isLiveGpsRunning => _isLiveGpsRunning;
   static double? get lastLatitude => _lastLatitude;
   static double? get lastLongitude => _lastLongitude;
   static double? get lastAccuracy => _lastAccuracy;
   static DateTime? get lastPositionAt => _lastPositionAt;
+  static ValueListenable<GpsStatusSnapshot> get statusListenable =>
+      _statusNotifier;
 
   static GpsStatusSnapshot get status => GpsStatusSnapshot(
     availability: _availability,
@@ -66,6 +76,10 @@ class LocationService {
     positionAt: _lastPositionAt,
     error: _lastError,
   );
+
+  static void _publishStatus() {
+    _statusNotifier.value = status;
+  }
 
   @visibleForTesting
   static GpsAvailability resolveAvailability({
@@ -99,6 +113,7 @@ class LocationService {
         _availability = GpsAvailability.serviceDisabled;
         _isInitialized = false;
         _lastError = null;
+        _publishStatus();
         return status;
       }
 
@@ -121,6 +136,7 @@ class LocationService {
       _lastError = error.toString();
     }
 
+    _publishStatus();
     return status;
   }
 
@@ -170,10 +186,12 @@ class LocationService {
       _rememberPosition(position);
       _availability = GpsAvailability.ready;
       _lastError = null;
+      _publishStatus();
       return position;
     } catch (error) {
       _availability = GpsAvailability.error;
       _lastError = error.toString();
+      _publishStatus();
       debugPrint('Error getting position: $error');
       return null;
     }
@@ -205,6 +223,7 @@ class LocationService {
     }
 
     _isLiveGpsRunning = true;
+    _publishStatus();
     debugPrint('Starting live GPS with ${intervalSeconds}s interval');
     unawaited(_startLiveGpsStream(intervalSeconds));
   }
@@ -216,6 +235,7 @@ class LocationService {
     _liveGpsSubscription = null;
     _isLiveGpsRunning = false;
     _currentJobId = null;
+    _publishStatus();
     debugPrint('Live GPS stopped');
   }
 
@@ -223,6 +243,7 @@ class LocationService {
     if (!_isInitialized) await initialize();
     if (!_isInitialized || !_isLiveGpsRunning) {
       _isLiveGpsRunning = false;
+      _publishStatus();
       return;
     }
 
@@ -255,6 +276,9 @@ class LocationService {
         Geolocator.getPositionStream(locationSettings: settings).listen(
           (position) => unawaited(_sendGpsPosition(position)),
           onError: (Object error) {
+            _availability = GpsAvailability.error;
+            _lastError = error.toString();
+            _publishStatus();
             debugPrint('Live GPS stream error: $error');
           },
         );
@@ -264,6 +288,7 @@ class LocationService {
     _rememberPosition(position);
     _availability = GpsAvailability.ready;
     _lastError = null;
+    _publishStatus();
 
     try {
       final token = await AuthService.getToken();
