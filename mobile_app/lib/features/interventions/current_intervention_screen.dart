@@ -151,6 +151,7 @@ class CurrentInterventionScreen extends StatelessWidget {
                   gpsStatusListenable: effectiveGpsStatus,
                 ),
                 const SizedBox(height: BlueVectorSpacing.xs),
+                _GpsLastPositionCard(gpsStatusListenable: effectiveGpsStatus),
                 MobileFieldContextCard(jobId: intervention.id),
                 const SizedBox(height: BlueVectorSpacing.md),
                 Row(
@@ -297,6 +298,92 @@ class _ClientCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _GpsLastPositionCard extends StatelessWidget {
+  const _GpsLastPositionCard({required this.gpsStatusListenable});
+
+  final ValueListenable<GpsStatusSnapshot> gpsStatusListenable;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<GpsStatusSnapshot>(
+      valueListenable: gpsStatusListenable,
+      builder: (context, gpsStatus, _) {
+        if (!gpsStatus.hasPosition) {
+          return const SizedBox.shrink();
+        }
+
+        final latitude = gpsStatus.latitude!;
+        final longitude = gpsStatus.longitude!;
+        final accuracy = gpsStatus.accuracy;
+        final positionAt = gpsStatus.positionAt?.toLocal();
+
+        final timeLabel = positionAt == null
+            ? 'heure inconnue'
+            : '${positionAt.hour.toString().padLeft(2, '0')}:'
+                  '${positionAt.minute.toString().padLeft(2, '0')}';
+
+        final accuracyLabel = accuracy == null
+            ? null
+            : '?${accuracy.round()} m';
+
+        final details = <String>[
+          '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}',
+          if (accuracyLabel != null) accuracyLabel,
+          timeLabel,
+        ].join(' ? ');
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: BlueVectorSpacing.xs),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: BlueVectorSpacing.sm,
+              vertical: BlueVectorSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: BlueVectorColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+              border: Border.all(color: BlueVectorColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.my_location_rounded,
+                  size: 18,
+                  color: BlueVectorColors.primary,
+                ),
+                const SizedBox(width: BlueVectorSpacing.xs),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Derni?re position',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: BlueVectorColors.textPrimary,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        details,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: BlueVectorColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -146,4 +146,26 @@ void main() {
     expect(find.text('D?sactiv?'), findsOneWidget);
     expect(find.text('Recherche?'), findsNothing);
   });
+
+  testWidgets('current intervention shows last known GPS position', (
+    tester,
+  ) async {
+    final gps = ValueNotifier<GpsStatusSnapshot>(
+      GpsStatusSnapshot(
+        availability: GpsAvailability.ready,
+        isLiveTracking: false,
+        latitude: 33.57012,
+        longitude: -7.58987,
+        accuracy: 6.4,
+        positionAt: DateTime(2026, 9, 17, 10, 30),
+      ),
+    );
+    addTearDown(gps.dispose);
+
+    await tester.pumpWidget(_screen(_job(), gpsStatusListenable: gps));
+    await tester.pump();
+
+    expect(find.text('Derni?re position'), findsOneWidget);
+    expect(find.text('33.57012, -7.58987 ? ?6 m ? 10:30'), findsOneWidget);
+  });
 }
