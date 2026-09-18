@@ -23,6 +23,8 @@ class FieldAgentShell extends StatefulWidget {
 
 class _FieldAgentShellState extends State<FieldAgentShell> {
   List<FieldAgentJobContext> _jobs = const [];
+  List<FieldAgentTechnicianLocation> _technicianLocations = const [];
+  int? _gpsStaleAfterMinutes;
   bool _loading = true;
   bool _syncing = false;
   bool _online = false;
@@ -65,8 +67,12 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
       final name = await AuthService.getFieldAgentName();
       final online = await OfflineService.isOnline();
       List<FieldAgentJobContext> jobs = const [];
+      FieldAgentTechnicianLocations technicianLocations =
+          const FieldAgentTechnicianLocations(technicians: []);
       if (online) {
         jobs = await FieldAgentService.getMyTeamJobs();
+        technicianLocations =
+            await FieldAgentService.getMyTeamTechnicianLocations();
         jobs = [...jobs]
           ..sort((a, b) {
             final byPriority = _priority(a).compareTo(_priority(b));
@@ -87,6 +93,8 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
         _agentName = name ?? 'Agent terrain';
         _online = online;
         _jobs = jobs;
+        _technicianLocations = technicianLocations.technicians;
+        _gpsStaleAfterMinutes = technicianLocations.gpsStaleAfterMinutes;
         _pending = pending;
         _loading = false;
       });
@@ -137,6 +145,20 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
           technicianNamesByJobId: {
             for (final row in _jobs) row.job.id: row.technicianName,
           },
+          gpsStaleAfterMinutes: _gpsStaleAfterMinutes,
+          technicianLocations: [
+            for (final technician in _technicianLocations)
+              MobileTechnicianLocation(
+                id: technician.id,
+                name: technician.name,
+                liveStatus: technician.liveStatus,
+                latitude: technician.latitude,
+                longitude: technician.longitude,
+                accuracy: technician.accuracy,
+                lastLocationUpdate: technician.lastLocationUpdate,
+                currentJobId: technician.currentJobId,
+              ),
+          ],
           onOpenJob: _openJobFromMap,
         ),
       ),

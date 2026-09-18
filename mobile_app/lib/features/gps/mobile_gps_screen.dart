@@ -10,6 +10,30 @@ import '../../models/job.dart';
 import '../../services/location_service.dart';
 import '../interventions/mobile_job_presenter.dart';
 
+class MobileTechnicianLocation {
+  const MobileTechnicianLocation({
+    required this.id,
+    required this.name,
+    required this.liveStatus,
+    this.latitude,
+    this.longitude,
+    this.accuracy,
+    this.lastLocationUpdate,
+    this.currentJobId,
+  });
+
+  final int id;
+  final String name;
+  final String liveStatus;
+  final double? latitude;
+  final double? longitude;
+  final double? accuracy;
+  final DateTime? lastLocationUpdate;
+  final int? currentJobId;
+
+  bool get hasPosition => latitude != null && longitude != null;
+}
+
 enum _MapFilter { today, upcoming, all, closed }
 
 class MobileGpsScreen extends StatefulWidget {
@@ -18,12 +42,16 @@ class MobileGpsScreen extends StatefulWidget {
     required this.roleLabel,
     required this.jobs,
     this.technicianNamesByJobId = const {},
+    this.technicianLocations = const [],
+    this.gpsStaleAfterMinutes,
     this.onOpenJob,
   });
 
   final String roleLabel;
   final List<Job> jobs;
   final Map<int, String> technicianNamesByJobId;
+  final List<MobileTechnicianLocation> technicianLocations;
+  final int? gpsStaleAfterMinutes;
   final ValueChanged<Job>? onOpenJob;
 
   @override
@@ -66,6 +94,11 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
 
   List<Job> get _mappedJobs => _filteredJobs
       .where((job) => job.hasServiceCoordinates)
+      .toList(growable: false);
+
+  List<MobileTechnicianLocation> get _mappedTechnicians => widget
+      .technicianLocations
+      .where((technician) => technician.hasPosition)
       .toList(growable: false);
 
   @override
@@ -119,6 +152,11 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
       return LatLng(job.latitude, job.longitude);
     }
 
+    if (_mappedTechnicians.isNotEmpty) {
+      final technician = _mappedTechnicians.first;
+      return LatLng(technician.latitude!, technician.longitude!);
+    }
+
     return const LatLng(33.5731, -7.5898);
   }
 
@@ -134,6 +172,8 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
   void _fitInterventions(GpsStatusSnapshot gps) {
     final points = <LatLng>[
       for (final job in _mappedJobs) LatLng(job.latitude, job.longitude),
+      for (final technician in _mappedTechnicians)
+        LatLng(technician.latitude!, technician.longitude!),
       if (gps.hasPosition) LatLng(gps.latitude!, gps.longitude!),
     ];
 
@@ -303,6 +343,159 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
     );
   }
 
+  bool _technicianPositionIsStale(MobileTechnicianLocation technician) {
+    final updatedAt = technician.lastLocationUpdate;
+    if (updatedAt == null) return true;
+
+    final staleAfterMinutes = widget.gpsStaleAfterMinutes;
+    if (staleAfterMinutes == null) return false;
+
+    final age = DateTime.now().toUtc().difference(updatedAt.toUtc());
+    return age > Duration(minutes: staleAfterMinutes);
+  }
+
+  Color _technicianColor(MobileTechnicianLocation technician) {
+    if (_technicianPositionIsStale(technician)) {
+      return BlueVectorColors.textMuted;
+    }
+
+    switch (technician.liveStatus.trim().toLowerCase()) {
+      case 'disponible':
+        return BlueVectorColors.success;
+      case 'en_intervention':
+        return BlueVectorColors.primary;
+      case 'pause':
+        return BlueVectorColors.warning;
+      case 'hors_service':
+      case 'deconnecte':
+      default:
+        return BlueVectorColors.textMuted;
+    }
+  }
+
+  String _technicianStatusLabel(String status) {
+    switch (status.trim().toLowerCase()) {
+      case 'disponible':
+        return 'Disponible';
+      case 'en_intervention':
+        return 'En intervention';
+      case 'pause':
+        return 'En pause';
+      case 'hors_service':
+        return 'Hors service';
+      case 'deconnecte':
+        return 'Déconnecté';
+      default:
+        return status.trim().isEmpty ? 'Statut inconnu' : status;
+    }
+  }
+
+  String _technicianPositionAge(MobileTechnicianLocation technician) {
+    final updatedAt = technician.lastLocationUpdate;
+    if (updatedAt == null) return 'Heure inconnue';
+
+    var age = DateTime.now().toUtc().difference(updatedAt.toUtc());
+    if (age.isNegative) age = Duration.zero;
+
+    if (age.inMinutes < 1) return 'À l’instant';
+    if (age.inMinutes < 60) return 'Il y a ${age.inMinutes} min';
+    if (age.inHours < 24) return 'Il y a ${age.inHours} h';
+    return 'Il y a ${age.inDays} j';
+  }
+
+  Future<void> _showTechnician(MobileTechnicianLocation technician) async {
+    final color = _technicianColor(technician);
+    final stale = _technicianPositionIsStale(technician);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              BlueVectorSpacing.lg,
+              0,
+              BlueVectorSpacing.lg,
+              BlueVectorSpacing.lg,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.engineering_rounded, color: color),
+                    ),
+                    const SizedBox(width: BlueVectorSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        technician.name,
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: BlueVectorColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: BlueVectorSpacing.lg),
+                _InfoRow(
+                  label: 'Statut',
+                  value: _technicianStatusLabel(technician.liveStatus),
+                ),
+                _InfoRow(
+                  label: 'Dernière position',
+                  value: _technicianPositionAge(technician),
+                ),
+                if (technician.accuracy != null)
+                  _InfoRow(
+                    label: 'Précision GPS',
+                    value: '±${technician.accuracy!.round()} m',
+                  ),
+                if (technician.currentJobId != null)
+                  _InfoRow(
+                    label: 'Intervention en cours',
+                    value: '#${technician.currentJobId}',
+                  ),
+                if (stale) ...[
+                  const SizedBox(height: BlueVectorSpacing.sm),
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.schedule_rounded,
+                        size: 18,
+                        color: BlueVectorColors.warning,
+                      ),
+                      SizedBox(width: BlueVectorSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          'Position ancienne : elle ne représente peut-être plus la position actuelle du technicien.',
+                          style: TextStyle(
+                            color: BlueVectorColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   String _filterLabel(_MapFilter filter) {
     switch (filter) {
       case _MapFilter.today:
@@ -371,6 +564,33 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
             ),
         ];
 
+        final technicianMarkers = <Marker>[
+          for (final technician in _mappedTechnicians)
+            Marker(
+              point: LatLng(technician.latitude!, technician.longitude!),
+              width: 52,
+              height: 52,
+              child: GestureDetector(
+                onTap: () => _showTechnician(technician),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _technicianColor(technician),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 4),
+                    boxShadow: const [
+                      BoxShadow(blurRadius: 9, color: Color(0x44000000)),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.engineering_rounded,
+                    color: Colors.white,
+                    size: 25,
+                  ),
+                ),
+              ),
+            ),
+        ];
+
         return Scaffold(
           backgroundColor: BlueVectorColors.background,
           appBar: AppBar(title: Text('Carte · ${widget.roleLabel}')),
@@ -423,6 +643,8 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
                       },
                     ),
                   ),
+                  if (technicianMarkers.isNotEmpty)
+                    MarkerLayer(markers: technicianMarkers),
                   if (gps.hasPosition)
                     MarkerLayer(
                       markers: [
@@ -487,7 +709,9 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
                               const SizedBox(width: BlueVectorSpacing.xs),
                               Expanded(
                                 child: Text(
-                                  '${_mappedJobs.length} sur la carte',
+                                  widget.technicianLocations.isEmpty
+                                      ? '${_mappedJobs.length} sur la carte'
+                                      : '${_mappedJobs.length} interventions · ${_mappedTechnicians.length} techniciens',
                                   style: const TextStyle(
                                     color: BlueVectorColors.textPrimary,
                                     fontWeight: FontWeight.w800,

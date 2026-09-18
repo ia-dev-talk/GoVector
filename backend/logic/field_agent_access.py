@@ -147,6 +147,28 @@ async def list_field_agent_team_jobs(
     ]
 
 
+async def list_field_agent_team_technicians(
+    db: AsyncSession,
+    *,
+    current_user: User,
+) -> list[Technician]:
+    """Return active technicians belonging to the Agent terrain team.
+
+    Canonical team_id membership wins over the legacy orienteur_id projection
+    through the same fail-closed clause used for team jobs.
+    """
+    orienteur_id = _require_field_agent_identity(current_user)
+    result = await db.execute(
+        select(Technician)
+        .outerjoin(FieldTeam, FieldTeam.id == Technician.team_id)
+        .where(
+            Technician.is_active.is_(True),
+            _team_membership_clause(orienteur_id),
+        )
+        .order_by(Technician.name.asc(), Technician.id.asc())
+    )
+    return list(result.scalars().all())
+
 def subject_user_for_field_agent(
     *,
     field_agent: User,

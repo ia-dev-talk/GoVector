@@ -123,8 +123,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('GPS'), findsOneWidget);
-    expect(find.text('?4 m'), findsOneWidget);
-    expect(find.text('GPS pr?t'), findsNothing);
+    expect(find.text('±4 m'), findsOneWidget);
+    expect(find.text('GPS prêt'), findsNothing);
   });
 
   testWidgets('current intervention reacts when GPS is disabled', (
@@ -141,7 +141,7 @@ void main() {
     await tester.pumpWidget(_screen(_job(), gpsStatusListenable: gps));
     await tester.pump();
 
-    expect(find.text('Recherche?'), findsOneWidget);
+    expect(find.text('Recherche…'), findsOneWidget);
 
     gps.value = const GpsStatusSnapshot(
       availability: GpsAvailability.serviceDisabled,
@@ -149,8 +149,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('D?sactiv?'), findsOneWidget);
-    expect(find.text('Recherche?'), findsNothing);
+    expect(find.text('Désactivé'), findsOneWidget);
+    expect(find.text('Recherche…'), findsNothing);
   });
 
   testWidgets('current intervention shows last known GPS position', (
@@ -171,8 +171,8 @@ void main() {
     await tester.pumpWidget(_screen(_job(), gpsStatusListenable: gps));
     await tester.pump();
 
-    expect(find.text('Derni?re position'), findsOneWidget);
-    expect(find.text('33.57012, -7.58987 ? ?6 m ? 10:30'), findsOneWidget);
+    expect(find.text('Dernière position'), findsOneWidget);
+    expect(find.text('33.57012, -7.58987 · ±6 m · 10:30'), findsOneWidget);
   });
 
   testWidgets('current intervention requests GPS permission when denied', (
@@ -199,7 +199,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Autorisation GPS n?cessaire'), findsOneWidget);
+    expect(find.text('Autorisation GPS nécessaire'), findsOneWidget);
     expect(find.text('Autoriser'), findsOneWidget);
 
     await tester.tap(find.text('Autoriser'));
@@ -232,10 +232,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('GPS du t?l?phone d?sactiv?'), findsOneWidget);
-    expect(find.text('R?glages GPS'), findsOneWidget);
+    expect(find.text('GPS du téléphone désactivé'), findsOneWidget);
+    expect(find.text('Réglages GPS'), findsOneWidget);
 
-    await tester.tap(find.text('R?glages GPS'));
+    await tester.tap(find.text('Réglages GPS'));
     await tester.pump();
 
     expect(settingsCount, 1);
@@ -265,10 +265,10 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Autorisation GPS bloqu?e'), findsOneWidget);
-    expect(find.text('R?glages app'), findsOneWidget);
+    expect(find.text('Autorisation GPS bloquée'), findsOneWidget);
+    expect(find.text('Réglages app'), findsOneWidget);
 
-    await tester.tap(find.text('R?glages app'));
+    await tester.tap(find.text('Réglages app'));
     await tester.pump();
 
     expect(appSettingsCount, 1);

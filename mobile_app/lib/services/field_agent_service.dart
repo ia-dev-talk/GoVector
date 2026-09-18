@@ -44,6 +44,68 @@ class FieldAgentJobContext {
   }
 }
 
+class FieldAgentTechnicianLocation {
+  const FieldAgentTechnicianLocation({
+    required this.id,
+    required this.name,
+    required this.liveStatus,
+    this.employeeId,
+    this.teamId,
+    this.latitude,
+    this.longitude,
+    this.accuracy,
+    this.lastLocationUpdate,
+    this.currentJobId,
+  });
+
+  final int id;
+  final String name;
+  final String? employeeId;
+  final int? teamId;
+  final String liveStatus;
+  final double? latitude;
+  final double? longitude;
+  final double? accuracy;
+  final DateTime? lastLocationUpdate;
+  final int? currentJobId;
+
+  bool get hasPosition => latitude != null && longitude != null;
+
+  factory FieldAgentTechnicianLocation.fromJson(Map<String, dynamic> json) {
+    final id = int.tryParse('${json['id'] ?? ''}');
+    if (id == null || id <= 0) {
+      throw const FormatException('Technicien Agent invalide');
+    }
+
+    return FieldAgentTechnicianLocation(
+      id: id,
+      name: json['name']?.toString().trim().isNotEmpty == true
+          ? json['name'].toString().trim()
+          : 'Technicien #$id',
+      employeeId: json['employee_id']?.toString(),
+      teamId: int.tryParse('${json['team_id'] ?? ''}'),
+      liveStatus: json['live_status']?.toString() ?? 'deconnecte',
+      latitude: (json['current_latitude'] as num?)?.toDouble(),
+      longitude: (json['current_longitude'] as num?)?.toDouble(),
+      accuracy: (json['current_accuracy'] as num?)?.toDouble(),
+      lastLocationUpdate: DateTime.tryParse(
+        json['last_location_update']?.toString() ?? '',
+      ),
+      currentJobId: int.tryParse('${json['current_job_id'] ?? ''}'),
+    );
+  }
+}
+
+class FieldAgentTechnicianLocations {
+  const FieldAgentTechnicianLocations({
+    required this.technicians,
+    this.gpsStaleAfterMinutes,
+  });
+
+  final List<FieldAgentTechnicianLocation> technicians;
+  final int? gpsStaleAfterMinutes;
+}
+
 class FieldAgentService {
   static Future<Map<String, String>> _headers() async {
     final token = await AuthService.getToken();
@@ -91,6 +153,54 @@ class FieldAgentService {
                 FieldAgentJobContext.fromJson(Map<String, dynamic>.from(row)),
           )
           .toList(growable: false);
+    } finally {
+      if (client == null) requestClient.close();
+    }
+  }
+
+  static Future<FieldAgentTechnicianLocations> getMyTeamTechnicianLocations({
+    http.Client? client,
+  }) async {
+    final requestClient = client ?? http.Client();
+    try {
+      final response = await requestClient
+          .get(
+            AppConfig.apiUri('orienteur-agent/me/technicians/locations'),
+            headers: await _headers(),
+          )
+          .timeout(AppConfig.httpTimeout);
+
+      if (response.statusCode != 200) {
+        throw Exception(_detail(response));
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('Réponse positions Agent invalide');
+      }
+
+      final staleAfterMinutes = int.tryParse(
+        '${decoded['gps_stale_after_minutes'] ?? ''}',
+      );
+
+      final technicians = decoded['technicians'];
+      final parsedTechnicians = technicians is List
+          ? technicians
+                .whereType<Map>()
+                .map(
+                  (row) => FieldAgentTechnicianLocation.fromJson(
+                    Map<String, dynamic>.from(row),
+                  ),
+                )
+                .toList(growable: false)
+          : const <FieldAgentTechnicianLocation>[];
+
+      return FieldAgentTechnicianLocations(
+        technicians: parsedTechnicians,
+        gpsStaleAfterMinutes: staleAfterMinutes != null && staleAfterMinutes > 0
+            ? staleAfterMinutes
+            : null,
+      );
     } finally {
       if (client == null) requestClient.close();
     }
