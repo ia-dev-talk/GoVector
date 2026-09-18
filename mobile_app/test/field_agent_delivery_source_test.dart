@@ -30,6 +30,86 @@ void main() {
     expect(source, contains('OfflineService.syncPendingActions'));
   });
 
+  test('Agent decision waits for this job evidence to be synchronized', () {
+    final source = File(
+      'lib/features/agent/field_agent_shell.dart',
+    ).readAsStringSync();
+
+    expect(source, contains('OfflineService.getPendingEventsForJob(job.id)'));
+    expect(
+      source,
+      contains(
+        'Connexion requise avant de prendre une décision sur ce dossier.',
+      ),
+    );
+    expect(source, contains('Réessayez la synchronisation avant la décision.'));
+  });
+
+  test(
+    'Agent terrain exposes explicit GPS recovery and honest local evidence',
+    () {
+      final source = File(
+        'lib/features/agent/field_agent_shell.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('LocationService.refreshStatus()'));
+      expect(source, contains('GpsAvailability.serviceDisabled'));
+      expect(source, contains('LocationService.openLocationSettings()'));
+      expect(source, contains('GpsAvailability.permissionDeniedForever'));
+      expect(source, contains('LocationService.openAppSettings()'));
+
+      expect(
+        source,
+        contains(
+          'Position enregistrée sur l’appareil. Synchronisation lancée.',
+        ),
+      );
+      expect(
+        source,
+        contains('Rapport enregistré sur l’appareil. Synchronisation lancée.'),
+      );
+      expect(source, contains('Photos conservées sur l’appareil.'));
+    },
+  );
+
+  test(
+    'Agent terrain exposes explicit GPS recovery and honest local evidence',
+    () {
+      final source = File(
+        'lib/features/agent/field_agent_shell.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('LocationService.refreshStatus()'));
+      expect(source, contains('GpsAvailability.serviceDisabled'));
+      expect(source, contains('LocationService.openLocationSettings()'));
+      expect(source, contains('GpsAvailability.permissionDeniedForever'));
+      expect(source, contains('LocationService.openAppSettings()'));
+
+      expect(
+        source,
+        contains(
+          'Position enregistrée sur l’appareil. Synchronisation lancée.',
+        ),
+      );
+      expect(
+        source,
+        contains('Rapport enregistré sur l’appareil. Synchronisation lancée.'),
+      );
+      expect(source, contains('Photos conservées sur l’appareil.'));
+    },
+  );
+
+  test('Agent detail uses the real technician stock contract', () {
+    final source = File(
+      'lib/features/agent/field_agent_shell.dart',
+    ).readAsStringSync();
+
+    expect(source, contains("stock['stock_summary']"));
+    expect(source, contains("stock['vehicle_stock']"));
+    expect(source, contains("'available_units'"));
+    expect(source, contains("label: 'Stock tech.'"));
+  });
+
   test('Agent terrain does not expose generic network labels', () {
     final source = File(
       'lib/features/agent/field_agent_shell.dart',
