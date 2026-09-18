@@ -387,7 +387,7 @@ class LocationService {
     }
   }
 
-  static Future<void> openNavigation({
+  static Future<bool> openNavigation({
     required double latitude,
     required double longitude,
     String? label,
@@ -396,71 +396,101 @@ class LocationService {
       "[LOCATION] openNavigation lat=$latitude lon=$longitude label=$label",
     );
 
-    // 1. Essayer Waze (application native)
-    final uriWaze = Uri.parse("waze://?ll=$latitude,$longitude&navigate=yes");
-    if (await canLaunchUrl(uriWaze)) {
-      debugPrint("[LOCATION] Lancement Waze: $uriWaze");
-      await launchUrl(uriWaze, mode: LaunchMode.externalApplication);
-      return;
-    }
+    try {
+      final uriWaze = Uri.parse("waze://?ll=$latitude,$longitude&navigate=yes");
+      if (await canLaunchUrl(uriWaze)) {
+        debugPrint("[LOCATION] Lancement Waze: $uriWaze");
+        if (await launchUrl(uriWaze, mode: LaunchMode.externalApplication)) {
+          return true;
+        }
+      }
 
-    // 2. Essayer Google Maps (application native)
-    final uriGoogleMaps = Uri.parse(
-      "geo:$latitude,$longitude?q=$latitude,$longitude${label != null ? '(${Uri.encodeComponent(label)})' : ''}",
-    );
-    if (await canLaunchUrl(uriGoogleMaps)) {
-      debugPrint("[LOCATION] Lancement Google Maps: $uriGoogleMaps");
-      await launchUrl(uriGoogleMaps, mode: LaunchMode.externalApplication);
-      return;
-    }
+      final uriGoogleMaps = Uri.parse(
+        "geo:$latitude,$longitude?q=$latitude,$longitude${label != null ? '(${Uri.encodeComponent(label)})' : ''}",
+      );
+      if (await canLaunchUrl(uriGoogleMaps)) {
+        debugPrint("[LOCATION] Lancement Google Maps: $uriGoogleMaps");
+        if (await launchUrl(
+          uriGoogleMaps,
+          mode: LaunchMode.externalApplication,
+        )) {
+          return true;
+        }
+      }
 
-    // 3. Fallback Waze web
-    final uriWazeFallback = Uri.parse(
-      "https://waze.com/ul?ll=$latitude,$longitude&navigate=yes"
-      "${label != null ? '&q=${Uri.encodeComponent(label)}' : ''}",
-    );
-    if (await canLaunchUrl(uriWazeFallback)) {
-      debugPrint("[LOCATION] Lancement Waze web: $uriWazeFallback");
-      await launchUrl(uriWazeFallback, mode: LaunchMode.externalApplication);
-      return;
-    }
+      final uriWazeFallback = Uri.parse(
+        "https://waze.com/ul?ll=$latitude,$longitude&navigate=yes"
+        "${label != null ? '&q=${Uri.encodeComponent(label)}' : ''}",
+      );
+      if (await canLaunchUrl(uriWazeFallback)) {
+        debugPrint("[LOCATION] Lancement Waze web: $uriWazeFallback");
+        if (await launchUrl(
+          uriWazeFallback,
+          mode: LaunchMode.externalApplication,
+        )) {
+          return true;
+        }
+      }
 
-    // 4. Fallback Google Maps web
-    final uriGoogleWeb = Uri.parse(
-      "https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude",
-    );
-    if (await canLaunchUrl(uriGoogleWeb)) {
-      debugPrint("[LOCATION] Lancement Google Maps web: $uriGoogleWeb");
-      await launchUrl(uriGoogleWeb, mode: LaunchMode.externalApplication);
-      return;
-    }
+      final uriGoogleWeb = Uri.parse(
+        "https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude",
+      );
+      if (await canLaunchUrl(uriGoogleWeb)) {
+        debugPrint("[LOCATION] Lancement Google Maps web: $uriGoogleWeb");
+        if (await launchUrl(
+          uriGoogleWeb,
+          mode: LaunchMode.externalApplication,
+        )) {
+          return true;
+        }
+      }
 
-    // 5. Dernier fallback : ouvrir dans le navigateur
-    final uriBrowser = Uri.parse(
-      "https://www.google.com/maps/search/$latitude,$longitude",
-    );
-    debugPrint("[LOCATION] Fallback navigateur: $uriBrowser");
-    await launchUrl(uriBrowser, mode: LaunchMode.platformDefault);
+      final uriBrowser = Uri.parse(
+        "https://www.google.com/maps/search/$latitude,$longitude",
+      );
+      debugPrint("[LOCATION] Fallback navigateur: $uriBrowser");
+      return await launchUrl(uriBrowser, mode: LaunchMode.platformDefault);
+    } catch (error) {
+      debugPrint("[LOCATION] Navigation impossible: $error");
+      return false;
+    }
   }
 
-  static Future<void> openNavigationByAddress(String address) async {
-    final encoded = Uri.encodeComponent(address);
-    final uriWaze = Uri.parse("waze://?q=$encoded&navigate=yes");
-    final uriGoogle = Uri.parse(
-      "https://www.google.com/maps/dir/?api=1&destination=$encoded",
-    );
+  static Future<bool> openNavigationByAddress(String address) async {
+    final value = address.trim();
+    if (value.isEmpty) return false;
 
-    if (await canLaunchUrl(uriWaze)) {
-      await launchUrl(uriWaze, mode: LaunchMode.externalApplication);
-    } else if (await canLaunchUrl(uriGoogle)) {
-      await launchUrl(uriGoogle, mode: LaunchMode.externalApplication);
-    } else {
+    try {
+      final encoded = Uri.encodeComponent(value);
+      final uriWaze = Uri.parse("waze://?q=$encoded&navigate=yes");
+      final uriGoogle = Uri.parse(
+        "https://www.google.com/maps/dir/?api=1&destination=$encoded",
+      );
+
+      if (await canLaunchUrl(uriWaze) &&
+          await launchUrl(uriWaze, mode: LaunchMode.externalApplication)) {
+        return true;
+      }
+
+      if (await canLaunchUrl(uriGoogle) &&
+          await launchUrl(uriGoogle, mode: LaunchMode.externalApplication)) {
+        return true;
+      }
+
       final uriGoogleWeb = Uri.parse(
         "https://www.google.com/maps/search/$encoded",
       );
       if (await canLaunchUrl(uriGoogleWeb)) {
-        await launchUrl(uriGoogleWeb, mode: LaunchMode.externalApplication);
+        return await launchUrl(
+          uriGoogleWeb,
+          mode: LaunchMode.externalApplication,
+        );
       }
+
+      return false;
+    } catch (error) {
+      debugPrint("[LOCATION] Navigation adresse impossible: $error");
+      return false;
     }
   }
 

@@ -202,7 +202,13 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
   Future<void> _sync() async {
     if (_syncing) return;
-    _syncing = true;
+
+    if (mounted) {
+      setState(() => _syncing = true);
+    } else {
+      _syncing = true;
+    }
+
     try {
       final result = await OfflineService.syncPendingActions();
       if (!mounted) return;
@@ -220,7 +226,11 @@ class _TechnicianShellState extends State<TechnicianShell> {
       ).showSnackBar(SnackBar(content: Text(message)));
       await _load();
     } finally {
-      _syncing = false;
+      if (mounted) {
+        setState(() => _syncing = false);
+      } else {
+        _syncing = false;
+      }
     }
   }
 
@@ -431,16 +441,24 @@ class _TechnicianShellState extends State<TechnicianShell> {
     }
 
     if (job.hasServiceCoordinates) {
-      await LocationService.openNavigation(
+      final opened = await LocationService.openNavigation(
         latitude: job.latitude,
         longitude: job.longitude,
         label: job.serviceAddress,
       );
+      if (!opened) {
+        _message('Impossible d’ouvrir une application de navigation.');
+      }
       return;
     }
 
     if (job.serviceAddress.trim().isNotEmpty) {
-      await LocationService.openNavigationByAddress(job.serviceAddress);
+      final opened = await LocationService.openNavigationByAddress(
+        job.serviceAddress,
+      );
+      if (!opened) {
+        _message('Impossible d’ouvrir une application de navigation.');
+      }
       return;
     }
 
@@ -537,6 +555,7 @@ class _TechnicianShellState extends State<TechnicianShell> {
         isOnline: _snapshot.isOnline,
         pendingActions: _snapshot.pendingActions,
         attentionActions: _snapshot.attentionActions,
+        syncing: _syncing,
         onOpenJob: _selectJob,
         onSync: _sync,
       ),
@@ -545,7 +564,9 @@ class _TechnicianShellState extends State<TechnicianShell> {
         technicianName: _technicianName,
         isOnline: _snapshot.isOnline,
         pendingActions: _snapshot.pendingActions,
+        attentionActions: _snapshot.attentionActions,
         lastSync: _snapshot.lastSync,
+        syncing: _syncing,
         onSync: _sync,
         onOpenHistory: _openHistory,
         onLogout: widget.onLogout,

@@ -239,13 +239,40 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
     return const LatLng(33.5731, -7.5898);
   }
 
-  void _centerOnMe(GpsStatusSnapshot gps) {
+  Future<void> _recoverGps(GpsStatusSnapshot gps) async {
+    switch (gps.availability) {
+      case GpsAvailability.serviceDisabled:
+        await LocationService.openLocationSettings();
+        return;
+
+      case GpsAvailability.permissionDenied:
+        final granted = await LocationService.requestPermission();
+        if (granted) {
+          await _refreshPosition();
+        }
+        return;
+
+      case GpsAvailability.permissionDeniedForever:
+        await LocationService.openAppSettings();
+        return;
+
+      case GpsAvailability.unknown:
+      case GpsAvailability.ready:
+      case GpsAvailability.error:
+        await _refreshPosition();
+        return;
+    }
+  }
+
+  Future<void> _centerOnMe(GpsStatusSnapshot gps) async {
     if (!gps.hasPosition) {
-      unawaited(_refreshPosition());
-      return;
+      await _recoverGps(gps);
     }
 
-    _mapController.move(LatLng(gps.latitude!, gps.longitude!), 16);
+    final current = LocationService.status;
+    if (!current.hasPosition) return;
+
+    _mapController.move(LatLng(current.latitude!, current.longitude!), 16);
   }
 
   void _fitInterventions(GpsStatusSnapshot gps) {
@@ -389,10 +416,20 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
                         onPressed: () async {
                           Navigator.of(sheetContext).pop();
 
-                          await LocationService.openNavigation(
+                          final opened = await LocationService.openNavigation(
                             latitude: job.latitude,
                             longitude: job.longitude,
                             label: job.serviceAddress,
+                          );
+
+                          if (!mounted || opened) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Impossible d’ouvrir une application de navigation.',
+                              ),
+                            ),
                           );
                         },
                         icon: const Icon(Icons.navigation_rounded),
@@ -867,6 +904,19 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
                             },
                           ),
                         ),
+                        if (!gps.hasPosition) ...[
+                          const SizedBox(height: 6),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: BlueVectorSpacing.sm,
+                            ),
+                            child: _GpsMapNotice(
+                              gps: gps,
+                              refreshing: _refreshing,
+                              onRecover: () => _recoverGps(gps),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -889,7 +939,7 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
                     FloatingActionButton(
                       heroTag: 'my-position-${widget.roleLabel}',
                       tooltip: 'Ma position',
-                      onPressed: () => _centerOnMe(gps),
+                      onPressed: () => unawaited(_centerOnMe(gps)),
                       child: const Icon(Icons.my_location_rounded),
                     ),
                   ],
@@ -899,6 +949,104 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
           ),
         );
       },
+    );
+  }
+}
+
+class _GpsMapNotice extends StatelessWidget {
+  const _GpsMapNotice({
+    required this.gps,
+    required this.refreshing,
+    required this.onRecover,
+  });
+
+  final GpsStatusSnapshot gps;
+  final bool refreshing;
+  final Future<void> Function() onRecover;
+
+  @override
+  Widget build(BuildContext context) {
+    final String title;
+    final String action;
+    final IconData icon;
+
+    switch (gps.availability) {
+      case GpsAvailability.serviceDisabled:
+        title = 'GPS désactivé';
+        action = 'Réglages GPS';
+        icon = Icons.location_disabled_rounded;
+        break;
+
+      case GpsAvailability.permissionDenied:
+        title = 'Autorisation GPS requise';
+        action = 'Autoriser';
+        icon = Icons.gps_off_rounded;
+        break;
+
+      case GpsAvailability.permissionDeniedForever:
+        title = 'Accès GPS bloqué pour GoVector';
+        action = 'Réglages app';
+        icon = Icons.lock_outline_rounded;
+        break;
+
+      case GpsAvailability.error:
+        title = 'Position GPS indisponible';
+        action = 'Réessayer';
+        icon = Icons.location_searching_rounded;
+        break;
+
+      case GpsAvailability.ready:
+        title = 'Recherche de la position GPS…';
+        action = 'Réessayer';
+        icon = Icons.location_searching_rounded;
+        break;
+
+      case GpsAvailability.unknown:
+        title = 'Vérification du GPS…';
+        action = 'Actualiser';
+        icon = Icons.location_searching_rounded;
+        break;
+    }
+
+    final color = gps.availability == GpsAvailability.error
+        ? BlueVectorColors.danger
+        : BlueVectorColors.warning;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: BlueVectorSpacing.sm,
+        vertical: BlueVectorSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: BlueVectorSpacing.xs),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: BlueVectorColors.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: refreshing
+                ? null
+                : () {
+                    unawaited(onRecover());
+                  },
+            child: Text(action),
+          ),
+        ],
+      ),
     );
   }
 }
