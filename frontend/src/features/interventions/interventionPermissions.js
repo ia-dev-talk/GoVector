@@ -4,10 +4,8 @@ export function getInterventionPermissions(userRole) {
     .toUpperCase();
 
   return Object.freeze({
-    canAssessIntervention: ['ADMIN', 'CHEF_ORIENTEUR', 'ORIENTEUR'].includes(role),
-    canDeleteIntervention:
-      role === 'ADMIN' ||
-      role === 'CHEF_ORIENTEUR',
+    canAssessIntervention: ['ADMIN', 'ORIENTEUR'].includes(role),
+    canDeleteIntervention: role === 'ADMIN',
   });
 }
 

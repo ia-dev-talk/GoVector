@@ -12,6 +12,7 @@ class MobileNotificationsScreen extends StatelessWidget {
     required this.isOnline,
     required this.pendingActions,
     required this.attentionActions,
+    this.syncing = false,
     required this.onOpenJob,
     required this.onSync,
   });
@@ -20,6 +21,7 @@ class MobileNotificationsScreen extends StatelessWidget {
   final bool isOnline;
   final int pendingActions;
   final int attentionActions;
+  final bool syncing;
   final ValueChanged<Job> onOpenJob;
   final Future<void> Function() onSync;
 
@@ -48,9 +50,13 @@ class MobileNotificationsScreen extends StatelessWidget {
           color: BlueVectorColors.cyan,
           title:
               '$pendingActions action${pendingActions > 1 ? 's' : ''} à synchroniser',
-          detail: 'En attente d’envoi ou de nouvel essai.',
-          actionLabel: 'Synchroniser',
-          onAction: onSync,
+          detail: isOnline
+              ? 'Conservée localement jusqu’à confirmation du serveur.'
+              : 'Conservée localement. Envoi au retour du réseau.',
+          actionLabel: isOnline
+              ? (syncing ? 'Synchronisation…' : 'Synchroniser')
+              : null,
+          onAction: isOnline && !syncing ? onSync : null,
         ),
       if (attentionActions > 0)
         _SystemAlert(
@@ -115,7 +121,7 @@ class MobileNotificationsScreen extends StatelessWidget {
                       120,
                     ),
                     itemCount: alerts.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, _) =>
                         const SizedBox(height: BlueVectorSpacing.sm),
                     itemBuilder: (_, index) => alerts[index],
                   ),
@@ -150,12 +156,14 @@ class _SystemAlert extends StatelessWidget {
       color: color,
       title: title,
       detail: detail,
-      trailing: actionLabel == null || onAction == null
+      trailing: actionLabel == null
           ? null
           : TextButton(
-              onPressed: () async {
-                await onAction!();
-              },
+              onPressed: onAction == null
+                  ? null
+                  : () async {
+                      await onAction!();
+                    },
               child: Text(actionLabel!),
             ),
     );
@@ -245,7 +253,7 @@ class _AlertCard extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );

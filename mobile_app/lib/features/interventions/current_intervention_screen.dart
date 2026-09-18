@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../design_system/bluevector_brand.dart';
 import '../../design_system/bluevector_tokens.dart';
 import '../../models/job.dart';
+import '../../services/location_service.dart';
 import 'mobile_job_journal.dart';
 import 'mobile_field_context_card.dart';
 import 'mobile_job_presenter.dart';
@@ -23,6 +25,10 @@ class CurrentInterventionScreen extends StatelessWidget {
     required this.onOpenSiteHistory,
     required this.onFailure,
     required this.onPostpone,
+    this.gpsStatusListenable,
+    this.onRequestGpsPermission,
+    this.onOpenGpsSettings,
+    this.onOpenGpsAppSettings,
   });
 
   final Job? job;
@@ -38,6 +44,10 @@ class CurrentInterventionScreen extends StatelessWidget {
   final VoidCallback onOpenSiteHistory;
   final VoidCallback onFailure;
   final VoidCallback onPostpone;
+  final ValueListenable<GpsStatusSnapshot>? gpsStatusListenable;
+  final Future<void> Function()? onRequestGpsPermission;
+  final Future<void> Function()? onOpenGpsSettings;
+  final Future<void> Function()? onOpenGpsAppSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +58,29 @@ class CurrentInterventionScreen extends StatelessWidget {
     }
 
     final statusColor = MobileJobPresenter.statusColor(intervention);
+    final effectiveGpsStatus =
+        gpsStatusListenable ?? LocationService.statusListenable;
+
+    final effectiveRequestGpsPermission =
+        onRequestGpsPermission ??
+        () async {
+          final granted = await LocationService.requestPermission();
+          if (granted) {
+            await LocationService.getCurrentPosition();
+          }
+        };
+
+    final effectiveOpenGpsSettings =
+        onOpenGpsSettings ??
+        () async {
+          await LocationService.openLocationSettings();
+        };
+
+    final effectiveOpenGpsAppSettings =
+        onOpenGpsAppSettings ??
+        () async {
+          await LocationService.openAppSettings();
+        };
 
     return SafeArea(
       bottom: false,
@@ -142,14 +175,27 @@ class CurrentInterventionScreen extends StatelessWidget {
                   job: intervention,
                   isOnline: isOnline,
                   pendingActions: pendingActions,
+                  gpsStatusListenable: effectiveGpsStatus,
                 ),
                 const SizedBox(height: BlueVectorSpacing.xs),
+                _GpsRecoveryCard(
+                  gpsStatusListenable: effectiveGpsStatus,
+                  onRequestPermission: effectiveRequestGpsPermission,
+                  onOpenLocationSettings: effectiveOpenGpsSettings,
+                  onOpenAppSettings: effectiveOpenGpsAppSettings,
+                ),
+                _GpsLastPositionCard(gpsStatusListenable: effectiveGpsStatus),
+                if (_NetworkDataCard.hasData(intervention)) ...[
+                  const SizedBox(height: BlueVectorSpacing.xs),
+                  _NetworkDataCard(job: intervention),
+                  const SizedBox(height: BlueVectorSpacing.xs),
+                ],
                 MobileFieldContextCard(jobId: intervention.id),
                 const SizedBox(height: BlueVectorSpacing.md),
                 Row(
                   children: [
                     Text(
-                      'Journal de l’intervention',
+                      'Activité récente',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
@@ -159,10 +205,6 @@ class CurrentInterventionScreen extends StatelessWidget {
                   jobId: intervention.id,
                   refreshToken: pendingActions,
                 ),
-                if (_NetworkDataCard.hasData(intervention)) ...[
-                  const SizedBox(height: BlueVectorSpacing.md),
-                  _NetworkDataCard(job: intervention),
-                ],
               ],
             ),
           ),
@@ -294,21 +336,230 @@ class _ClientCard extends StatelessWidget {
   }
 }
 
+class _GpsRecoveryCard extends StatelessWidget {
+  const _GpsRecoveryCard({
+    required this.gpsStatusListenable,
+    required this.onRequestPermission,
+    required this.onOpenLocationSettings,
+    required this.onOpenAppSettings,
+  });
+
+  final ValueListenable<GpsStatusSnapshot> gpsStatusListenable;
+  final Future<void> Function() onRequestPermission;
+  final Future<void> Function() onOpenLocationSettings;
+  final Future<void> Function() onOpenAppSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<GpsStatusSnapshot>(
+      valueListenable: gpsStatusListenable,
+      builder: (context, gpsStatus, _) {
+        final String message;
+        final String actionLabel;
+        final Future<void> Function() action;
+
+        switch (gpsStatus.availability) {
+          case GpsAvailability.permissionDenied:
+            message = 'Autorisation GPS nécessaire';
+            actionLabel = 'Autoriser';
+            action = onRequestPermission;
+          case GpsAvailability.serviceDisabled:
+            message = 'GPS du téléphone désactivé';
+            actionLabel = 'Réglages GPS';
+            action = onOpenLocationSettings;
+          case GpsAvailability.permissionDeniedForever:
+            message = 'Autorisation GPS bloquée';
+            actionLabel = 'Réglages app';
+            action = onOpenAppSettings;
+          case GpsAvailability.error:
+            message = 'Position GPS indisponible';
+            actionLabel = 'Réessayer';
+            action = onRequestPermission;
+          case GpsAvailability.unknown:
+          case GpsAvailability.ready:
+            return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: BlueVectorSpacing.xs),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: BlueVectorSpacing.sm,
+              vertical: BlueVectorSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: BlueVectorColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+              border: Border.all(color: BlueVectorColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.location_disabled_outlined,
+                  color: BlueVectorColors.warning,
+                  size: 18,
+                ),
+                const SizedBox(width: BlueVectorSpacing.xs),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: BlueVectorColors.textPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await action();
+                  },
+                  child: Text(actionLabel),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GpsLastPositionCard extends StatelessWidget {
+  const _GpsLastPositionCard({required this.gpsStatusListenable});
+
+  final ValueListenable<GpsStatusSnapshot> gpsStatusListenable;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<GpsStatusSnapshot>(
+      valueListenable: gpsStatusListenable,
+      builder: (context, gpsStatus, _) {
+        if (!gpsStatus.hasPosition) {
+          return const SizedBox.shrink();
+        }
+
+        final latitude = gpsStatus.latitude!;
+        final longitude = gpsStatus.longitude!;
+        final accuracy = gpsStatus.accuracy;
+        final positionAt = gpsStatus.positionAt?.toLocal();
+
+        final timeLabel = positionAt == null
+            ? 'heure inconnue'
+            : '${positionAt.hour.toString().padLeft(2, '0')}:'
+                  '${positionAt.minute.toString().padLeft(2, '0')}';
+
+        final accuracyLabel = accuracy == null
+            ? null
+            : '±${accuracy.round()} m';
+
+        final details = <String>[
+          '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}',
+          ?accuracyLabel,
+          timeLabel,
+        ].join(' · ');
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: BlueVectorSpacing.xs),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: BlueVectorSpacing.sm,
+              vertical: BlueVectorSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: BlueVectorColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+              border: Border.all(color: BlueVectorColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.my_location_rounded,
+                  size: 18,
+                  color: BlueVectorColors.primary,
+                ),
+                const SizedBox(width: BlueVectorSpacing.xs),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dernière position',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: BlueVectorColors.textPrimary,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        details,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: BlueVectorColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _OperationalIndicators extends StatelessWidget {
   const _OperationalIndicators({
     required this.job,
     required this.isOnline,
     required this.pendingActions,
+    required this.gpsStatusListenable,
   });
 
   final Job job;
   final bool isOnline;
   final int pendingActions;
+  final ValueListenable<GpsStatusSnapshot> gpsStatusListenable;
 
   @override
   Widget build(BuildContext context) {
-    final hasSiteCoordinates = job.hasServiceCoordinates;
-    final hasAddress = job.serviceAddress.trim().isNotEmpty;
+    String gpsValue(GpsStatusSnapshot status) {
+      switch (status.availability) {
+        case GpsAvailability.ready:
+          if (status.accuracy != null) {
+            return '±${status.accuracy!.round()} m';
+          }
+          return status.isLiveTracking ? 'Recherche…' : 'Prêt';
+        case GpsAvailability.serviceDisabled:
+          return 'Désactivé';
+        case GpsAvailability.permissionDenied:
+          return 'Refusée';
+        case GpsAvailability.permissionDeniedForever:
+          return 'Bloqué';
+        case GpsAvailability.error:
+          return 'Erreur';
+        case GpsAvailability.unknown:
+          return 'À vérifier';
+      }
+    }
+
+    Color gpsColor(GpsStatusSnapshot status) {
+      switch (status.availability) {
+        case GpsAvailability.ready:
+          return BlueVectorColors.success;
+        case GpsAvailability.permissionDeniedForever:
+        case GpsAvailability.error:
+          return BlueVectorColors.danger;
+        case GpsAvailability.unknown:
+        case GpsAvailability.serviceDisabled:
+        case GpsAvailability.permissionDenied:
+          return BlueVectorColors.warning;
+      }
+    }
 
     return Row(
       children: [
@@ -322,17 +573,16 @@ class _OperationalIndicators extends StatelessWidget {
         ),
         const SizedBox(width: BlueVectorSpacing.xxs),
         Expanded(
-          child: _Indicator(
-            icon: Icons.location_searching_rounded,
-            label: 'Site',
-            value: hasSiteCoordinates
-                ? 'GPS prêt'
-                : hasAddress
-                ? 'Adresse'
-                : 'À préciser',
-            color: hasSiteCoordinates
-                ? BlueVectorColors.success
-                : BlueVectorColors.warning,
+          child: ValueListenableBuilder<GpsStatusSnapshot>(
+            valueListenable: gpsStatusListenable,
+            builder: (context, gpsStatus, _) => _Indicator(
+              icon: gpsStatus.availability == GpsAvailability.ready
+                  ? Icons.gps_fixed_rounded
+                  : Icons.gps_off_rounded,
+              label: 'GPS',
+              value: gpsValue(gpsStatus),
+              color: gpsColor(gpsStatus),
+            ),
           ),
         ),
         const SizedBox(width: BlueVectorSpacing.xxs),
@@ -422,188 +672,6 @@ class _Indicator extends StatelessWidget {
   }
 }
 
-class _InterventionTimeline extends StatelessWidget {
-  const _InterventionTimeline({required this.job});
-
-  final Job job;
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = _entries(job);
-
-    return Container(
-      padding: const EdgeInsets.all(BlueVectorSpacing.md),
-      decoration: BoxDecoration(
-        color: BlueVectorColors.surface,
-        borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
-        border: Border.all(color: BlueVectorColors.border),
-      ),
-      child: Column(
-        children: [
-          for (var index = 0; index < entries.length; index++)
-            _TimelineRow(
-              entry: entries[index],
-              isLast: index == entries.length - 1,
-            ),
-        ],
-      ),
-    );
-  }
-
-  List<_TimelineEntry> _entries(Job job) {
-    final status = MobileJobPresenter.normalizedStatus(job);
-
-    const sequence = [
-      'assigned',
-      'en_route',
-      'arrived',
-      'in_progress',
-      'tests',
-      'validation',
-      'completed',
-    ];
-
-    const labels = {
-      'assigned': 'Intervention affectée',
-      'en_route': 'Départ vers le client',
-      'arrived': 'Arrivée sur site',
-      'in_progress': 'Travaux en cours',
-      'tests': 'Tests et mesures',
-      'validation': 'Validation terrain',
-      'completed': 'Intervention terminée',
-    };
-
-    var currentIndex = sequence.indexOf(status);
-
-    if (status == 'en_cours' || status == 'ftth_install') {
-      currentIndex = sequence.indexOf('in_progress');
-    }
-
-    if (status == 'terminee') {
-      currentIndex = sequence.indexOf('completed');
-    }
-
-    if (currentIndex < 0) {
-      currentIndex = 0;
-    }
-
-    return [
-      for (var index = 0; index < sequence.length; index++)
-        _TimelineEntry(
-          label: labels[sequence[index]]!,
-          completed: index <= currentIndex,
-          current: index == currentIndex && !MobileJobPresenter.isTerminal(job),
-        ),
-    ];
-  }
-}
-
-class _TimelineEntry {
-  const _TimelineEntry({
-    required this.label,
-    required this.completed,
-    required this.current,
-  });
-
-  final String label;
-  final bool completed;
-  final bool current;
-}
-
-class _TimelineRow extends StatelessWidget {
-  const _TimelineRow({required this.entry, required this.isLast});
-
-  final _TimelineEntry entry;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = entry.completed
-        ? entry.current
-              ? BlueVectorColors.primaryBright
-              : BlueVectorColors.success
-        : BlueVectorColors.textMuted;
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 24,
-            child: Column(
-              children: [
-                Container(
-                  width: 18,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: entry.completed
-                        ? color.withValues(alpha: 0.16)
-                        : BlueVectorColors.surfaceSoft,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: color),
-                  ),
-                  child: Icon(
-                    entry.completed
-                        ? Icons.check_rounded
-                        : Icons.circle_outlined,
-                    color: color,
-                    size: 11,
-                  ),
-                ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: 1,
-                      margin: const EdgeInsets.symmetric(vertical: 3),
-                      color: entry.completed
-                          ? color.withValues(alpha: 0.5)
-                          : BlueVectorColors.border,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: BlueVectorSpacing.sm),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(
-                bottom: isLast ? 0 : BlueVectorSpacing.md,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      entry.label,
-                      style: TextStyle(
-                        color: entry.completed
-                            ? BlueVectorColors.textPrimary
-                            : BlueVectorColors.textMuted,
-                        fontSize: 12,
-                        fontWeight: entry.current
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (entry.current)
-                    const Text(
-                      'Étape actuelle',
-                      style: TextStyle(
-                        color: BlueVectorColors.primaryBright,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _NetworkDataCard extends StatelessWidget {
   const _NetworkDataCard({required this.job});
 
@@ -638,7 +706,7 @@ class _NetworkDataCard extends StatelessWidget {
               ),
               SizedBox(width: BlueVectorSpacing.xs),
               Text(
-                'Informations utiles',
+                'Réseau client',
                 style: TextStyle(
                   color: BlueVectorColors.textPrimary,
                   fontSize: 12,
@@ -786,11 +854,12 @@ class _ActionBar extends StatelessWidget {
             ),
             const SizedBox(height: BlueVectorSpacing.xs),
           ],
-          OutlinedButton.icon(
-            onPressed: workflowBusy ? null : onOpenActions,
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            label: const Text('Ajouter une trace terrain'),
-          ),
+          if (workflowActionLabel == null)
+            OutlinedButton.icon(
+              onPressed: workflowBusy ? null : onOpenActions,
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              label: const Text('Ajouter une trace terrain'),
+            ),
         ],
       ),
     );

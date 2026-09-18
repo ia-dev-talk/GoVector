@@ -26,10 +26,10 @@ def _render(tmp_path: Path, *, media=(), consumptions=()):
     )
 
 
-def test_report_without_photo_keeps_dedicated_photo_page(tmp_path):
+def test_report_without_photo_stays_on_its_single_business_page(tmp_path):
     html = _render(tmp_path)
-    assert html.count('class="report-page"') == 2
-    assert "Aucune photo synchronisée" in html
+    assert html.count('class="report-page"') == 1
+    assert "Aucune photo synchronisée" not in html
     assert "Client réel" in html
 
 
@@ -44,7 +44,7 @@ def test_report_contains_unique_code_consumption_and_mode(tmp_path):
     assert "2003 m" in html
     assert "1921 m" in html
     assert "82 m" in html
-    assert ">SP<" in html
+    assert "CONDUITE" in html
 
 
 def test_report_with_one_photo_keeps_its_business_label(tmp_path):

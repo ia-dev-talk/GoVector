@@ -24,6 +24,7 @@ class MobileFieldContextCard extends StatefulWidget {
 class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
   late Future<Map<String, dynamic>> _future;
   Timer? _refreshTimer;
+  bool _detailsExpanded = false;
 
   @override
   void initState() {
@@ -47,6 +48,7 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
   void didUpdateWidget(covariant MobileFieldContextCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.jobId != widget.jobId) {
+      _detailsExpanded = false;
       _future = InterventionService.getFieldRecord(jobId: widget.jobId);
     }
   }
@@ -295,14 +297,18 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
       controller.dispose();
       if (body == null) return;
     }
+    final payload = <String, dynamic>{
+      'job_id': widget.jobId,
+      'message_type': acknowledge ? 'acknowledgement' : 'reply',
+      'body': acknowledge ? 'Message pris en compte' : body,
+    };
+    if (parentId != null) {
+      payload['parent_id'] = parentId;
+    }
+
     await OfflineService.addPendingAction(
       action: 'job_communication',
-      data: {
-        'job_id': widget.jobId,
-        'message_type': acknowledge ? 'acknowledgement' : 'reply',
-        'body': acknowledge ? 'Message pris en compte' : body,
-        if (parentId != null) 'parent_id': parentId,
-      },
+      data: payload,
     );
     await OfflineService.syncPendingActions();
     if (!mounted) return;
@@ -391,6 +397,24 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
             reference == null) {
           return const SizedBox.shrink();
         }
+
+        bool requiresAction(Map<String, dynamic> item) =>
+            item['requires_action'] == true &&
+            item['status']?.toString().trim().toLowerCase() == 'open';
+
+        final openActionCount = communications.where(requiresAction).length;
+
+        final dossierItemCount =
+            textValues.length +
+            attachments.length +
+            communications.length +
+            observations.length +
+            resolvedAttributes.length +
+            attributeObservations.length +
+            (reference == null ? 0 : 1);
+
+        final detailsExpanded = _detailsExpanded;
+
         return Container(
           padding: const EdgeInsets.all(BlueVectorSpacing.md),
           decoration: BoxDecoration(
@@ -409,258 +433,305 @@ class _MobileFieldContextCardState extends State<MobileFieldContextCard> {
                   ),
                   SizedBox(width: BlueVectorSpacing.xs),
                   Text(
-                    'Dossier bureau & repères terrain',
+                    'Dossier terrain',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ],
               ),
-              for (final value in textValues) ...[
-                const SizedBox(height: BlueVectorSpacing.sm),
-                Text(value.toString()),
-              ],
-              for (final item in communications) ...[
-                const SizedBox(height: BlueVectorSpacing.sm),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(BlueVectorSpacing.sm),
-                  decoration: BoxDecoration(
-                    color:
-                        item['requires_action'] == true &&
-                            item['status'] == 'open'
-                        ? BlueVectorColors.warning.withValues(alpha: 0.1)
-                        : BlueVectorColors.background,
-                    borderRadius: BorderRadius.circular(BlueVectorRadius.small),
-                    border: Border.all(color: BlueVectorColors.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item['type'] == 'correction_request'
-                            ? 'Correction demandée'
-                            : item['type'] == 'instruction'
-                            ? 'Instruction bureau'
-                            : item['type'] == 'reply'
-                            ? 'Réponse terrain'
-                            : 'Échange opérationnel',
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+              const SizedBox(height: BlueVectorSpacing.xs),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      openActionCount > 0
+                          ? '$openActionCount action${openActionCount == 1 ? '' : 's'} à traiter'
+                          : '$dossierItemCount élément${dossierItemCount == 1 ? '' : 's'} disponible${dossierItemCount == 1 ? '' : 's'}',
+                      style: const TextStyle(
+                        color: BlueVectorColors.textSecondary,
+                        fontSize: 12,
                       ),
-                      if (item['body']?.toString().trim().isNotEmpty ==
-                          true) ...[
-                        const SizedBox(height: BlueVectorSpacing.xs),
-                        Text(item['body'].toString()),
-                      ],
-                      if (item['attachments'] is List)
-                        for (final rawAsset in item['attachments'] as List)
-                          if (rawAsset is Map)
-                            Builder(
-                              builder: (context) {
-                                final asset = Map<String, dynamic>.from(
-                                  rawAsset,
-                                );
-                                final isImage =
-                                    asset['mime_type']?.toString().startsWith(
-                                      'image/',
-                                    ) ==
-                                    true;
-                                return Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: BlueVectorSpacing.xs,
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(
-                                      BlueVectorSpacing.xs,
+                    ),
+                  ),
+                  const SizedBox(width: BlueVectorSpacing.xs),
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _detailsExpanded = !_detailsExpanded;
+                      });
+                    },
+                    icon: Icon(
+                      detailsExpanded
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                    ),
+                    label: Text(
+                      detailsExpanded ? 'Réduire' : 'Voir le dossier',
+                    ),
+                  ),
+                ],
+              ),
+              if (detailsExpanded || openActionCount > 0) ...[
+                if (detailsExpanded)
+                  for (final value in textValues) ...[
+                    const SizedBox(height: BlueVectorSpacing.sm),
+                    Text(value.toString()),
+                  ],
+                for (final item in communications.where(
+                  (item) => detailsExpanded || requiresAction(item),
+                )) ...[
+                  const SizedBox(height: BlueVectorSpacing.sm),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(BlueVectorSpacing.sm),
+                    decoration: BoxDecoration(
+                      color:
+                          item['requires_action'] == true &&
+                              item['status'] == 'open'
+                          ? BlueVectorColors.warning.withValues(alpha: 0.1)
+                          : BlueVectorColors.background,
+                      borderRadius: BorderRadius.circular(
+                        BlueVectorRadius.small,
+                      ),
+                      border: Border.all(color: BlueVectorColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item['type'] == 'correction_request'
+                              ? 'Correction demandée'
+                              : item['type'] == 'instruction'
+                              ? 'Instruction bureau'
+                              : item['type'] == 'reply'
+                              ? 'Réponse terrain'
+                              : 'Échange opérationnel',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        if (item['body']?.toString().trim().isNotEmpty ==
+                            true) ...[
+                          const SizedBox(height: BlueVectorSpacing.xs),
+                          Text(item['body'].toString()),
+                        ],
+                        if (item['attachments'] is List)
+                          for (final rawAsset in item['attachments'] as List)
+                            if (rawAsset is Map)
+                              Builder(
+                                builder: (context) {
+                                  final asset = Map<String, dynamic>.from(
+                                    rawAsset,
+                                  );
+                                  final isImage =
+                                      asset['mime_type']?.toString().startsWith(
+                                        'image/',
+                                      ) ==
+                                      true;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: BlueVectorSpacing.xs,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: BlueVectorColors.surface,
-                                      borderRadius: BorderRadius.circular(
-                                        BlueVectorRadius.small,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(
+                                        BlueVectorSpacing.xs,
                                       ),
-                                      border: Border.all(
-                                        color: BlueVectorColors.border,
+                                      decoration: BoxDecoration(
+                                        color: BlueVectorColors.surface,
+                                        borderRadius: BorderRadius.circular(
+                                          BlueVectorRadius.small,
+                                        ),
+                                        border: Border.all(
+                                          color: BlueVectorColors.border,
+                                        ),
                                       ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          isImage
-                                              ? Icons.image_outlined
-                                              : Icons.description_outlined,
-                                          color: BlueVectorColors.primaryBright,
-                                        ),
-                                        const SizedBox(
-                                          width: BlueVectorSpacing.xs,
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            asset['title']?.toString() ??
-                                                asset['filename']?.toString() ??
-                                                'Pièce jointe',
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            isImage
+                                                ? Icons.image_outlined
+                                                : Icons.description_outlined,
+                                            color:
+                                                BlueVectorColors.primaryBright,
                                           ),
-                                        ),
-                                        IconButton(
-                                          tooltip: 'Ouvrir',
-                                          onPressed: () =>
-                                              _previewCommunicationAsset(asset),
-                                          icon: const Icon(
-                                            Icons.visibility_outlined,
+                                          const SizedBox(
+                                            width: BlueVectorSpacing.xs,
                                           ),
-                                        ),
-                                        if (isImage && item['id'] is int)
-                                          IconButton(
-                                            tooltip: 'Annoter',
-                                            onPressed: () =>
-                                                _annotateCommunicationAsset(
-                                                  asset,
-                                                  parentId: item['id'] as int,
-                                                ),
-                                            icon: const Icon(
-                                              Icons.draw_outlined,
+                                          Expanded(
+                                            child: Text(
+                                              asset['title']?.toString() ??
+                                                  asset['filename']
+                                                      ?.toString() ??
+                                                  'Pièce jointe',
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                      ],
+                                          IconButton(
+                                            tooltip: 'Ouvrir',
+                                            onPressed: () =>
+                                                _previewCommunicationAsset(
+                                                  asset,
+                                                ),
+                                            icon: const Icon(
+                                              Icons.visibility_outlined,
+                                            ),
+                                          ),
+                                          if (isImage && item['id'] is int)
+                                            IconButton(
+                                              tooltip: 'Annoter',
+                                              onPressed: () =>
+                                                  _annotateCommunicationAsset(
+                                                    asset,
+                                                    parentId: item['id'] as int,
+                                                  ),
+                                              icon: const Icon(
+                                                Icons.draw_outlined,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                      if (item['requires_action'] == true &&
-                          item['status'] == 'open')
-                        Wrap(
-                          spacing: BlueVectorSpacing.xs,
-                          children: [
-                            TextButton(
-                              onPressed: () => _sendCommunication(
-                                parentId: item['id'] as int?,
-                                acknowledge: true,
+                                  );
+                                },
                               ),
-                              child: const Text('Pris en compte'),
-                            ),
-                            FilledButton.tonal(
-                              onPressed: () => _sendCommunication(
-                                parentId: item['id'] as int?,
+                        if (item['requires_action'] == true &&
+                            item['status'] == 'open')
+                          Wrap(
+                            spacing: BlueVectorSpacing.xs,
+                            children: [
+                              TextButton(
+                                onPressed: () => _sendCommunication(
+                                  parentId: item['id'] as int?,
+                                  acknowledge: true,
+                                ),
+                                child: const Text('Pris en compte'),
                               ),
-                              child: const Text('Répondre'),
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-              if (reference != null) ...[
-                const SizedBox(height: BlueVectorSpacing.sm),
-                if (reference['origin'] == 'canonical_site')
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: BlueVectorSpacing.xs),
-                    child: Text(
-                      'Position de référence validée du site GoVector.',
-                      style: TextStyle(color: BlueVectorColors.success),
-                    ),
-                  ),
-                if (reference['origin'] == 'previous_field_visit')
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: BlueVectorSpacing.xs),
-                    child: Text(
-                      'Repère confirmé lors d’un précédent passage sur ce site.',
-                      style: TextStyle(color: BlueVectorColors.textSecondary),
-                    ),
-                  ),
-                OutlinedButton.icon(
-                  onPressed: () => _openReference(reference),
-                  icon: const Icon(Icons.location_on_outlined),
-                  label: const Text('Ouvrir la position terrain confirmée'),
-                ),
-              ],
-              for (final observation in observations.where(
-                (item) => item['resolution_status'] == 'conflict',
-              ))
-                Padding(
-                  padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
-                  child: Text(
-                    'Repère GPS contradictoire conservé pour vérification bureau · '
-                    '${observation['latitude']}, ${observation['longitude']}',
-                    style: const TextStyle(color: BlueVectorColors.warning),
-                  ),
-                ),
-              for (final observation in observations.where(
-                (item) =>
-                    item['type'] == 'cable_entry' ||
-                    item['type'] == 'cable_exit',
-              ))
-                Padding(
-                  padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
-                  child: Text(
-                    '${observation['type'] == 'cable_entry' ? 'Entrée' : 'Sortie'} câble · '
-                    '${observation['latitude']}, ${observation['longitude']}',
-                    style: const TextStyle(
-                      color: BlueVectorColors.textSecondary,
-                    ),
-                  ),
-                ),
-              if (resolvedAttributes.isNotEmpty) ...[
-                const SizedBox(height: BlueVectorSpacing.sm),
-                const Text(
-                  'Référentiel validé du site',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                for (final item in resolvedAttributes)
-                  Padding(
-                    padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.verified_outlined,
-                          size: 18,
-                          color: BlueVectorColors.success,
-                        ),
-                        const SizedBox(width: BlueVectorSpacing.xs),
-                        Expanded(
-                          child: Text(
-                            '${item['label'] ?? item['key']} · ${item['value']}',
+                              FilledButton.tonal(
+                                onPressed: () => _sendCommunication(
+                                  parentId: item['id'] as int?,
+                                ),
+                                child: const Text('Répondre'),
+                              ),
+                            ],
                           ),
-                        ),
                       ],
                     ),
                   ),
+                ],
+                if (detailsExpanded && reference != null) ...[
+                  const SizedBox(height: BlueVectorSpacing.sm),
+                  if (reference['origin'] == 'canonical_site')
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: BlueVectorSpacing.xs),
+                      child: Text(
+                        'Position de référence validée du site GoVector.',
+                        style: TextStyle(color: BlueVectorColors.success),
+                      ),
+                    ),
+                  if (reference['origin'] == 'previous_field_visit')
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: BlueVectorSpacing.xs),
+                      child: Text(
+                        'Repère confirmé lors d’un précédent passage sur ce site.',
+                        style: TextStyle(color: BlueVectorColors.textSecondary),
+                      ),
+                    ),
+                  OutlinedButton.icon(
+                    onPressed: () => _openReference(reference),
+                    icon: const Icon(Icons.location_on_outlined),
+                    label: const Text('Ouvrir la position terrain confirmée'),
+                  ),
+                ],
+                if (detailsExpanded)
+                  for (final observation in observations.where(
+                    (item) => item['resolution_status'] == 'conflict',
+                  ))
+                    Padding(
+                      padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
+                      child: Text(
+                        'Repère GPS contradictoire conservé pour vérification bureau · '
+                        '${observation['latitude']}, ${observation['longitude']}',
+                        style: const TextStyle(color: BlueVectorColors.warning),
+                      ),
+                    ),
+                if (detailsExpanded)
+                  for (final observation in observations.where(
+                    (item) =>
+                        item['type'] == 'cable_entry' ||
+                        item['type'] == 'cable_exit',
+                  ))
+                    Padding(
+                      padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
+                      child: Text(
+                        '${observation['type'] == 'cable_entry' ? 'Entrée' : 'Sortie'} câble · '
+                        '${observation['latitude']}, ${observation['longitude']}',
+                        style: const TextStyle(
+                          color: BlueVectorColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                if (detailsExpanded && resolvedAttributes.isNotEmpty) ...[
+                  const SizedBox(height: BlueVectorSpacing.sm),
+                  const Text(
+                    'Référentiel validé du site',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  for (final item in resolvedAttributes)
+                    Padding(
+                      padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.verified_outlined,
+                            size: 18,
+                            color: BlueVectorColors.success,
+                          ),
+                          const SizedBox(width: BlueVectorSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              '${item['label'] ?? item['key']} · ${item['value']}',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+                if (detailsExpanded)
+                  for (final item in attributeObservations.where(
+                    (value) =>
+                        value['resolution_status'] == 'conflict' ||
+                        value['resolution_status'] == 'unreviewed',
+                  ))
+                    Padding(
+                      padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
+                      child: Text(
+                        '${item['label'] ?? item['key']} relevé · ${item['value']} · '
+                        '${item['resolution_status'] == 'conflict' ? 'différent du dossier préparé' : 'en attente de vérification bureau'}',
+                        style: const TextStyle(color: BlueVectorColors.warning),
+                      ),
+                    ),
+                if (detailsExpanded)
+                  for (final item in attachments)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      leading: Icon(
+                        item['kind'] == 'photo'
+                            ? Icons.photo_outlined
+                            : Icons.description_outlined,
+                        color: BlueVectorColors.primaryBright,
+                      ),
+                      title: Text(
+                        item['title']?.toString().trim().isNotEmpty == true
+                            ? item['title'].toString()
+                            : item['filename']?.toString() ?? 'Pièce jointe',
+                      ),
+                      subtitle:
+                          item['comment']?.toString().trim().isNotEmpty == true
+                          ? Text(item['comment'].toString())
+                          : null,
+                      trailing: const Icon(Icons.visibility_outlined),
+                      onTap: () => _previewAttachment(item),
+                    ),
               ],
-              for (final item in attributeObservations.where(
-                (value) =>
-                    value['resolution_status'] == 'conflict' ||
-                    value['resolution_status'] == 'unreviewed',
-              ))
-                Padding(
-                  padding: const EdgeInsets.only(top: BlueVectorSpacing.xs),
-                  child: Text(
-                    '${item['label'] ?? item['key']} relevé · ${item['value']} · '
-                    '${item['resolution_status'] == 'conflict' ? 'différent du dossier préparé' : 'en attente de vérification bureau'}',
-                    style: const TextStyle(color: BlueVectorColors.warning),
-                  ),
-                ),
-              for (final item in attachments)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  leading: Icon(
-                    item['kind'] == 'photo'
-                        ? Icons.photo_outlined
-                        : Icons.description_outlined,
-                    color: BlueVectorColors.primaryBright,
-                  ),
-                  title: Text(
-                    item['title']?.toString().trim().isNotEmpty == true
-                        ? item['title'].toString()
-                        : item['filename']?.toString() ?? 'Pièce jointe',
-                  ),
-                  subtitle:
-                      item['comment']?.toString().trim().isNotEmpty == true
-                      ? Text(item['comment'].toString())
-                      : null,
-                  trailing: const Icon(Icons.visibility_outlined),
-                  onTap: () => _previewAttachment(item),
-                ),
             ],
           ),
         );

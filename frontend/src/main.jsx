@@ -16,6 +16,7 @@ import './styles/cockpit-readability-v08.css';
 import './styles/stock-scope-final-v08.css';
 import './styles/delivery-pilot.css';
 import './styles/delivery-final-fixes.css';
+import './styles/delivery-contrast-guard.css';
 
 installExhaustiveCollectionFetching(api);
 

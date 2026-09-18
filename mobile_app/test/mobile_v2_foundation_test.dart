@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:mobile_app/app/mobile_bootstrap.dart';
 import 'package:mobile_app/design_system/bluevector_brand.dart';
 import 'package:mobile_app/design_system/bluevector_theme.dart';
+import 'package:mobile_app/features/actions/free_measurement_action_screen.dart';
 import 'package:mobile_app/features/actions/mobile_action_sheet.dart';
 import 'package:mobile_app/models/job.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,6 +33,44 @@ void main() {
     expect(find.bySemanticsLabel('GoVector'), findsOneWidget);
     expect(BlueVectorTheme.light.brightness, Brightness.light);
   });
+
+  testWidgets(
+    'measurement screen keeps cable length in dedicated cable workflow',
+    (tester) async {
+      final job = Job(
+        id: 42,
+        jobNumber: 'DTLI-42',
+        jobType: 'Installation FTTH',
+        status: 'in_progress',
+        customerName: 'Client test',
+        serviceAddress: 'Adresse test',
+        assignedTechId: 7,
+        latitude: 0,
+        longitude: 0,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: BlueVectorTheme.light,
+          home: FreeMeasurementActionScreen(
+            job: job,
+            initialType: 'cable_length',
+          ),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(find.text('Puissance optique'), findsOneWidget);
+      expect(find.text('Longueur câble posée'), findsNothing);
+
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Longueur câble posée'), findsNothing);
+      expect(find.text('OTDR'), findsWidgets);
+    },
+  );
 
   testWidgets('Mobile action sheet exposes the pilot field workflow', (
     tester,
@@ -85,11 +124,20 @@ void main() {
     expect(find.text('RELEVER SUR LE TERRAIN'), findsOneWidget);
     expect(find.text('Mesure / test'), findsOneWidget);
     expect(find.text('Entrée câble'), findsOneWidget);
+    expect(find.textContaining('FO96'), findsOneWidget);
     expect(find.text('Sortie câble'), findsOneWidget);
     expect(find.text('Matériel utilisé'), findsOneWidget);
     expect(find.text('RENDRE COMPTE'), findsOneWidget);
     expect(find.text('Commentaire'), findsOneWidget);
+    expect(
+      find.text('Observation simple à transmettre au bureau'),
+      findsOneWidget,
+    );
     expect(find.text('Incident / anomalie'), findsOneWidget);
+    expect(
+      find.text('Blocage, anomalie ou problème à signaler'),
+      findsOneWidget,
+    );
 
     // Legacy BlueVector toolbox actions are deliberately hidden from the pilot.
     expect(find.text('Vidéo'), findsNothing);

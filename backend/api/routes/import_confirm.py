@@ -174,6 +174,8 @@ class ImportJobItem(BaseModel):
     priority: Optional[str] = None
     status: Optional[str] = None
     scheduled_date: Optional[str] = None
+    time_slot_start: Optional[str] = None
+    time_slot_end: Optional[str] = None
     source_technician_name: Optional[str] = None
     notes: Optional[str] = None
     description: Optional[str] = None
@@ -586,6 +588,8 @@ async def _create_job_from_dict(db: AsyncSession, item: dict) -> Job:
         priority=priority,
         status=status,
         scheduled_date=scheduled_date,
+        time_slot_start=item.get("time_slot_start"),
+        time_slot_end=item.get("time_slot_end"),
         estimated_duration=item.get("estimated_duration"),
         description=item.get("description"),
         notes=item.get("notes"),
@@ -628,6 +632,8 @@ async def _update_job_from_dict(db: AsyncSession, job: Job, item: dict) -> Job:
         "splitter": "splitter_raw",
         "splitter_port": "splitter_port_raw",
         "estimated_duration": "estimated_duration",
+        "time_slot_start": "time_slot_start",
+        "time_slot_end": "time_slot_end",
         "optical_power_dbm": "optical_power_dbm",
         "cable_length_m": "cable_length_m",
         "ont_serial": "ont_serial",

@@ -28,15 +28,15 @@ Future<void> showMobileActionSheet({
 
   void showMessage(String message) {
     if (!pageContext.mounted) return;
-    ScaffoldMessenger.of(pageContext).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      pageContext,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> openScreen(Widget screen) async {
-    await Navigator.of(pageContext).push(
-      MaterialPageRoute<void>(builder: (_) => screen),
-    );
+    await Navigator.of(
+      pageContext,
+    ).push(MaterialPageRoute<void>(builder: (_) => screen));
     await onDataChanged();
   }
 
@@ -44,6 +44,9 @@ Future<void> showMobileActionSheet({
     required String title,
     required String action,
     required String hint,
+    required String description,
+    String submitLabel = 'Enregistrer',
+    String successMessage = 'Action enregistrée sur ce téléphone.',
   }) async {
     final controller = TextEditingController();
     final value = await showModalBottomSheet<String>(
@@ -68,6 +71,15 @@ Future<void> showMobileActionSheet({
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(title, style: Theme.of(sheetContext).textTheme.titleLarge),
+                const SizedBox(height: BlueVectorSpacing.xxs),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: BlueVectorColors.textSecondary,
+                    fontSize: 11,
+                    height: 1.35,
+                  ),
+                ),
                 const SizedBox(height: BlueVectorSpacing.sm),
                 TextField(
                   controller: controller,
@@ -92,9 +104,11 @@ Future<void> showMobileActionSheet({
                       child: FilledButton(
                         onPressed: () {
                           final text = controller.text.trim();
-                          if (text.isNotEmpty) Navigator.pop(sheetContext, text);
+                          if (text.isNotEmpty) {
+                            Navigator.pop(sheetContext, text);
+                          }
                         },
-                        child: const Text('Enregistrer'),
+                        child: Text(submitLabel),
                       ),
                     ),
                   ],
@@ -118,15 +132,16 @@ Future<void> showMobileActionSheet({
     );
     unawaited(OfflineService.syncPendingActions());
     await onDataChanged();
-    showMessage('$title enregistré.');
+    showMessage(successMessage);
   }
 
   bool hasPilotBusinessForm() {
-    final type = job.jobType
-        .trim()
-        .toUpperCase()
-        .replaceAll(RegExp(r'[\s_-]+'), ' ');
-    final isFtthRealisable = type.contains('FTTH') &&
+    final type = job.jobType.trim().toUpperCase().replaceAll(
+      RegExp(r'[\s_-]+'),
+      ' ',
+    );
+    final isFtthRealisable =
+        type.contains('FTTH') &&
         (type.contains('RÉALISABLE') || type.contains('REALISABLE'));
     return type == 'PB' ||
         type == 'PM' ||
@@ -157,6 +172,7 @@ Future<void> showMobileActionSheet({
     _PilotAction(
       section: 'Relever sur le terrain',
       label: 'Mesure / test',
+      subtitle: 'Puissance, débit, ping, atténuation ou OTDR',
       icon: Icons.speed_outlined,
       color: BlueVectorColors.success,
       onTap: () => openScreen(FreeMeasurementActionScreen(job: job)),
@@ -164,7 +180,7 @@ Future<void> showMobileActionSheet({
     _PilotAction(
       section: 'Relever sur le terrain',
       label: 'Entrée câble',
-      subtitle: 'FO16 ou FO64',
+      subtitle: 'Bobine affectée · FO16 / FO64 / FO96',
       icon: Icons.login_rounded,
       color: BlueVectorColors.cyan,
       onTap: () => openScreen(
@@ -191,23 +207,33 @@ Future<void> showMobileActionSheet({
     _PilotAction(
       section: 'Rendre compte',
       label: 'Commentaire',
+      subtitle: 'Observation simple à transmettre au bureau',
       icon: Icons.chat_bubble_outline_rounded,
       color: BlueVectorColors.warning,
       onTap: () => promptTextAction(
         title: 'Commentaire',
         action: 'intervention_comment',
         hint: 'Observation à transmettre au bureau…',
+        description: 'Note de suivi non bloquante liée à cette intervention.',
+        successMessage:
+            'Commentaire enregistré sur ce téléphone. Synchronisation lancée.',
       ),
     ),
     _PilotAction(
       section: 'Rendre compte',
       label: 'Incident / anomalie',
+      subtitle: 'Blocage, anomalie ou problème à signaler',
       icon: Icons.warning_amber_rounded,
       color: BlueVectorColors.danger,
       onTap: () => promptTextAction(
         title: 'Incident / anomalie',
         action: 'incident_report',
         hint: 'Décrire le problème constaté…',
+        description:
+            'À utiliser pour un blocage, une anomalie ou un risque constaté sur le terrain.',
+        submitLabel: 'Signaler',
+        successMessage:
+            'Incident enregistré sur ce téléphone. Synchronisation lancée.',
       ),
     ),
     if (hasPilotBusinessForm())
@@ -297,7 +323,9 @@ Future<void> showMobileActionSheet({
                   ),
                 ),
               ),
-              for (final action in actions.where((item) => item.section == section))
+              for (final action in actions.where(
+                (item) => item.section == section,
+              ))
                 Padding(
                   padding: const EdgeInsets.only(bottom: BlueVectorSpacing.xs),
                   child: _ActionTile(action: action),

@@ -9,7 +9,67 @@ import '../../services/field_agent_service.dart';
 import '../../services/location_service.dart';
 import '../../services/offline_service.dart';
 import '../actions/free_photo_action_screen.dart';
+import '../gps/mobile_gps_screen.dart';
 import '../interventions/mobile_job_presenter.dart';
+
+int fieldAgentStockAvailableUnits(Map<String, dynamic>? stock) {
+  if (stock == null) return 0;
+
+  final summary = stock['stock_summary'];
+  if (summary is Map) {
+    final rawAvailable = summary['available_units'];
+
+    if (rawAvailable is num && rawAvailable >= 0) {
+      return rawAvailable.toInt();
+    }
+
+    final parsed = int.tryParse('${rawAvailable ?? ''}');
+    if (parsed != null && parsed >= 0) {
+      return parsed;
+    }
+  }
+
+  final rows = stock['vehicle_stock'];
+  if (rows is! List) return 0;
+
+  var total = 0;
+
+  for (final row in rows.whereType<Map>()) {
+    final raw = row['available_quantity'] ?? row['quantity'];
+
+    if (raw is num) {
+      if (raw >= 0) total += raw.toInt();
+      continue;
+    }
+
+    final parsed = int.tryParse('${raw ?? ''}');
+    if (parsed != null && parsed >= 0) {
+      total += parsed;
+    }
+  }
+
+  return total;
+}
+
+int fieldAgentActiveTechnicianCount(Iterable<FieldAgentJobContext> jobs) {
+  return jobs.map((row) => row.technicianId).toSet().length;
+}
+
+bool fieldAgentJobMatchesQuery(FieldAgentJobContext context, String rawQuery) {
+  final query = rawQuery.trim().toLowerCase();
+  if (query.isEmpty) return true;
+
+  final haystack = [
+    context.job.jobNumber,
+    context.job.customerName,
+    context.job.serviceAddress,
+    context.job.operator,
+    context.technicianName,
+    context.employeeId,
+  ].whereType<Object>().join(' ').toLowerCase();
+
+  return haystack.contains(query);
+}
 
 class FieldAgentShell extends StatefulWidget {
   const FieldAgentShell({super.key, required this.onLogout});
@@ -21,19 +81,40 @@ class FieldAgentShell extends StatefulWidget {
 }
 
 class _FieldAgentShellState extends State<FieldAgentShell> {
+  final _searchController = TextEditingController();
+
   List<FieldAgentJobContext> _jobs = const [];
+  List<FieldAgentTechnicianLocation> _technicianLocations = const [];
+  int? _gpsStaleAfterMinutes;
   bool _loading = true;
   bool _syncing = false;
   bool _online = false;
   int _pending = 0;
   String _agentName = '';
+  String _query = '';
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(() {
+      final next = _searchController.text.trim().toLowerCase();
+      if (next != _query && mounted) {
+        setState(() => _query = next);
+      }
+    });
     _load();
   }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<FieldAgentJobContext> get _visibleJobs => _jobs
+      .where((row) => fieldAgentJobMatchesQuery(row, _query))
+      .toList(growable: false);
 
   int _priority(FieldAgentJobContext context) {
     final status = context.job.status.trim().toLowerCase();
@@ -64,8 +145,24 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
       final name = await AuthService.getFieldAgentName();
       final online = await OfflineService.isOnline();
       List<FieldAgentJobContext> jobs = const [];
+      FieldAgentTechnicianLocations technicianLocations =
+          const FieldAgentTechnicianLocations(technicians: []);
       if (online) {
         jobs = await FieldAgentService.getMyTeamJobs();
+
+        try {
+          technicianLocations =
+              await FieldAgentService.getMyTeamTechnicianLocations();
+        } catch (error) {
+          debugPrint(
+            'Agent technician locations unavailable; keeping previous positions: $error',
+          );
+          technicianLocations = FieldAgentTechnicianLocations(
+            technicians: _technicianLocations,
+            gpsStaleAfterMinutes: _gpsStaleAfterMinutes,
+          );
+        }
+
         jobs = [...jobs]
           ..sort((a, b) {
             final byPriority = _priority(a).compareTo(_priority(b));
@@ -86,6 +183,8 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
         _agentName = name ?? 'Agent terrain';
         _online = online;
         _jobs = jobs;
+        _technicianLocations = technicianLocations.technicians;
+        _gpsStaleAfterMinutes = technicianLocations.gpsStaleAfterMinutes;
         _pending = pending;
         _loading = false;
       });
@@ -127,8 +226,81 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
     await _load();
   }
 
+  Future<MobileTechnicianLocationsSnapshot>
+  _refreshMapTechnicianLocations() async {
+    final response = await FieldAgentService.getMyTeamTechnicianLocations();
+
+    final mapped = [
+      for (final technician in response.technicians)
+        MobileTechnicianLocation(
+          id: technician.id,
+          name: technician.name,
+          liveStatus: technician.liveStatus,
+          latitude: technician.latitude,
+          longitude: technician.longitude,
+          accuracy: technician.accuracy,
+          lastLocationUpdate: technician.lastLocationUpdate,
+          currentJobId: technician.currentJobId,
+        ),
+    ];
+
+    if (mounted) {
+      setState(() {
+        _technicianLocations = response.technicians;
+        _gpsStaleAfterMinutes = response.gpsStaleAfterMinutes;
+      });
+    }
+
+    return MobileTechnicianLocationsSnapshot(
+      technicians: mapped,
+      gpsStaleAfterMinutes: response.gpsStaleAfterMinutes,
+    );
+  }
+
+  Future<void> _openGps() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MobileGpsScreen(
+          roleLabel: 'Agent terrain',
+          jobs: _jobs.map((row) => row.job).toList(growable: false),
+          technicianNamesByJobId: {
+            for (final row in _jobs) row.job.id: row.technicianName,
+          },
+          gpsStaleAfterMinutes: _gpsStaleAfterMinutes,
+          onRefreshTechnicianLocations: _refreshMapTechnicianLocations,
+          technicianLocations: [
+            for (final technician in _technicianLocations)
+              MobileTechnicianLocation(
+                id: technician.id,
+                name: technician.name,
+                liveStatus: technician.liveStatus,
+                latitude: technician.latitude,
+                longitude: technician.longitude,
+                accuracy: technician.accuracy,
+                lastLocationUpdate: technician.lastLocationUpdate,
+                currentJobId: technician.currentJobId,
+              ),
+          ],
+          onOpenJob: _openJobFromMap,
+        ),
+      ),
+    );
+  }
+
+  void _openJobFromMap(Job job) {
+    for (final row in _jobs) {
+      if (row.job.id == job.id) {
+        unawaited(_open(row));
+        return;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final visibleJobs = _visibleJobs;
+    final activeTechnicianCount = fieldAgentActiveTechnicianCount(_jobs);
+
     final reviewCount = _jobs
         .where(
           (row) =>
@@ -141,6 +313,11 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
       appBar: AppBar(
         title: const Text('GoVector · Agent terrain'),
         actions: [
+          IconButton(
+            tooltip: 'Carte',
+            onPressed: _openGps,
+            icon: const Icon(Icons.map_outlined),
+          ),
           IconButton(
             tooltip: 'Synchroniser',
             onPressed: _syncing ? null : _sync,
@@ -212,7 +389,7 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
                 Expanded(
                   child: _MetricCard(
                     label: 'Équipe active',
-                    value: '${_jobs.length}',
+                    value: '$activeTechnicianCount',
                     icon: Icons.groups_2_outlined,
                   ),
                 ),
@@ -247,17 +424,53 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
                     'Les interventions des techniciens de votre équipe apparaîtront ici.',
               )
             else ...[
-              Text(
-                'Interventions de mon équipe',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Interventions de mon équipe',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${visibleJobs.length}/${_jobs.length}',
+                    style: const TextStyle(
+                      color: BlueVectorColors.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: BlueVectorSpacing.sm),
-              for (final row in _jobs) ...[
-                _AgentJobCard(context: row, onTap: () => _open(row)),
-                const SizedBox(height: BlueVectorSpacing.sm),
-              ],
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: 'Technicien, client, référence, adresse…',
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Effacer la recherche',
+                          onPressed: _searchController.clear,
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                ),
+              ),
+              const SizedBox(height: BlueVectorSpacing.sm),
+              if (visibleJobs.isEmpty)
+                const _InfoCard(
+                  icon: Icons.search_off_rounded,
+                  title: 'Aucun résultat',
+                  body: 'Aucune intervention ne correspond à cette recherche.',
+                )
+              else
+                for (final row in visibleJobs) ...[
+                  _AgentJobCard(context: row, onTap: () => _open(row)),
+                  const SizedBox(height: BlueVectorSpacing.sm),
+                ],
             ],
           ],
         ),
@@ -330,19 +543,76 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
   }
 
   Future<void> _addPhotos() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => FreePhotoActionScreen(job: job)),
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => FreePhotoActionScreen(job: job)),
     );
-    await OfflineService.syncPendingActions();
+
+    if (saved != true || !mounted) return;
+
+    final syncResult = await OfflineService.syncPendingActions();
+    if (!mounted) return;
+
+    if (syncResult.offline) {
+      _message(
+        'Photos conservées sur l’appareil. Elles seront synchronisées au retour du réseau.',
+      );
+      return;
+    }
+
+    if (syncResult.failed > 0 || syncResult.error != null) {
+      _message(
+        'Photos conservées sur l’appareil. Certaines preuves restent à synchroniser.',
+      );
+      return;
+    }
+
     await _loadContext();
   }
 
   Future<void> _addGps() async {
+    final gps = await LocationService.refreshStatus();
+
+    switch (gps.availability) {
+      case GpsAvailability.serviceDisabled:
+        await LocationService.openLocationSettings();
+        _message('Activez la localisation du téléphone puis réessayez.');
+        return;
+
+      case GpsAvailability.permissionDenied:
+        final granted = await LocationService.requestPermission();
+        if (!granted) {
+          _message(
+            'Autorisation GPS refusée. Autorisez la localisation puis réessayez.',
+          );
+          return;
+        }
+
+      case GpsAvailability.permissionDeniedForever:
+        await LocationService.openAppSettings();
+        _message(
+          'Autorisez la localisation pour GoVector dans les réglages puis réessayez.',
+        );
+        return;
+
+      case GpsAvailability.error:
+        _message(
+          'Le GPS ne répond pas actuellement. Réessayez dans quelques instants.',
+        );
+        return;
+
+      case GpsAvailability.unknown:
+      case GpsAvailability.ready:
+        break;
+    }
+
     final position = await LocationService.getCurrentPosition();
     if (position == null) {
-      _message('GPS indisponible. Cette preuve reste facultative.');
+      _message(
+        'Position GPS introuvable. Déplacez-vous dans une zone dégagée puis réessayez.',
+      );
       return;
     }
+
     await OfflineService.addPendingAction(
       action: 'gps_position',
       data: {
@@ -353,8 +623,10 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
         'created_at': DateTime.now().toUtc().toIso8601String(),
       },
     );
+
     unawaited(OfflineService.syncPendingActions());
-    _message('Position ajoutée à la file de synchronisation.');
+
+    _message('Position enregistrée sur l’appareil. Synchronisation lancée.');
   }
 
   Future<void> _addReport() async {
@@ -396,7 +668,7 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
       },
     );
     unawaited(OfflineService.syncPendingActions());
-    _message('Rapport enregistré.');
+    _message('Rapport enregistré sur l’appareil. Synchronisation lancée.');
   }
 
   Future<void> _returnJob() async {
@@ -469,9 +741,31 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
   Future<void> _runDecision(Future<void> Function() operation) async {
     if (_busy) return;
     setState(() => _busy = true);
+
     try {
-      await OfflineService.syncPendingActions();
+      final syncResult = await OfflineService.syncPendingActions();
+
+      if (syncResult.offline) {
+        _message(
+          'Connexion requise avant de prendre une décision sur ce dossier.',
+        );
+        return;
+      }
+
+      final remaining = await OfflineService.getPendingEventsForJob(job.id);
+
+      if (remaining.isNotEmpty) {
+        final count = remaining.length;
+        _message(
+          '$count élément${count > 1 ? 's' : ''} de ce dossier '
+          '${count > 1 ? 'ne sont' : 'n’est'} pas encore synchronisé${count > 1 ? 's' : ''}. '
+          'Réessayez la synchronisation avant la décision.',
+        );
+        return;
+      }
+
       await operation();
+
       if (!mounted) return;
       Navigator.pop(context);
     } catch (error) {
@@ -498,12 +792,7 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
       'field_actions',
       'events',
     ]);
-    final stockCount = _listCount(_stock, [
-      'items',
-      'stock',
-      'custody',
-      'materials',
-    ]);
+    final stockAvailableUnits = fieldAgentStockAvailableUnits(_stock);
 
     return Scaffold(
       appBar: AppBar(title: Text(MobileJobPresenter.reference(job))),
@@ -576,8 +865,8 @@ class _FieldAgentJobScreenState extends State<FieldAgentJobScreen> {
                 const SizedBox(width: BlueVectorSpacing.sm),
                 Expanded(
                   child: _MetricCard(
-                    label: 'Stock',
-                    value: '$stockCount',
+                    label: 'Stock tech.',
+                    value: '$stockAvailableUnits',
                     icon: Icons.inventory_2_outlined,
                   ),
                 ),

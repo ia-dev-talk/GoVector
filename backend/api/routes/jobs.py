@@ -159,11 +159,8 @@ async def get_jobs(
         return await job_responses(db, jobs)
 
     if current_user.role == UserRole.ORIENTEUR:
-        if not current_user.orienteur_id:
-            raise HTTPException(status_code=403, detail="Orienteur non affilié à un secteur.")
-        jobs = await job_logic.get_jobs_by_orienteur_id(
+        jobs = await job_logic.get_all_jobs(
             db,
-            orienteur_id=current_user.orienteur_id,
             status=status,
             scheduled_date=scheduled_date,
             scheduled_from=scheduled_from,
@@ -171,7 +168,7 @@ async def get_jobs(
             skip=skip,
             limit=limit,
         )
-        logger.info(f"[TECH_JOBS] ORIENTEUR orienteur_id={current_user.orienteur_id} jobs_count={len(jobs)}")
+        logger.info(f"[TECH_JOBS] ORIENTEUR global jobs count={len(jobs)}")
         return await job_responses(db, jobs)
 
     if current_user.role == UserRole.TECHNICIAN:
@@ -288,9 +285,11 @@ async def get_jobs_summary(
     if current_user.role == UserRole.ADMIN:
         summary = await job_logic.get_jobs_summary(db, target_date=target_date)
     elif current_user.role == UserRole.ORIENTEUR:
-        if not current_user.orienteur_id:
-            raise HTTPException(status_code=403, detail="Orienteur non affilié à un secteur.")
-        summary = await job_logic.get_jobs_summary_by_orienteur_id(db, orienteur_id=current_user.orienteur_id, target_date=target_date)
+        summary = await job_logic.get_jobs_summary(
+            db,
+            target_date=target_date,
+        )
+
     elif current_user.role == UserRole.TECHNICIAN:
         if not current_user.technician_id:
             raise HTTPException(status_code=403, detail="Technicien non affilié.")

@@ -7,7 +7,10 @@ import pytest
 from pydantic import ValidationError
 
 from backend.api.schemas.settings import OperationalSettingsValues
-from backend.logic.gps_retention import purge_expired_gps_history
+from backend.logic.gps_retention import (
+    configured_gps_stale_after_minutes,
+    purge_expired_gps_history,
+)
 
 
 def test_gps_retention_requires_an_explicit_bounded_duration():
@@ -28,6 +31,33 @@ def test_gps_retention_requires_an_explicit_bounded_duration():
     with pytest.raises(ValidationError):
         OperationalSettingsValues(gps_history_retention_days=3651)
 
+
+@pytest.mark.asyncio
+async def test_gps_stale_threshold_is_none_without_operational_policy():
+    db = AsyncMock()
+    settings_result = Mock()
+    settings_result.scalar_one_or_none.return_value = None
+    db.execute.return_value = settings_result
+
+    stale_minutes = await configured_gps_stale_after_minutes(db)
+
+    assert stale_minutes is None
+    db.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_gps_stale_threshold_reads_operational_policy():
+    db = AsyncMock()
+    settings_result = Mock()
+    settings_result.scalar_one_or_none.return_value = {
+        "gps_stale_after_minutes": 45,
+    }
+    db.execute.return_value = settings_result
+
+    stale_minutes = await configured_gps_stale_after_minutes(db)
+
+    assert stale_minutes == 45
+    db.execute.assert_awaited_once()
 
 @pytest.mark.asyncio
 async def test_gps_retention_does_not_delete_without_admin_policy():

@@ -33,9 +33,11 @@ from backend.database.connection import get_db
 from backend.database.models import JobStatus, User
 from backend.logic.field_agent_access import (
     list_field_agent_team_jobs,
+    list_field_agent_team_technicians,
     require_field_agent_team_job,
     subject_user_for_field_agent,
 )
+from backend.logic.gps_retention import configured_gps_stale_after_minutes
 from backend.logic.field_agent_review import FieldAgentReviewWorkflowEngine
 from backend.logic.activity_log import log_job_activity
 from backend.logic.technician_jobs import TechnicianJobMutationError
@@ -123,6 +125,37 @@ async def get_candidates(
 # Agent terrain tablet surface
 # ---------------------------------------------------------------------------
 
+
+@router.get("/me/technicians/locations")
+async def get_my_team_technician_locations(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_field_agent),
+):
+    technicians = await list_field_agent_team_technicians(
+        db,
+        current_user=current_user,
+    )
+    gps_stale_after_minutes = await configured_gps_stale_after_minutes(db)
+
+    return {
+        "gps_stale_after_minutes": gps_stale_after_minutes,
+        "count": len(technicians),
+        "technicians": [
+            {
+                "id": technician.id,
+                "name": technician.name,
+                "employee_id": technician.employee_id,
+                "team_id": technician.team_id,
+                "live_status": technician.live_status.value,
+                "current_latitude": technician.current_latitude,
+                "current_longitude": technician.current_longitude,
+                "current_accuracy": technician.current_accuracy,
+                "last_location_update": technician.last_location_update,
+                "current_job_id": technician.current_job_id,
+            }
+            for technician in technicians
+        ],
+    }
 
 @router.get("/me/jobs")
 async def get_my_team_jobs(

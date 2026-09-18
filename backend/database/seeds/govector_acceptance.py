@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import os
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from backend.auth.security import get_password_hash
 from backend.database.connection import AsyncSessionLocal, engine
@@ -141,6 +141,32 @@ async def _seed() -> None:
         ]
         db.add_all(technicians)
         await db.flush()
+
+        # Keep the explicit technician registry aligned with the team's
+        # operational coverage on fresh acceptance databases. Production data
+        # is repaired additively by Alembic v045 for technicians with zero rows.
+        for technician in technicians:
+            await db.execute(
+                text(
+                    """
+                    INSERT INTO technician_sectors (
+                        technician_id,
+                        sector_id,
+                        is_primary
+                    )
+                    VALUES (
+                        :technician_id,
+                        :sector_id,
+                        TRUE
+                    )
+                    ON CONFLICT (technician_id, sector_id) DO NOTHING
+                    """
+                ),
+                {
+                    "technician_id": technician.id,
+                    "sector_id": sector.id,
+                },
+            )
 
         users = [
             User(

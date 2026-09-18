@@ -98,11 +98,14 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
           _stock = custody
               .where((item) => _available(item) > 0 && !_isPilotCable(item))
               .toList(growable: false);
-          _error = 'Le relevé câble n’a pas pu être actualisé. Les autres matériels restent disponibles.';
+          _error =
+              'Le relevé câble n’a pas pu être actualisé. Les autres matériels restent disponibles.';
         });
       } catch (_) {
         if (!mounted) return;
-        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+        setState(
+          () => _error = error.toString().replaceFirst('Exception: ', ''),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -121,13 +124,16 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
       final payloadRaw = item['payload'];
       if (payloadRaw is! Map) continue;
       final payload = Map<String, dynamic>.from(payloadRaw);
-      final length = double.tryParse(payload['computed_length_m']?.toString() ?? '');
+      final length = double.tryParse(
+        payload['computed_length_m']?.toString() ?? '',
+      );
       if (length == null || !length.isFinite || length < 0) continue;
-      final reference = (payload['cable_type_code'] ??
-              payload['cable_reference'] ??
-              'Câble FO')
-          .toString()
-          .trim();
+      final reference =
+          (payload['cable_type_code'] ??
+                  payload['cable_reference'] ??
+                  'Câble FO')
+              .toString()
+              .trim();
       final segment = (payload['cable_segment_id'] ?? payload['segment_id'])
           ?.toString()
           .trim();
@@ -283,7 +289,9 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
                             const SizedBox(height: BlueVectorSpacing.sm),
                             Text(
                               _error!,
-                              style: const TextStyle(color: BlueVectorColors.warning),
+                              style: const TextStyle(
+                                color: BlueVectorColors.warning,
+                              ),
                             ),
                           ],
                           const SizedBox(height: BlueVectorSpacing.lg),
@@ -294,32 +302,48 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
                           const SizedBox(height: BlueVectorSpacing.sm),
                           TextField(
                             controller: _searchController,
-                            decoration: const InputDecoration(
-                              prefixIcon: Icon(Icons.search_rounded),
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.search_rounded),
                               hintText: 'Routeur, ONT, référence…',
+                              suffixIcon: _query.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: 'Effacer la recherche',
+                                      onPressed: _searchController.clear,
+                                      icon: const Icon(Icons.close_rounded),
+                                    ),
                             ),
                           ),
                           const SizedBox(height: BlueVectorSpacing.sm),
                           if (_stock.isEmpty)
                             const Padding(
-                              padding: EdgeInsets.symmetric(vertical: BlueVectorSpacing.xl),
+                              padding: EdgeInsets.symmetric(
+                                vertical: BlueVectorSpacing.xl,
+                              ),
                               child: Text(
                                 'Aucun autre matériel disponible dans votre garde.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: BlueVectorColors.textSecondary),
+                                style: TextStyle(
+                                  color: BlueVectorColors.textSecondary,
+                                ),
                               ),
                             )
                           else if (_visibleStock.isEmpty)
                             const Padding(
-                              padding: EdgeInsets.symmetric(vertical: BlueVectorSpacing.xl),
+                              padding: EdgeInsets.symmetric(
+                                vertical: BlueVectorSpacing.xl,
+                              ),
                               child: Text(
                                 'Aucun article ne correspond à la recherche.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(color: BlueVectorColors.textMuted),
+                                style: TextStyle(
+                                  color: BlueVectorColors.textMuted,
+                                ),
                               ),
                             )
                           else
-                            for (final item in _visibleStock) _materialRow(item),
+                            for (final item in _visibleStock)
+                              _materialRow(item),
                         ],
                       ),
                     ),
@@ -339,7 +363,9 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
       margin: const EdgeInsets.only(bottom: BlueVectorSpacing.xs),
       padding: const EdgeInsets.all(BlueVectorSpacing.sm),
       decoration: BoxDecoration(
-        color: quantity > 0 ? BlueVectorColors.primarySoft : BlueVectorColors.surface,
+        color: quantity > 0
+            ? BlueVectorColors.primarySoft
+            : BlueVectorColors.surface,
         border: Border.all(
           color: quantity > 0
               ? BlueVectorColors.primaryBright
@@ -356,7 +382,9 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item['label']?.toString() ?? item['reference']?.toString() ?? 'Article #$id',
+                  item['label']?.toString() ??
+                      item['reference']?.toString() ??
+                      'Article #$id',
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 Text(
@@ -402,7 +430,7 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
           Expanded(
             child: Text(
               _selectedLines == 0
-                  ? 'Le câble mesuré ne se sélectionne pas ici.'
+                  ? 'Sélectionnez uniquement le matériel réellement posé ou consommé.'
                   : '$_selectedUnits unité${_selectedUnits > 1 ? 's' : ''} · $_selectedLines référence${_selectedLines > 1 ? 's' : ''}',
               style: const TextStyle(color: BlueVectorColors.textSecondary),
             ),
@@ -416,7 +444,9 @@ class _MaterialUsedScreenState extends State<MaterialUsedScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.check_rounded),
-            label: Text(_saving ? 'Synchronisation…' : 'Valider'),
+            label: Text(
+              _saving ? 'Enregistrement…' : 'Enregistrer le matériel',
+            ),
           ),
         ],
       ),

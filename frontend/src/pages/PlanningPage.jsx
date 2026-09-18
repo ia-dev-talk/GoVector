@@ -23,6 +23,7 @@ const COMPLETED_STATUSES = new Set([
 const WEEKDAY_SHORT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' });
 const DAY_MONTH = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit' });
 const WEEK_RANGE = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short' });
+const MONTH_YEAR = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' });
 
 function text(value, fallback = '') {
   if (value === null || value === undefined) return fallback;
@@ -77,6 +78,24 @@ function startOfWeek(date) {
 function buildWeek(date) {
   const start = startOfWeek(date);
   return Array.from({ length: 7 }, (_, index) => shiftDate(start, index));
+}
+
+function periodBounds(date, mode, weekStart, weekEnd) {
+  if (mode === 'month') {
+    return {
+      start: new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0),
+      end: new Date(date.getFullYear(), date.getMonth() + 1, 0, 12, 0, 0),
+    };
+  }
+
+  if (mode === 'year') {
+    return {
+      start: new Date(date.getFullYear(), 0, 1, 12, 0, 0),
+      end: new Date(date.getFullYear(), 11, 31, 12, 0, 0),
+    };
+  }
+
+  return { start: weekStart, end: weekEnd };
 }
 
 function scheduledDateKey(job) {
@@ -232,6 +251,7 @@ function Card({ job, technicianById, onOpen }) {
 
 export default function PlanningPage({ onNavigate }) {
   const [viewDate, setViewDate] = useState(() => new Date());
+  const [periodMode, setPeriodMode] = useState('week');
   const [jobs, setJobs] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -243,6 +263,10 @@ export default function PlanningPage({ onNavigate }) {
   const week = useMemo(() => buildWeek(viewDate), [viewDate]);
   const weekStart = week[0];
   const weekEnd = week[6];
+  const range = useMemo(
+    () => periodBounds(viewDate, periodMode, weekStart, weekEnd),
+    [periodMode, viewDate, weekEnd, weekStart],
+  );
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setRefreshing(true);
@@ -252,8 +276,8 @@ export default function PlanningPage({ onNavigate }) {
       const [techniciansResponse, jobsResponse] = await Promise.all([
         api.getTechnicians(),
         api.getJobs({
-          scheduled_from: dateKey(weekStart),
-          scheduled_to: dateKey(weekEnd),
+          scheduled_from: dateKey(range.start),
+          scheduled_to: dateKey(range.end),
           limit: 500,
         }),
       ]);
@@ -266,7 +290,7 @@ export default function PlanningPage({ onNavigate }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [weekEnd, weekStart]);
+  }, [range.end, range.start]);
 
   useEffect(() => {
     setLoading(true);
@@ -376,7 +400,25 @@ export default function PlanningPage({ onNavigate }) {
     );
   }, [onNavigate]);
 
+  const shiftPeriod = useCallback((direction) => {
+    setViewDate((current) => {
+      if (periodMode === 'month') {
+        return new Date(current.getFullYear(), current.getMonth() + direction, 1, 12, 0, 0);
+      }
+      if (periodMode === 'year') {
+        return new Date(current.getFullYear() + direction, 0, 1, 12, 0, 0);
+      }
+      return shiftDate(current, direction * 7);
+    });
+  }, [periodMode]);
+
   const weekLabel = `${WEEK_RANGE.format(weekStart)} – ${WEEK_RANGE.format(weekEnd)} ${weekEnd.getFullYear()}`;
+  const periodLabel = periodMode === 'month'
+    ? `Mois de ${MONTH_YEAR.format(viewDate)} · semaine détaillée ${weekLabel}`
+    : periodMode === 'year'
+      ? `Année ${viewDate.getFullYear()} · semaine détaillée ${weekLabel}`
+      : `Semaine du ${weekLabel}`;
+  const periodName = periodMode === 'month' ? 'Mois' : periodMode === 'year' ? 'Année' : 'Semaine';
 
   return (
     <div className="bp-planning-page">
@@ -384,11 +426,32 @@ export default function PlanningPage({ onNavigate }) {
         <div>
           <span className="bp-planning-eyebrow">ORIENTATION FTTH</span>
           <h1>Planning</h1>
-          <p>Semaine du {weekLabel}</p>
+          <p>{periodLabel}</p>
         </div>
 
         <div className="bp-planning-date-controls" aria-label="Navigation du planning">
-          <button type="button" onClick={() => setViewDate((date) => shiftDate(date, -7))}>‹ Semaine</button>
+          <button
+            type="button"
+            aria-pressed={periodMode === 'week'}
+            onClick={() => setPeriodMode('week')}
+          >
+            Semaine
+          </button>
+          <button
+            type="button"
+            aria-pressed={periodMode === 'month'}
+            onClick={() => setPeriodMode('month')}
+          >
+            Mois
+          </button>
+          <button
+            type="button"
+            aria-pressed={periodMode === 'year'}
+            onClick={() => setPeriodMode('year')}
+          >
+            Année
+          </button>
+          <button type="button" onClick={() => shiftPeriod(-1)}>‹ {periodName}</button>
           <button type="button" onClick={() => setViewDate(new Date())}>Aujourd’hui</button>
           <input
             type="date"
@@ -399,7 +462,7 @@ export default function PlanningPage({ onNavigate }) {
             }}
             aria-label="Date du planning"
           />
-          <button type="button" onClick={() => setViewDate((date) => shiftDate(date, 7))}>Semaine ›</button>
+          <button type="button" onClick={() => shiftPeriod(1)}>{periodName} ›</button>
           <button type="button" onClick={() => load()} disabled={refreshing}>
             {refreshing ? 'Actualisation…' : 'Actualiser'}
           </button>

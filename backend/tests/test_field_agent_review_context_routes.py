@@ -9,6 +9,7 @@ def test_field_agent_review_context_routes_are_registered():
     paths = _route_paths()
 
     expected = {
+        "/orienteur-agent/me/technicians/locations",
         "/orienteur-agent/me/jobs/{job_id}/field-record",
         "/orienteur-agent/me/jobs/{job_id}/stock-context",
         "/orienteur-agent/me/jobs/{job_id}/media/{media_id}/download",

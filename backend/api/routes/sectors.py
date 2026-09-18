@@ -27,6 +27,7 @@ from backend.database.models import User, UserRole
 from backend.logic.sectors import (
     create_sector,
     delete_sector,
+    ensure_team_sector_coverage,
     get_all_sectors,
     get_sector,
     get_stats_by_sector,
@@ -270,7 +271,7 @@ async def replace_technician_sector_assignment(
     technician_result = await db.execute(
         text(
             """
-            SELECT id
+            SELECT id, team_id
             FROM technicians
             WHERE id = :technician_id
             FOR UPDATE
@@ -281,7 +282,8 @@ async def replace_technician_sector_assignment(
         },
     )
 
-    if technician_result.scalar_one_or_none() is None:
+    technician_row = technician_result.mappings().one_or_none()
+    if technician_row is None:
         raise HTTPException(
             status_code=404,
             detail=f"Technicien {technician_id} non trouvé",
@@ -378,6 +380,12 @@ async def replace_technician_sector_assignment(
                     ),
                 },
             )
+
+        await ensure_team_sector_coverage(
+            db,
+            team_id=technician_row["team_id"],
+            sector_ids=normalized_ids,
+        )
 
         await db.execute(
             text(

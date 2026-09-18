@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:mobile_app/services/location_service.dart';
 
 void main() {
@@ -32,5 +33,68 @@ void main() {
     expect(payload.containsKey('heading'), isFalse);
     expect(payload.containsKey('accuracy'), isFalse);
     expect(payload['job_id'], 8);
+  });
+
+  test('GPS availability reflects service and permission state', () {
+    expect(
+      LocationService.resolveAvailability(
+        serviceEnabled: false,
+        permission: LocationPermission.whileInUse,
+      ),
+      GpsAvailability.serviceDisabled,
+    );
+
+    expect(
+      LocationService.resolveAvailability(
+        serviceEnabled: true,
+        permission: LocationPermission.denied,
+      ),
+      GpsAvailability.permissionDenied,
+    );
+
+    expect(
+      LocationService.resolveAvailability(
+        serviceEnabled: true,
+        permission: LocationPermission.deniedForever,
+      ),
+      GpsAvailability.permissionDeniedForever,
+    );
+
+    expect(
+      LocationService.resolveAvailability(
+        serviceEnabled: true,
+        permission: LocationPermission.whileInUse,
+      ),
+      GpsAvailability.ready,
+    );
+
+    expect(
+      LocationService.resolveAvailability(
+        serviceEnabled: true,
+        permission: LocationPermission.always,
+      ),
+      GpsAvailability.ready,
+    );
+
+    expect(
+      LocationService.resolveAvailability(
+        serviceEnabled: true,
+        permission: LocationPermission.unableToDetermine,
+      ),
+      GpsAvailability.error,
+    );
+  });
+
+  test('GPS snapshot does not invent a position', () {
+    const snapshot = GpsStatusSnapshot(
+      availability: GpsAvailability.permissionDenied,
+      isLiveTracking: false,
+    );
+
+    expect(snapshot.hasPosition, isFalse);
+    expect(snapshot.latitude, isNull);
+    expect(snapshot.longitude, isNull);
+    expect(snapshot.accuracy, isNull);
+    expect(snapshot.positionAt, isNull);
   });
 }

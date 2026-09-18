@@ -12,6 +12,24 @@ from backend.database.models import ApplicationSetting, GPSHistory, Technician
 _OPERATIONAL_NAMESPACE = "operational"
 
 
+async def configured_gps_stale_after_minutes(
+    db: AsyncSession,
+) -> int | None:
+    """Return the explicitly configured live GPS freshness threshold."""
+
+    result = await db.execute(
+        select(ApplicationSetting.values).where(
+            ApplicationSetting.namespace == _OPERATIONAL_NAMESPACE
+        )
+    )
+    values = result.scalar_one_or_none()
+    if values is None:
+        return None
+
+    return OperationalSettingsValues.model_validate(
+        values or {}
+    ).gps_stale_after_minutes
+
 async def configured_gps_retention_days(
     db: AsyncSession,
 ) -> int | None:

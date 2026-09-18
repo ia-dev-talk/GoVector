@@ -11,6 +11,7 @@ import '../../services/offline_service.dart';
 import '../actions/mobile_action_sheet.dart';
 import '../actions/technician_job_picker_sheet.dart';
 import '../history/technician_history_screen.dart';
+import '../gps/mobile_gps_screen.dart';
 import '../interventions/current_intervention_screen.dart';
 import '../interventions/mobile_interventions_list_screen.dart';
 import '../interventions/mobile_interventions_repository.dart';
@@ -154,7 +155,9 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
     final message = snapshot.message;
     if (message != null && message.isNotEmpty && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -199,7 +202,13 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
   Future<void> _sync() async {
     if (_syncing) return;
-    _syncing = true;
+
+    if (mounted) {
+      setState(() => _syncing = true);
+    } else {
+      _syncing = true;
+    }
+
     try {
       final result = await OfflineService.syncPendingActions();
       if (!mounted) return;
@@ -212,10 +221,16 @@ class _TechnicianShellState extends State<TechnicianShell> {
           ? '${result.synced} action(s) synchronisée(s).'
           : 'Aucune action en attente.';
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       await _load();
     } finally {
-      _syncing = false;
+      if (mounted) {
+        setState(() => _syncing = false);
+      } else {
+        _syncing = false;
+      }
     }
   }
 
@@ -426,16 +441,24 @@ class _TechnicianShellState extends State<TechnicianShell> {
     }
 
     if (job.hasServiceCoordinates) {
-      await LocationService.openNavigation(
+      final opened = await LocationService.openNavigation(
         latitude: job.latitude,
         longitude: job.longitude,
         label: job.serviceAddress,
       );
+      if (!opened) {
+        _message('Impossible d’ouvrir une application de navigation.');
+      }
       return;
     }
 
     if (job.serviceAddress.trim().isNotEmpty) {
-      await LocationService.openNavigationByAddress(job.serviceAddress);
+      final opened = await LocationService.openNavigationByAddress(
+        job.serviceAddress,
+      );
+      if (!opened) {
+        _message('Impossible d’ouvrir une application de navigation.');
+      }
       return;
     }
 
@@ -488,7 +511,9 @@ class _TechnicianShellState extends State<TechnicianShell> {
 
   void _message(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -520,11 +545,17 @@ class _TechnicianShellState extends State<TechnicianShell> {
         onFailure: _declareFailure,
         onPostpone: _postpone,
       ),
+      MobileGpsScreen(
+        roleLabel: 'Technicien',
+        jobs: _snapshot.jobs,
+        onOpenJob: _selectJob,
+      ),
       MobileNotificationsScreen(
         jobs: _snapshot.jobs,
         isOnline: _snapshot.isOnline,
         pendingActions: _snapshot.pendingActions,
         attentionActions: _snapshot.attentionActions,
+        syncing: _syncing,
         onOpenJob: _selectJob,
         onSync: _sync,
       ),
@@ -533,7 +564,9 @@ class _TechnicianShellState extends State<TechnicianShell> {
         technicianName: _technicianName,
         isOnline: _snapshot.isOnline,
         pendingActions: _snapshot.pendingActions,
+        attentionActions: _snapshot.attentionActions,
         lastSync: _snapshot.lastSync,
+        syncing: _syncing,
         onSync: _sync,
         onOpenHistory: _openHistory,
         onLogout: widget.onLogout,
@@ -545,8 +578,10 @@ class _TechnicianShellState extends State<TechnicianShell> {
       body: IndexedStack(index: _pageIndex, children: pages),
       floatingActionButton: FloatingActionButton(
         heroTag: 'mobile-primary-action',
-        tooltip: 'Ajouter une action',
-        onPressed: _openGlobalActions,
+        tooltip: _pageIndex == 1
+            ? 'Ajouter une trace terrain'
+            : 'Ajouter une action',
+        onPressed: _pageIndex == 1 ? _openActions : _openGlobalActions,
         backgroundColor: BlueVectorColors.primary,
         foregroundColor: Colors.white,
         shape: const CircleBorder(),
@@ -604,7 +639,7 @@ class _MobileBottomBar extends StatelessWidget {
               selectedIndex: selectedIndex,
               icon: Icons.work_outline_rounded,
               selectedIcon: Icons.work_rounded,
-              label: 'Interventions',
+              label: 'Planning',
               onSelected: onSelected,
             ),
           ),
@@ -623,6 +658,16 @@ class _MobileBottomBar extends StatelessWidget {
             child: _Destination(
               index: 2,
               selectedIndex: selectedIndex,
+              icon: Icons.map_outlined,
+              selectedIcon: Icons.map_rounded,
+              label: 'Carte',
+              onSelected: onSelected,
+            ),
+          ),
+          Expanded(
+            child: _Destination(
+              index: 3,
+              selectedIndex: selectedIndex,
               icon: Icons.notifications_none_rounded,
               selectedIcon: Icons.notifications_rounded,
               label: 'Alertes',
@@ -632,7 +677,7 @@ class _MobileBottomBar extends StatelessWidget {
           ),
           Expanded(
             child: _Destination(
-              index: 3,
+              index: 4,
               selectedIndex: selectedIndex,
               icon: Icons.person_outline_rounded,
               selectedIcon: Icons.person_rounded,

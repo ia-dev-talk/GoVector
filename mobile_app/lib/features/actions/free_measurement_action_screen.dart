@@ -28,7 +28,6 @@ class _FreeMeasurementActionScreenState
     'speed': 'Mbps',
     'ping': 'ms',
     'attenuation': 'dB',
-    'cable_length': 'm',
     'otdr': 'dB',
   };
 
@@ -37,7 +36,6 @@ class _FreeMeasurementActionScreenState
     'speed': 'Débit',
     'ping': 'Ping',
     'attenuation': 'Atténuation',
-    'cable_length': 'Longueur câble posée',
     'otdr': 'OTDR',
     'other': 'Autre mesure',
   };
@@ -45,12 +43,18 @@ class _FreeMeasurementActionScreenState
   final _value = TextEditingController();
   final _unit = TextEditingController();
   final _comment = TextEditingController();
-  late String _type = widget.initialType ?? 'optical_power';
+  late String _type;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
+
+    final initialType = widget.initialType;
+    _type = initialType != null && _labels.containsKey(initialType)
+        ? initialType
+        : 'optical_power';
+
     _unit.text = _units[_type] ?? '';
   }
 
@@ -84,9 +88,7 @@ class _FreeMeasurementActionScreenState
     if (parsed == null || !parsed.isFinite) {
       return '${_labels[_type] ?? 'La mesure'} doit être numérique.';
     }
-    if (_type == 'cable_length' && parsed < 0) {
-      return 'La longueur de câble ne peut pas être négative.';
-    }
+
     return null;
   }
 
@@ -202,7 +204,6 @@ class _FreeMeasurementActionScreenState
                         'speed' => '500',
                         'ping' => '12',
                         'attenuation' => '0.35',
-                        'cable_length' => '42',
                         'otdr' => 'Perte / événement observé',
                         _ => 'Valeur relevée',
                       },

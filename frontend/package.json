@@ -11,7 +11,8 @@
 		"preview": "vite preview",
 		"qa:e2e": "playwright test",
 		"qa:e2e:headed": "playwright test --headed",
-		"qa:e2e:report": "playwright show-report"
+		"qa:e2e:report": "playwright show-report",
+		"qa:demo-real": "playwright test e2e/demo-real-acceptance.spec.js --reporter=line"
 	},
 	"dependencies": {
 		"ag-grid-community": "^33.2.5",

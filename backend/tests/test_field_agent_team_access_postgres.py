@@ -21,6 +21,7 @@ from backend.database.models import (
 )
 from backend.logic.field_agent_access import (
     list_field_agent_team_jobs,
+    list_field_agent_team_technicians,
     require_field_agent_team_job,
 )
 from backend.logic.technician_jobs import TechnicianJobMutationError
@@ -74,7 +75,19 @@ async def _exercise(database_url: str) -> dict:
                 team_id=team_b.id,
                 orienteur_id=owner_a.id,  # deliberately stale/wrong legacy link
             )
-            db.add_all([tech_a, tech_b])
+            tech_inactive = Technician(
+                name="Tech inactive",
+                employee_id="FIELD-INACTIVE",
+                home_latitude=33.60,
+                home_longitude=-7.60,
+                skills=[],
+                assigned_routes=[],
+                skill_bonuses={},
+                team_id=team_a.id,
+                orienteur_id=owner_a.id,
+                is_active=False,
+            )
+            db.add_all([tech_a, tech_b, tech_inactive])
             await db.flush()
 
             job_a = Job(
@@ -112,6 +125,13 @@ async def _exercise(database_url: str) -> dict:
 
             contexts = await list_field_agent_team_jobs(db, current_user=agent_a)
             initial_ids = [context.job.id for context in contexts]
+            team_technicians = await list_field_agent_team_technicians(
+                db,
+                current_user=agent_a,
+            )
+            team_technician_ids = [
+                technician.id for technician in team_technicians
+            ]
             owned = await require_field_agent_team_job(
                 db,
                 job_id=job_a.id,
@@ -148,6 +168,8 @@ async def _exercise(database_url: str) -> dict:
                 "initial_ids": initial_ids,
                 "owned_technician": owned.technician.id,
                 "tech_a": tech_a.id,
+                "tech_inactive": tech_inactive.id,
+                "team_technician_ids": team_technician_ids,
                 "foreign_code": foreign_code,
                 "post_reassign_code": post_reassign_code,
             }
@@ -167,5 +189,7 @@ def test_field_agent_team_scope_uses_canonical_team_and_tracks_reassignment():
 
     assert result["initial_ids"] == [result["job_a"]]
     assert result["owned_technician"] == result["tech_a"]
+    assert result["team_technician_ids"] == [result["tech_a"]]
+    assert result["tech_inactive"] not in result["team_technician_ids"]
     assert result["foreign_code"] == "field_agent_team_forbidden"
     assert result["post_reassign_code"] == "field_agent_team_forbidden"

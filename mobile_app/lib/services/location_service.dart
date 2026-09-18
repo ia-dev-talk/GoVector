@@ -8,6 +8,37 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/config.dart';
 import 'auth_service.dart';
 
+enum GpsAvailability {
+  unknown,
+  ready,
+  serviceDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+  error,
+}
+
+class GpsStatusSnapshot {
+  final GpsAvailability availability;
+  final bool isLiveTracking;
+  final double? latitude;
+  final double? longitude;
+  final double? accuracy;
+  final DateTime? positionAt;
+  final String? error;
+
+  const GpsStatusSnapshot({
+    required this.availability,
+    required this.isLiveTracking,
+    this.latitude,
+    this.longitude,
+    this.accuracy,
+    this.positionAt,
+    this.error,
+  });
+
+  bool get hasPosition => latitude != null && longitude != null;
+}
+
 class LocationService {
   static bool _isInitialized = false;
   static StreamSubscription<Position>? _liveGpsSubscription;
@@ -17,12 +48,97 @@ class LocationService {
   static double? _lastAccuracy;
   static DateTime? _lastPositionAt;
   static int? _currentJobId;
+  static GpsAvailability _availability = GpsAvailability.unknown;
+  static String? _lastError;
+
+  static final ValueNotifier<GpsStatusSnapshot> _statusNotifier =
+      ValueNotifier<GpsStatusSnapshot>(
+        const GpsStatusSnapshot(
+          availability: GpsAvailability.unknown,
+          isLiveTracking: false,
+        ),
+      );
 
   static bool get isLiveGpsRunning => _isLiveGpsRunning;
   static double? get lastLatitude => _lastLatitude;
   static double? get lastLongitude => _lastLongitude;
   static double? get lastAccuracy => _lastAccuracy;
   static DateTime? get lastPositionAt => _lastPositionAt;
+  static ValueListenable<GpsStatusSnapshot> get statusListenable =>
+      _statusNotifier;
+
+  static GpsStatusSnapshot get status => GpsStatusSnapshot(
+    availability: _availability,
+    isLiveTracking: _isLiveGpsRunning,
+    latitude: _lastLatitude,
+    longitude: _lastLongitude,
+    accuracy: _lastAccuracy,
+    positionAt: _lastPositionAt,
+    error: _lastError,
+  );
+
+  static void _publishStatus() {
+    _statusNotifier.value = status;
+  }
+
+  @visibleForTesting
+  static GpsAvailability resolveAvailability({
+    required bool serviceEnabled,
+    required LocationPermission permission,
+  }) {
+    if (!serviceEnabled) {
+      return GpsAvailability.serviceDisabled;
+    }
+
+    switch (permission) {
+      case LocationPermission.denied:
+        return GpsAvailability.permissionDenied;
+      case LocationPermission.deniedForever:
+        return GpsAvailability.permissionDeniedForever;
+      case LocationPermission.whileInUse:
+      case LocationPermission.always:
+        return GpsAvailability.ready;
+      case LocationPermission.unableToDetermine:
+        return GpsAvailability.error;
+    }
+  }
+
+  static Future<GpsStatusSnapshot> refreshStatus({
+    bool requestPermissionIfDenied = false,
+  }) async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        _availability = GpsAvailability.serviceDisabled;
+        _isInitialized = false;
+        _lastError = null;
+        _publishStatus();
+        return status;
+      }
+
+      var permission = await Geolocator.checkPermission();
+
+      if (requestPermissionIfDenied &&
+          permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      _availability = resolveAvailability(
+        serviceEnabled: true,
+        permission: permission,
+      );
+      _isInitialized = _availability == GpsAvailability.ready;
+      _lastError = null;
+    } catch (error) {
+      _availability = GpsAvailability.error;
+      _isInitialized = false;
+      _lastError = error.toString();
+    }
+
+    _publishStatus();
+    return status;
+  }
 
   @visibleForTesting
   static Map<String, dynamic> buildGpsPayload({
@@ -46,58 +162,67 @@ class LocationService {
   static Future<void> initialize({int? technicianId}) async {
     if (_isInitialized) return;
 
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      debugPrint('Location services disabled');
-      return;
-    }
+    final snapshot = await refreshStatus(requestPermissionIfDenied: true);
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        debugPrint('Location permission denied');
-        return;
+    if (snapshot.availability == GpsAvailability.ready &&
+        !snapshot.hasPosition) {
+      try {
+        final lastKnownPosition = await Geolocator.getLastKnownPosition();
+        if (lastKnownPosition != null) {
+          _rememberPosition(lastKnownPosition);
+          _publishStatus();
+        }
+      } catch (error) {
+        debugPrint('Unable to restore last known GPS position: $error');
       }
     }
 
-    if (permission == LocationPermission.deniedForever) {
-      debugPrint('Location permission permanently denied');
-      return;
-    }
-
-    _isInitialized = true;
-    debugPrint('LocationService initialized');
+    debugPrint('LocationService GPS state: ${snapshot.availability.name}');
   }
 
   static Future<bool> requestPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return false;
-      }
-    }
-    if (permission == LocationPermission.deniedForever) {
-      return false;
-    }
-    return true;
+    final snapshot = await refreshStatus(requestPermissionIfDenied: true);
+    return snapshot.availability == GpsAvailability.ready;
+  }
+
+  static Future<bool> openLocationSettings() async {
+    return Geolocator.openLocationSettings();
+  }
+
+  static Future<bool> openAppSettings() async {
+    return Geolocator.openAppSettings();
   }
 
   static Future<Position?> getCurrentPosition() async {
     if (!_isInitialized) await initialize();
+    if (!_isInitialized) return null;
 
     try {
-      return await Geolocator.getCurrentPosition(
+      final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.best,
           timeLimit: Duration(seconds: 10),
         ),
       );
-    } catch (e) {
-      debugPrint('Error getting position: $e');
+      _rememberPosition(position);
+      _availability = GpsAvailability.ready;
+      _lastError = null;
+      _publishStatus();
+      return position;
+    } catch (error) {
+      _availability = GpsAvailability.error;
+      _lastError = error.toString();
+      _publishStatus();
+      debugPrint('Error getting position: $error');
       return null;
     }
+  }
+
+  static void _rememberPosition(Position position) {
+    _lastLatitude = position.latitude;
+    _lastLongitude = position.longitude;
+    _lastAccuracy = position.accuracy >= 0 ? position.accuracy : null;
+    _lastPositionAt = position.timestamp;
   }
 
   static Stream<Position> getPositionStream() {
@@ -119,6 +244,7 @@ class LocationService {
     }
 
     _isLiveGpsRunning = true;
+    _publishStatus();
     debugPrint('Starting live GPS with ${intervalSeconds}s interval');
     unawaited(_startLiveGpsStream(intervalSeconds));
   }
@@ -130,6 +256,7 @@ class LocationService {
     _liveGpsSubscription = null;
     _isLiveGpsRunning = false;
     _currentJobId = null;
+    _publishStatus();
     debugPrint('Live GPS stopped');
   }
 
@@ -137,6 +264,7 @@ class LocationService {
     if (!_isInitialized) await initialize();
     if (!_isInitialized || !_isLiveGpsRunning) {
       _isLiveGpsRunning = false;
+      _publishStatus();
       return;
     }
 
@@ -165,21 +293,23 @@ class LocationService {
     }
 
     await _liveGpsSubscription?.cancel();
-    _liveGpsSubscription = Geolocator.getPositionStream(
-      locationSettings: settings,
-    ).listen(
-      (position) => unawaited(_sendGpsPosition(position)),
-      onError: (Object error) {
-        debugPrint('Live GPS stream error: $error');
-      },
-    );
+    _liveGpsSubscription =
+        Geolocator.getPositionStream(locationSettings: settings).listen(
+          (position) => unawaited(_sendGpsPosition(position)),
+          onError: (Object error) {
+            _availability = GpsAvailability.error;
+            _lastError = error.toString();
+            _publishStatus();
+            debugPrint('Live GPS stream error: $error');
+          },
+        );
   }
 
   static Future<void> _sendGpsPosition(Position position) async {
-    _lastLatitude = position.latitude;
-    _lastLongitude = position.longitude;
-    _lastAccuracy = position.accuracy >= 0 ? position.accuracy : null;
-    _lastPositionAt = position.timestamp;
+    _rememberPosition(position);
+    _availability = GpsAvailability.ready;
+    _lastError = null;
+    _publishStatus();
 
     try {
       final token = await AuthService.getToken();
@@ -257,7 +387,7 @@ class LocationService {
     }
   }
 
-  static Future<void> openNavigation({
+  static Future<bool> openNavigation({
     required double latitude,
     required double longitude,
     String? label,
@@ -266,71 +396,101 @@ class LocationService {
       "[LOCATION] openNavigation lat=$latitude lon=$longitude label=$label",
     );
 
-    // 1. Essayer Waze (application native)
-    final uriWaze = Uri.parse("waze://?ll=$latitude,$longitude&navigate=yes");
-    if (await canLaunchUrl(uriWaze)) {
-      debugPrint("[LOCATION] Lancement Waze: $uriWaze");
-      await launchUrl(uriWaze, mode: LaunchMode.externalApplication);
-      return;
-    }
+    try {
+      final uriWaze = Uri.parse("waze://?ll=$latitude,$longitude&navigate=yes");
+      if (await canLaunchUrl(uriWaze)) {
+        debugPrint("[LOCATION] Lancement Waze: $uriWaze");
+        if (await launchUrl(uriWaze, mode: LaunchMode.externalApplication)) {
+          return true;
+        }
+      }
 
-    // 2. Essayer Google Maps (application native)
-    final uriGoogleMaps = Uri.parse(
-      "geo:$latitude,$longitude?q=$latitude,$longitude${label != null ? '(${Uri.encodeComponent(label)})' : ''}",
-    );
-    if (await canLaunchUrl(uriGoogleMaps)) {
-      debugPrint("[LOCATION] Lancement Google Maps: $uriGoogleMaps");
-      await launchUrl(uriGoogleMaps, mode: LaunchMode.externalApplication);
-      return;
-    }
+      final uriGoogleMaps = Uri.parse(
+        "geo:$latitude,$longitude?q=$latitude,$longitude${label != null ? '(${Uri.encodeComponent(label)})' : ''}",
+      );
+      if (await canLaunchUrl(uriGoogleMaps)) {
+        debugPrint("[LOCATION] Lancement Google Maps: $uriGoogleMaps");
+        if (await launchUrl(
+          uriGoogleMaps,
+          mode: LaunchMode.externalApplication,
+        )) {
+          return true;
+        }
+      }
 
-    // 3. Fallback Waze web
-    final uriWazeFallback = Uri.parse(
-      "https://waze.com/ul?ll=$latitude,$longitude&navigate=yes"
-      "${label != null ? '&q=${Uri.encodeComponent(label)}' : ''}",
-    );
-    if (await canLaunchUrl(uriWazeFallback)) {
-      debugPrint("[LOCATION] Lancement Waze web: $uriWazeFallback");
-      await launchUrl(uriWazeFallback, mode: LaunchMode.externalApplication);
-      return;
-    }
+      final uriWazeFallback = Uri.parse(
+        "https://waze.com/ul?ll=$latitude,$longitude&navigate=yes"
+        "${label != null ? '&q=${Uri.encodeComponent(label)}' : ''}",
+      );
+      if (await canLaunchUrl(uriWazeFallback)) {
+        debugPrint("[LOCATION] Lancement Waze web: $uriWazeFallback");
+        if (await launchUrl(
+          uriWazeFallback,
+          mode: LaunchMode.externalApplication,
+        )) {
+          return true;
+        }
+      }
 
-    // 4. Fallback Google Maps web
-    final uriGoogleWeb = Uri.parse(
-      "https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude",
-    );
-    if (await canLaunchUrl(uriGoogleWeb)) {
-      debugPrint("[LOCATION] Lancement Google Maps web: $uriGoogleWeb");
-      await launchUrl(uriGoogleWeb, mode: LaunchMode.externalApplication);
-      return;
-    }
+      final uriGoogleWeb = Uri.parse(
+        "https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude",
+      );
+      if (await canLaunchUrl(uriGoogleWeb)) {
+        debugPrint("[LOCATION] Lancement Google Maps web: $uriGoogleWeb");
+        if (await launchUrl(
+          uriGoogleWeb,
+          mode: LaunchMode.externalApplication,
+        )) {
+          return true;
+        }
+      }
 
-    // 5. Dernier fallback : ouvrir dans le navigateur
-    final uriBrowser = Uri.parse(
-      "https://www.google.com/maps/search/$latitude,$longitude",
-    );
-    debugPrint("[LOCATION] Fallback navigateur: $uriBrowser");
-    await launchUrl(uriBrowser, mode: LaunchMode.platformDefault);
+      final uriBrowser = Uri.parse(
+        "https://www.google.com/maps/search/$latitude,$longitude",
+      );
+      debugPrint("[LOCATION] Fallback navigateur: $uriBrowser");
+      return await launchUrl(uriBrowser, mode: LaunchMode.platformDefault);
+    } catch (error) {
+      debugPrint("[LOCATION] Navigation impossible: $error");
+      return false;
+    }
   }
 
-  static Future<void> openNavigationByAddress(String address) async {
-    final encoded = Uri.encodeComponent(address);
-    final uriWaze = Uri.parse("waze://?q=$encoded&navigate=yes");
-    final uriGoogle = Uri.parse(
-      "https://www.google.com/maps/dir/?api=1&destination=$encoded",
-    );
+  static Future<bool> openNavigationByAddress(String address) async {
+    final value = address.trim();
+    if (value.isEmpty) return false;
 
-    if (await canLaunchUrl(uriWaze)) {
-      await launchUrl(uriWaze, mode: LaunchMode.externalApplication);
-    } else if (await canLaunchUrl(uriGoogle)) {
-      await launchUrl(uriGoogle, mode: LaunchMode.externalApplication);
-    } else {
+    try {
+      final encoded = Uri.encodeComponent(value);
+      final uriWaze = Uri.parse("waze://?q=$encoded&navigate=yes");
+      final uriGoogle = Uri.parse(
+        "https://www.google.com/maps/dir/?api=1&destination=$encoded",
+      );
+
+      if (await canLaunchUrl(uriWaze) &&
+          await launchUrl(uriWaze, mode: LaunchMode.externalApplication)) {
+        return true;
+      }
+
+      if (await canLaunchUrl(uriGoogle) &&
+          await launchUrl(uriGoogle, mode: LaunchMode.externalApplication)) {
+        return true;
+      }
+
       final uriGoogleWeb = Uri.parse(
         "https://www.google.com/maps/search/$encoded",
       );
       if (await canLaunchUrl(uriGoogleWeb)) {
-        await launchUrl(uriGoogleWeb, mode: LaunchMode.externalApplication);
+        return await launchUrl(
+          uriGoogleWeb,
+          mode: LaunchMode.externalApplication,
+        );
       }
+
+      return false;
+    } catch (error) {
+      debugPrint("[LOCATION] Navigation adresse impossible: $error");
+      return false;
     }
   }
 

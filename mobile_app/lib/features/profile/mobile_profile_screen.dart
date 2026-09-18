@@ -13,7 +13,9 @@ class MobileProfileScreen extends StatelessWidget {
     required this.technicianName,
     required this.isOnline,
     required this.pendingActions,
+    this.attentionActions = 0,
     required this.lastSync,
+    this.syncing = false,
     required this.onSync,
     required this.onOpenHistory,
     required this.onLogout,
@@ -23,7 +25,9 @@ class MobileProfileScreen extends StatelessWidget {
   final String technicianName;
   final bool isOnline;
   final int pendingActions;
+  final int attentionActions;
   final DateTime? lastSync;
+  final bool syncing;
   final Future<void> Function() onSync;
   final VoidCallback onOpenHistory;
   final Future<void> Function() onLogout;
@@ -125,11 +129,21 @@ class MobileProfileScreen extends StatelessWidget {
                     : Icons.cloud_off_outlined,
                 label: isOnline ? 'Réseau disponible' : 'Mode hors ligne',
                 value:
-                    '$pendingActions action${pendingActions == 1 ? '' : 's'} en attente',
+                    '$pendingActions action${pendingActions == 1 ? '' : 's'} à synchroniser',
                 color: isOnline
                     ? BlueVectorColors.success
                     : BlueVectorColors.warning,
               ),
+              if (attentionActions > 0) ...[
+                const Divider(height: 24),
+                _InfoRow(
+                  icon: Icons.error_outline_rounded,
+                  label: 'À vérifier',
+                  value:
+                      '$attentionActions action${attentionActions == 1 ? '' : 's'} en conflit ou refusée${attentionActions == 1 ? '' : 's'}',
+                  color: BlueVectorColors.danger,
+                ),
+              ],
               const Divider(height: 24),
               _InfoRow(
                 icon: Icons.schedule_rounded,
@@ -138,13 +152,20 @@ class MobileProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: BlueVectorSpacing.md),
               FilledButton.icon(
-                onPressed: isOnline
+                onPressed: isOnline && !syncing
                     ? () async {
                         await onSync();
                       }
                     : null,
-                icon: const Icon(Icons.sync_rounded),
-                label: const Text('Synchroniser maintenant'),
+                icon: syncing
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.sync_rounded),
+                label: Text(
+                  syncing ? 'Synchronisation…' : 'Synchroniser maintenant',
+                ),
               ),
             ],
           ),
@@ -159,9 +180,8 @@ class MobileProfileScreen extends StatelessWidget {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => TechnicianStockScreen(
-                          technicianId: technicianId,
-                        ),
+                        builder: (_) =>
+                            TechnicianStockScreen(technicianId: technicianId),
                       ),
                     );
                   },
@@ -202,20 +222,30 @@ class MobileProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: BlueVectorSpacing.md),
           _SectionCard(
-            title: 'Connexion au système',
+            title: 'Support',
             children: [
-              _InfoRow(
-                icon: Icons.lan_outlined,
-                label: 'API GoVector',
-                value: AuthService.baseUrl,
-              ),
-              const SizedBox(height: BlueVectorSpacing.xs),
-              const Text(
-                'Adresse du serveur GoVector utilisée par cette tablette.',
-                style: TextStyle(
-                  color: BlueVectorColors.textMuted,
-                  fontSize: 11,
-                  height: 1.35,
+              Theme(
+                data: Theme.of(
+                  context,
+                ).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.settings_ethernet_rounded,
+                    color: BlueVectorColors.primaryBright,
+                  ),
+                  title: const Text('Informations techniques'),
+                  subtitle: const Text(
+                    'À ouvrir uniquement en cas de diagnostic',
+                  ),
+                  children: [
+                    _InfoRow(
+                      icon: Icons.lan_outlined,
+                      label: 'Serveur GoVector',
+                      value: AuthService.baseUrl,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -271,21 +301,24 @@ class _SectionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
         border: Border.all(color: BlueVectorColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: const TextStyle(
-              color: BlueVectorColors.textMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.1,
+      child: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                color: BlueVectorColors.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+              ),
             ),
-          ),
-          const SizedBox(height: BlueVectorSpacing.md),
-          ...children,
-        ],
+            const SizedBox(height: BlueVectorSpacing.md),
+            ...children,
+          ],
+        ),
       ),
     );
   }

@@ -15,6 +15,7 @@ from backend.api.schemas import (
 	TechnicianWorkload, MessageResponse,
 )
 from backend.logic import technicians as tech_logic
+from backend.logic.sectors import ensure_team_sector_coverage
 from backend.logic.technician_details import get_technician_full_details
 from backend.database.models import (
 	FieldTeam,
@@ -212,9 +213,12 @@ async def get_technicians(
 	if current_user.role == UserRole.ADMIN:
 		techs = await tech_logic.get_all_technicians(db, skip=skip, limit=limit)
 	elif current_user.role == UserRole.ORIENTEUR:
-		if not current_user.orienteur_id:
-			raise HTTPException(status_code=403, detail="Orienteur non affilié à un secteur.")
-		techs = await tech_logic.get_technicians_by_orienteur(db, current_user.orienteur_id, skip=skip, limit=limit)
+		techs = await tech_logic.get_all_technicians(
+			db,
+			skip=skip,
+			limit=limit,
+		)
+
 	else:
 		raise HTTPException(status_code=403, detail="Accès insuffisant pour voir les techniciens.")
 	return await _technician_responses_with_team_scope(db, techs)
@@ -324,6 +328,12 @@ async def save_technician_profile(
                     "is_primary": sector_id == payload.primary_sector_id,
                 },
             )
+
+        await ensure_team_sector_coverage(
+            db,
+            team_id=technician.team_id,
+            sector_ids=normalized_sector_ids,
+        )
 
         technician.updated_at = datetime.now(timezone.utc)
         await db.commit()
