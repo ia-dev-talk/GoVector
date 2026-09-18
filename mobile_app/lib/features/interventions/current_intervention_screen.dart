@@ -185,12 +185,17 @@ class CurrentInterventionScreen extends StatelessWidget {
                   onOpenAppSettings: effectiveOpenGpsAppSettings,
                 ),
                 _GpsLastPositionCard(gpsStatusListenable: effectiveGpsStatus),
+                if (_NetworkDataCard.hasData(intervention)) ...[
+                  const SizedBox(height: BlueVectorSpacing.xs),
+                  _NetworkDataCard(job: intervention),
+                  const SizedBox(height: BlueVectorSpacing.xs),
+                ],
                 MobileFieldContextCard(jobId: intervention.id),
                 const SizedBox(height: BlueVectorSpacing.md),
                 Row(
                   children: [
                     Text(
-                      'Journal de l’intervention',
+                      'Activité récente',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
@@ -200,10 +205,6 @@ class CurrentInterventionScreen extends StatelessWidget {
                   jobId: intervention.id,
                   refreshToken: pendingActions,
                 ),
-                if (_NetworkDataCard.hasData(intervention)) ...[
-                  const SizedBox(height: BlueVectorSpacing.md),
-                  _NetworkDataCard(job: intervention),
-                ],
               ],
             ),
           ),
@@ -705,7 +706,7 @@ class _NetworkDataCard extends StatelessWidget {
               ),
               SizedBox(width: BlueVectorSpacing.xs),
               Text(
-                'Informations utiles',
+                'Réseau client',
                 style: TextStyle(
                   color: BlueVectorColors.textPrimary,
                   fontSize: 12,

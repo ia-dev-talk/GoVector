@@ -79,7 +79,7 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -1400));
     await tester.pump();
 
-    expect(find.text('Informations utiles'), findsNothing);
+    expect(find.text('Réseau client'), findsNothing);
   });
 
   testWidgets('current intervention shows only populated network references', (
@@ -91,13 +91,13 @@ void main() {
     await tester.pump();
 
     await tester.scrollUntilVisible(
-      find.text('Informations utiles'),
+      find.text('Réseau client'),
       250,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pump();
 
-    expect(find.text('Informations utiles'), findsOneWidget);
+    expect(find.text('Réseau client'), findsOneWidget);
     expect(find.text('Opérateur'), findsOneWidget);
     expect(find.text('Orange'), findsOneWidget);
     expect(find.text('PTO'), findsOneWidget);

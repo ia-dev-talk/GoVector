@@ -35,6 +35,22 @@ class _MobileInterventionsListScreenState
     extends State<MobileInterventionsListScreen> {
   int _tabIndex = 0;
   String _query = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  void _clearSearch() {
+    if (_query.isEmpty) return;
+
+    _searchController.clear();
+    setState(() {
+      _query = '';
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   List<Job> get _visibleJobs {
     Iterable<Job> items = widget.jobs;
@@ -63,11 +79,42 @@ class _MobileInterventionsListScreenState
         return job.customerName.toLowerCase().contains(query) ||
             job.jobNumber.toLowerCase().contains(query) ||
             job.serviceAddress.toLowerCase().contains(query) ||
+            (job.operator ?? '').toLowerCase().contains(query) ||
+            (job.pto ?? '').toLowerCase().contains(query) ||
             (job.pbo ?? '').toLowerCase().contains(query);
       });
     }
 
-    return items.toList();
+    final jobs = items.toList();
+
+    jobs.sort((a, b) {
+      if (_tabIndex != 2) {
+        final aUrgent = MobileJobPresenter.isUrgent(a);
+        final bUrgent = MobileJobPresenter.isUrgent(b);
+
+        if (aUrgent != bUrgent) {
+          return aUrgent ? -1 : 1;
+        }
+      }
+
+      final aDate = MobileJobPresenter.scheduledAt(a);
+      final bDate = MobileJobPresenter.scheduledAt(b);
+
+      if (aDate == null && bDate == null) {
+        return a.id.compareTo(b.id);
+      }
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+
+      final byDate = _tabIndex == 2
+          ? bDate.compareTo(aDate)
+          : aDate.compareTo(bDate);
+
+      if (byDate != 0) return byDate;
+      return a.id.compareTo(b.id);
+    });
+
+    return jobs;
   }
 
   @override
@@ -179,14 +226,22 @@ class _MobileInterventionsListScreenState
               horizontal: BlueVectorSpacing.md,
             ),
             child: TextField(
+              controller: _searchController,
               onChanged: (value) {
                 setState(() {
                   _query = value;
                 });
               },
-              decoration: const InputDecoration(
-                hintText: 'Intervention, client, adresse…',
-                prefixIcon: Icon(Icons.search_rounded),
+              decoration: InputDecoration(
+                hintText: 'Intervention, client, adresse, PTO…',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Effacer la recherche',
+                        onPressed: _clearSearch,
+                        icon: const Icon(Icons.close_rounded),
+                      ),
                 isDense: true,
               ),
             ),
@@ -234,9 +289,12 @@ class _MobileInterventionsListScreenState
                     child: _visibleJobs.isEmpty
                         ? ListView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            children: const [
-                              SizedBox(height: 120),
-                              _EmptyPlanning(),
+                            children: [
+                              const SizedBox(height: 120),
+                              _EmptyPlanning(
+                                query: _query,
+                                onClearSearch: _clearSearch,
+                              ),
                             ],
                           )
                         : ListView.separated(
@@ -276,6 +334,9 @@ class _JobCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = MobileJobPresenter.statusColor(job);
+    final urgent = MobileJobPresenter.isUrgent(job);
+    final operator = job.operator?.trim();
+    final pto = job.pto?.trim();
 
     return Material(
       color: BlueVectorColors.surface,
@@ -287,7 +348,11 @@ class _JobCard extends StatelessWidget {
           padding: const EdgeInsets.all(BlueVectorSpacing.md),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
-            border: Border.all(color: BlueVectorColors.border),
+            border: Border.all(
+              color: urgent
+                  ? BlueVectorColors.danger.withValues(alpha: 0.65)
+                  : BlueVectorColors.border,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.12),
@@ -371,6 +436,10 @@ class _JobCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (urgent) ...[
+                      const SizedBox(height: BlueVectorSpacing.xs),
+                      const _UrgentBadge(),
+                    ],
                     const SizedBox(height: BlueVectorSpacing.sm),
                     Text(
                       job.customerName.isEmpty
@@ -410,17 +479,20 @@ class _JobCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (job.operator != null) ...[
+                    if (operator?.isNotEmpty == true ||
+                        pto?.isNotEmpty == true) ...[
                       const SizedBox(height: BlueVectorSpacing.sm),
                       Wrap(
                         spacing: BlueVectorSpacing.xs,
                         runSpacing: BlueVectorSpacing.xs,
                         children: [
-                          if (job.operator != null)
+                          if (operator?.isNotEmpty == true)
                             _MetaChip(
                               icon: Icons.cell_tower_rounded,
-                              label: job.operator!,
+                              label: operator!,
                             ),
+                          if (pto?.isNotEmpty == true)
+                            _MetaChip(icon: Icons.router_outlined, label: pto!),
                         ],
                       ),
                     ],
@@ -437,6 +509,46 @@ class _JobCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UrgentBadge extends StatelessWidget {
+  const _UrgentBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: BlueVectorColors.danger.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(BlueVectorRadius.pill),
+          border: Border.all(
+            color: BlueVectorColors.danger.withValues(alpha: 0.35),
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.priority_high_rounded,
+              size: 13,
+              color: BlueVectorColors.danger,
+            ),
+            SizedBox(width: 3),
+            Text(
+              'Urgent',
+              style: TextStyle(
+                color: BlueVectorColors.danger,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -596,35 +708,58 @@ class _CountBadge extends StatelessWidget {
 }
 
 class _EmptyPlanning extends StatelessWidget {
-  const _EmptyPlanning();
+  const _EmptyPlanning({required this.query, required this.onClearSearch});
+
+  final String query;
+  final VoidCallback onClearSearch;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final normalizedQuery = query.trim();
+    final hasQuery = normalizedQuery.isNotEmpty;
+
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(BlueVectorSpacing.xl),
+        padding: const EdgeInsets.all(BlueVectorSpacing.xl),
         child: Column(
           children: [
             Icon(
-              Icons.event_available_outlined,
+              hasQuery
+                  ? Icons.search_off_rounded
+                  : Icons.event_available_outlined,
               color: BlueVectorColors.textMuted,
               size: 44,
             ),
-            SizedBox(height: BlueVectorSpacing.md),
+            const SizedBox(height: BlueVectorSpacing.md),
             Text(
-              'Aucune intervention dans cette vue',
-              style: TextStyle(
+              hasQuery
+                  ? 'Aucun résultat pour « $normalizedQuery »'
+                  : 'Aucune intervention dans cette vue',
+              style: const TextStyle(
                 color: BlueVectorColors.textPrimary,
                 fontWeight: FontWeight.w800,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: BlueVectorSpacing.xs),
+            const SizedBox(height: BlueVectorSpacing.xs),
             Text(
-              'Actualise le planning ou change d’onglet.',
-              style: TextStyle(color: BlueVectorColors.textMuted, fontSize: 12),
+              hasQuery
+                  ? 'Essaie un client, une référence, une adresse ou un PTO.'
+                  : 'Actualise le planning ou change d’onglet.',
+              style: const TextStyle(
+                color: BlueVectorColors.textMuted,
+                fontSize: 12,
+              ),
               textAlign: TextAlign.center,
             ),
+            if (hasQuery) ...[
+              const SizedBox(height: BlueVectorSpacing.md),
+              OutlinedButton.icon(
+                onPressed: onClearSearch,
+                icon: const Icon(Icons.close_rounded),
+                label: const Text('Effacer la recherche'),
+              ),
+            ],
           ],
         ),
       ),

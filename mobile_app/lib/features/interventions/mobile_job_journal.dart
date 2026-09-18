@@ -21,7 +21,7 @@ class MobileJobJournal extends StatefulWidget {
 }
 
 class _MobileJobJournalState extends State<MobileJobJournal> {
-  static const _collapsedEntryCount = 5;
+  static const _collapsedEntryCount = 3;
 
   List<_JournalEntry> _entries = const [];
   bool _loading = true;
@@ -94,7 +94,9 @@ class _MobileJobJournalState extends State<MobileJobJournal> {
             )
           : _entries.isEmpty
           ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: BlueVectorSpacing.sm),
+              padding: const EdgeInsets.symmetric(
+                vertical: BlueVectorSpacing.sm,
+              ),
               child: Text(
                 _serverUnavailable
                     ? 'Journal serveur indisponible hors ligne.'
@@ -236,8 +238,7 @@ class _JournalEntry {
     'intervention_document' => 'Document ajouté',
     'intervention_sketch' => 'Croquis terrain ajouté',
     'intervention_comment' => 'Commentaire',
-    'job_communication' ||
-    'communication_reply' => 'Réponse au bureau',
+    'job_communication' || 'communication_reply' => 'Réponse au bureau',
     'communication_acknowledgement' => 'Message pris en compte',
     'communication_correction_request' => 'Correction demandée par le bureau',
     'communication_instruction' => 'Instruction du bureau',
