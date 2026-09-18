@@ -72,7 +72,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
 
   String _cableType(Map<String, dynamic> item) =>
       (item['cable_type'] ?? item['cable_type_code'] ?? '')
-          .toString().trim().toUpperCase();
+          .toString()
+          .trim()
+          .toUpperCase();
 
   int _available(Map<String, dynamic> item) =>
       int.tryParse(item['available_quantity']?.toString() ?? '') ?? 0;
@@ -156,8 +158,7 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
               .where((item) {
                 final code = item['code'];
                 return code != null &&
-                    {'SP', 'TR', 'FSD'}
-                        .contains(code) &&
+                    {'SP', 'TR', 'FSD'}.contains(code) &&
                     (item['label']?.isNotEmpty ?? false);
               })
               .toList(growable: false);
@@ -168,7 +169,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       }
 
       if (!mounted) return;
-      final selectedCode = _selectedCableCode ?? (cables.length == 1 ? _cableCode(cables.first) : null);
+      final selectedCode =
+          _selectedCableCode ??
+          (cables.length == 1 ? _cableCode(cables.first) : null);
       setState(() {
         _cables = cables;
         _installationModes = modes;
@@ -178,7 +181,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
         }
       });
       if (selectedCode != null && widget.isEntry) {
-        final selected = cables.where((item) => _cableCode(item) == selectedCode);
+        final selected = cables.where(
+          (item) => _cableCode(item) == selectedCode,
+        );
         if (selected.isNotEmpty && selected.first['current_mark_m'] != null) {
           _meterController.text = selected.first['current_mark_m'].toString();
         }
@@ -190,7 +195,8 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       if (!mounted) return;
       setState(() {
         _cables = const [];
-        _error = 'Aucune bobine affectée disponible. Connectez-vous puis demandez une affectation Web.';
+        _error =
+            'Aucune bobine affectée disponible. Connectez-vous puis demandez une affectation Web.';
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -242,11 +248,19 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
     try {
       meterMark = _parseMeterMark();
     } on FormatException {
-      setState(() => _error = 'Le repère métrique doit être un nombre positif.');
+      setState(
+        () => _error = 'Le repère métrique doit être un nombre positif.',
+      );
       return;
     }
-    if (!widget.isEntry && _activeStartMeter != null && meterMark != null && meterMark >= _activeStartMeter!) {
-      setState(() => _error = 'L’arrivée doit être inférieure au départ : le compteur doit décroître.');
+    if (!widget.isEntry &&
+        _activeStartMeter != null &&
+        meterMark != null &&
+        meterMark >= _activeStartMeter!) {
+      setState(
+        () => _error =
+            'L’arrivée doit être inférieure au départ : le compteur doit décroître.',
+      );
       return;
     }
 
@@ -304,13 +318,20 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
       final persisted = await OfflineService.getAction(queued.eventId);
       final status = persisted?.status.name ?? 'retryable';
       if (status == 'conflict' || status == 'rejected') {
-        throw Exception(persisted?.lastError ?? 'Relevé câble refusé par GoVector');
+        throw Exception(
+          persisted?.lastError ?? 'Relevé câble refusé par GoVector',
+        );
       }
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.toString().replaceFirst('Exception: ', '').replaceFirst('Bad state: ', ''));
+      setState(
+        () => _error = error
+            .toString()
+            .replaceFirst('Exception: ', '')
+            .replaceFirst('Bad state: ', ''),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -328,7 +349,8 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
             _ChoiceOption(
               value: _cableCode(cable),
               title: '${_cableCode(cable)} · ${_cableType(cable)}',
-              subtitle: 'Repère courant : ${cable['current_mark_m'] ?? _available(cable)} m',
+              subtitle:
+                  'Repère courant : ${cable['current_mark_m'] ?? _available(cable)} m',
             ),
         ],
         selected: _selectedCableCode,
@@ -372,7 +394,8 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.all(BlueVectorSpacing.md),
                 children: [
                   Container(
@@ -380,7 +403,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     decoration: BoxDecoration(
                       color: BlueVectorColors.primarySoft,
                       border: Border.all(color: BlueVectorColors.border),
-                      borderRadius: BorderRadius.circular(BlueVectorRadius.medium),
+                      borderRadius: BorderRadius.circular(
+                        BlueVectorRadius.medium,
+                      ),
                     ),
                     child: Text(
                       widget.isEntry
@@ -407,7 +432,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                   _SelectorField(
                     label: 'Mode de pose *',
                     icon: Icons.route_rounded,
-                    value: selectedMode?['label'] ?? 'Sélectionner le mode de pose',
+                    value:
+                        selectedMode?['label'] ??
+                        'Sélectionner le mode de pose',
                     onTap: _saving ? null : _chooseMode,
                   ),
                   const SizedBox(height: BlueVectorSpacing.sm),
@@ -415,7 +442,9 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     controller: _meterController,
                     enabled: !_saving,
                     onChanged: (_) => setState(() {}),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: InputDecoration(
                       labelText: widget.isEntry
                           ? 'Repère métrique au départ (m)'
@@ -431,7 +460,8 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                     maxLines: 2,
                     decoration: const InputDecoration(
                       labelText: 'Justification d’écart (si nécessaire)',
-                      hintText: 'Obligatoire uniquement si le départ diffère du dernier repère',
+                      hintText:
+                          'Obligatoire uniquement si le départ diffère du dernier repère',
                       prefixIcon: Icon(Icons.report_outlined),
                     ),
                   ),
@@ -442,18 +472,25 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                       decoration: BoxDecoration(
                         color: BlueVectorColors.surface,
                         border: Border.all(color: BlueVectorColors.border),
-                        borderRadius: BorderRadius.circular(BlueVectorRadius.small),
+                        borderRadius: BorderRadius.circular(
+                          BlueVectorRadius.small,
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calculate_outlined, color: BlueVectorColors.cyan),
+                          const Icon(
+                            Icons.calculate_outlined,
+                            color: BlueVectorColors.cyan,
+                          ),
                           const SizedBox(width: BlueVectorSpacing.sm),
                           Expanded(
                             child: Text(
                               immediateLength == null
                                   ? 'Départ ${formatCableMeter(_activeStartMeter!)} m — saisissez l’arrivée pour calculer la longueur.'
                                   : 'Longueur calculée : ${formatCableMeter(immediateLength)} m',
-                              style: const TextStyle(fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
@@ -475,12 +512,21 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                       padding: const EdgeInsets.all(BlueVectorSpacing.sm),
                       decoration: BoxDecoration(
                         color: BlueVectorColors.warning.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(BlueVectorRadius.small),
-                        border: Border.all(color: BlueVectorColors.warning.withValues(alpha: 0.3)),
+                        borderRadius: BorderRadius.circular(
+                          BlueVectorRadius.small,
+                        ),
+                        border: Border.all(
+                          color: BlueVectorColors.warning.withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
                       ),
                       child: Text(
                         _error!,
-                        style: const TextStyle(color: BlueVectorColors.textPrimary, fontSize: 11),
+                        style: const TextStyle(
+                          color: BlueVectorColors.textPrimary,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ],
@@ -494,7 +540,13 @@ class _CableEndpointScreenState extends State<CableEndpointScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.save_outlined),
-                    label: Text(_saving ? 'Enregistrement…' : 'Enregistrer'),
+                    label: Text(
+                      _saving
+                          ? 'Enregistrement…'
+                          : widget.isEntry
+                          ? 'Enregistrer l’entrée'
+                          : 'Enregistrer la sortie',
+                    ),
                   ),
                   const SizedBox(height: BlueVectorSpacing.sm),
                   OutlinedButton.icon(
@@ -569,7 +621,11 @@ class _SelectorField extends StatelessWidget {
 }
 
 class _ChoiceOption {
-  const _ChoiceOption({required this.value, required this.title, this.subtitle});
+  const _ChoiceOption({
+    required this.value,
+    required this.title,
+    this.subtitle,
+  });
 
   final String value;
   final String title;
@@ -623,7 +679,11 @@ class _ChoiceSheet extends StatelessWidget {
                 ),
                 subtitle: option.subtitle == null
                     ? null
-                    : Text(option.subtitle!, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    : Text(
+                        option.subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                 onTap: () => Navigator.pop(context, option.value),
               ),
           ],
