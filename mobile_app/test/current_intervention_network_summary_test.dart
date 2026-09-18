@@ -153,6 +153,38 @@ void main() {
     expect(find.text('Recherche…'), findsNothing);
   });
 
+  testWidgets('current intervention can retry after GPS error', (tester) async {
+    var retryCount = 0;
+
+    final gps = ValueNotifier<GpsStatusSnapshot>(
+      const GpsStatusSnapshot(
+        availability: GpsAvailability.error,
+        isLiveTracking: false,
+        error: 'temporary GPS failure',
+      ),
+    );
+    addTearDown(gps.dispose);
+
+    await tester.pumpWidget(
+      _screen(
+        _job(),
+        gpsStatusListenable: gps,
+        onRequestGpsPermission: () async {
+          retryCount++;
+        },
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Erreur'), findsOneWidget);
+    expect(find.text('Position GPS indisponible'), findsOneWidget);
+    expect(find.text('Réessayer'), findsOneWidget);
+
+    await tester.tap(find.text('Réessayer'));
+    await tester.pump();
+
+    expect(retryCount, 1);
+  });
   testWidgets('current intervention shows last known GPS position', (
     tester,
   ) async {

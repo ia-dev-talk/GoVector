@@ -31,7 +31,29 @@ class MobileTechnicianLocation {
   final DateTime? lastLocationUpdate;
   final int? currentJobId;
 
-  bool get hasPosition => latitude != null && longitude != null;
+  bool get hasPosition {
+    final lat = latitude;
+    final lon = longitude;
+
+    return lat != null &&
+        lon != null &&
+        lat.isFinite &&
+        lon.isFinite &&
+        lat >= -90 &&
+        lat <= 90 &&
+        lon >= -180 &&
+        lon <= 180;
+  }
+}
+
+class MobileTechnicianLocationsSnapshot {
+  const MobileTechnicianLocationsSnapshot({
+    required this.technicians,
+    this.gpsStaleAfterMinutes,
+  });
+
+  final List<MobileTechnicianLocation> technicians;
+  final int? gpsStaleAfterMinutes;
 }
 
 enum _MapFilter { today, upcoming, all, closed }
@@ -44,6 +66,7 @@ class MobileGpsScreen extends StatefulWidget {
     this.technicianNamesByJobId = const {},
     this.technicianLocations = const [],
     this.gpsStaleAfterMinutes,
+    this.onRefreshTechnicianLocations,
     this.onOpenJob,
   });
 
@@ -52,6 +75,8 @@ class MobileGpsScreen extends StatefulWidget {
   final Map<int, String> technicianNamesByJobId;
   final List<MobileTechnicianLocation> technicianLocations;
   final int? gpsStaleAfterMinutes;
+  final Future<MobileTechnicianLocationsSnapshot> Function()?
+  onRefreshTechnicianLocations;
   final ValueChanged<Job>? onOpenJob;
 
   @override
@@ -62,8 +87,14 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
     with WidgetsBindingObserver {
   final MapController _mapController = MapController();
 
+  static const _technicianRefreshInterval = Duration(seconds: 30);
+
   _MapFilter _filter = _MapFilter.today;
   bool _refreshing = false;
+  bool _refreshingTechnicians = false;
+  Timer? _technicianRefreshTimer;
+  List<MobileTechnicianLocation> _technicianLocations = const [];
+  int? _gpsStaleAfterMinutes;
 
   List<Job> get _filteredJobs {
     switch (_filter) {
@@ -96,20 +127,28 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
       .where((job) => job.hasServiceCoordinates)
       .toList(growable: false);
 
-  List<MobileTechnicianLocation> get _mappedTechnicians => widget
-      .technicianLocations
+  List<MobileTechnicianLocation> get _mappedTechnicians => _technicianLocations
       .where((technician) => technician.hasPosition)
       .toList(growable: false);
 
   @override
   void initState() {
     super.initState();
+    _technicianLocations = widget.technicianLocations;
+    _gpsStaleAfterMinutes = widget.gpsStaleAfterMinutes;
+
     WidgetsBinding.instance.addObserver(this);
     Future<void>.microtask(_refreshPosition);
+
+    if (widget.onRefreshTechnicianLocations != null) {
+      Future<void>.microtask(_refreshTechnicianLocations);
+      _startTechnicianRefreshTimer();
+    }
   }
 
   @override
   void dispose() {
+    _technicianRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _mapController.dispose();
     super.dispose();
@@ -119,6 +158,46 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshPosition());
+
+      if (widget.onRefreshTechnicianLocations != null) {
+        unawaited(_refreshTechnicianLocations());
+        _startTechnicianRefreshTimer();
+      }
+      return;
+    }
+
+    _technicianRefreshTimer?.cancel();
+    _technicianRefreshTimer = null;
+  }
+
+  void _startTechnicianRefreshTimer() {
+    if (widget.onRefreshTechnicianLocations == null) return;
+
+    _technicianRefreshTimer?.cancel();
+    _technicianRefreshTimer = Timer.periodic(
+      _technicianRefreshInterval,
+      (_) => unawaited(_refreshTechnicianLocations()),
+    );
+  }
+
+  Future<void> _refreshTechnicianLocations() async {
+    final refresh = widget.onRefreshTechnicianLocations;
+    if (refresh == null || _refreshingTechnicians) return;
+
+    _refreshingTechnicians = true;
+
+    try {
+      final snapshot = await refresh();
+      if (!mounted) return;
+
+      setState(() {
+        _technicianLocations = snapshot.technicians;
+        _gpsStaleAfterMinutes = snapshot.gpsStaleAfterMinutes;
+      });
+    } catch (error) {
+      debugPrint('Unable to refresh Agent technician locations: $error');
+    } finally {
+      _refreshingTechnicians = false;
     }
   }
 
@@ -343,19 +422,20 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
     );
   }
 
-  bool _technicianPositionIsStale(MobileTechnicianLocation technician) {
+  bool? _technicianPositionIsStale(MobileTechnicianLocation technician) {
     final updatedAt = technician.lastLocationUpdate;
     if (updatedAt == null) return true;
 
-    final staleAfterMinutes = widget.gpsStaleAfterMinutes;
-    if (staleAfterMinutes == null) return false;
+    final staleAfterMinutes = _gpsStaleAfterMinutes;
+    if (staleAfterMinutes == null) return null;
 
     final age = DateTime.now().toUtc().difference(updatedAt.toUtc());
     return age > Duration(minutes: staleAfterMinutes);
   }
 
   Color _technicianColor(MobileTechnicianLocation technician) {
-    if (_technicianPositionIsStale(technician)) {
+    final stale = _technicianPositionIsStale(technician);
+    if (stale != false) {
       return BlueVectorColors.textMuted;
     }
 
@@ -466,7 +546,7 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
                     label: 'Intervention en cours',
                     value: '#${technician.currentJobId}',
                   ),
-                if (stale) ...[
+                if (stale == true) ...[
                   const SizedBox(height: BlueVectorSpacing.sm),
                   const Row(
                     children: [
@@ -479,6 +559,27 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
                       Expanded(
                         child: Text(
                           'Position ancienne : elle ne représente peut-être plus la position actuelle du technicien.',
+                          style: TextStyle(
+                            color: BlueVectorColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else if (stale == null) ...[
+                  const SizedBox(height: BlueVectorSpacing.sm),
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: BlueVectorColors.textMuted,
+                      ),
+                      SizedBox(width: BlueVectorSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          'Seuil de fraîcheur GPS non configuré : l’heure de la dernière position est affichée sans la qualifier de récente.',
                           style: TextStyle(
                             color: BlueVectorColors.textSecondary,
                             fontSize: 12,
@@ -709,7 +810,7 @@ class _MobileGpsScreenState extends State<MobileGpsScreen>
                               const SizedBox(width: BlueVectorSpacing.xs),
                               Expanded(
                                 child: Text(
-                                  widget.technicianLocations.isEmpty
+                                  _technicianLocations.isEmpty
                                       ? '${_mappedJobs.length} sur la carte'
                                       : '${_mappedJobs.length} interventions · ${_mappedTechnicians.length} techniciens',
                                   style: const TextStyle(

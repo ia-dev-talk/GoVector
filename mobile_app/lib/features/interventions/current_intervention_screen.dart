@@ -370,9 +370,12 @@ class _GpsRecoveryCard extends StatelessWidget {
             message = 'Autorisation GPS bloquée';
             actionLabel = 'Réglages app';
             action = onOpenAppSettings;
+          case GpsAvailability.error:
+            message = 'Position GPS indisponible';
+            actionLabel = 'Réessayer';
+            action = onRequestPermission;
           case GpsAvailability.unknown:
           case GpsAvailability.ready:
-          case GpsAvailability.error:
             return const SizedBox.shrink();
         }
 
@@ -850,11 +853,12 @@ class _ActionBar extends StatelessWidget {
             ),
             const SizedBox(height: BlueVectorSpacing.xs),
           ],
-          OutlinedButton.icon(
-            onPressed: workflowBusy ? null : onOpenActions,
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            label: const Text('Ajouter une trace terrain'),
-          ),
+          if (workflowActionLabel == null)
+            OutlinedButton.icon(
+              onPressed: workflowBusy ? null : onOpenActions,
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              label: const Text('Ajouter une trace terrain'),
+            ),
         ],
       ),
     );

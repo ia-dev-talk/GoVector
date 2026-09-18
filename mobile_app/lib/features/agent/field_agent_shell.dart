@@ -71,8 +71,20 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
           const FieldAgentTechnicianLocations(technicians: []);
       if (online) {
         jobs = await FieldAgentService.getMyTeamJobs();
-        technicianLocations =
-            await FieldAgentService.getMyTeamTechnicianLocations();
+
+        try {
+          technicianLocations =
+              await FieldAgentService.getMyTeamTechnicianLocations();
+        } catch (error) {
+          debugPrint(
+            'Agent technician locations unavailable; keeping previous positions: $error',
+          );
+          technicianLocations = FieldAgentTechnicianLocations(
+            technicians: _technicianLocations,
+            gpsStaleAfterMinutes: _gpsStaleAfterMinutes,
+          );
+        }
+
         jobs = [...jobs]
           ..sort((a, b) {
             final byPriority = _priority(a).compareTo(_priority(b));
@@ -136,6 +148,37 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
     await _load();
   }
 
+  Future<MobileTechnicianLocationsSnapshot>
+  _refreshMapTechnicianLocations() async {
+    final response = await FieldAgentService.getMyTeamTechnicianLocations();
+
+    final mapped = [
+      for (final technician in response.technicians)
+        MobileTechnicianLocation(
+          id: technician.id,
+          name: technician.name,
+          liveStatus: technician.liveStatus,
+          latitude: technician.latitude,
+          longitude: technician.longitude,
+          accuracy: technician.accuracy,
+          lastLocationUpdate: technician.lastLocationUpdate,
+          currentJobId: technician.currentJobId,
+        ),
+    ];
+
+    if (mounted) {
+      setState(() {
+        _technicianLocations = response.technicians;
+        _gpsStaleAfterMinutes = response.gpsStaleAfterMinutes;
+      });
+    }
+
+    return MobileTechnicianLocationsSnapshot(
+      technicians: mapped,
+      gpsStaleAfterMinutes: response.gpsStaleAfterMinutes,
+    );
+  }
+
   Future<void> _openGps() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -146,6 +189,7 @@ class _FieldAgentShellState extends State<FieldAgentShell> {
             for (final row in _jobs) row.job.id: row.technicianName,
           },
           gpsStaleAfterMinutes: _gpsStaleAfterMinutes,
+          onRefreshTechnicianLocations: _refreshMapTechnicianLocations,
           technicianLocations: [
             for (final technician in _technicianLocations)
               MobileTechnicianLocation(

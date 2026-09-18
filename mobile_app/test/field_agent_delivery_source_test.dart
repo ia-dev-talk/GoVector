@@ -39,4 +39,30 @@ void main() {
       expect(source, isNot(contains(label)), reason: label);
     }
   });
+
+  test(
+    'Agent map refreshes technician positions without reloading planning',
+    () {
+      final agentSource = File(
+        'lib/features/agent/field_agent_shell.dart',
+      ).readAsStringSync();
+      final mapSource = File(
+        'lib/features/gps/mobile_gps_screen.dart',
+      ).readAsStringSync();
+
+      expect(
+        agentSource,
+        contains(
+          'onRefreshTechnicianLocations: _refreshMapTechnicianLocations',
+        ),
+      );
+      expect(
+        agentSource,
+        contains('FieldAgentService.getMyTeamTechnicianLocations()'),
+      );
+      expect(mapSource, contains('Timer.periodic'));
+      expect(mapSource, contains('_technicianRefreshInterval'));
+      expect(mapSource, contains('_refreshTechnicianLocations'));
+    },
+  );
 }

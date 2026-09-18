@@ -69,7 +69,19 @@ class FieldAgentTechnicianLocation {
   final DateTime? lastLocationUpdate;
   final int? currentJobId;
 
-  bool get hasPosition => latitude != null && longitude != null;
+  bool get hasPosition {
+    final lat = latitude;
+    final lon = longitude;
+
+    return lat != null &&
+        lon != null &&
+        lat.isFinite &&
+        lon.isFinite &&
+        lat >= -90 &&
+        lat <= 90 &&
+        lon >= -180 &&
+        lon <= 180;
+  }
 
   factory FieldAgentTechnicianLocation.fromJson(Map<String, dynamic> json) {
     final id = int.tryParse('${json['id'] ?? ''}');

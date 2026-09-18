@@ -557,8 +557,10 @@ class _TechnicianShellState extends State<TechnicianShell> {
       body: IndexedStack(index: _pageIndex, children: pages),
       floatingActionButton: FloatingActionButton(
         heroTag: 'mobile-primary-action',
-        tooltip: 'Ajouter une action',
-        onPressed: _openGlobalActions,
+        tooltip: _pageIndex == 1
+            ? 'Ajouter une trace terrain'
+            : 'Ajouter une action',
+        onPressed: _pageIndex == 1 ? _openActions : _openGlobalActions,
         backgroundColor: BlueVectorColors.primary,
         foregroundColor: Colors.white,
         shape: const CircleBorder(),

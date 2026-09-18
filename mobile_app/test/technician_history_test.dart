@@ -224,7 +224,6 @@ void main() {
   testWidgets('current intervention exposes site history', (tester) async {
     var opened = false;
     var advanced = false;
-    var actionOpened = false;
     final job = Job(
       id: 41,
       jobNumber: 'DTLI-41',
@@ -244,7 +243,7 @@ void main() {
             job: job,
             isOnline: true,
             pendingActions: 0,
-            onOpenActions: () => actionOpened = true,
+            onOpenActions: () {},
             onAdvanceWorkflow: () => advanced = true,
             workflowActionCode: 'close_field_visit',
             workflowActionLabel: 'Clôturer l’intervention',
@@ -261,12 +260,11 @@ void main() {
 
     expect(find.text('PROCHAINE ÉTAPE'), findsOneWidget);
     expect(find.text('Clôturer l’intervention'), findsOneWidget);
-    expect(find.text('Ajouter une trace terrain'), findsOneWidget);
+    expect(find.text('Ajouter une trace terrain'), findsNothing);
     expect(find.text('Historique'), findsOneWidget);
+
     await tester.tap(find.text('Clôturer l’intervention'));
-    await tester.tap(find.text('Ajouter une trace terrain'));
     expect(advanced, isTrue);
-    expect(actionOpened, isTrue);
 
     await tester.tap(find.text('Historique'));
     expect(opened, isTrue);
