@@ -155,6 +155,27 @@
   background: var(--sv3-success-soft);
 }
 
+.sv3-runtime-pill--loading {
+  color: var(--sv3-accent);
+  border-color: rgba(75, 141, 255, 0.25);
+  background: var(--sv3-accent-soft);
+}
+
+.sv3-runtime-pill--loading > span {
+  animation: sv3-runtime-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes sv3-runtime-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
 .sv3-runtime-pill--error,
 .sv3-connection-state--error {
   color: var(--sv3-danger);
