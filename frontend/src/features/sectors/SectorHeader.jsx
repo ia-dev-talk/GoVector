@@ -6,8 +6,6 @@ import {
   SearchIcon,
   SectorIcon,
 } from './SectorIcons';
-import TerritoryWorkspace from './TerritoryWorkspace';
-
 
 const SectorHeader = memo(function SectorHeader({
   connected,
@@ -23,12 +21,27 @@ const SectorHeader = memo(function SectorHeader({
   canManage,
 }) {
   return (
-    <>
-      <header className="sv3-header">
+    <header className="sv3-header">
         <div className="sv3-header-identity">
-          <span className="sv3-eyebrow">
-            Référentiel géographique
-          </span>
+          <div className="sv3-header-kicker-row">
+            <span className="sv3-eyebrow">
+              Référentiel géographique
+            </span>
+
+            <span
+              className={[
+                'sv3-live-state',
+                connected
+                  ? 'sv3-live-state--connected'
+                  : 'sv3-live-state--reconnecting',
+              ].join(' ')}
+            >
+              <span aria-hidden="true" />
+              {connected
+                ? 'Temps réel'
+                : 'Reconnexion'}
+            </span>
+          </div>
 
           <div className="sv3-title-row">
             <span className="sv3-title-icon">
@@ -36,26 +49,9 @@ const SectorHeader = memo(function SectorHeader({
             </span>
 
             <div>
-              <div className="sv3-heading-line">
-                <h1>Secteurs</h1>
-
-                <span
-                  className={[
-                    'sv3-live-state',
-                    connected
-                      ? 'sv3-live-state--connected'
-                      : 'sv3-live-state--reconnecting',
-                  ].join(' ')}
-                >
-                  <span aria-hidden="true" />
-                  {connected
-                    ? 'Temps réel'
-                    : 'Reconnexion'}
-                </span>
-              </div>
-
+              <h1>Secteurs</h1>
               <p>
-                Organisation territoriale, affectations et activité terrain
+                Territoires, affectations techniciens et activité terrain
               </p>
             </div>
           </div>
@@ -125,10 +121,7 @@ const SectorHeader = memo(function SectorHeader({
             </button>
           )}
         </div>
-      </header>
-
-      <TerritoryWorkspace canManage={canManage} />
-    </>
+    </header>
   );
 });
 

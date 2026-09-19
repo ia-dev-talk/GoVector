@@ -1336,3 +1336,113 @@
     min-width: 860px;
   }
 }
+
+
+/* Weekend 2026-09-19 — sectors command deck polish */
+
+.sv3-header {
+  grid-template-columns:
+    minmax(300px, 0.82fr)
+    auto
+    minmax(500px, 1.18fr);
+  min-height: 94px;
+  padding: 14px 20px;
+  gap: 18px;
+  background:
+    radial-gradient(
+      circle at 14% -70%,
+      rgba(75, 141, 255, 0.14),
+      transparent 52%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.025),
+      transparent
+    ),
+    rgba(11, 18, 29, 0.98);
+}
+
+.sv3-header-kicker-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.sv3-live-state {
+  min-height: 21px;
+  padding-inline: 7px;
+  font-size: 8px;
+}
+
+.sv3-title-row {
+  margin-top: 5px;
+}
+
+.sv3-title-row h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 27px;
+  line-height: 1;
+  font-weight: 720;
+  letter-spacing: -0.045em;
+}
+
+.sv3-header-identity p {
+  margin-top: 6px;
+  color: #8090a7;
+}
+
+.sv3-header-summary {
+  padding: 4px;
+  gap: 5px;
+  background: rgba(9, 15, 25, 0.72);
+  border: 1px solid rgba(114, 138, 173, 0.16);
+  border-radius: 12px;
+}
+
+.sv3-header-summary > div {
+  min-height: 34px;
+  background: rgba(255, 255, 255, 0.022);
+  border-color: rgba(114, 138, 173, 0.1);
+}
+
+.sv3-header-actions {
+  padding: 4px;
+  background: rgba(9, 15, 25, 0.6);
+  border: 1px solid rgba(114, 138, 173, 0.12);
+  border-radius: 12px;
+}
+
+.sv3-search {
+  background: rgba(255, 255, 255, 0.025);
+  border-color: rgba(114, 138, 173, 0.16);
+}
+
+@media (max-width: 1450px) {
+  .sv3-header {
+    grid-template-columns:
+      minmax(280px, 0.72fr)
+      minmax(0, 1.28fr);
+  }
+
+  .sv3-header-summary {
+    display: none;
+  }
+}
+
+@media (max-width: 850px) {
+  .sv3-header {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .sv3-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .sv3-search {
+    flex-basis: 100%;
+  }
+}

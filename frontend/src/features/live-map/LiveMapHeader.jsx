@@ -21,9 +21,25 @@ const LiveMapHeader = memo(function LiveMapHeader({
   return (
     <header className="lm-header">
       <div className="lm-header-identity">
-        <span className="lm-eyebrow">
-          Suivi géographique
-        </span>
+        <div className="lm-header-kicker-row">
+          <span className="lm-eyebrow">
+            Suivi géographique
+          </span>
+
+          <span
+            className={[
+              'lm-live-state',
+              connected
+                ? 'lm-live-state--connected'
+                : 'lm-live-state--reconnecting',
+            ].join(' ')}
+          >
+            <span aria-hidden="true" />
+            {connected
+              ? 'Temps réel'
+              : 'Reconnexion'}
+          </span>
+        </div>
 
         <div className="lm-title-row">
           <span className="lm-title-icon">
@@ -33,20 +49,6 @@ const LiveMapHeader = memo(function LiveMapHeader({
           <div>
             <div className="lm-heading-line">
               <h1>Carte live</h1>
-
-              <span
-                className={[
-                  'lm-live-state',
-                  connected
-                    ? 'lm-live-state--connected'
-                    : 'lm-live-state--reconnecting',
-                ].join(' ')}
-              >
-                <span aria-hidden="true" />
-                {connected
-                  ? 'Temps réel'
-                  : 'Reconnexion'}
-              </span>
             </div>
 
             <p>

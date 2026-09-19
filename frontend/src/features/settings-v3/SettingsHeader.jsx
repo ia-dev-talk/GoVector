@@ -27,18 +27,18 @@ const SettingsHeader = memo(
         : 'Connecté';
 
     return (
-      <header className="sv3-header">
-        <div className="sv3-header-identity">
-          <span className="sv3-title-icon">
+      <header className="settings-v3-header">
+        <div className="settings-v3-header-identity">
+          <span className="settings-v3-title-icon">
             <SettingsIcon />
           </span>
 
           <div>
-            <span className="sv3-eyebrow">
+            <span className="settings-v3-eyebrow">
               Administration GoVector
             </span>
 
-            <div className="sv3-title-row">
+            <div className="settings-v3-title-row">
               <h1>Paramètres</h1>
 
               <span
@@ -46,7 +46,9 @@ const SettingsHeader = memo(
                   'sv3-runtime-pill',
                   runtimeError
                     ? 'sv3-runtime-pill--error'
-                    : 'sv3-runtime-pill--ready',
+                    : runtimeLoading
+                      ? 'sv3-runtime-pill--loading'
+                      : 'sv3-runtime-pill--ready',
                 ].join(' ')}
               >
                 <span aria-hidden="true" />
@@ -61,7 +63,7 @@ const SettingsHeader = memo(
           </div>
         </div>
 
-        <div className="sv3-header-context">
+        <div className="settings-v3-header-context">
           <span>
             <small>Version</small>
             <strong>v{version}</strong>
@@ -79,13 +81,13 @@ const SettingsHeader = memo(
         </div>
 
         <form
-          className="sv3-header-actions"
+          className="settings-v3-header-actions"
           onSubmit={(event) => {
             event.preventDefault();
             onSearch();
           }}
         >
-          <label className="sv3-search">
+          <label className="settings-v3-search">
             <SearchIcon />
             <input
               value={query}
@@ -99,7 +101,7 @@ const SettingsHeader = memo(
 
           <button
             type="button"
-            className="sv3-icon-button"
+            className="settings-v3-icon-button"
             onClick={onRefresh}
             disabled={refreshing}
             aria-label="Actualiser les paramètres runtime"

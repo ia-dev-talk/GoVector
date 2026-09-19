@@ -152,7 +152,19 @@ const ReportsHeader = memo(function ReportsHeader({
   return (
     <header className="rv3-header">
       <div className="rv3-header-identity">
-        <span className="rv3-eyebrow">Analytique FTTH</span>
+        <div className="rv3-header-kicker-row">
+          <span className="rv3-eyebrow">Analytique FTTH</span>
+
+          <span
+            className={realtimeClassName}
+            title={realtimeStatus.liveRelevant
+              ? undefined
+              : 'Le statut du flux live ne s’applique pas à cette période.'}
+          >
+            <i />
+            {realtimeStatus.label}
+          </span>
+        </div>
 
         <div className="rv3-title-row">
           <span className="rv3-title-icon"><ReportsIcon /></span>
@@ -160,15 +172,6 @@ const ReportsHeader = memo(function ReportsHeader({
           <div>
             <div className="rv3-title-line">
               <h1>Rapports</h1>
-              <span
-                className={realtimeClassName}
-                title={realtimeStatus.liveRelevant
-                  ? undefined
-                  : 'Le statut du flux live ne s’applique pas à cette période.'}
-              >
-                <i />
-                {realtimeStatus.label}
-              </span>
             </div>
             <p>Performance, activité et qualité des données terrain</p>
           </div>

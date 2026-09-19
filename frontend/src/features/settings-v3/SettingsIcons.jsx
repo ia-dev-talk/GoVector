@@ -125,7 +125,7 @@ export const RefreshIcon = memo(
     return (
       <IconBase
         {...props}
-        className={spinning ? 'sv3-spin' : ''}
+        className={spinning ? 'settings-v3-spin' : ''}
       >
         <path d="M20 7v5h-5" />
         <path d="M4 17v-5h5" />

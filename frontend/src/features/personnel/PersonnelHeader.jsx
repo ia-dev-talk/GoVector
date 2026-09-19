@@ -15,12 +15,10 @@ export default function PersonnelHeader({
   return (
     <header className="personnel-v3-header">
       <div className="personnel-v3-heading">
-        <span className="personnel-v3-eyebrow">
-          Ressources terrain
-        </span>
-
-        <div className="personnel-v3-title-row">
-          <h1>Techniciens</h1>
+        <div className="personnel-v3-kicker-row">
+          <span className="personnel-v3-eyebrow">
+            Ressources terrain
+          </span>
 
           <span
             className={[
@@ -37,8 +35,12 @@ export default function PersonnelHeader({
           </span>
         </div>
 
+        <div className="personnel-v3-title-row">
+          <h1>Techniciens</h1>
+        </div>
+
         <p>
-          Disponibilité, interventions et compétences de l’équipe terrain
+          Disponibilité, interventions, secteurs et compétences terrain
         </p>
       </div>
 

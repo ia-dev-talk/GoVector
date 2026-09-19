@@ -388,15 +388,8 @@ export default function RapportsPage({ onNavigate }) {
 
       {hasSnapshot && scopeMatches && !periodSelection.error && (
         <div
-          className="rv3-period-controls"
+          className="rv3-period-controls rv3-business-filters"
           aria-label="Filtres analytiques"
-          style={{
-            padding: '8px 18px',
-            justifyContent: 'flex-start',
-            flexWrap: 'wrap',
-            borderBottom: '1px solid var(--border-light)',
-            background: 'var(--surface-panel-alt)',
-          }}
         >
           <ReportFilterSelect
             label="Secteur"
