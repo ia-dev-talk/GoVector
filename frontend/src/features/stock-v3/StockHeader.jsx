@@ -41,12 +41,26 @@ const StockHeader = memo(function StockHeader({
     <>
       <header className="st3-header">
         <div className="st3-header-identity">
-          <span className="st3-eyebrow">Logistique FTTH</span>
+          <div className="st3-header-kicker-row">
+            <span className="st3-eyebrow">Logistique FTTH</span>
+            <span
+              className={[
+                'st3-snapshot-state',
+                snapshotStale
+                  ? 'st3-snapshot-state--stale'
+                  : 'st3-snapshot-state--ready',
+              ].join(' ')}
+            >
+              <span aria-hidden="true" />
+              {snapshotStale ? 'À actualiser' : 'État cohérent'}
+            </span>
+          </div>
+
           <div className="st3-title-row">
             <span className="st3-title-icon"><BoxIcon /></span>
             <div>
-              <h1>Stock câbles</h1>
-              <p>FO16 · FO64 — périmètre confirmé</p>
+              <h1>Stocks FTTH</h1>
+              <p>Câbles FO16 · FO64, dépôts et dotations terrain</p>
             </div>
           </div>
         </div>
@@ -103,9 +117,9 @@ const StockHeader = memo(function StockHeader({
       </header>
 
       <div className="st3-notice st3-notice--pilot" role="note">
+        <span className="st3-pilot-scope-badge">Périmètre pilote</span>
         <span>
-          <strong>Périmètre livraison :</strong>{' '}
-          seules les références câble FO16 et FO64 confirmées sont affichées. Les anciens articles synthétiques restent archivés côté données mais sont exclus de cette vue.
+          Câbles FO16 et FO64 confirmés uniquement. Les références historiques restent archivées hors de cette vue opérationnelle.
         </span>
       </div>
 
