@@ -239,7 +239,7 @@ export default function ParametresPage({ userRole, onNavigate }) {
   ]);
 
   return (
-    <div className="sv3-page">
+    <div className="settings-v3-page">
       <SettingsHeader
         version={__APP_VERSION__}
         environment={environment}
@@ -254,7 +254,7 @@ export default function ParametresPage({ userRole, onNavigate }) {
       />
       <div className="sv3-layout">
         <SettingsNavigation groups={SETTINGS_NAV_GROUPS} activeSection={activeSection} onSelect={selectSection} />
-        <main className="sv3-content">{sectionContent}</main>
+        <main className="settings-v3-content">{sectionContent}</main>
       </div>
       <div className="toast-container">
         {toasts.map((item) => <Toast key={item.id} message={item.message} type={item.type} />)}
