@@ -1,6 +1,6 @@
 /* BlueVector V0.8 — Settings workspace density and readability. */
 
-.sv3-page:has(> .sv3-layout) {
+.settings-v3-page:has(> .sv3-layout) {
   /* Settings is intentionally a dark control surface. Do not inherit the
    * light delivery palette from global shell variables. */
   --sv3-bg: #08111f;
@@ -12,41 +12,41 @@
   --sv3-subtle: #8192aa;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-header {
+.settings-v3-page:has(> .sv3-layout) .settings-v3-header {
   min-height: 104px;
   padding: 15px 20px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-layout {
+.settings-v3-page:has(> .sv3-layout) .sv3-layout {
   grid-template-columns: 190px minmax(0, 1fr);
   height: calc(100% - 104px);
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-navigation-copy {
+.settings-v3-page:has(> .sv3-layout) .sv3-navigation-copy {
   padding: 13px 10px 11px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-navigation-copy strong {
+.settings-v3-page:has(> .sv3-layout) .sv3-navigation-copy strong {
   margin-top: 4px;
   font-size: 12.5px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-navigation-copy p {
+.settings-v3-page:has(> .sv3-layout) .sv3-navigation-copy p {
   margin-top: 5px;
   font-size: 9px;
   line-height: 1.4;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-nav-group {
+.settings-v3-page:has(> .sv3-layout) .sv3-nav-group {
   padding: 9px 6px 2px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-nav-group h2 {
+.settings-v3-page:has(> .sv3-layout) .sv3-nav-group h2 {
   margin: 0 6px 6px;
   font-size: 9px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-nav-item {
+.settings-v3-page:has(> .sv3-layout) .sv3-nav-item {
   grid-template-columns: 30px minmax(0, 1fr);
   min-height: 48px;
   padding: 6px 7px;
@@ -54,45 +54,45 @@
   border-radius: 9px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-nav-icon {
+.settings-v3-page:has(> .sv3-layout) .sv3-nav-icon {
   width: 30px;
   height: 30px;
   border-radius: 8px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-nav-copy strong {
+.settings-v3-page:has(> .sv3-layout) .sv3-nav-copy strong {
   font-size: 10px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-nav-copy small {
+.settings-v3-page:has(> .sv3-layout) .sv3-nav-copy small {
   margin-top: 2px;
   font-size: 9px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-nav-status {
+.settings-v3-page:has(> .sv3-layout) .sv3-nav-status {
   display: none;
 }
 
-.sv3-page:has(> .sv3-layout) > .sv3-layout > .sv3-content {
+.settings-v3-page:has(> .sv3-layout) > .sv3-layout > .settings-v3-content {
   padding: 24px 28px 36px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-section {
+.settings-v3-page:has(> .sv3-layout) .sv3-section {
   width: min(1480px, 100%);
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-section-heading {
+.settings-v3-page:has(> .sv3-layout) .sv3-section-heading {
   margin-bottom: 20px;
 }
 
-.sv3-page:has(> .sv3-layout) .sv3-section-heading p {
+.settings-v3-page:has(> .sv3-layout) .sv3-section-heading p {
   font-size: 11.5px;
 }
 
 /* V2 acceptance guard: Settings contained several 7–8 px labels. Keep the
  * dense layout but never render operational copy below 9 px. */
-.sv3-page:has(> .sv3-layout) :where(
-  .sv3-header-context small,
+.settings-v3-page:has(> .sv3-layout) :where(
+  .settings-v3-header-context small,
   .sv3-summary-card > div > span,
   .sv3-summary-card p,
   .sv3-status-chip,
@@ -109,37 +109,37 @@
 
 /* Keep warning/status chips readable on the dark Settings surface even when
  * global delivery rules are present. */
-.sv3-page:has(> .sv3-layout) .sv3-status-chip--warning {
+.settings-v3-page:has(> .sv3-layout) .sv3-status-chip--warning {
   color: #ffd27d;
   background: rgba(244, 184, 74, 0.16);
 }
 
 @media (max-width: 1250px) {
-  .sv3-page:has(> .sv3-layout) .sv3-layout {
+  .settings-v3-page:has(> .sv3-layout) .sv3-layout {
     grid-template-columns: 168px minmax(0, 1fr);
   }
 
-  .sv3-page:has(> .sv3-layout) .sv3-navigation-copy p,
-  .sv3-page:has(> .sv3-layout) .sv3-nav-copy small {
+  .settings-v3-page:has(> .sv3-layout) .sv3-navigation-copy p,
+  .settings-v3-page:has(> .sv3-layout) .sv3-nav-copy small {
     display: none;
   }
 }
 
 @media (max-width: 850px) {
-  .sv3-page:has(> .sv3-layout) .sv3-layout {
+  .settings-v3-page:has(> .sv3-layout) .sv3-layout {
     grid-template-columns: 1fr;
     height: auto;
     min-height: calc(100% - 104px);
     overflow-y: auto;
   }
 
-  .sv3-page:has(> .sv3-layout) .sv3-navigation {
+  .settings-v3-page:has(> .sv3-layout) .sv3-navigation {
     max-height: 240px;
     border-right: 0;
     border-bottom: 1px solid var(--sv3-border);
   }
 
-  .sv3-page:has(> .sv3-layout) > .sv3-layout > .sv3-content {
+  .settings-v3-page:has(> .sv3-layout) > .sv3-layout > .settings-v3-content {
     overflow: visible;
     padding: 18px;
   }
