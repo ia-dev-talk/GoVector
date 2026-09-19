@@ -46,7 +46,9 @@ const SettingsHeader = memo(
                   'sv3-runtime-pill',
                   runtimeError
                     ? 'sv3-runtime-pill--error'
-                    : 'sv3-runtime-pill--ready',
+                    : runtimeLoading
+                      ? 'sv3-runtime-pill--loading'
+                      : 'sv3-runtime-pill--ready',
                 ].join(' ')}
               >
                 <span aria-hidden="true" />
