@@ -110,15 +110,35 @@ const InterventionWorkspaceHeader = memo(
     return (
       <header className="intervention-workspace-header intervention-workspace-header--v4">
         <div className="intervention-workspace-identity">
-          <span className="intervention-workspace-eyebrow">
-            Exploitation FTTH
-          </span>
+          <div className="intervention-workspace-kicker-row">
+            <span className="intervention-workspace-eyebrow">
+              Exploitation FTTH
+            </span>
+
+            <span
+              className={[
+                'intervention-workspace-mode',
+                isDemo
+                  ? 'intervention-workspace-mode--demo'
+                  : isToday
+                    ? 'intervention-workspace-mode--live'
+                    : 'intervention-workspace-mode--history',
+              ].join(' ')}
+            >
+              <span aria-hidden="true" />
+              {isDemo
+                ? 'Simulation'
+                : isToday
+                  ? 'Temps réel'
+                  : 'Historique'}
+            </span>
+          </div>
 
           <div className="intervention-workspace-title-row">
             <h1>Interventions</h1>
 
             <span
-              className="intervention-workspace-eyebrow"
+              className="intervention-context-pill"
               aria-label={`Contexte : ${contextLabel}`}
             >
               {contextLabel}
@@ -126,7 +146,7 @@ const InterventionWorkspaceHeader = memo(
           </div>
 
           <p>
-            Affectation, suivi et pilotage de la journée terrain
+            Affectez, suivez et contrôlez l’exécution terrain depuis un seul poste.
           </p>
         </div>
 
@@ -134,18 +154,23 @@ const InterventionWorkspaceHeader = memo(
           className="intervention-workspace-scope"
           aria-label="Périmètre opérationnel chargé"
         >
-          <span>
+          <span className="intervention-scope-metric">
             <strong>{interventionCount}</strong>
-            interventions
+            <small>interventions</small>
           </span>
 
-          <span>
+          <span className="intervention-scope-metric">
             <strong>{technicianCount}</strong>
-            techniciens
+            <small>techniciens</small>
           </span>
         </div>
 
-        <div className="intervention-workspace-date">
+        <div className="intervention-workspace-date-wrap">
+          <span className="intervention-workspace-date-label">
+            Journée affichée
+          </span>
+
+          <div className="intervention-workspace-date">
           {!isDemo ? (
             <button
               type="button"
@@ -193,6 +218,7 @@ const InterventionWorkspaceHeader = memo(
               <ChevronIcon direction="right" />
             </button>
           ) : null}
+          </div>
         </div>
       </header>
     );
