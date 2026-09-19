@@ -33,6 +33,20 @@ const StockHeader = memo(function StockHeader({
   const [historyOpen, setHistoryOpen] = useState(false);
   const snapshotStale = stockV3Api.isSnapshotStale();
   const snapshotWritable = stockV3Api.isSnapshotWritable();
+  const snapshotChecking =
+    !snapshotStale &&
+    !snapshotWritable &&
+    (refreshing || stockV3Api.isSnapshotRefreshing() || !stockV3Api.isSnapshotReady());
+  const snapshotState = snapshotStale
+    ? 'stale'
+    : snapshotWritable
+      ? 'ready'
+      : 'checking';
+  const snapshotStateLabel = snapshotStale
+    ? 'À actualiser'
+    : snapshotWritable
+      ? 'État cohérent'
+      : 'Validation…';
   const mutationBlockedTitle = snapshotWritable
     ? undefined
     : 'Actions d’écriture suspendues jusqu’à validation d’un snapshot stock complet et frais';
@@ -46,13 +60,16 @@ const StockHeader = memo(function StockHeader({
             <span
               className={[
                 'st3-snapshot-state',
-                snapshotStale
-                  ? 'st3-snapshot-state--stale'
-                  : 'st3-snapshot-state--ready',
-              ].join(' ')}
+                `st3-snapshot-state--${snapshotState}`,
+                snapshotChecking
+                  ? 'st3-snapshot-state--checking'
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
             >
               <span aria-hidden="true" />
-              {snapshotStale ? 'À actualiser' : 'État cohérent'}
+              {snapshotStateLabel}
             </span>
           </div>
 
