@@ -324,12 +324,13 @@ export default function SecteursPage({ userRole, onNavigate }) {
         </div>
       )}
 
+      <TerritoryWorkspace
+        canManage={canManage}
+        legacySectors={sectors}
+        toast={toast}
+      />
+
       <div className="sv3-content">
-        <TerritoryWorkspace
-          canManage={canManage}
-          legacySectors={sectors}
-          toast={toast}
-        />
         {role === 'ADMIN' && <GisDatasetWorkspace />}
         <SectorKpiStrip
           summary={summary}
