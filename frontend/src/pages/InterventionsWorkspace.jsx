@@ -1,9 +1,9 @@
 /**
- * InterventionsPage â€” orchestration du workspace d'exploitation FTTH.
+ * InterventionsPage — orchestration du workspace d'exploitation FTTH.
  *
- * La page conserve les contrats API, le temps rÃ©el, l'affectation,
- * l'import/export et les fenÃªtres mÃ©tier. Les surfaces principales sont
- * dÃ©lÃ©guÃ©es aux composants du domaine interventions.
+ * La page conserve les contrats API, le temps réel, l'affectation,
+ * l'import/export et les fenêtres métier. Les surfaces principales sont
+ * déléguées aux composants du domaine interventions.
  */
 import {
 	useState,
@@ -45,7 +45,7 @@ import {
 } from '../lib/job-sector.js';
 import '../styles/interventions-v3.css';
 
-/* â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Helpers ─────────────────────────────────────────── */
 function fmtDate(date) {
 	return `${date.getFullYear()}-${String(
 		date.getMonth() + 1
@@ -120,7 +120,7 @@ const createEmptyAdvFilters = () => ({
 });
 
 const OVERDUE_FILTER_UNAVAILABLE_MESSAGE =
-	'Filtre Â« En retard Â» indisponible : rÃ¨gle mÃ©tier en cours de dÃ©finition.';
+	'Filtre « En retard » indisponible : règle métier en cours de définition.';
 
 function isUrgentPriority(value) {
 	return (
@@ -236,7 +236,7 @@ function normalizeSearchText(value) {
 		.toLocaleLowerCase('fr');
 }
 
-/* â”€â”€ Activity Timeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Activity Timeline ───────────────────────────────── */
 function ActivityTimeline({
 	activities,
 }) {
@@ -246,7 +246,7 @@ function ActivityTimeline({
 	) {
 		return (
 			<div className="ie-tl-empty">
-				Aucune activitÃ© rÃ©cente
+				Aucune activité récente
 			</div>
 		);
 	}
@@ -284,7 +284,7 @@ function ActivityTimeline({
 	);
 }
 
-/* â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Main Page ───────────────────────────────────────── */
 export default function InterventionsPage({
 	userRole,
 	navigationPayload,
@@ -316,7 +316,7 @@ export default function InterventionsPage({
 		isAdmin ||
 		isOrienteur;
 
-	// â”€â”€ Data â”€â”€
+	// ── Data ──
 	const [techs, setTechs] =
 		useState([]);
 
@@ -337,7 +337,7 @@ export default function InterventionsPage({
 	const [, setSectors] =
 		useState([]);
 
-	// â”€â”€ View date â”€â”€
+	// ── View date ──
 	const [viewDate, setViewDate] =
 		useState(() => new Date());
 
@@ -352,7 +352,7 @@ export default function InterventionsPage({
 		new Date()
 	);
 
-	// â”€â”€ UI state â”€â”€
+	// ── UI state ──
 	const [
 		refreshing,
 		setRefreshing,
@@ -387,7 +387,7 @@ export default function InterventionsPage({
 	const [showTechs, setShowTechs] =
 		useState(true);
 
-	// â”€â”€ Windows â”€â”€
+	// ── Windows ──
 	const [
 		filterOpen,
 		setFilterOpen,
@@ -462,7 +462,7 @@ export default function InterventionsPage({
 		setTechFilter,
 	] = useState(null);
 
-	// â”€â”€ Advanced filters â”€â”€
+	// ── Advanced filters ──
 	const [
 		advFilters,
 		setAdvFilters,
@@ -470,7 +470,7 @@ export default function InterventionsPage({
 		createEmptyAdvFilters
 	);
 
-	// â”€â”€ Selection & context â”€â”€
+	// ── Selection & context ──
 	const [
 		selJobs,
 		setSelJobs,
@@ -509,13 +509,13 @@ export default function InterventionsPage({
 		setAutoRouting,
 	] = useState(false);
 
-	// â”€â”€ Activity timeline â”€â”€
+	// ── Activity timeline ──
 	const [
 		activities,
 		setActivities,
 	] = useState([]);
 
-	// â”€â”€ Refs â”€â”€
+	// ── Refs ──
 	const techPaneRef =
 		useRef(null);
 
@@ -565,7 +565,7 @@ export default function InterventionsPage({
 			demoLocked;
 	}, [demoLocked]);
 
-	// â”€â”€ Filtered techs â”€â”€
+	// ── Filtered techs ──
 	const fTechs = useMemo(() => {
 		let result = techs;
 
@@ -620,7 +620,7 @@ export default function InterventionsPage({
 		advFilters,
 	]);
 
-	// â”€â”€ Filtered jobs â”€â”€
+	// ── Filtered jobs ──
 	const fJobs = useMemo(() => {
 		let result = jobs;
 
@@ -630,7 +630,7 @@ export default function InterventionsPage({
 					const slot =
 						job.time_slot_start &&
 						job.time_slot_end
-							? `${job.time_slot_start}â€“${job.time_slot_end}`
+							? `${job.time_slot_start}–${job.time_slot_end}`
 							: null;
 
 					if (
@@ -875,7 +875,7 @@ export default function InterventionsPage({
 	]);
 
 
-	// â”€â”€ Toasts â”€â”€
+	// ── Toasts ──
 	const [toasts, setToasts] =
 		useState([]);
 
@@ -1127,7 +1127,7 @@ export default function InterventionsPage({
 			setDetailJob(job);
 		} else {
 			toast(
-				`Intervention #${pendingCockpitJobId} introuvable dans les interventions chargÃ©es pour cette date.`,
+				`Intervention #${pendingCockpitJobId} introuvable dans les interventions chargées pour cette date.`,
 				'warning'
 			);
 		}
@@ -1142,7 +1142,7 @@ export default function InterventionsPage({
 		toast,
 	]);
 
-	// â”€â”€ Initial data â”€â”€
+	// ── Initial data ──
 	useEffect(() => {
 		api.getOrienteurs()
 			.then((response) =>
@@ -1184,7 +1184,7 @@ export default function InterventionsPage({
 			.catch(() => {});
 	}, []);
 
-	// â”€â”€ Add activity â”€â”€
+	// ── Add activity ──
 	const addActivity =
 		useCallback(
 			(
@@ -1211,7 +1211,7 @@ export default function InterventionsPage({
 			[]
 		);
 
-	// â”€â”€ Data loading â”€â”€
+	// ── Data loading ──
 	const loadData = useCallback(
 		async (
 			showRefresh = false
@@ -1271,7 +1271,7 @@ export default function InterventionsPage({
 				);
 
 				toast(
-					'Ã‰chec du chargement des donnÃ©es',
+					'Échec du chargement des données',
 					'error'
 				);
 			} finally {
@@ -1323,7 +1323,7 @@ export default function InterventionsPage({
 		[]
 	);
 
-	// â”€â”€ WebSocket events â”€â”€
+	// ── WebSocket events ──
 	const handleJobEvent =
 		useCallback(
 			(eventType, data) => {
@@ -1332,7 +1332,7 @@ export default function InterventionsPage({
 					'job:assigned'
 				) {
 					addActivity(
-						`Intervention #${data?.job_id} affectÃ©e`,
+						`Intervention #${data?.job_id} affectée`,
 						'info'
 					);
 					loadDataRef.current?.();
@@ -1341,7 +1341,7 @@ export default function InterventionsPage({
 					'job:started'
 				) {
 					addActivity(
-						`Intervention #${data?.job_id} commencÃ©e`,
+						`Intervention #${data?.job_id} commencée`,
 						'info'
 					);
 					loadDataRef.current?.();
@@ -1350,7 +1350,7 @@ export default function InterventionsPage({
 					'job:completed'
 				) {
 					addActivity(
-						`Intervention #${data?.job_id} terminÃ©e`,
+						`Intervention #${data?.job_id} terminée`,
 						'success'
 					);
 					loadDataRef.current?.();
@@ -1359,7 +1359,7 @@ export default function InterventionsPage({
 					'job:cancelled'
 				) {
 					addActivity(
-						`Intervention #${data?.job_id} annulÃ©e`,
+						`Intervention #${data?.job_id} annulée`,
 						'danger'
 					);
 					loadDataRef.current?.();
@@ -1409,7 +1409,7 @@ export default function InterventionsPage({
 			handleTechEvent,
 	});
 
-	// â”€â”€ Simulation events â”€â”€
+	// ── Simulation events ──
 	const handleSimEvent =
 		useCallback(
 			(event) => {
@@ -1446,7 +1446,7 @@ export default function InterventionsPage({
 					addActivity(
 						event.details
 							?.description ??
-							'Ã‰vÃ©nement scÃ©narisÃ©',
+							'Événement scénarisé',
 						'info'
 					);
 				} else {
@@ -1466,7 +1466,7 @@ export default function InterventionsPage({
 
 	useSimEvents(handleSimEvent);
 
-	// â”€â”€ Close context menu â”€â”€
+	// ── Close context menu ──
 	useEffect(() => {
 		const closeContextMenu =
 			() =>
@@ -1484,7 +1484,7 @@ export default function InterventionsPage({
 			);
 	}, []);
 
-	// â”€â”€ Keyboard shortcuts â”€â”€
+	// ── Keyboard shortcuts ──
 	useEffect(() => {
 		const handleKeyDown = (
 			event
@@ -1552,12 +1552,12 @@ export default function InterventionsPage({
 			);
 	}, [loadData]);
 
-	// â”€â”€ Delete job â”€â”€
+	// ── Delete job ──
 	const deleteJob = useCallback(
 		async (job) => {
 			if (!canDelete) {
 				toast(
-					'Action non autorisÃ©e pour ce rÃ´le.',
+					'Action non autorisée pour ce rôle.',
 					'error'
 				);
 				return;
@@ -1583,12 +1583,12 @@ export default function InterventionsPage({
 				await loadData();
 
 				toast(
-					'Intervention supprimÃ©e',
+					'Intervention supprimée',
 					'success'
 				);
 			} catch {
 				toast(
-					'Ã‰chec de la suppression',
+					'Échec de la suppression',
 					'error'
 				);
 			}
@@ -1600,7 +1600,7 @@ export default function InterventionsPage({
 		]
 	);
 
-	// â”€â”€ Batch assign â”€â”€
+	// ── Batch assign ──
 	const doBatchAssign =
 		useCallback(
 			async (
@@ -1609,7 +1609,7 @@ export default function InterventionsPage({
 			) => {
 				if (!canAssign) {
 					toast(
-						'Action non autorisÃ©e pour ce rÃ´le.',
+						'Action non autorisée pour ce rôle.',
 						'error'
 					);
 					return;
@@ -1638,7 +1638,7 @@ export default function InterventionsPage({
 					selectedSectorIds.has(null)
 				) {
 					toast(
-						'Affectation refusÃ©e : sÃ©lectionnez des interventions dâ€™un mÃªme secteur rÃ©el.',
+						'Affectation refusée : sélectionnez des interventions d’un même secteur réel.',
 						'error'
 					);
 					return;
@@ -1668,7 +1668,7 @@ export default function InterventionsPage({
 					if (assignedCount === 0) {
 						toast(
 							assignmentErrors[0] ||
-								'Aucune intervention nâ€™a pu Ãªtre affectÃ©e.',
+								'Aucune intervention n’a pu être affectée.',
 							'error'
 						);
 						return;
@@ -1679,9 +1679,9 @@ export default function InterventionsPage({
 							assignedCount !== 1
 								? 's'
 								: ''
-						} â†’ ${technician.name}${
+						} → ${technician.name}${
 							assignmentErrors.length > 0
-								? ` Â· ${assignmentErrors.length} non affectÃ©e(s)`
+								? ` · ${assignmentErrors.length} non affectée(s)`
 								: ''
 						}`,
 						assignmentErrors.length > 0
@@ -1690,14 +1690,14 @@ export default function InterventionsPage({
 					);
 
 					addActivity(
-						`${assignedCount} intervention(s) â†’ ${technician.name}`,
+						`${assignedCount} intervention(s) → ${technician.name}`,
 						'info'
 					);
 
 					await loadData(true);
 				} catch {
 					toast(
-						"Ã‰chec de l'affectation",
+						"Échec de l'affectation",
 						'error'
 					);
 				}
@@ -1719,7 +1719,7 @@ export default function InterventionsPage({
 			) => {
 				if (!canAssign) {
 					toast(
-						'Action non autorisÃ©e pour ce rÃ´le.',
+						'Action non autorisée pour ce rôle.',
 						'error'
 					);
 					return;
@@ -1729,7 +1729,7 @@ export default function InterventionsPage({
 					demoLockedRef.current
 				) {
 					toast(
-						'ArrÃªtez la dÃ©mo pour affecter',
+						'Arrêtez la démo pour affecter',
 						'warning'
 					);
 					return;
@@ -1767,7 +1767,7 @@ export default function InterventionsPage({
 						);
 
 						issues.push({
-							label: `CompÃ©tence${
+							label: `Compétence${
 								missingSkills.length >
 								0
 									? ` (manquante(s) : ${missingSkills.join(', ')})`
@@ -1788,7 +1788,7 @@ export default function InterventionsPage({
 							);
 
 						issues.push({
-							label: `TournÃ©e${
+							label: `Tournée${
 								!routeMatch
 									? ` (interv : ${job.route_criteria}, tech : ${
 										(
@@ -1839,7 +1839,7 @@ export default function InterventionsPage({
 		useCallback(async () => {
 			if (!canAssign) {
 				toast(
-					'Action non autorisÃ©e pour ce rÃ´le.',
+					'Action non autorisée pour ce rôle.',
 					'error'
 				);
 				return;
@@ -1872,7 +1872,7 @@ export default function InterventionsPage({
 			async (jobIds) => {
 				if (!canAssign) {
 					toast(
-						'Action non autorisÃ©e pour ce rÃ´le.',
+						'Action non autorisée pour ce rôle.',
 						'error'
 					);
 					return;
@@ -1895,7 +1895,7 @@ export default function InterventionsPage({
 							1
 								? 's'
 								: ''
-						} dÃ©saffectÃ©e${
+						} désaffectée${
 							unassignedCount !==
 							1
 								? 's'
@@ -1907,7 +1907,7 @@ export default function InterventionsPage({
 					);
 
 					addActivity(
-						`${unassignedCount} intervention(s) dÃ©saffectÃ©e(s)`,
+						`${unassignedCount} intervention(s) désaffectée(s)`,
 						'warning'
 					);
 
@@ -1915,7 +1915,7 @@ export default function InterventionsPage({
 					await loadData(true);
 				} catch {
 					toast(
-						'Ã‰chec de la dÃ©saffectation',
+						'Échec de la désaffectation',
 						'error'
 					);
 				}
@@ -1932,7 +1932,7 @@ export default function InterventionsPage({
 		useCallback(async () => {
 			if (!canAutoAssign) {
 				toast(
-					'Action non autorisÃ©e pour ce rÃ´le.',
+					'Action non autorisée pour ce rôle.',
 					'error'
 				);
 				return;
@@ -1960,13 +1960,13 @@ export default function InterventionsPage({
 					0;
 
 				toast(
-					`${assignedCount} affectÃ©e${
+					`${assignedCount} affectée${
 						assignedCount !== 1
 							? 's'
 							: ''
 					}${
 						unassignedCount > 0
-							? ` Â· ${unassignedCount} non affectÃ©e${
+							? ` · ${unassignedCount} non affectée${
 								unassignedCount !==
 								1
 									? 's'
@@ -1987,7 +1987,7 @@ export default function InterventionsPage({
 				await loadData(true);
 			} catch {
 				toast(
-					"Ã‰chec de l'affectation automatique",
+					"Échec de l'affectation automatique",
 					'error'
 				);
 			} finally {
@@ -2001,7 +2001,7 @@ export default function InterventionsPage({
 			addActivity,
 		]);
 
-	// â”€â”€ Job actions â”€â”€
+	// ── Job actions ──
 	const handleJobAction =
 		useCallback(
 			async (
@@ -2020,7 +2020,7 @@ export default function InterventionsPage({
 					!canAssign
 				) {
 					toast(
-						'Action non autorisÃ©e pour ce rÃ´le.',
+						'Action non autorisée pour ce rôle.',
 						'error'
 					);
 					return;
@@ -2032,15 +2032,15 @@ export default function InterventionsPage({
 					!canDelete
 				) {
 					toast(
-						'Action non autorisÃ©e pour ce rÃ´le.',
+						'Action non autorisée pour ce rôle.',
 						'error'
 					);
 					return;
 				}
 
 				const labels = {
-					cancel: 'AnnulÃ©',
-					unassign: 'DÃ©saffectÃ©',
+					cancel: 'Annulé',
+					unassign: 'Désaffecté',
 					hold:
 						'Mis en attente',
 				};
@@ -2088,19 +2088,19 @@ export default function InterventionsPage({
 					}
 
 					addActivity(
-						`Intervention #${job.id} â€” ${labels[action]}`,
+						`Intervention #${job.id} — ${labels[action]}`,
 						'info'
 					);
 
 					toast(
-						`Intervention #${job.id} â€” ${labels[action]}`,
+						`Intervention #${job.id} — ${labels[action]}`,
 						'success'
 					);
 
 					await loadData(true);
 				} catch {
 					toast(
-						`Ã‰chec de l'action ${action}`,
+						`Échec de l'action ${action}`,
 						'error'
 					);
 				}
@@ -2164,7 +2164,7 @@ export default function InterventionsPage({
 						);
 						successCount += 1;
 					} catch {
-						// Les autres mises Ã  jour continuent.
+						// Les autres mises à jour continuent.
 					}
 				}
 
@@ -2177,15 +2177,15 @@ export default function InterventionsPage({
 
 					toast(
 						techIds.length > 1
-							? `${successCount} techniciens â†’ ${label}`
-							: `${technician.name} â†’ ${label}`,
+							? `${successCount} techniciens → ${label}`
+							: `${technician.name} → ${label}`,
 						'success'
 					);
 
 					await loadData(true);
 				} else {
 					toast(
-						'Ã‰chec de la mise Ã  jour',
+						'Échec de la mise à jour',
 						'error'
 					);
 				}
@@ -2207,7 +2207,7 @@ export default function InterventionsPage({
 
 				if (!canAssign) {
 					toast(
-						'Action non autorisÃ©e pour ce rÃ´le.',
+						'Action non autorisée pour ce rôle.',
 						'error'
 					);
 					return;
@@ -2244,7 +2244,7 @@ export default function InterventionsPage({
 
 				if (!canAssign) {
 					toast(
-						'Action non autorisÃ©e pour ce rÃ´le.',
+						'Action non autorisée pour ce rôle.',
 						'error'
 					);
 					return;
@@ -2257,14 +2257,14 @@ export default function InterventionsPage({
 					);
 
 					toast(
-						"Technicien affectÃ© Ã  l'orienteur",
+						"Technicien affecté à l'orienteur",
 						'success'
 					);
 
 					await loadData(true);
 				} catch {
 					toast(
-						"Ã‰chec de l'affectation",
+						"Échec de l'affectation",
 						'error'
 					);
 				}
@@ -2281,7 +2281,7 @@ export default function InterventionsPage({
 			(job) => {
 				if (!canEdit) {
 					toast(
-						'Action non autorisÃ©e pour ce rÃ´le.',
+						'Action non autorisée pour ce rôle.',
 						'error'
 					);
 					return;
@@ -2295,7 +2295,7 @@ export default function InterventionsPage({
 			]
 		);
 
-	// â”€â”€ Selection â”€â”€
+	// ── Selection ──
 	const handleJobClick =
 		useCallback(
 			(
@@ -2531,7 +2531,7 @@ export default function InterventionsPage({
 				setFullDetailJob(null);
 				setShowTechs(true);
 				toast(
-					'SÃ©lectionnez un technicien puis utilisez Affecter.',
+					'Sélectionnez un technicien puis utilisez Affecter.',
 					'info'
 				);
 			},
@@ -2541,7 +2541,7 @@ export default function InterventionsPage({
 	const handleJobDoubleClick =
 		handleOpenFullDetail;
 
-	// â”€â”€ Filters â”€â”€
+	// ── Filters ──
 	const handleDisplayFilterApply =
 		useCallback(
 			(filter) => {
@@ -2551,8 +2551,8 @@ export default function InterventionsPage({
 
 				toast(
 					filter
-						? 'Filtre appliquÃ©'
-						: 'Filtre effacÃ©',
+						? 'Filtre appliqué'
+						: 'Filtre effacé',
 					'info'
 				);
 			},
@@ -2604,7 +2604,7 @@ export default function InterventionsPage({
 			);
 		}, [clearAdvFilters]);
 
-	// â”€â”€ Computed â”€â”€
+	// ── Computed ──
 	const jobMetrics = useMemo(() => {
 		const metrics = {
 			pending: 0,
@@ -2717,7 +2717,7 @@ export default function InterventionsPage({
 			selTechs,
 		]);
 
-	// â”€â”€ Map click handlers â”€â”€
+	// ── Map click handlers ──
 	const handleTechClickMap =
 		useCallback((technician) => {
 			setSelTechs([
@@ -2742,7 +2742,7 @@ export default function InterventionsPage({
 	const handleDoubleClickJobMap =
 		handleOpenFullDetail;
 
-	// â”€â”€ Drag system â”€â”€
+	// ── Drag system ──
 	useEffect(() => {
 		if (
 			!canAssign ||
@@ -2789,7 +2789,7 @@ export default function InterventionsPage({
 						? `Intervention #${
 							currentJob.job_number ||
 							currentJob.id
-						} â€” ${
+						} — ${
 							currentJob.customer_name ||
 							''
 						}`
@@ -3365,16 +3365,16 @@ export default function InterventionsPage({
 							<div>
 								<span>
 									{showMap
-										? 'Vue gÃ©ographique'
+										? 'Vue géographique'
 										: showTimeline
-											? 'Historique opÃ©rationnel'
-											: 'Planning opÃ©rationnel'}
+											? 'Historique opérationnel'
+											: 'Planning opérationnel'}
 								</span>
 								<strong>
 									{showMap
 										? 'Carte des interventions'
 										: showTimeline
-											? 'ActivitÃ© terrain'
+											? 'Activité terrain'
 											: 'Interventions'}
 								</strong>
 							</div>
@@ -3385,12 +3385,12 @@ export default function InterventionsPage({
 								<strong>{fJobs.length}</strong>
 								{fJobs.length === jobs.length
 									? ` intervention${jobs.length !== 1 ? 's' : ''}`
-									: ` affichÃ©e${fJobs.length !== 1 ? 's' : ''} sur ${jobs.length}`}
+									: ` affichée${fJobs.length !== 1 ? 's' : ''} sur ${jobs.length}`}
 							</span>
 
 							{selJobs.length > 0 && (
 								<span className="intervention-planning-selection">
-									{selJobs.length} sÃ©lectionnÃ©e
+									{selJobs.length} sélectionnée
 									{selJobs.length > 1
 										? 's'
 										: ''}
@@ -3403,9 +3403,9 @@ export default function InterventionsPage({
 						<div className="intervention-activity-view">
 							<section className="intervention-activity-feed">
 								<header>
-									<span>Journal temps rÃ©el</span>
+									<span>Journal temps réel</span>
 									<strong>
-										Ã‰vÃ©nements de la journÃ©e
+										Événements de la journée
 									</strong>
 								</header>
 
@@ -3421,8 +3421,8 @@ export default function InterventionsPage({
 									<span>Planning technicien</span>
 									<strong>
 										{timelineTechs.length > 0
-											? `${timelineTechs.length} technicien${timelineTechs.length > 1 ? 's' : ''} sÃ©lectionnÃ©${timelineTechs.length > 1 ? 's' : ''}`
-											: 'SÃ©lectionnez un technicien'}
+											? `${timelineTechs.length} technicien${timelineTechs.length > 1 ? 's' : ''} sélectionné${timelineTechs.length > 1 ? 's' : ''}`
+											: 'Sélectionnez un technicien'}
 									</strong>
 								</header>
 
@@ -3433,7 +3433,7 @@ export default function InterventionsPage({
 									/>
 								) : (
 									<div className="intervention-timeline-hint">
-										SÃ©lectionnez un technicien dans le rail
+										Sélectionnez un technicien dans le rail
 										gauche pour afficher son planning.
 									</div>
 								)}
@@ -3659,9 +3659,9 @@ export default function InterventionsPage({
 										false
 									)
 								}
-								aria-label="Fermer lâ€™import"
+								aria-label="Fermer l’import"
 							>
-								âœ•
+								✕
 							</button>
 						</div>
 
@@ -3687,8 +3687,8 @@ export default function InterventionsPage({
 
 									toast(
 										created
-											? `${created} intervention(s) importÃ©e(s)${firstScheduledDate ? ` Â· planning du ${firstScheduledDate} ouvert` : ''}.`
-											: 'Aucune intervention crÃ©Ã©e ou mise Ã  jour.',
+											? `${created} intervention(s) importée(s)${firstScheduledDate ? ` · planning du ${firstScheduledDate} ouvert` : ''}.`
+											: 'Aucune intervention créée ou mise à jour.',
 										created ? 'success' : 'warning'
 									);
 								}}
@@ -3860,8 +3860,8 @@ export default function InterventionsPage({
 											}
 										>
 											{issue.pass
-												? 'âœ“'
-												: 'âœ•'}
+												? '✓'
+												: '✕'}
 										</span>
 										{
 											issue.label
@@ -3891,7 +3891,7 @@ export default function InterventionsPage({
 									handleOverrideConfirm
 								}
 							>
-								VÃ©rifier cÃ´tÃ© serveur
+								Vérifier côté serveur
 							</button>
 						</div>
 					</div>
