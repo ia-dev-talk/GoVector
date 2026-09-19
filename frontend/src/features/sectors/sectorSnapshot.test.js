@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -121,4 +122,26 @@ test('sector selection supports the normalized id contract used by the registry'
   const getId = (sector) => Number(sector.rawId);
   assert.equal(reconcileVisibleSectorSelection(visible, 42, getId), 42);
   assert.equal(reconcileVisibleSectorSelection(visible, 7, getId), null);
+});
+
+
+test('sectors page mounts one scoped territory workspace outside the header', () => {
+  const pageSource = readFileSync(
+    new URL('../../pages/SecteursPage.jsx', import.meta.url),
+    'utf8',
+  );
+  const headerSource = readFileSync(
+    new URL('./SectorHeader.jsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.equal(
+    (pageSource.match(/<TerritoryWorkspace\b/g) || []).length,
+    1,
+  );
+  assert.doesNotMatch(headerSource, /<TerritoryWorkspace\b/);
+  assert.match(
+    pageSource,
+    /<TerritoryWorkspace[\s\S]*?<div className="sv3-content">/,
+  );
 });
