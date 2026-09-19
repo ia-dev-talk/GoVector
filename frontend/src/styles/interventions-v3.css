@@ -3246,3 +3246,290 @@ button.intervention-kpi-card:hover {
     display: none !important;
   }
 }
+
+
+/* Weekend 2026-09-19 — interventions command deck polish */
+
+.intervention-workspace-header--v4 {
+  grid-template-columns:
+    minmax(300px, 1fr)
+    max-content
+    max-content;
+  min-height: 96px;
+  padding: 14px 20px;
+  gap: 18px;
+  background:
+    radial-gradient(
+      circle at 16% -60%,
+      rgba(75, 141, 255, 0.14),
+      transparent 52%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.025),
+      transparent
+    ),
+    rgba(11, 18, 29, 0.98);
+}
+
+.intervention-workspace-kicker-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.intervention-workspace-mode {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 0 7px;
+  gap: 5px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-full);
+  font-size: 8px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.intervention-workspace-mode > span {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  background: #77859b;
+  border-radius: 50%;
+}
+
+.intervention-workspace-mode--live {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border-color: rgba(57, 217, 138, 0.2);
+}
+
+.intervention-workspace-mode--live > span {
+  background: var(--color-success);
+  box-shadow: 0 0 8px rgba(57, 217, 138, 0.48);
+}
+
+.intervention-workspace-mode--demo {
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  border-color: rgba(246, 184, 75, 0.2);
+}
+
+.intervention-workspace-mode--demo > span {
+  background: var(--color-warning);
+}
+
+.intervention-workspace-mode--history {
+  color: var(--color-info);
+  background: var(--color-info-bg);
+  border-color: rgba(101, 181, 255, 0.18);
+}
+
+.intervention-workspace-mode--history > span {
+  background: var(--color-info);
+}
+
+.intervention-workspace-title-row {
+  margin-top: 3px;
+}
+
+.intervention-workspace-title-row h1 {
+  font-size: 27px;
+  letter-spacing: -0.045em;
+}
+
+.intervention-context-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  color: #a9bad1;
+  background: rgba(75, 141, 255, 0.08);
+  border: 1px solid rgba(75, 141, 255, 0.18);
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.intervention-workspace-header--v4
+.intervention-workspace-identity p {
+  max-width: 620px;
+  margin-top: 5px;
+  color: #8090a7;
+  font-size: 11px;
+}
+
+.intervention-workspace-scope {
+  min-height: 44px;
+  padding: 5px;
+  gap: 5px;
+  background: rgba(9, 15, 25, 0.78);
+  border-color: rgba(114, 138, 173, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.intervention-workspace-scope
+.intervention-scope-metric {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.022);
+  border: 1px solid rgba(114, 138, 173, 0.11);
+}
+
+.intervention-scope-metric strong {
+  font-size: 14px;
+}
+
+.intervention-scope-metric small {
+  color: #718198;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.intervention-workspace-date-wrap {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.intervention-workspace-date-label {
+  color: #5f6e84;
+  font-size: 8px;
+  font-weight: 720;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.intervention-workspace-date {
+  padding: 3px;
+  background: rgba(9, 15, 25, 0.78);
+  border: 1px solid rgba(114, 138, 173, 0.18);
+  border-radius: 12px;
+}
+
+.intervention-date-arrow,
+.intervention-date-button {
+  min-height: 36px;
+  background: rgba(255, 255, 255, 0.028);
+  border-color: transparent;
+}
+
+.intervention-date-arrow:hover,
+.intervention-date-button:hover:not(:disabled) {
+  border-color: rgba(114, 138, 173, 0.25);
+}
+
+.intervention-kpi-section--v4 {
+  padding-top: 11px;
+}
+
+.intervention-toolbar--v4 {
+  border-top: 1px solid rgba(114, 138, 173, 0.08);
+  border-bottom: 1px solid rgba(114, 138, 173, 0.12);
+  background: rgba(12, 19, 31, 0.72);
+}
+
+@media (max-width: 1500px) {
+  .intervention-workspace-header--v4 {
+    grid-template-columns:
+      minmax(270px, 1fr)
+      max-content
+      max-content;
+  }
+
+  .intervention-workspace-scope {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 1280px) {
+  .intervention-workspace-header--v4 {
+    grid-template-columns:
+      minmax(0, 1fr)
+      max-content;
+    row-gap: 10px;
+  }
+
+  .intervention-workspace-scope {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .intervention-workspace-date-wrap {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 980px) {
+  .intervention-workspace-header--v4 {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .intervention-workspace-scope,
+  .intervention-workspace-date-wrap {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+
+  .intervention-workspace-date-wrap {
+    align-items: flex-start;
+  }
+
+  .intervention-workspace-identity p {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 640px) {
+  .intervention-workspace-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .intervention-workspace-scope {
+    width: 100%;
+  }
+
+  .intervention-workspace-scope
+  .intervention-scope-metric {
+    flex: 1 1 0;
+  }
+
+  .intervention-workspace-date-wrap,
+  .intervention-workspace-date {
+    width: 100%;
+  }
+
+  .intervention-workspace-date {
+    display: grid;
+    grid-template-columns:
+      36px
+      minmax(0, 1fr)
+      36px;
+  }
+
+  .intervention-date-button {
+    min-width: 0;
+    width: 100%;
+  }
+}
