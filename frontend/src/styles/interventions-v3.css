@@ -3477,7 +3477,7 @@ button.intervention-kpi-card:hover {
   }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 979px) {
   .intervention-workspace-header--v4 {
     grid-template-columns: minmax(0, 1fr);
     padding: 12px;
