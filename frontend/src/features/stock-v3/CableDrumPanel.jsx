@@ -55,8 +55,8 @@ export default function CableDrumPanel({
       assigned: active.filter(
         (drum) => Boolean(drum.assigned_technician_id),
       ).length,
-      consumed: history.reduce(
-        (sum, item) => sum + (Number(item?.quantity_m) || 0),
+      consumed: drums.reduce(
+        (sum, drum) => sum + (Number(drum?.total_consumed_m) || 0),
         0,
       ),
     };
