@@ -6,8 +6,6 @@ import {
   SearchIcon,
   SectorIcon,
 } from './SectorIcons';
-import TerritoryWorkspace from './TerritoryWorkspace';
-
 
 const SectorHeader = memo(function SectorHeader({
   connected,
@@ -23,8 +21,7 @@ const SectorHeader = memo(function SectorHeader({
   canManage,
 }) {
   return (
-    <>
-      <header className="sv3-header">
+    <header className="sv3-header">
         <div className="sv3-header-identity">
           <span className="sv3-eyebrow">
             Référentiel géographique
@@ -125,10 +122,7 @@ const SectorHeader = memo(function SectorHeader({
             </button>
           )}
         </div>
-      </header>
-
-      <TerritoryWorkspace canManage={canManage} />
-    </>
+    </header>
   );
 });
 
