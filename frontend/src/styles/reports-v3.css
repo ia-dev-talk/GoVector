@@ -1535,3 +1535,123 @@ button.rv3-kpi:hover {
   opacity: 0;
   pointer-events: none;
 }
+
+
+/* Weekend 2026-09-19 — reports command deck polish */
+
+.rv3-header {
+  grid-template-columns:
+    minmax(320px, 0.9fr)
+    minmax(360px, 1fr)
+    minmax(320px, 0.9fr);
+  min-height: 96px;
+  padding: 14px 20px;
+  gap: 18px;
+  background:
+    radial-gradient(
+      circle at 14% -70%,
+      rgba(75, 141, 255, 0.14),
+      transparent 52%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.025),
+      transparent
+    ),
+    rgba(11, 18, 29, 0.98);
+}
+
+.rv3-header-kicker-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.rv3-live-pill {
+  min-height: 21px;
+  padding-inline: 7px;
+}
+
+.rv3-title-row {
+  margin-top: 5px;
+}
+
+.rv3-title-line h1 {
+  font-size: 27px;
+  letter-spacing: -0.045em;
+}
+
+.rv3-title-row p {
+  color: #8090a7;
+}
+
+.rv3-period-controls {
+  padding: 4px;
+  background: rgba(9, 15, 25, 0.62);
+  border: 1px solid rgba(114, 138, 173, 0.12);
+  border-radius: 12px;
+}
+
+.rv3-business-filters {
+  justify-content: flex-start;
+  min-height: 52px;
+  padding: 7px 18px;
+  flex-wrap: wrap;
+  background: var(--surface-panel-alt);
+  border: 0;
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 0;
+}
+
+.rv3-business-filters label {
+  min-width: 150px;
+  height: 36px;
+}
+
+.rv3-business-filters .rv3-range-pill {
+  min-height: 36px;
+}
+
+.rv3-header-actions {
+  padding: 4px;
+  background: rgba(9, 15, 25, 0.62);
+  border: 1px solid rgba(114, 138, 173, 0.12);
+  border-radius: 12px;
+}
+
+@container rv3-page (max-width: 1450px) {
+  .rv3-header {
+    grid-template-columns:
+      minmax(280px, 0.75fr)
+      minmax(0, 1.25fr);
+  }
+
+  .rv3-header-actions {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    justify-content: flex-end;
+  }
+}
+
+@container rv3-page (max-width: 900px) {
+  .rv3-header {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .rv3-header-actions {
+    grid-column: 1;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .rv3-period-controls {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .rv3-business-filters {
+    padding-inline: 12px;
+  }
+}
